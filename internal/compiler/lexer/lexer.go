@@ -2,7 +2,6 @@ package lexer
 
 import (
 	"fmt"
-	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -58,8 +57,6 @@ type Lexer struct {
 	filename string
 	// source is the complete immutable, decoded UTF-8 input.
 	source string
-	// sourceStart skips an initial UTF-8 BOM while preserving absolute offsets.
-	sourceStart int
 	// offset is the byte position of the next unread source character.
 	offset int
 
@@ -96,21 +93,14 @@ func New(source string) (*Lexer, error) {
 // NewFile constructs a lexer for decoded UTF-8 source. filename is used only
 // in diagnostics; NewFile performs no file I/O.
 func NewFile(filename, source string) (*Lexer, error) {
-	start := 0
-	if strings.HasPrefix(source, "\xef\xbb\xbf") {
-		start = 3
-	}
-
 	lexer := &Lexer{
 		filename:    filename,
 		source:      source,
-		sourceStart: start,
-		offset:      start,
-		lineStarts:  makeLineStarts(source, start),
+		lineStarts:  makeLineStarts(source),
 		atLineStart: true,
 		indents:     []indentLevel{{}},
 	}
-	if err := lexer.validateSource(start); err != nil {
+	if err := lexer.validateSource(); err != nil {
 		return nil, err
 	}
 	return lexer, nil
@@ -458,7 +448,7 @@ func (lexer *Lexer) scanEOF() (Token, error) {
 		return lexer.failToken(SyntaxError, message, opener.span, true)
 	}
 	lastLineHasBytes := lexer.lineStarts[len(lexer.lineStarts)-1] < len(lexer.source)
-	if !lexer.virtualEOF && lastLineHasBytes && len(lexer.source) > lexer.sourceStart {
+	if !lexer.virtualEOF && lastLineHasBytes {
 		kind := NL
 		if lexer.lineHasCode {
 			kind = Newline
@@ -556,8 +546,8 @@ func (lexer *Lexer) eofPosition() Position {
 	return position
 }
 
-func (lexer *Lexer) validateSource(start int) *Error {
-	for offset := start; offset < len(lexer.source); {
+func (lexer *Lexer) validateSource() *Error {
+	for offset := 0; offset < len(lexer.source); {
 		if lexer.source[offset] == 0 {
 			span := lexer.span(offset, offset+1)
 			return &Error{Kind: SyntaxError, Message: "source code cannot contain null bytes", Filename: lexer.filename, Span: span}
@@ -572,9 +562,9 @@ func (lexer *Lexer) validateSource(start int) *Error {
 	return nil
 }
 
-func makeLineStarts(source string, start int) []int {
-	starts := []int{start}
-	for offset := start; offset < len(source); {
+func makeLineStarts(source string) []int {
+	starts := []int{0}
+	for offset := 0; offset < len(source); {
 		size := newlineSize(source, offset)
 		if size == 0 {
 			_, size = utf8.DecodeRuneInString(source[offset:])
