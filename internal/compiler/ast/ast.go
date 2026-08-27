@@ -61,6 +61,31 @@ func (*AssignStmt) stmt() {}
 // Span returns the source range covered by the assignment.
 func (statement *AssignStmt) Span() lexer.Span { return statement.Range }
 
+// PassStmt performs no operation.
+type PassStmt struct {
+	Range lexer.Span
+}
+
+func (*PassStmt) node() {}
+func (*PassStmt) stmt() {}
+
+// Span returns the source range covered by the pass statement.
+func (statement *PassStmt) Span() lexer.Span { return statement.Range }
+
+// IfStmt conditionally executes one statement list and an optional alternative.
+type IfStmt struct {
+	Range     lexer.Span
+	Condition Expr
+	Body      []Stmt
+	Else      []Stmt
+}
+
+func (*IfStmt) node() {}
+func (*IfStmt) stmt() {}
+
+// Span returns the source range covered by the conditional statement.
+func (statement *IfStmt) Span() lexer.Span { return statement.Range }
+
 // ExprContext identifies how an expression is used.
 type ExprContext uint8
 

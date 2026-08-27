@@ -13,7 +13,7 @@ type parserState struct {
 // parseModule parses the shared statement grammar and covers the root span
 // from the first through the final statement.
 func (parser *parserState) parseModule() (*compilerast.Module, error) {
-	body, end, err := parser.parseStatementList()
+	body, end, err := parser.parseStatementList(lexer.EndMarker)
 	if err != nil {
 		return nil, err
 	}
@@ -24,18 +24,21 @@ func (parser *parserState) parseModule() (*compilerast.Module, error) {
 	return &compilerast.Module{Range: span, Body: body}, nil
 }
 
-// parseStatementList consumes blank logical lines and statements until the
-// mode's end marker while rejecting indentation outside a suite.
-func (parser *parserState) parseStatementList() ([]compilerast.Stmt, lexer.Token, error) {
+// parseStatementList consumes blank logical lines and statements until its
+// caller's terminator while rejecting misplaced indentation tokens.
+func (parser *parserState) parseStatementList(terminator lexer.Kind) ([]compilerast.Stmt, lexer.Token, error) {
 	var body []compilerast.Stmt
 	for {
 		token, err := parser.peek(0)
 		if err != nil {
 			return nil, token, err
 		}
+		if token.Kind == terminator {
+			return body, token, nil
+		}
 		switch token.Kind {
 		case lexer.EndMarker:
-			return body, token, nil
+			return nil, token, parser.syntaxError(token, "expected end of indented block")
 		case lexer.Newline:
 			if _, err := parser.advance(); err != nil {
 				return nil, token, err
@@ -52,41 +55,124 @@ func (parser *parserState) parseStatementList() ([]compilerast.Stmt, lexer.Token
 	}
 }
 
+// parseStatement dispatches the supported hard-keyword statements before the
+// generic expression-or-assignment path.
 func (parser *parserState) parseStatement() (compilerast.Stmt, error) {
 	token, err := parser.peek(0)
 	if err != nil {
 		return nil, err
 	}
-	if token.Kind == lexer.Name && token.Text == "if" {
-		return parser.parseIfPrefix()
+	if token.Kind == lexer.Name {
+		switch token.Text {
+		case "if":
+			keyword, err := parser.advance()
+			if err != nil {
+				return nil, err
+			}
+			return parser.parseIfClause(keyword)
+		case "pass":
+			return parser.parsePassStatement()
+		}
 	}
 	return parser.parseSimpleStatement()
 }
 
-// parseIfPrefix recognizes enough suite structure to report indentation and
-// interactive-incompleteness errors before full compound statements are added.
-func (parser *parserState) parseIfPrefix() (compilerast.Stmt, error) {
-	start, err := parser.advance()
+// parseIfClause parses one conditional clause and recursively folds an elif
+// clause into a nested IfStmt alternative.
+func (parser *parserState) parseIfClause(keyword lexer.Token) (*compilerast.IfStmt, error) {
+	condition, err := parser.parseExpression()
 	if err != nil {
-		return nil, err
-	}
-	if _, err := parser.parseExpression(); err != nil {
 		return nil, err
 	}
 	if _, err := parser.expect(lexer.Colon, "expected ':'"); err != nil {
 		return nil, err
 	}
-	if _, err := parser.expect(lexer.Newline, "expected a newline after the if condition"); err != nil {
+	body, err := parser.parseSuite()
+	if err != nil {
 		return nil, err
 	}
+
+	statement := &compilerast.IfStmt{Condition: condition, Body: body}
+	end := body[len(body)-1].Span()
 	token, err := parser.peek(0)
 	if err != nil {
 		return nil, err
 	}
-	if token.Kind != lexer.Indent {
-		return nil, parser.syntaxError(token, "expected an indented block")
+	if token.Kind == lexer.Name && token.Text == "elif" {
+		keyword, err := parser.advance()
+		if err != nil {
+			return nil, err
+		}
+		alternative, err := parser.parseIfClause(keyword)
+		if err != nil {
+			return nil, err
+		}
+		statement.Else = []compilerast.Stmt{alternative}
+		end = alternative.Span()
+	} else if token.Kind == lexer.Name && token.Text == "else" {
+		if _, err := parser.advance(); err != nil {
+			return nil, err
+		}
+		if _, err := parser.expect(lexer.Colon, "expected ':'"); err != nil {
+			return nil, err
+		}
+		statement.Else, err = parser.parseSuite()
+		if err != nil {
+			return nil, err
+		}
+		end = statement.Else[len(statement.Else)-1].Span()
 	}
-	return nil, parser.errorAt(start.Span, "if statements are not supported", false)
+	statement.Range = joinSpans(keyword.Span, end)
+	return statement, nil
+}
+
+// parseSuite chooses between one same-line simple statement and a newline,
+// indentation pair, nested statement list, and matching dedent.
+func (parser *parserState) parseSuite() ([]compilerast.Stmt, error) {
+	_, multiline, err := parser.take(lexer.Newline)
+	if err != nil {
+		return nil, err
+	}
+	if !multiline {
+		statement, err := parser.parseSuiteStatement()
+		if err != nil {
+			return nil, err
+		}
+		return []compilerast.Stmt{statement}, nil
+	}
+	if _, err := parser.expect(lexer.Indent, "expected an indented block"); err != nil {
+		return nil, err
+	}
+	body, _, err := parser.parseStatementList(lexer.Dedent)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := parser.expect(lexer.Dedent, "expected end of indented block"); err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func (parser *parserState) parseSuiteStatement() (compilerast.Stmt, error) {
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	if token.Kind == lexer.Name && token.Text == "pass" {
+		return parser.parsePassStatement()
+	}
+	return parser.parseSimpleStatement()
+}
+
+func (parser *parserState) parsePassStatement() (compilerast.Stmt, error) {
+	token, err := parser.advance()
+	if err != nil {
+		return nil, err
+	}
+	if err := parser.expectStatementEnd(); err != nil {
+		return nil, err
+	}
+	return &compilerast.PassStmt{Range: token.Span}, nil
 }
 
 // parseSimpleStatement parses the shared expression prefix once, then turns it

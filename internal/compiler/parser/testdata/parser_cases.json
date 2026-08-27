@@ -44,6 +44,21 @@
       "name": "simple assignment",
       "source": "value = 1\n",
       "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"value\", context=Store)], value=NumberLiteral(text=\"1\"))])"
+    },
+    {
+      "name": "pass statement",
+      "source": "pass\n",
+      "want_ast": "Module(body=[PassStmt()])"
+    },
+    {
+      "name": "same-line conditional",
+      "source": "if value: pass\n",
+      "want_ast": "Module(body=[IfStmt(condition=Name(id=\"value\", context=Load), body=[PassStmt()], else=[])])"
+    },
+    {
+      "name": "conditional chain",
+      "source": "if first:\n    pass\nelif second:\n    pass\nelse:\n    pass\n",
+      "want_ast": "Module(body=[IfStmt(condition=Name(id=\"first\", context=Load), body=[PassStmt()], else=[IfStmt(condition=Name(id=\"second\", context=Load), body=[PassStmt()], else=[PassStmt()])])])"
     }
   ],
   "errors": [
