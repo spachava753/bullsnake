@@ -13,12 +13,6 @@ type Node interface {
 	node()
 }
 
-// Root is a parser result for one source input mode.
-type Root interface {
-	Node
-	root()
-}
-
 // Stmt is a Python statement.
 type Stmt interface {
 	Node
@@ -31,41 +25,16 @@ type Expr interface {
 	expr()
 }
 
-// Module is the root produced for file input.
+// Module is the root produced for one source input.
 type Module struct {
 	Range lexer.Span
 	Body  []Stmt
 }
 
 func (*Module) node() {}
-func (*Module) root() {}
 
 // Span returns the source range covered by the module.
 func (module *Module) Span() lexer.Span { return module.Range }
-
-// Interactive is the root produced for one interactive input.
-type Interactive struct {
-	Range lexer.Span
-	Body  []Stmt
-}
-
-func (*Interactive) node() {}
-func (*Interactive) root() {}
-
-// Span returns the source range covered by the interactive input.
-func (interactive *Interactive) Span() lexer.Span { return interactive.Range }
-
-// Expression is the root produced for expression input.
-type Expression struct {
-	Range lexer.Span
-	Body  Expr
-}
-
-func (*Expression) node() {}
-func (*Expression) root() {}
-
-// Span returns the source range covered by the expression input.
-func (expression *Expression) Span() lexer.Span { return expression.Range }
 
 // ExprStmt evaluates an expression as a statement.
 type ExprStmt struct {

@@ -8,22 +8,10 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
 
-// TestOutOfRangeParseModeRejected covers an API input the corpus cannot
-// express because fixture mode names are validated before Parse is called.
-func TestOutOfRangeParseModeRejected(t *testing.T) {
-	root, err := Parse("input.py", "value\n", Mode(255))
-	if root != nil {
-		t.Fatalf("root = %#v, want nil", root)
-	}
-	if !errors.Is(err, ErrInvalidMode) {
-		t.Fatalf("error = %v, want ErrInvalidMode", err)
-	}
-}
-
 // TestSourceValidationPrecedesGrammar uses an invalid UTF-8 Go string that a
 // JSON corpus cannot represent and verifies that Parse returns the lexer error.
 func TestSourceValidationPrecedesGrammar(t *testing.T) {
-	root, err := Parse("bad.py", "\xff", FileMode)
+	root, err := Parse("bad.py", "\xff")
 	if root != nil {
 		t.Fatalf("root = %#v, want nil", root)
 	}
@@ -33,6 +21,19 @@ func TestSourceValidationPrecedesGrammar(t *testing.T) {
 	}
 	if lexErr.Kind != lexer.EncodingError {
 		t.Fatalf("error kind = %s, want EncodingError", lexErr.Kind)
+	}
+}
+
+// TestParsePreservesSourceSpans covers successful-node locations, which the
+// structural corpus intentionally omits to keep its AST snapshots readable.
+func TestParsePreservesSourceSpans(t *testing.T) {
+	root, err := Parse("input.py", "result = 1 + 2\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `Module(body=[AssignStmt(targets=[Name(id="result", context=Store)@1:0-1:6], value=BinaryExpr(left=NumberLiteral(text="1")@1:9-1:10, op=Add, right=NumberLiteral(text="2")@1:13-1:14)@1:9-1:14)@1:0-1:14])@1:0-1:14`
+	if got := compilerast.Dump(root, compilerast.DumpOptions{IncludeSpans: true}); got != want {
+		t.Fatalf("AST with spans =\n%s\nwant:\n%s", got, want)
 	}
 }
 
@@ -65,10 +66,7 @@ func FuzzParserNeverPanics(f *testing.F) {
 		f.Add(source)
 	}
 	f.Fuzz(func(t *testing.T, source string) {
-		root, err := Parse("fuzz.py", source, FileMode)
-		if errors.Is(err, ErrNotImplemented) {
-			return
-		}
+		root, err := Parse("fuzz.py", source)
 		if err != nil {
 			assertLocatedCompilerError(t, err, len(source))
 			return

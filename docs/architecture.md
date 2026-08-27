@@ -353,16 +353,24 @@ contract and its CPython reference revision are recorded in the
 1. Tokenize decoded UTF-8 while retaining byte offsets, line and column
    positions, comments needed for diagnostics and source tooling, and
    indentation state.
-2. Parse tokens into a versioned AST with complete source spans.
+2. Parse tokens into an internal `Module` AST with complete source spans.
 3. Build a symbol table that classifies locals, globals, nonlocals, closure
    cells, free variables, comprehensions, annotation scopes, generators, and
    coroutines.
 4. Validate context-sensitive syntax before bytecode generation.
 
-The parser should recognize only the selected grammar. Reusing or translating
-Python's PEG grammar may reduce grammar drift, but importing the entire grammar
-and rejecting features later could make unsupported behavior harder to explain.
-The generated parser and AST remain Bullsnake components.
+The parser recognizes only the selected grammar. It is hand-written recursive
+descent that constructs AST nodes directly. Ordinary binary operators use
+precedence climbing; Python-specific forms use dedicated rules. A lazy buffered
+token cursor supports local rewinds for contextual ambiguities without a PEG
+runtime, generated parser, or general memoization.
+
+Every source unit parses to one `Module` containing statements. Eval requires
+one expression statement and preserves its value; a REPL displays
+expression-statement values and executes other statements normally. These are
+compiler and execution policies rather than parser modes. Parser and lexer
+errors mark whether reaching the end of source left a construct incomplete,
+which lets a REPL request more input without changing the grammar.
 
 The internal AST should not become a stable Go extension API early. Python's
 `ast` module can expose Python objects through an adapter, which leaves room to

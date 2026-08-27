@@ -6,7 +6,6 @@ package parser
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -19,7 +18,6 @@ const corpusPath = "testdata/parser_cases.json"
 
 type astCase struct {
 	Name    string `json:"name"`
-	Mode    string `json:"mode"`
 	Source  string `json:"source"`
 	WantAST string `json:"want_ast"`
 }
@@ -36,7 +34,6 @@ type expectedSpan struct {
 
 type errorCase struct {
 	Name            string        `json:"name"`
-	Mode            string        `json:"mode"`
 	Source          string        `json:"source"`
 	Phase           string        `json:"phase"`
 	Kind            string        `json:"kind"`
@@ -51,32 +48,16 @@ type parserCorpus struct {
 }
 
 // TestParserMatchesReference runs every valid and invalid corpus case against
-// the parser. It is skipped as a whole only while Parse reports that the
-// grammar is not implemented.
+// the parser.
 func TestParserMatchesReference(t *testing.T) {
 	corpus := loadCorpusFile(t)
 	if len(corpus.Cases) == 0 || len(corpus.Errors) == 0 {
 		t.Fatal("parser corpus must contain successful and failing cases")
 	}
 
-	// Probe one case before creating subtests so an absent grammar produces one
-	// intentional skip instead of a separate skip for every corpus entry.
-	first := corpus.Cases[0]
-	mode, err := parseMode(first.Mode)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Parse("<test>", first.Source, mode); errors.Is(err, ErrNotImplemented) {
-		t.Skip("parser grammar is not implemented")
-	}
-
 	for _, test := range corpus.Cases {
 		t.Run(test.Name, func(t *testing.T) {
-			mode, err := parseMode(test.Mode)
-			if err != nil {
-				t.Fatal(err)
-			}
-			root, err := Parse("<test>", test.Source, mode)
+			root, err := Parse("<test>", test.Source)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -88,11 +69,7 @@ func TestParserMatchesReference(t *testing.T) {
 
 	for _, test := range corpus.Errors {
 		t.Run(test.Name, func(t *testing.T) {
-			mode, err := parseMode(test.Mode)
-			if err != nil {
-				t.Fatal(err)
-			}
-			root, err := Parse("<test>", test.Source, mode)
+			root, err := Parse("<test>", test.Source)
 			if root != nil || err == nil {
 				t.Fatalf("Parse() = (%#v, %v), want a failure", root, err)
 			}
@@ -147,18 +124,4 @@ func loadCorpusFile(t *testing.T) parserCorpus {
 		t.Fatal(err)
 	}
 	return corpus
-}
-
-// parseMode converts the fixture's stable mode names to the parser API values.
-func parseMode(value string) (Mode, error) {
-	switch value {
-	case "file":
-		return FileMode, nil
-	case "eval":
-		return EvalMode, nil
-	case "interactive":
-		return InteractiveMode, nil
-	default:
-		return 0, fmt.Errorf("unknown parse mode %q", value)
-	}
 }
