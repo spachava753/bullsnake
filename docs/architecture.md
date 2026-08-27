@@ -2,7 +2,7 @@
 
 Status: Draft
 
-Last updated: 2026-08-26
+Last updated: 2026-08-27
 
 ## Purpose
 
@@ -10,8 +10,8 @@ Bullsnake is a Python interpreter implemented in Go. It deliberately targets a
 selected subset of Python, with the goal of running a useful and growing corpus
 of pure Python packages while remaining easy to embed and extend from Go.
 
-Python 3.14 is the proposed source-language reference, not a promise to
-implement every Python 3.14 feature or reproduce every CPython behavior.
+Python 3.14 is the source-language reference, not a promise to implement every
+Python 3.14 feature or reproduce every CPython behavior.
 Bullsnake defines a smaller, documented language and runtime contract. CPython
 is a useful comparison implementation for features Bullsnake chooses to
 support.
@@ -322,12 +322,10 @@ separate control-flow mechanisms to an AST walker.
 ## System overview
 
 ```text
-Python source
-    |
-    v
-tokenizer -> parser -> AST -> symbol table -> compiler -> code object
-                                                           |
-                                                           v
+Python source bytes -> source loader -> UTF-8 source
+UTF-8 source -> lexer -> parser -> AST -> symbol table -> compiler -> code object
+code object -> VM
+
 Go host -> runtime -> thread registry -> goroutine -> ThreadState -> VM
               |                              |             |         |
               |                              |             v         v
@@ -346,11 +344,15 @@ enter through the import system instead of receiving special import opcodes.
 
 ## Front end
 
-The front end has four separate phases:
+Source loading is separate from the compiler front end. It owns file and reader
+I/O, BOM and coding-cookie detection, and decoding source bytes to UTF-8. The
+front end receives decoded source and has four phases. The implemented lexer
+contract and its CPython reference revision are recorded in the
+[implementation notes](impl.md).
 
-1. Tokenize source while retaining byte offsets, line and column positions,
-   comments needed for diagnostics, encoding information, and indentation
-   state.
+1. Tokenize decoded UTF-8 while retaining byte offsets, line and column
+   positions, comments needed for diagnostics and source tooling, and
+   indentation state.
 2. Parse tokens into a versioned AST with complete source spans.
 3. Build a symbol table that classifies locals, globals, nonlocals, closure
    cells, free variables, comprehensions, annotation scopes, generators, and
@@ -911,7 +913,7 @@ real dependency or ownership pressure appears:
 ```text
 cmd/bullsnake/          command-line interpreter and REPL
 py/                     public values and Go extension contracts
-internal/compiler/      tokens, parser, AST, symbols, bytecode, and compiler
+internal/compiler/      lexer, parser, AST, symbols, bytecode, and compiler
 internal/runtime/       objects, frames, VM, imports, built-ins, and scheduler
 stdlib/                  selected Python modules shipped by Bullsnake
 experiments/             disposable architecture probes such as gcprobe
@@ -942,8 +944,9 @@ Correctness work needs several test layers:
 4. Intentional divergences have direct Bullsnake tests. They do not remain as
    unexplained exclusions from a CPython test suite.
 5. Carefully selected CPython regression tests exercise adopted language and
-   standard-library behavior. There is no goal to maximize the number of
-   CPython tests that run.
+   standard-library behavior. Direct lexer cases are checked-in Go tables
+   pinned to CPython 3.14.7 and run without an external interpreter. There is no
+   goal to maximize the number of CPython tests that run.
 6. Parser and compiler fuzzing checks that malformed input fails cleanly and
    valid supported input never corrupts VM state.
 7. A pinned package corpus runs each package's upstream tests. Results record
@@ -985,25 +988,24 @@ start, with less machinery, because its frame representation is new.
 The following decisions should be resolved before their related implementation
 begins:
 
-1. Confirm Python 3.14 as the reference baseline for the subset.
-2. Define the initial feature manifest, including supported syntax, built-ins,
+1. Define the initial feature manifest, including supported syntax, built-ins,
    protocols, modules, and intentional divergences.
-3. Choose the first package corpus and define what passing each package means.
-4. Decide how much CPython standard-library source to vendor, and establish its
+2. Choose the first package corpus and define what passing each package means.
+3. Decide how much CPython standard-library source to vendor, and establish its
    update and licensing process.
-5. Decide whether the package corpus needs `weakref`. `__del__` and `gc` remain
+4. Decide whether the package corpus needs `weakref`. `__del__` and `gc` remain
    omitted unless a future decision explicitly reopens them.
-6. Define the first goroutine-backed `threading` subset and its safe-point
+5. Define the first goroutine-backed `threading` subset and its safe-point
    fairness policy. Candidate primitives are `Thread`, `Lock`, `RLock`,
    `Event`, `local`, `current_thread()`, and `join()`.
-7. Decide which frame and code-object introspection APIs are required by the
+6. Decide which frame and code-object introspection APIs are required by the
    first package corpus.
-8. Decide whether Go extensions remain statically linked or need a later
+7. Decide whether Go extensions remain statically linked or need a later
    process-based or plugin-based distribution mechanism.
-9. Validate whether goroutine-backed Python threads satisfy the intended
+8. Validate whether goroutine-backed Python threads satisfy the intended
    green-thread workloads before designing any separate tasklet API.
-10. Select initial host platforms and decide how unsupported OS, signal,
-    subprocess, and networking behavior is reported.
+9. Select initial host platforms and decide how unsupported OS, signal,
+   subprocess, and networking behavior is reported.
 
 ## References
 
