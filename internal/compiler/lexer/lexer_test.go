@@ -296,21 +296,12 @@ func TestDelimiterErrors(t *testing.T) {
 }
 
 func TestSourceValidation(t *testing.T) {
-	t.Run("UTF-8 BOM", func(t *testing.T) {
-		tokens, err := collectTokens("\xef\xbb\xbfvalue\n")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if tokens[0].Text != "value" || tokens[0].Span.Start != (Position{Offset: 3, Line: 1, Column: 0}) {
-			t.Fatalf("first token = %+v", tokens[0])
-		}
-	})
-
 	tests := []struct {
 		name   string
 		source string
 		kind   ErrorKind
 	}{
+		{name: "decoded byte order mark", source: "\ufeffvalue\n", kind: SyntaxError},
 		{name: "null byte", source: "x\x00y", kind: SyntaxError},
 		{name: "malformed UTF-8", source: "\xff", kind: EncodingError},
 	}

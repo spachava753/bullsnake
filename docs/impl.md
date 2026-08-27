@@ -23,7 +23,7 @@ describes the code that exists.
 
 | Stage | Status |
 | --- | --- |
-| Source loading | Not implemented; lexer APIs require decoded UTF-8 |
+| Source loading | Initial PEP 263 behavior implemented for supported codecs |
 | Lexer | Initial Python 3.14 behavior implemented |
 | Parser and resolver | Not implemented |
 | Compiler and bytecode | Not implemented |
@@ -36,15 +36,34 @@ describes the code that exists.
 
 ## Source loading
 
-No source loader exists yet. `New` and `NewFile` accept one immutable, decoded
-UTF-8 string. They remove an initial UTF-8 BOM from the token stream, reject
-malformed UTF-8 and null bytes, and otherwise preserve the input bytes.
+`internal/compiler/source` loads one complete source unit before lexing.
+`Decode` accepts bytes, `Read` consumes an `io.Reader`, and `ReadFile` reads a
+path. They return a `Unit` containing the filename, detected encoding, and one
+immutable UTF-8 string. Reading the complete unit keeps I/O failures separate
+from lexical failures and lets `Token.Text` remain a zero-copy slice.
 
-PEP 263 coding-cookie detection, source-encoding conversion, and file or reader
-I/O are not implemented. They belong before the lexer because it operates only
-on decoded source. Keeping the complete decoded source allows `Token.Text` to
-be a zero-copy slice and keeps eventual I/O errors separate from lexical
-errors.
+The loader implements PEP 263's first-two-line coding-cookie rules. Its CPython
+3.14.7 references are `Parser/tokenizer/helpers.c`,
+`Parser/tokenizer/string_tokenizer.c`, and `Lib/test/test_source_encoding.py`.
+It defaults to strict UTF-8, removes an initial UTF-8 BOM, rejects a conflicting
+cookie, and transcodes supported declared encodings to UTF-8. The coding
+comment and physical CR, LF, or CRLF spellings remain in the decoded text.
+Token offsets therefore count bytes in the decoded UTF-8 text; a source loaded
+through a BOM starts at offset zero.
+
+Bullsnake does not yet have Python's runtime-extensible codec registry. Source
+encodings are limited to ASCII-compatible IANA names and aliases implemented by
+`golang.org/x/text`, plus common Python aliases for those codecs. This includes
+the supported ISO-8859 and Windows code pages, Shift-JIS, EUC-JP, EUC-KR,
+ISO-2022-JP, GBK, GB18030, HZ-GB-2312, and Big5. Unknown, unavailable, and
+non-ASCII-compatible encodings fail with a structured `source.Error`.
+Malformed legacy input also fails when an `x/text` decoder would otherwise
+insert a replacement character that does not round-trip to the original bytes.
+
+The source loader owns byte-level BOM handling. `lexer.New` and
+`lexer.NewFile` accept decoded UTF-8 text, reject malformed UTF-8 and null
+bytes, and do not perform file I/O. A decoded U+FEFF is ordinary source input
+and receives the same lexical validation as any other source character.
 
 ## Lexer
 
