@@ -146,8 +146,39 @@ reports malformed literals directly.
 
 ## Parser and resolver
 
-Not implemented. This section will record grammar, lookahead, syntax-tree,
-name-resolution, scope, and closure decisions as those stages are built.
+Grammar rules and name resolution are not implemented. The parser testing
+foundation and its front-end contracts are in place.
+
+`internal/compiler/ast` defines the internal AST. The initial node
+set covers the three parse roots, expression and assignment statements, names,
+number spellings, binary expressions, comparison chains, positional calls, and
+tuples. Nodes carry lexer byte spans. `ast.Dump` provides a deterministic
+structural representation with optional spans for tests and diagnostics. The
+node set will grow with the supported grammar; it is not a stable extension
+API.
+
+`internal/compiler/parser.Parse` accepts decoded source, a filename, and one of
+`FileMode`, `EvalMode`, or `InteractiveMode`. Source validation runs before the
+temporary `ErrNotImplemented` grammar boundary. Parser errors identify the
+Python exception family, message, filename, span, and whether more interactive
+input could complete the construct.
+
+The parser token cursor requests lexer tokens lazily, removes `COMMENT` and
+non-significant `NL` tokens from parser lookahead, and caches every significant
+token. Marks are token indexes, so local speculative parses can rewind without
+rewinding the lexer. End markers and lexer errors are cached as terminal cursor
+items, which makes repeated lookahead deterministic.
+
+The planned hand-written recursive-descent grammar will use deterministic
+prefix parsing where possible and cursor rewinds only for genuine contextual
+ambiguities. Ordinary binary operators will use precedence climbing; Python's
+comparison chains, power and unary interaction, conditional expressions,
+lambdas, tuples, comprehensions, assignment expressions, and formatted strings
+will retain dedicated parsing logic.
+
+The resolver remains a separate phase. Parser tests will identify whether an
+invalid program belongs to the lexer, parser, or resolver so that later phases
+do not accidentally absorb grammar errors.
 
 ## Compiler and bytecode
 
@@ -208,6 +239,23 @@ installation, CPython checkout, external test data, network access, or
 generation step. They port every direct `CTokenizeTest.check_tokenize` case;
 CPython tests that require parsing or execution remain deferred until those
 pipeline stages exist.
+
+The parser foundation follows the same offline model. Its checked-in corpus is
+pinned to CPython 3.14.7 at commit
+`823f0323ee6ec1402088b73bce1a38473cac36dc`. The initial corpus contains eight
+successful AST cases and six failures. Successful cases record source, parse
+mode, and a normalized AST dump. Failures also record the owning compiler
+phase, exception family, message fragment, completeness, and optional span.
+The corpus test requires at least one successful and one failing case. Individual
+fixture fields are checked by the parser assertions that consume them rather
+than a separate schema validator.
+
+The single corpus test skips while `Parse` returns the explicit temporary
+`ErrNotImplemented` value. The remaining focused tests cover AST dumps and
+spans, invalid parser modes, source validation, error formatting, token-cursor
+laziness and rewinds, terminal-error caching, and parser fuzz seeds. Replacing
+the temporary boundary activates every successful and failing corpus case in
+one run rather than silently accepting partial results.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.

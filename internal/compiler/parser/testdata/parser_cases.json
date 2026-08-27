@@ -1,0 +1,117 @@
+{
+  "reference": {
+    "implementation": "CPython",
+    "version": "3.14.7",
+    "commit": "823f0323ee6ec1402088b73bce1a38473cac36dc"
+  },
+  "cases": [
+    {
+      "name": "empty file",
+      "mode": "file",
+      "source": "",
+      "want_ast": "Module(body=[])"
+    },
+    {
+      "name": "name expression",
+      "mode": "eval",
+      "source": "value",
+      "want_ast": "Expression(body=Name(id=\"value\", context=Load))"
+    },
+    {
+      "name": "interactive expression",
+      "mode": "interactive",
+      "source": "value\n",
+      "want_ast": "Interactive(body=[ExprStmt(value=Name(id=\"value\", context=Load))])"
+    },
+    {
+      "name": "binary precedence",
+      "mode": "eval",
+      "source": "1 + 2 * 3",
+      "want_ast": "Expression(body=BinaryExpr(left=NumberLiteral(text=\"1\"), op=Add, right=BinaryExpr(left=NumberLiteral(text=\"2\"), op=Multiply, right=NumberLiteral(text=\"3\"))))"
+    },
+    {
+      "name": "comparison chain",
+      "mode": "eval",
+      "source": "a < b < c",
+      "want_ast": "Expression(body=CompareExpr(left=Name(id=\"a\", context=Load), operators=[Less, Less], comparators=[Name(id=\"b\", context=Load), Name(id=\"c\", context=Load)]))"
+    },
+    {
+      "name": "positional call",
+      "mode": "eval",
+      "source": "f(1, 2)",
+      "want_ast": "Expression(body=CallExpr(function=Name(id=\"f\", context=Load), arguments=[NumberLiteral(text=\"1\"), NumberLiteral(text=\"2\")]))"
+    },
+    {
+      "name": "tuple expression",
+      "mode": "eval",
+      "source": "a, b",
+      "want_ast": "Expression(body=TupleExpr(elements=[Name(id=\"a\", context=Load), Name(id=\"b\", context=Load)], context=Load))"
+    },
+    {
+      "name": "simple assignment",
+      "mode": "file",
+      "source": "value = 1\n",
+      "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"value\", context=Store)], value=NumberLiteral(text=\"1\"))])"
+    }
+  ],
+  "errors": [
+    {
+      "name": "trailing binary operator",
+      "mode": "eval",
+      "source": "1 +",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected expression",
+      "incomplete": false
+    },
+    {
+      "name": "assignment without value",
+      "mode": "file",
+      "source": "value =\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected expression",
+      "incomplete": false
+    },
+    {
+      "name": "suite without indentation",
+      "mode": "file",
+      "source": "if value:\npass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected an indented block",
+      "incomplete": false
+    },
+    {
+      "name": "incomplete interactive suite",
+      "mode": "interactive",
+      "source": "if value:\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected an indented block",
+      "incomplete": true
+    },
+    {
+      "name": "missing call argument",
+      "mode": "eval",
+      "source": "f(, 1)",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected argument",
+      "incomplete": false
+    },
+    {
+      "name": "unclosed delimiter",
+      "mode": "eval",
+      "source": "(value",
+      "phase": "lexer",
+      "kind": "SyntaxError",
+      "message_contains": "was never closed",
+      "incomplete": true,
+      "span": {
+        "start": {"line": 1, "column": 0},
+        "end": {"line": 1, "column": 1}
+      }
+    }
+  ]
+}
