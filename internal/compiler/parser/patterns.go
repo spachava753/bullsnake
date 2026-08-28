@@ -327,6 +327,9 @@ func (parser *parserState) parseMappingPattern() (compilerast.Pattern, error) {
 			if err != nil {
 				return nil, err
 			}
+			if isHardKeyword(name.Text) || name.Text == "_" {
+				return nil, parser.syntaxError(name, "expected capture name after '**' in mapping pattern")
+			}
 			rest = name.Text
 			_, _, err = parser.take(lexer.Comma)
 			if err != nil {
@@ -435,6 +438,39 @@ func (parser *parserState) finishClassPattern(class compilerast.Expr) (compilera
 	return &compilerast.ClassPattern{Range: joinSpans(class.Span(), close.Span), Class: class, Positional: positional, Keywords: keywords}, nil
 }
 
+// parsePatternNumber parses a signed number and its optional complex imaginary
+// component.
+func (parser *parserState) parsePatternNumber() (compilerast.Expr, error) {
+	left, err := parser.parseFactor()
+	if err != nil {
+		return nil, err
+	}
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	if token.Kind != lexer.Plus && token.Kind != lexer.Minus {
+		return left, nil
+	}
+	if _, err := parser.advance(); err != nil {
+		return nil, err
+	}
+	right, err := parser.parseFactor()
+	if err != nil {
+		return nil, err
+	}
+	operator := compilerast.Add
+	if token.Kind == lexer.Minus {
+		operator = compilerast.Subtract
+	}
+	return &compilerast.BinaryExpr{
+		Range: joinSpans(left.Span(), right.Span()),
+		Left:  left,
+		Op:    operator,
+		Right: right,
+	}, nil
+}
+
 // parsePatternValueExpression parses the restricted literal or dotted-name
 // expressions accepted by value patterns and mapping keys.
 func (parser *parserState) parsePatternValueExpression() (compilerast.Expr, error) {
@@ -445,14 +481,8 @@ func (parser *parserState) parsePatternValueExpression() (compilerast.Expr, erro
 	if token.Kind == lexer.String {
 		return parser.parseStrings()
 	}
-	if token.Kind == lexer.Plus || token.Kind == lexer.Minus {
-		return parser.parseFactor()
-	}
-	if token.Kind == lexer.Number {
-		if _, err := parser.advance(); err != nil {
-			return nil, err
-		}
-		return &compilerast.NumberLiteral{Range: token.Span, Text: token.Text}, nil
+	if token.Kind == lexer.Plus || token.Kind == lexer.Minus || token.Kind == lexer.Number {
+		return parser.parsePatternNumber()
 	}
 	if token.Kind != lexer.Name {
 		return nil, parser.syntaxError(token, "expected literal or value pattern")

@@ -158,6 +158,25 @@ func (parser *parserState) parseOrdinaryParameter(state *parameterListState, ann
 	return nil
 }
 
+func (parser *parserState) parseAnnotationExpression() (compilerast.Expr, error) {
+	star, matched, err := parser.take(lexer.Star)
+	if err != nil {
+		return nil, err
+	}
+	value, err := parser.parseConditionalExpression()
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return value, nil
+	}
+	return &compilerast.StarredExpr{
+		Range:   joinSpans(star.Span, value.Span()),
+		Value:   value,
+		Context: compilerast.Load,
+	}, nil
+}
+
 // parseParameter parses one name with optional annotation and default according
 // to the surrounding function or lambda parameter form.
 func (parser *parserState) parseParameter(annotations, defaults bool) (compilerast.Parameter, error) {
@@ -173,7 +192,7 @@ func (parser *parserState) parseParameter(annotations, defaults bool) (compilera
 		if _, matched, err := parser.take(lexer.Colon); err != nil {
 			return compilerast.Parameter{}, err
 		} else if matched {
-			parameter.Annotation, err = parser.parseConditionalExpression()
+			parameter.Annotation, err = parser.parseAnnotationExpression()
 			if err != nil {
 				return compilerast.Parameter{}, err
 			}

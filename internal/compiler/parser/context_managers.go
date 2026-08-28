@@ -24,6 +24,7 @@ func (parser *parserState) parseWithStatement(asynchronous bool) (compilerast.St
 	if err != nil {
 		return nil, err
 	}
+	wrapped := parenthesized
 	var items []compilerast.WithItem
 	for {
 		item, err := parser.parseWithItem()
@@ -51,6 +52,38 @@ func (parser *parserState) parseWithStatement(asynchronous bool) (compilerast.St
 		if _, err := parser.expect(lexer.RParen, "expected ')' after with items"); err != nil {
 			return nil, err
 		}
+	}
+	if wrapped && parser.nextKeywordIs("as") {
+		if _, err := parser.advance(); err != nil {
+			return nil, err
+		}
+		target, err := parser.parsePrimary()
+		if err != nil {
+			return nil, err
+		}
+		if err := parser.setStoreContext(target); err != nil {
+			return nil, err
+		}
+		context := items[0].Context
+		if len(items) > 1 {
+			elements := make([]compilerast.Expr, 0, len(items))
+			for _, item := range items {
+				if item.Target != nil {
+					return nil, parser.errorAt(item.Range, "invalid parenthesized with item", false)
+				}
+				elements = append(elements, item.Context)
+			}
+			context = &compilerast.TupleExpr{
+				Range:    joinSpans(elements[0].Span(), elements[len(elements)-1].Span()),
+				Elements: elements,
+				Context:  compilerast.Load,
+			}
+		}
+		items = []compilerast.WithItem{{
+			Range:   joinSpans(context.Span(), target.Span()),
+			Context: context,
+			Target:  target,
+		}}
 	}
 	if _, err := parser.expect(lexer.Colon, "expected ':' after with items"); err != nil {
 		return nil, err

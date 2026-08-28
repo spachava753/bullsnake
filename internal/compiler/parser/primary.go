@@ -113,6 +113,8 @@ func (parser *parserState) parseAtom() (compilerast.Expr, error) {
 		var first compilerast.Expr
 		if token.Kind == lexer.Name && token.Text == "yield" {
 			first, err = parser.parseYieldExpression()
+		} else if token.Kind == lexer.Star {
+			first, err = parser.parseStarExpression()
 		} else {
 			first, err = parser.parseNamedExpression()
 		}
@@ -239,6 +241,21 @@ func (parser *parserState) parseSliceItem() (compilerast.Expr, error) {
 	token, err := parser.peek(0)
 	if err != nil {
 		return nil, err
+	}
+	if token.Kind == lexer.Star {
+		star, err := parser.advance()
+		if err != nil {
+			return nil, err
+		}
+		value, err := parser.parseDisjunction()
+		if err != nil {
+			return nil, err
+		}
+		return &compilerast.StarredExpr{
+			Range:   joinSpans(star.Span, value.Span()),
+			Value:   value,
+			Context: compilerast.Load,
+		}, nil
 	}
 	var lower compilerast.Expr
 	if token.Kind != lexer.Colon {

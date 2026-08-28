@@ -165,8 +165,9 @@ reports malformed literals directly.
 
 ## Parser and resolver
 
-The initial parser grammar is implemented. Name resolution remains a separate
-future phase.
+The checked-in parser grammar is implemented for the Python 3.14 syntax forms
+emitted by the lexer. Name resolution and context-sensitive validation remain a
+separate future phase.
 
 `internal/compiler/ast` defines the internal AST. The initial node set covers
 the module root; expression, chained, annotated, and augmented assignments;
@@ -289,7 +290,7 @@ pipeline stages exist.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains eighty-nine successful AST cases and fifty
+The initial corpus contains ninety-four successful AST cases and fifty-one
 failures.
 Successful cases record source and a normalized module dump. Failures record
 the owning compiler phase, exception family, message fragment, completeness,

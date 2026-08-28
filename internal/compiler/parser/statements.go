@@ -114,7 +114,7 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 // parseIfClause parses one conditional clause and recursively folds an elif
 // clause into a nested IfStmt alternative.
 func (parser *parserState) parseIfClause(keyword lexer.Token) (*compilerast.IfStmt, error) {
-	condition, err := parser.parseExpression()
+	condition, err := parser.parseNamedExpression()
 	if err != nil {
 		return nil, err
 	}

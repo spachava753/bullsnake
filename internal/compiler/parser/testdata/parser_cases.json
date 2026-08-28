@@ -367,8 +367,8 @@
     },
     {
       "name": "variadic type alias",
-      "source": "type CallableShape[*Args, **Kwargs] = object",
-      "want_ast": "Module(body=[TypeAliasStmt(name=\"CallableShape\", typeParameters=[TypeParameter(name=\"Args\", kind=TypeVariableTuple, bound=nil, default=nil), TypeParameter(name=\"Kwargs\", kind=ParameterSpecification, bound=nil, default=nil)], value=Name(id=\"object\", context=Load))])"
+      "source": "type CallableShape[*Args, **Kwargs] = tuple[*Args]",
+      "want_ast": "Module(body=[TypeAliasStmt(name=\"CallableShape\", typeParameters=[TypeParameter(name=\"Args\", kind=TypeVariableTuple, bound=nil, default=nil), TypeParameter(name=\"Kwargs\", kind=ParameterSpecification, bound=nil, default=nil)], value=SubscriptExpr(value=Name(id=\"tuple\", context=Load), index=StarredExpr(value=Name(id=\"Args\", context=Load), context=Load), context=Load))])"
     },
     {
       "name": "multiple with items",
@@ -449,6 +449,31 @@
       "name": "match soft keyword assignment",
       "source": "match = value",
       "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"match\", context=Store)], value=Name(id=\"value\", context=Load))])"
+    },
+    {
+      "name": "parenthesized starred tuple",
+      "source": "result = (*items, last)",
+      "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"result\", context=Store)], value=TupleExpr(elements=[StarredExpr(value=Name(id=\"items\", context=Load), context=Load), Name(id=\"last\", context=Load)], context=Load))])"
+    },
+    {
+      "name": "star annotation",
+      "source": "def collect(values: *Types): pass",
+      "want_ast": "Module(body=[FunctionDefStmt(name=\"collect\", typeParameters=[], parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"values\", annotation=StarredExpr(value=Name(id=\"Types\", context=Load), context=Load), default=nil)], varArg=nil, keywordOnly=[], keywordVarArg=nil), returns=nil, body=[PassStmt()], decorators=[], async=false)])"
+    },
+    {
+      "name": "assignment expression condition",
+      "source": "if value := compute(): pass",
+      "want_ast": "Module(body=[IfStmt(condition=NamedExpr(target=Name(id=\"value\", context=Store), value=CallExpr(function=Name(id=\"compute\", context=Load), arguments=[], keywords=[])), body=[PassStmt()], else=[])])"
+    },
+    {
+      "name": "grouped with context",
+      "source": "with (first if ready else second) as value: pass",
+      "want_ast": "Module(body=[WithStmt(items=[WithItem(context=ConditionalExpr(condition=Name(id=\"ready\", context=Load), then=Name(id=\"first\", context=Load), else=Name(id=\"second\", context=Load)), target=Name(id=\"value\", context=Store))], body=[PassStmt()], async=false)])"
+    },
+    {
+      "name": "complex number match pattern",
+      "source": "match value:\n    case 1 + 2j: pass\n",
+      "want_ast": "Module(body=[MatchStmt(subject=Name(id=\"value\", context=Load), cases=[MatchCase(pattern=ValuePattern(value=BinaryExpr(left=NumberLiteral(text=\"1\"), op=Add, right=NumberLiteral(text=\"2j\"))), guard=nil, body=[PassStmt()])])])"
     }
   ],
   "errors": [
@@ -854,6 +879,14 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "mapping pattern key must be a literal or dotted value",
+      "incomplete": false
+    },
+    {
+      "name": "mapping wildcard rest",
+      "source": "match record:\n    case {**_}: pass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected capture name after '**' in mapping pattern",
       "incomplete": false
     }
   ]
