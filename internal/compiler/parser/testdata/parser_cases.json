@@ -149,6 +149,36 @@
       "name": "ellipsis literal",
       "source": "...",
       "want_ast": "Module(body=[ExprStmt(value=EllipsisLiteral())])"
+    },
+    {
+      "name": "filtered list comprehension",
+      "source": "[x * 2 for x in items if x > 0]",
+      "want_ast": "Module(body=[ExprStmt(value=ListComprehensionExpr(element=BinaryExpr(left=Name(id=\"x\", context=Load), op=Multiply, right=NumberLiteral(text=\"2\")), clauses=[Comprehension(target=Name(id=\"x\", context=Store), iterable=Name(id=\"items\", context=Load), conditions=[CompareExpr(left=Name(id=\"x\", context=Load), operators=[Greater], comparators=[NumberLiteral(text=\"0\")])], async=false)]))])"
+    },
+    {
+      "name": "set comprehension",
+      "source": "{x for x in items}",
+      "want_ast": "Module(body=[ExprStmt(value=SetComprehensionExpr(element=Name(id=\"x\", context=Load), clauses=[Comprehension(target=Name(id=\"x\", context=Store), iterable=Name(id=\"items\", context=Load), conditions=[], async=false)]))])"
+    },
+    {
+      "name": "dictionary comprehension",
+      "source": "{key: value for key, value in pairs}",
+      "want_ast": "Module(body=[ExprStmt(value=DictComprehensionExpr(key=Name(id=\"key\", context=Load), value=Name(id=\"value\", context=Load), clauses=[Comprehension(target=TupleExpr(elements=[Name(id=\"key\", context=Store), Name(id=\"value\", context=Store)], context=Store), iterable=Name(id=\"pairs\", context=Load), conditions=[], async=false)]))])"
+    },
+    {
+      "name": "generator call argument",
+      "source": "sum(x for x in items)",
+      "want_ast": "Module(body=[ExprStmt(value=CallExpr(function=Name(id=\"sum\", context=Load), arguments=[GeneratorExpr(element=Name(id=\"x\", context=Load), clauses=[Comprehension(target=Name(id=\"x\", context=Store), iterable=Name(id=\"items\", context=Load), conditions=[], async=false)])], keywords=[]))])"
+    },
+    {
+      "name": "nested generator expression",
+      "source": "((x, y) for x in xs for y in ys)",
+      "want_ast": "Module(body=[ExprStmt(value=GeneratorExpr(element=TupleExpr(elements=[Name(id=\"x\", context=Load), Name(id=\"y\", context=Load)], context=Load), clauses=[Comprehension(target=Name(id=\"x\", context=Store), iterable=Name(id=\"xs\", context=Load), conditions=[], async=false), Comprehension(target=Name(id=\"y\", context=Store), iterable=Name(id=\"ys\", context=Load), conditions=[], async=false)]))])"
+    },
+    {
+      "name": "async list comprehension",
+      "source": "[item async for item in source if item]",
+      "want_ast": "Module(body=[ExprStmt(value=ListComprehensionExpr(element=Name(id=\"item\", context=Load), clauses=[Comprehension(target=Name(id=\"item\", context=Store), iterable=Name(id=\"source\", context=Load), conditions=[Name(id=\"item\", context=Load)], async=true)]))])"
     }
   ],
   "errors": [
@@ -258,6 +288,30 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "expected expression",
+      "incomplete": false
+    },
+    {
+      "name": "starred comprehension element",
+      "source": "[*items for items in groups]",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "iterable unpacking cannot be used in comprehension",
+      "incomplete": false
+    },
+    {
+      "name": "comprehension without in",
+      "source": "[x for x items]",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected 'in' in comprehension",
+      "incomplete": false
+    },
+    {
+      "name": "unparenthesized generator after argument",
+      "source": "f(1, x for x in items)",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "generator expression must be parenthesized",
       "incomplete": false
     }
   ]

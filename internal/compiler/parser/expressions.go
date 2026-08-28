@@ -12,7 +12,12 @@ func (parser *parserState) parseExpression() (compilerast.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parser.finishTupleExpression(first)
+}
 
+// finishTupleExpression parses the comma-separated tail after an already
+// parsed first element and preserves a trailing comma in the tuple span.
+func (parser *parserState) finishTupleExpression(first compilerast.Expr) (compilerast.Expr, error) {
 	elements := []compilerast.Expr{first}
 	end := first.Span()
 	for {

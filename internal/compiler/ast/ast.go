@@ -467,6 +467,68 @@ func (*DictExpr) expr() {}
 // Span returns the source range covered by the dictionary.
 func (expression *DictExpr) Span() lexer.Span { return expression.Range }
 
+// Comprehension is one for clause and its following filters.
+type Comprehension struct {
+	Range      lexer.Span
+	Target     Expr
+	Iterable   Expr
+	Conditions []Expr
+	Async      bool
+}
+
+// ListComprehensionExpr constructs a list from comprehension clauses.
+type ListComprehensionExpr struct {
+	Range   lexer.Span
+	Element Expr
+	Clauses []Comprehension
+}
+
+func (*ListComprehensionExpr) node() {}
+func (*ListComprehensionExpr) expr() {}
+
+// Span returns the source range covered by the list comprehension.
+func (expression *ListComprehensionExpr) Span() lexer.Span { return expression.Range }
+
+// SetComprehensionExpr constructs a set from comprehension clauses.
+type SetComprehensionExpr struct {
+	Range   lexer.Span
+	Element Expr
+	Clauses []Comprehension
+}
+
+func (*SetComprehensionExpr) node() {}
+func (*SetComprehensionExpr) expr() {}
+
+// Span returns the source range covered by the set comprehension.
+func (expression *SetComprehensionExpr) Span() lexer.Span { return expression.Range }
+
+// DictComprehensionExpr constructs a dictionary from comprehension clauses.
+type DictComprehensionExpr struct {
+	Range   lexer.Span
+	Key     Expr
+	Value   Expr
+	Clauses []Comprehension
+}
+
+func (*DictComprehensionExpr) node() {}
+func (*DictComprehensionExpr) expr() {}
+
+// Span returns the source range covered by the dictionary comprehension.
+func (expression *DictComprehensionExpr) Span() lexer.Span { return expression.Range }
+
+// GeneratorExpr lazily evaluates one element across comprehension clauses.
+type GeneratorExpr struct {
+	Range   lexer.Span
+	Element Expr
+	Clauses []Comprehension
+}
+
+func (*GeneratorExpr) node() {}
+func (*GeneratorExpr) expr() {}
+
+// Span returns the source range covered by the generator expression.
+func (expression *GeneratorExpr) Span() lexer.Span { return expression.Range }
+
 // TupleExpr is a tuple display or an unparenthesized tuple expression.
 type TupleExpr struct {
 	Range    lexer.Span

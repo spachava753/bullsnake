@@ -103,6 +103,29 @@ func (parser *parserState) finishCall(function compilerast.Expr) (compilerast.Ex
 				if err != nil {
 					return nil, err
 				}
+				if parser.comprehensionStarts() {
+					if len(arguments) != 0 || len(keywords) != 0 {
+						return nil, parser.syntaxError(token, "generator expression must be parenthesized")
+					}
+					clauses, err := parser.parseComprehensionClauses()
+					if err != nil {
+						return nil, err
+					}
+					close, err := parser.expect(lexer.RParen, "expected ')' after generator expression")
+					if err != nil {
+						return nil, err
+					}
+					generator := &compilerast.GeneratorExpr{
+						Range:   joinSpans(argument.Span(), close.Span),
+						Element: argument,
+						Clauses: clauses,
+					}
+					return &compilerast.CallExpr{
+						Range:     joinSpans(function.Span(), close.Span),
+						Function:  function,
+						Arguments: []compilerast.Expr{generator},
+					}, nil
+				}
 				arguments = append(arguments, argument)
 			}
 		}

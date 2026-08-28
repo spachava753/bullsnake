@@ -39,6 +39,17 @@ func (parser *parserState) takeKeyword(text string) (lexer.Token, bool, error) {
 	return token, true, err
 }
 
+func (parser *parserState) expectKeyword(text, message string) (lexer.Token, error) {
+	token, matched, err := parser.takeKeyword(text)
+	if err != nil {
+		return token, err
+	}
+	if !matched {
+		return token, parser.syntaxError(token, message)
+	}
+	return token, nil
+}
+
 func (parser *parserState) expect(kind lexer.Kind, message string) (lexer.Token, error) {
 	token, matched, err := parser.take(kind)
 	if err != nil {

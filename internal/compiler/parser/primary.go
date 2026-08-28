@@ -109,7 +109,26 @@ func (parser *parserState) parseAtom() (compilerast.Expr, error) {
 				Context: compilerast.Load,
 			}, nil
 		}
-		expression, err := parser.parseExpression()
+		first, err := parser.parseDisjunction()
+		if err != nil {
+			return nil, err
+		}
+		if parser.comprehensionStarts() {
+			clauses, err := parser.parseComprehensionClauses()
+			if err != nil {
+				return nil, err
+			}
+			close, err = parser.expect(lexer.RParen, "expected ')' after generator expression")
+			if err != nil {
+				return nil, err
+			}
+			return &compilerast.GeneratorExpr{
+				Range:   joinSpans(open.Span, close.Span),
+				Element: first,
+				Clauses: clauses,
+			}, nil
+		}
+		expression, err := parser.finishTupleExpression(first)
 		if err != nil {
 			return nil, err
 		}

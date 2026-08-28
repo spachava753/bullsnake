@@ -5,8 +5,8 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
 
-// parseListDisplay parses a possibly empty, comma-separated list with starred
-// elements and an optional trailing comma.
+// parseListDisplay parses a possibly empty list display or a list
+// comprehension after its opening bracket.
 func (parser *parserState) parseListDisplay(open lexer.Token) (compilerast.Expr, error) {
 	close, empty, err := parser.take(lexer.RSquare)
 	if err != nil {
@@ -16,14 +16,31 @@ func (parser *parserState) parseListDisplay(open lexer.Token) (compilerast.Expr,
 		return &compilerast.ListExpr{Range: joinSpans(open.Span, close.Span), Context: compilerast.Load}, nil
 	}
 
-	var elements []compilerast.Expr
-	for {
-		element, err := parser.parseStarredDisplayElement()
+	first, err := parser.parseStarredDisplayElement()
+	if err != nil {
+		return nil, err
+	}
+	if parser.comprehensionStarts() {
+		if _, starred := first.(*compilerast.StarredExpr); starred {
+			return nil, parser.errorAt(first.Span(), "iterable unpacking cannot be used in comprehension", false)
+		}
+		clauses, err := parser.parseComprehensionClauses()
 		if err != nil {
 			return nil, err
 		}
-		elements = append(elements, element)
+		close, err = parser.expect(lexer.RSquare, "expected ']' after list comprehension")
+		if err != nil {
+			return nil, err
+		}
+		return &compilerast.ListComprehensionExpr{
+			Range:   joinSpans(open.Span, close.Span),
+			Element: first,
+			Clauses: clauses,
+		}, nil
+	}
 
+	elements := []compilerast.Expr{first}
+	for {
 		_, comma, err := parser.take(lexer.Comma)
 		if err != nil {
 			return nil, err
@@ -42,6 +59,11 @@ func (parser *parserState) parseListDisplay(open lexer.Token) (compilerast.Expr,
 		if empty {
 			break
 		}
+		element, err := parser.parseStarredDisplayElement()
+		if err != nil {
+			return nil, err
+		}
+		elements = append(elements, element)
 	}
 	return &compilerast.ListExpr{
 		Range:    joinSpans(open.Span, close.Span),
@@ -84,6 +106,21 @@ func (parser *parserState) parseBraceDisplay(open lexer.Token) (compilerast.Expr
 	if err != nil {
 		return nil, err
 	}
+	if parser.comprehensionStarts() {
+		clauses, err := parser.parseComprehensionClauses()
+		if err != nil {
+			return nil, err
+		}
+		close, err := parser.expect(lexer.RBrace, "expected '}' after set comprehension")
+		if err != nil {
+			return nil, err
+		}
+		return &compilerast.SetComprehensionExpr{
+			Range:   joinSpans(open.Span, close.Span),
+			Element: first,
+			Clauses: clauses,
+		}, nil
+	}
 	_, dictionary, err := parser.take(lexer.Colon)
 	if err != nil {
 		return nil, err
@@ -94,6 +131,22 @@ func (parser *parserState) parseBraceDisplay(open lexer.Token) (compilerast.Expr
 	value, err := parser.parseDisjunction()
 	if err != nil {
 		return nil, err
+	}
+	if parser.comprehensionStarts() {
+		clauses, err := parser.parseComprehensionClauses()
+		if err != nil {
+			return nil, err
+		}
+		close, err := parser.expect(lexer.RBrace, "expected '}' after dictionary comprehension")
+		if err != nil {
+			return nil, err
+		}
+		return &compilerast.DictComprehensionExpr{
+			Range:   joinSpans(open.Span, close.Span),
+			Key:     first,
+			Value:   value,
+			Clauses: clauses,
+		}, nil
 	}
 	return parser.finishDictionaryDisplay(open, first, value)
 }

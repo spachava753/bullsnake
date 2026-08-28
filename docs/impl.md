@@ -172,11 +172,11 @@ future phase.
 the module root, expression, assignment, pass, and conditional statements;
 names; number, plain string, boolean, `None`, and ellipsis literals; unary,
 binary, boolean, comparison, attribute, subscript, slice, starred, list, set,
-and dictionary expressions; positional, starred, named, and dictionary-unpacked
-calls; and tuples. Nodes carry lexer byte spans. `ast.Dump` provides a
-deterministic structural representation with optional spans for tests and
-diagnostics. The node set will grow with the supported grammar; it is not a
-stable extension API.
+dictionary, comprehension, and generator expressions; positional, starred,
+named, and dictionary-unpacked calls; and tuples. Nodes carry lexer byte spans.
+`ast.Dump` provides a deterministic structural representation with optional
+spans for tests and diagnostics. The node set will grow with the supported
+grammar; it is not a stable extension API.
 
 `internal/compiler/parser.Parse` accepts decoded source and a filename. It
 creates the lexer and returns an `ast.Module` or a structured compiler error.
@@ -195,16 +195,16 @@ items, which makes repeated lookahead deterministic.
 The hand-written recursive-descent grammar constructs AST nodes directly.
 Ordinary binary operators use precedence climbing. Dedicated rules handle
 comparison chains, boolean `and`/`or`/`not`, unary operators, power, tuples,
-parenthesized expressions, collection displays, unpacking, and complete
-ordinary call arguments. A primary-expression loop supports chained calls,
-attributes, subscripts, and slices; attributes, lists, and subscripts can also
-be assignment targets. Simple statements parse their
-expression prefix before deciding whether they are expression statements or
-assignments. `if`/`elif`/`else` supports one same-line simple statement or an
-indented statement list; `elif` clauses become nested `IfStmt` alternatives.
-Loops, conditional expressions, lambdas, comprehensions, assignment
-expressions, adjacent string concatenation, and formatted strings remain future
-grammar stages.
+parenthesized expressions, collection displays, comprehensions, generator
+expressions, unpacking, and complete ordinary call arguments. A
+primary-expression loop supports chained calls, attributes, subscripts, and
+slices; attributes, lists, and subscripts can also be assignment targets.
+Simple statements parse their expression prefix before deciding whether they
+are expression statements or assignments. `if`/`elif`/`else` supports one
+same-line simple statement or an indented statement list; `elif` clauses become
+nested `IfStmt` alternatives. Loops, conditional expressions, lambdas,
+assignment expressions, adjacent string concatenation, and formatted strings
+remain future grammar stages.
 
 The resolver will handle bindings, scopes, and contextual placement rules.
 Parser tests identify whether an invalid program belongs to the lexer or parser
@@ -272,7 +272,7 @@ pipeline stages exist.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains twenty-nine successful AST cases and thirteen
+The initial corpus contains thirty-five successful AST cases and sixteen
 failures.
 Successful cases record source and a normalized module dump. Failures record
 the owning compiler phase, exception family, message fragment, completeness,
