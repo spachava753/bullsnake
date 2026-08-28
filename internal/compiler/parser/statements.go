@@ -70,6 +70,10 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 		statement, err = parser.parseFunctionDefinition(false)
 	case "class":
 		statement, err = parser.parseClassDefinition()
+	case "with":
+		statement, err = parser.parseWithStatement(false)
+	case "try":
+		statement, err = parser.parseTryStatement()
 	case "async":
 		next, peekErr := parser.peek(1)
 		if peekErr != nil {
@@ -83,6 +87,8 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 			statement, err = parser.parseForStatement(true)
 		case "def":
 			statement, err = parser.parseFunctionDefinition(true)
+		case "with":
+			statement, err = parser.parseWithStatement(true)
 		default:
 			return parser.parseSimpleStatementLine()
 		}

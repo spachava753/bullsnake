@@ -171,8 +171,9 @@ future phase.
 `internal/compiler/ast` defines the internal AST. The initial node set covers
 the module root; expression, chained, annotated, and augmented assignments;
 `pass`, `return`, `raise`, `del`, `assert`, loop-control, scope-declaration,
-import, conditional, loop, function-definition, class-definition, and type-alias
-statements; names; number, plain string, boolean,
+import, conditional, loop, function-definition, class-definition, type-alias,
+context-manager, and exception-handling statements; names; number, plain string,
+boolean,
 `None`, and ellipsis literals; unary, binary, boolean, comparison, conditional,
 lambda, named-assignment, await, yield,
 attribute, subscript, slice, starred, list, set, dictionary, comprehension, and
@@ -206,7 +207,10 @@ primary-expression loop supports chained calls, attributes, subscripts, and
 slices; attributes, lists, and subscripts can also be assignment targets.
 Simple-statement lines support semicolon separators, all assignment forms,
 `return`, `raise`, `del`, `assert`, `pass`, `break`, `continue`, `global`,
-`nonlocal`, and imports. `if`/`elif`/`else` supports a same-line simple-statement
+`nonlocal`, and imports. Context-manager statements support multiple items,
+parentheses, assignment targets, and `async with`. Exception handling supports
+`except`, `except*`, `else`, and `finally`. `if`/`elif`/`else` supports a
+same-line simple-statement
 list or an indented statement list; `elif` clauses become nested `IfStmt`
 alternatives. `while` and synchronous or asynchronous `for` loops support
 optional `else` suites. Functions and lambdas support positional-only,
@@ -282,7 +286,7 @@ pipeline stages exist.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains seventy-three successful AST cases and thirty-nine
+The initial corpus contains seventy-eight successful AST cases and forty-four
 failures.
 Successful cases record source and a normalized module dump. Failures record
 the owning compiler phase, exception family, message fragment, completeness,

@@ -369,6 +369,31 @@
       "name": "variadic type alias",
       "source": "type CallableShape[*Args, **Kwargs] = object",
       "want_ast": "Module(body=[TypeAliasStmt(name=\"CallableShape\", typeParameters=[TypeParameter(name=\"Args\", kind=TypeVariableTuple, bound=nil, default=nil), TypeParameter(name=\"Kwargs\", kind=ParameterSpecification, bound=nil, default=nil)], value=Name(id=\"object\", context=Load))])"
+    },
+    {
+      "name": "multiple with items",
+      "source": "with resource() as handle, lock: use(handle)",
+      "want_ast": "Module(body=[WithStmt(items=[WithItem(context=CallExpr(function=Name(id=\"resource\", context=Load), arguments=[], keywords=[]), target=Name(id=\"handle\", context=Store)), WithItem(context=Name(id=\"lock\", context=Load), target=nil)], body=[ExprStmt(value=CallExpr(function=Name(id=\"use\", context=Load), arguments=[Name(id=\"handle\", context=Load)], keywords=[]))], async=false)])"
+    },
+    {
+      "name": "async parenthesized with",
+      "source": "async with (first() as one, second() as two,):\n    pass\n",
+      "want_ast": "Module(body=[WithStmt(items=[WithItem(context=CallExpr(function=Name(id=\"first\", context=Load), arguments=[], keywords=[]), target=Name(id=\"one\", context=Store)), WithItem(context=CallExpr(function=Name(id=\"second\", context=Load), arguments=[], keywords=[]), target=Name(id=\"two\", context=Store))], body=[PassStmt()], async=true)])"
+    },
+    {
+      "name": "complete try statement",
+      "source": "try:\n    work()\nexcept Error as error:\n    handle(error)\nelse:\n    done()\nfinally:\n    cleanup()\n",
+      "want_ast": "Module(body=[TryStmt(body=[ExprStmt(value=CallExpr(function=Name(id=\"work\", context=Load), arguments=[], keywords=[]))], handlers=[ExceptHandler(type=Name(id=\"Error\", context=Load), name=\"error\", body=[ExprStmt(value=CallExpr(function=Name(id=\"handle\", context=Load), arguments=[Name(id=\"error\", context=Load)], keywords=[]))], star=false)], else=[ExprStmt(value=CallExpr(function=Name(id=\"done\", context=Load), arguments=[], keywords=[]))], finally=[ExprStmt(value=CallExpr(function=Name(id=\"cleanup\", context=Load), arguments=[], keywords=[]))])])"
+    },
+    {
+      "name": "exception group handler",
+      "source": "try: work()\nexcept* (First, Second) as group: handle(group)\n",
+      "want_ast": "Module(body=[TryStmt(body=[ExprStmt(value=CallExpr(function=Name(id=\"work\", context=Load), arguments=[], keywords=[]))], handlers=[ExceptHandler(type=TupleExpr(elements=[Name(id=\"First\", context=Load), Name(id=\"Second\", context=Load)], context=Load), name=\"group\", body=[ExprStmt(value=CallExpr(function=Name(id=\"handle\", context=Load), arguments=[Name(id=\"group\", context=Load)], keywords=[]))], star=true)], else=[], finally=[])])"
+    },
+    {
+      "name": "try finally statement",
+      "source": "try: work()\nfinally: cleanup()\n",
+      "want_ast": "Module(body=[TryStmt(body=[ExprStmt(value=CallExpr(function=Name(id=\"work\", context=Load), arguments=[], keywords=[]))], handlers=[], else=[], finally=[ExprStmt(value=CallExpr(function=Name(id=\"cleanup\", context=Load), arguments=[], keywords=[]))])])"
     }
   ],
   "errors": [
@@ -686,6 +711,46 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "expected '=' in type alias",
+      "incomplete": false
+    },
+    {
+      "name": "with statement without colon",
+      "source": "with resource() as handle pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected ':' after with items",
+      "incomplete": false
+    },
+    {
+      "name": "bare except before handler",
+      "source": "try: pass\nexcept: pass\nexcept Error: pass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "bare except must be last",
+      "incomplete": false
+    },
+    {
+      "name": "mixed exception handler kinds",
+      "source": "try: pass\nexcept Error: pass\nexcept* Group: pass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "cannot mix except and except* handlers",
+      "incomplete": false
+    },
+    {
+      "name": "try without handler or finally",
+      "source": "try: pass\nvalue = 1\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "try requires except or finally",
+      "incomplete": false
+    },
+    {
+      "name": "bare exception group handler",
+      "source": "try: pass\nexcept*: pass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "except* requires an exception type",
       "incomplete": false
     }
   ]

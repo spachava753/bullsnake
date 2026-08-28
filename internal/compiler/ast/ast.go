@@ -275,6 +275,51 @@ func (*ForStmt) stmt() {}
 // Span returns the source range covered by the for statement.
 func (statement *ForStmt) Span() lexer.Span { return statement.Range }
 
+// WithItem is one context manager and optional assignment target.
+type WithItem struct {
+	Range   lexer.Span
+	Context Expr
+	Target  Expr
+}
+
+// WithStmt enters one or more synchronous or asynchronous context managers.
+type WithStmt struct {
+	Range lexer.Span
+	Items []WithItem
+	Body  []Stmt
+	Async bool
+}
+
+func (*WithStmt) node() {}
+func (*WithStmt) stmt() {}
+
+// Span returns the source range covered by the with statement.
+func (statement *WithStmt) Span() lexer.Span { return statement.Range }
+
+// ExceptHandler is one except or except* clause.
+type ExceptHandler struct {
+	Range lexer.Span
+	Type  Expr
+	Name  string
+	Body  []Stmt
+	Star  bool
+}
+
+// TryStmt handles exceptions and optional normal and final suites.
+type TryStmt struct {
+	Range    lexer.Span
+	Body     []Stmt
+	Handlers []ExceptHandler
+	Else     []Stmt
+	Finally  []Stmt
+}
+
+func (*TryStmt) node() {}
+func (*TryStmt) stmt() {}
+
+// Span returns the source range covered by the try statement.
+func (statement *TryStmt) Span() lexer.Span { return statement.Range }
+
 // TypeParameterKind identifies a generic type parameter prefix.
 type TypeParameterKind uint8
 
