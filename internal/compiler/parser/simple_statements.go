@@ -69,6 +69,15 @@ func (parser *parserState) parseSmallStatement() (compilerast.Stmt, error) {
 		return parser.parseImportStatement()
 	case "from":
 		return parser.parseFromImportStatement()
+	case "type":
+		next, err := parser.peek(1)
+		if err != nil {
+			return nil, err
+		}
+		if next.Kind == lexer.Name && !isHardKeyword(next.Text) {
+			return parser.parseTypeAliasStatement()
+		}
+		return parser.parseAssignmentOrExpression()
 	default:
 		return parser.parseAssignmentOrExpression()
 	}

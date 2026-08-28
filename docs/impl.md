@@ -171,7 +171,7 @@ future phase.
 `internal/compiler/ast` defines the internal AST. The initial node set covers
 the module root; expression, chained, annotated, and augmented assignments;
 `pass`, `return`, `raise`, `del`, `assert`, loop-control, scope-declaration,
-import, conditional, loop, and synchronous or asynchronous function-definition
+import, conditional, loop, function-definition, class-definition, and type-alias
 statements; names; number, plain string, boolean,
 `None`, and ellipsis literals; unary, binary, boolean, comparison, conditional,
 lambda, named-assignment, await, yield,
@@ -209,10 +209,12 @@ Simple-statement lines support semicolon separators, all assignment forms,
 `nonlocal`, and imports. `if`/`elif`/`else` supports a same-line simple-statement
 list or an indented statement list; `elif` clauses become nested `IfStmt`
 alternatives. `while` and synchronous or asynchronous `for` loops support
-optional `else` suites. Function definitions support positional-only, ordinary,
-variadic, keyword-only, and keyword-variadic parameters, defaults, annotations,
-and return annotations. Adjacent string concatenation and formatted strings
-remain future grammar stages.
+optional `else` suites. Functions and lambdas support positional-only,
+ordinary, variadic, keyword-only, and keyword-variadic parameters and defaults.
+Functions also support parameter and return annotations. Functions, classes,
+and type aliases support generic type parameters; functions and classes support
+decorators. Adjacent string concatenation and formatted strings remain future
+grammar stages.
 
 The resolver will handle bindings, scopes, and contextual placement rules.
 Parser tests identify whether an invalid program belongs to the lexer or parser
@@ -280,7 +282,7 @@ pipeline stages exist.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains sixty-eight successful AST cases and thirty-four
+The initial corpus contains seventy-three successful AST cases and thirty-nine
 failures.
 Successful cases record source and a normalized module dump. Failures record
 the owning compiler phase, exception family, message fragment, completeness,

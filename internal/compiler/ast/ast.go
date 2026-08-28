@@ -275,6 +275,35 @@ func (*ForStmt) stmt() {}
 // Span returns the source range covered by the for statement.
 func (statement *ForStmt) Span() lexer.Span { return statement.Range }
 
+// TypeParameterKind identifies a generic type parameter prefix.
+type TypeParameterKind uint8
+
+const (
+	TypeVariable TypeParameterKind = iota
+	TypeVariableTuple
+	ParameterSpecification
+)
+
+var typeParameterKindNames = [...]string{"TypeVariable", "TypeVariableTuple", "ParameterSpecification"}
+
+// String returns the AST spelling of a type parameter kind.
+func (kind TypeParameterKind) String() string {
+	if int(kind) >= len(typeParameterKindNames) {
+		return fmt.Sprintf("TypeParameterKind(%d)", kind)
+	}
+	return typeParameterKindNames[kind]
+}
+
+// TypeParameter is one generic type variable, type-variable tuple, or
+// parameter specification.
+type TypeParameter struct {
+	Range   lexer.Span
+	Name    string
+	Kind    TypeParameterKind
+	Bound   Expr
+	Default Expr
+}
+
 // Parameter is one named function or lambda parameter.
 type Parameter struct {
 	Range      lexer.Span
@@ -294,13 +323,14 @@ type Parameters struct {
 
 // FunctionDefStmt defines a synchronous or asynchronous function.
 type FunctionDefStmt struct {
-	Range      lexer.Span
-	Name       string
-	Parameters Parameters
-	Returns    Expr
-	Body       []Stmt
-	Decorators []Expr
-	Async      bool
+	Range          lexer.Span
+	Name           string
+	TypeParameters []TypeParameter
+	Parameters     Parameters
+	Returns        Expr
+	Body           []Stmt
+	Decorators     []Expr
+	Async          bool
 }
 
 func (*FunctionDefStmt) node() {}
@@ -308,6 +338,37 @@ func (*FunctionDefStmt) stmt() {}
 
 // Span returns the source range covered by the function definition.
 func (statement *FunctionDefStmt) Span() lexer.Span { return statement.Range }
+
+// ClassDefStmt defines a class with optional generic parameters and bases.
+type ClassDefStmt struct {
+	Range          lexer.Span
+	Name           string
+	TypeParameters []TypeParameter
+	Bases          []Expr
+	Keywords       []KeywordArgument
+	Body           []Stmt
+	Decorators     []Expr
+}
+
+func (*ClassDefStmt) node() {}
+func (*ClassDefStmt) stmt() {}
+
+// Span returns the source range covered by the class definition.
+func (statement *ClassDefStmt) Span() lexer.Span { return statement.Range }
+
+// TypeAliasStmt defines a possibly generic type alias.
+type TypeAliasStmt struct {
+	Range          lexer.Span
+	Name           string
+	TypeParameters []TypeParameter
+	Value          Expr
+}
+
+func (*TypeAliasStmt) node() {}
+func (*TypeAliasStmt) stmt() {}
+
+// Span returns the source range covered by the type alias.
+func (statement *TypeAliasStmt) Span() lexer.Span { return statement.Range }
 
 // ExprContext identifies how an expression is used.
 type ExprContext uint8

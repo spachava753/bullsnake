@@ -43,6 +43,13 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
+	if token.Kind == lexer.At {
+		statement, err := parser.parseDecoratedStatement()
+		if err != nil {
+			return nil, err
+		}
+		return []compilerast.Stmt{statement}, nil
+	}
 	if token.Kind != lexer.Name {
 		return parser.parseSimpleStatementLine()
 	}
@@ -61,6 +68,8 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 		statement, err = parser.parseForStatement(false)
 	case "def":
 		statement, err = parser.parseFunctionDefinition(false)
+	case "class":
+		statement, err = parser.parseClassDefinition()
 	case "async":
 		next, peekErr := parser.peek(1)
 		if peekErr != nil {

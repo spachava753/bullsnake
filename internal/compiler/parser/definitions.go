@@ -27,6 +27,10 @@ func (parser *parserState) parseFunctionDefinition(asynchronous bool) (compilera
 	if isHardKeyword(name.Text) {
 		return nil, parser.syntaxError(name, "expected function name")
 	}
+	typeParameters, err := parser.parseTypeParameters()
+	if err != nil {
+		return nil, err
+	}
 	if _, err := parser.expect(lexer.LParen, "expected '(' after function name"); err != nil {
 		return nil, err
 	}
@@ -51,12 +55,13 @@ func (parser *parserState) parseFunctionDefinition(asynchronous bool) (compilera
 		return nil, err
 	}
 	return &compilerast.FunctionDefStmt{
-		Range:      joinSpans(start.Span, body[len(body)-1].Span()),
-		Name:       name.Text,
-		Parameters: parameters,
-		Returns:    returns,
-		Body:       body,
-		Async:      asynchronous,
+		Range:          joinSpans(start.Span, body[len(body)-1].Span()),
+		Name:           name.Text,
+		TypeParameters: typeParameters,
+		Parameters:     parameters,
+		Returns:        returns,
+		Body:           body,
+		Async:          asynchronous,
 	}, nil
 }
 

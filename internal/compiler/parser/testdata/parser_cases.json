@@ -328,22 +328,47 @@
     {
       "name": "function definition",
       "source": "def add(left, right):\n    return left + right\n",
-      "want_ast": "Module(body=[FunctionDefStmt(name=\"add\", parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"left\", annotation=nil, default=nil), Parameter(name=\"right\", annotation=nil, default=nil)], varArg=nil, keywordOnly=[], keywordVarArg=nil), returns=nil, body=[ReturnStmt(value=BinaryExpr(left=Name(id=\"left\", context=Load), op=Add, right=Name(id=\"right\", context=Load)))], decorators=[], async=false)])"
+      "want_ast": "Module(body=[FunctionDefStmt(name=\"add\", typeParameters=[], parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"left\", annotation=nil, default=nil), Parameter(name=\"right\", annotation=nil, default=nil)], varArg=nil, keywordOnly=[], keywordVarArg=nil), returns=nil, body=[ReturnStmt(value=BinaryExpr(left=Name(id=\"left\", context=Load), op=Add, right=Name(id=\"right\", context=Load)))], decorators=[], async=false)])"
     },
     {
       "name": "complete function signature",
       "source": "def transform(a, /, b: int = 1, *items: tuple, flag=True, **options) -> Result:\n    return b\n",
-      "want_ast": "Module(body=[FunctionDefStmt(name=\"transform\", parameters=Parameters(positionalOnly=[Parameter(name=\"a\", annotation=nil, default=nil)], positional=[Parameter(name=\"b\", annotation=Name(id=\"int\", context=Load), default=NumberLiteral(text=\"1\"))], varArg=Parameter(name=\"items\", annotation=Name(id=\"tuple\", context=Load), default=nil), keywordOnly=[Parameter(name=\"flag\", annotation=nil, default=BooleanLiteral(value=true))], keywordVarArg=Parameter(name=\"options\", annotation=nil, default=nil)), returns=Name(id=\"Result\", context=Load), body=[ReturnStmt(value=Name(id=\"b\", context=Load))], decorators=[], async=false)])"
+      "want_ast": "Module(body=[FunctionDefStmt(name=\"transform\", typeParameters=[], parameters=Parameters(positionalOnly=[Parameter(name=\"a\", annotation=nil, default=nil)], positional=[Parameter(name=\"b\", annotation=Name(id=\"int\", context=Load), default=NumberLiteral(text=\"1\"))], varArg=Parameter(name=\"items\", annotation=Name(id=\"tuple\", context=Load), default=nil), keywordOnly=[Parameter(name=\"flag\", annotation=nil, default=BooleanLiteral(value=true))], keywordVarArg=Parameter(name=\"options\", annotation=nil, default=nil)), returns=Name(id=\"Result\", context=Load), body=[ReturnStmt(value=Name(id=\"b\", context=Load))], decorators=[], async=false)])"
     },
     {
       "name": "async function definition",
       "source": "async def fetch(url):\n    return await request(url)\n",
-      "want_ast": "Module(body=[FunctionDefStmt(name=\"fetch\", parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"url\", annotation=nil, default=nil)], varArg=nil, keywordOnly=[], keywordVarArg=nil), returns=nil, body=[ReturnStmt(value=AwaitExpr(value=CallExpr(function=Name(id=\"request\", context=Load), arguments=[Name(id=\"url\", context=Load)], keywords=[])))], decorators=[], async=true)])"
+      "want_ast": "Module(body=[FunctionDefStmt(name=\"fetch\", typeParameters=[], parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"url\", annotation=nil, default=nil)], varArg=nil, keywordOnly=[], keywordVarArg=nil), returns=nil, body=[ReturnStmt(value=AwaitExpr(value=CallExpr(function=Name(id=\"request\", context=Load), arguments=[Name(id=\"url\", context=Load)], keywords=[])))], decorators=[], async=true)])"
     },
     {
       "name": "lambda expression",
       "source": "operation = lambda left, right=1: left + right",
       "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"operation\", context=Store)], value=LambdaExpr(parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"left\", annotation=nil, default=nil), Parameter(name=\"right\", annotation=nil, default=NumberLiteral(text=\"1\"))], varArg=nil, keywordOnly=[], keywordVarArg=nil), body=BinaryExpr(left=Name(id=\"left\", context=Load), op=Add, right=Name(id=\"right\", context=Load))))])"
+    },
+    {
+      "name": "decorated generic function",
+      "source": "@logged\n@route(\"/value\")\ndef identity[T: object](value: T) -> T:\n    return value\n",
+      "want_ast": "Module(body=[FunctionDefStmt(name=\"identity\", typeParameters=[TypeParameter(name=\"T\", kind=TypeVariable, bound=Name(id=\"object\", context=Load), default=nil)], parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"value\", annotation=Name(id=\"T\", context=Load), default=nil)], varArg=nil, keywordOnly=[], keywordVarArg=nil), returns=Name(id=\"T\", context=Load), body=[ReturnStmt(value=Name(id=\"value\", context=Load))], decorators=[Name(id=\"logged\", context=Load), CallExpr(function=Name(id=\"route\", context=Load), arguments=[StringLiteral(text=\"\\\"/value\\\"\")], keywords=[])], async=false)])"
+    },
+    {
+      "name": "class definition",
+      "source": "class Service(Base, metaclass=Meta):\n    pass\n",
+      "want_ast": "Module(body=[ClassDefStmt(name=\"Service\", typeParameters=[], bases=[Name(id=\"Base\", context=Load)], keywords=[KeywordArgument(name=\"metaclass\", value=Name(id=\"Meta\", context=Load))], body=[PassStmt()], decorators=[])])"
+    },
+    {
+      "name": "generic class definition",
+      "source": "class Box[T](Base): pass",
+      "want_ast": "Module(body=[ClassDefStmt(name=\"Box\", typeParameters=[TypeParameter(name=\"T\", kind=TypeVariable, bound=nil, default=nil)], bases=[Name(id=\"Base\", context=Load)], keywords=[], body=[PassStmt()], decorators=[])])"
+    },
+    {
+      "name": "generic type alias",
+      "source": "type Pair[T = object] = tuple[T, T]",
+      "want_ast": "Module(body=[TypeAliasStmt(name=\"Pair\", typeParameters=[TypeParameter(name=\"T\", kind=TypeVariable, bound=nil, default=Name(id=\"object\", context=Load))], value=SubscriptExpr(value=Name(id=\"tuple\", context=Load), index=TupleExpr(elements=[Name(id=\"T\", context=Load), Name(id=\"T\", context=Load)], context=Load), context=Load))])"
+    },
+    {
+      "name": "variadic type alias",
+      "source": "type CallableShape[*Args, **Kwargs] = object",
+      "want_ast": "Module(body=[TypeAliasStmt(name=\"CallableShape\", typeParameters=[TypeParameter(name=\"Args\", kind=TypeVariableTuple, bound=nil, default=nil), TypeParameter(name=\"Kwargs\", kind=ParameterSpecification, bound=nil, default=nil)], value=Name(id=\"object\", context=Load))])"
     }
   ],
   "errors": [
@@ -621,6 +646,46 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "expected ':' after function signature",
+      "incomplete": false
+    },
+    {
+      "name": "decorator before simple statement",
+      "source": "@logged\npass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "decorator must precede a function or class",
+      "incomplete": false
+    },
+    {
+      "name": "empty type parameter list",
+      "source": "def function[](): pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "type parameter list cannot be empty",
+      "incomplete": false
+    },
+    {
+      "name": "duplicate type parameter",
+      "source": "class Container[T, T]: pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "duplicate type parameter",
+      "incomplete": false
+    },
+    {
+      "name": "class definition without colon",
+      "source": "class Container(Base) pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected ':' after class definition",
+      "incomplete": false
+    },
+    {
+      "name": "type alias without value separator",
+      "source": "type Alias int",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected '=' in type alias",
       "incomplete": false
     }
   ]
