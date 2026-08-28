@@ -299,6 +299,31 @@
       "name": "wildcard import",
       "source": "from package import *",
       "want_ast": "Module(body=[FromImportStmt(module=\"package\", names=[], level=0, wildcard=true)])"
+    },
+    {
+      "name": "while loop with else",
+      "source": "while ready:\n    work()\nelse:\n    pass\n",
+      "want_ast": "Module(body=[WhileStmt(condition=Name(id=\"ready\", context=Load), body=[ExprStmt(value=CallExpr(function=Name(id=\"work\", context=Load), arguments=[], keywords=[]))], else=[PassStmt()])])"
+    },
+    {
+      "name": "same-line for loop",
+      "source": "for item in items: process(item)",
+      "want_ast": "Module(body=[ForStmt(target=Name(id=\"item\", context=Store), iterable=Name(id=\"items\", context=Load), body=[ExprStmt(value=CallExpr(function=Name(id=\"process\", context=Load), arguments=[Name(id=\"item\", context=Load)], keywords=[]))], else=[], async=false)])"
+    },
+    {
+      "name": "destructuring for loop",
+      "source": "for key, value in pairs:\n    pass\nelse:\n    return None\n",
+      "want_ast": "Module(body=[ForStmt(target=TupleExpr(elements=[Name(id=\"key\", context=Store), Name(id=\"value\", context=Store)], context=Store), iterable=Name(id=\"pairs\", context=Load), body=[PassStmt()], else=[ReturnStmt(value=NoneLiteral())], async=false)])"
+    },
+    {
+      "name": "async for loop",
+      "source": "async for item in source:\n    pass\n",
+      "want_ast": "Module(body=[ForStmt(target=Name(id=\"item\", context=Store), iterable=Name(id=\"source\", context=Load), body=[PassStmt()], else=[], async=true)])"
+    },
+    {
+      "name": "for iterable expression list",
+      "source": "for item in first, second: pass",
+      "want_ast": "Module(body=[ForStmt(target=Name(id=\"item\", context=Store), iterable=TupleExpr(elements=[Name(id=\"first\", context=Load), Name(id=\"second\", context=Load)], context=Load), body=[PassStmt()], else=[], async=false)])"
     }
   ],
   "errors": [
@@ -512,6 +537,30 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "expected name in declaration",
+      "incomplete": false
+    },
+    {
+      "name": "while loop without colon",
+      "source": "while ready pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected ':' after while condition",
+      "incomplete": false
+    },
+    {
+      "name": "for loop without in",
+      "source": "for item items: pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected 'in' in for statement",
+      "incomplete": false
+    },
+    {
+      "name": "async for loop without colon",
+      "source": "async for item in source pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected ':' after for iterable",
       "incomplete": false
     }
   ]

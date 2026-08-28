@@ -171,7 +171,8 @@ future phase.
 `internal/compiler/ast` defines the internal AST. The initial node set covers
 the module root; expression, chained, annotated, and augmented assignments;
 `pass`, `return`, `raise`, `del`, `assert`, loop-control, scope-declaration,
-import, and conditional statements; names; number, plain string, boolean,
+import, conditional, `while`, and synchronous or asynchronous `for`
+statements; names; number, plain string, boolean,
 `None`, and ellipsis literals; unary, binary, boolean, comparison, conditional,
 named-assignment, await, yield,
 attribute, subscript, slice, starred, list, set, dictionary, comprehension, and
@@ -207,7 +208,8 @@ Simple-statement lines support semicolon separators, all assignment forms,
 `return`, `raise`, `del`, `assert`, `pass`, `break`, `continue`, `global`,
 `nonlocal`, and imports. `if`/`elif`/`else` supports a same-line simple-statement
 list or an indented statement list; `elif` clauses become nested `IfStmt`
-alternatives. Loops, lambdas, adjacent string concatenation, and formatted
+alternatives. `while` and synchronous or asynchronous `for` loops support
+optional `else` suites. Lambdas, adjacent string concatenation, and formatted
 strings remain future grammar stages.
 
 The resolver will handle bindings, scopes, and contextual placement rules.
@@ -276,7 +278,7 @@ pipeline stages exist.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains fifty-nine successful AST cases and twenty-six
+The initial corpus contains sixty-four successful AST cases and twenty-nine
 failures.
 Successful cases record source and a normalized module dump. Failures record
 the owning compiler phase, exception family, message fragment, completeness,

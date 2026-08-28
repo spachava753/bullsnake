@@ -43,18 +43,38 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	if token.Kind == lexer.Name && token.Text == "if" {
-		keyword, err := parser.advance()
-		if err != nil {
-			return nil, err
-		}
-		statement, err := parser.parseIfClause(keyword)
-		if err != nil {
-			return nil, err
-		}
-		return []compilerast.Stmt{statement}, nil
+	if token.Kind != lexer.Name {
+		return parser.parseSimpleStatementLine()
 	}
-	return parser.parseSimpleStatementLine()
+
+	var statement compilerast.Stmt
+	switch token.Text {
+	case "if":
+		keyword, advanceErr := parser.advance()
+		if advanceErr != nil {
+			return nil, advanceErr
+		}
+		statement, err = parser.parseIfClause(keyword)
+	case "while":
+		statement, err = parser.parseWhileStatement()
+	case "for":
+		statement, err = parser.parseForStatement(false)
+	case "async":
+		next, peekErr := parser.peek(1)
+		if peekErr != nil {
+			return nil, peekErr
+		}
+		if next.Kind != lexer.Name || next.Text != "for" {
+			return parser.parseSimpleStatementLine()
+		}
+		statement, err = parser.parseForStatement(true)
+	default:
+		return parser.parseSimpleStatementLine()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []compilerast.Stmt{statement}, nil
 }
 
 // parseIfClause parses one conditional clause and recursively folds an elif
@@ -119,9 +139,12 @@ func (parser *parserState) parseSuite() ([]compilerast.Stmt, error) {
 	if _, err := parser.expect(lexer.Indent, "expected an indented block"); err != nil {
 		return nil, err
 	}
-	body, _, err := parser.parseStatementList(lexer.Dedent)
+	body, end, err := parser.parseStatementList(lexer.Dedent)
 	if err != nil {
 		return nil, err
+	}
+	if len(body) == 0 {
+		return nil, parser.syntaxError(end, "expected statement in indented block")
 	}
 	if _, err := parser.expect(lexer.Dedent, "expected end of indented block"); err != nil {
 		return nil, err

@@ -245,6 +245,36 @@ func (*IfStmt) stmt() {}
 // Span returns the source range covered by the conditional statement.
 func (statement *IfStmt) Span() lexer.Span { return statement.Range }
 
+// WhileStmt repeatedly executes a body and has an optional normal-exit suite.
+type WhileStmt struct {
+	Range     lexer.Span
+	Condition Expr
+	Body      []Stmt
+	Else      []Stmt
+}
+
+func (*WhileStmt) node() {}
+func (*WhileStmt) stmt() {}
+
+// Span returns the source range covered by the while statement.
+func (statement *WhileStmt) Span() lexer.Span { return statement.Range }
+
+// ForStmt iterates over a value and may be asynchronous or have an else suite.
+type ForStmt struct {
+	Range    lexer.Span
+	Target   Expr
+	Iterable Expr
+	Body     []Stmt
+	Else     []Stmt
+	Async    bool
+}
+
+func (*ForStmt) node() {}
+func (*ForStmt) stmt() {}
+
+// Span returns the source range covered by the for statement.
+func (statement *ForStmt) Span() lexer.Span { return statement.Range }
+
 // ExprContext identifies how an expression is used.
 type ExprContext uint8
 
