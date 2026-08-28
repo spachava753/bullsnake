@@ -229,6 +229,76 @@
       "name": "starred tuple assignment",
       "source": "first, *rest = values",
       "want_ast": "Module(body=[AssignStmt(targets=[TupleExpr(elements=[Name(id=\"first\", context=Store), StarredExpr(value=Name(id=\"rest\", context=Store), context=Store)], context=Store)], value=Name(id=\"values\", context=Load))])"
+    },
+    {
+      "name": "semicolon statement line",
+      "source": "value = 1; pass",
+      "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"value\", context=Store)], value=NumberLiteral(text=\"1\")), PassStmt()])"
+    },
+    {
+      "name": "same-line statement suite",
+      "source": "if ready: value = 1; return value",
+      "want_ast": "Module(body=[IfStmt(condition=Name(id=\"ready\", context=Load), body=[AssignStmt(targets=[Name(id=\"value\", context=Store)], value=NumberLiteral(text=\"1\")), ReturnStmt(value=Name(id=\"value\", context=Load))], else=[])])"
+    },
+    {
+      "name": "annotated assignment",
+      "source": "count: int = 0",
+      "want_ast": "Module(body=[AnnAssignStmt(target=Name(id=\"count\", context=Store), annotation=Name(id=\"int\", context=Load), value=NumberLiteral(text=\"0\"), simple=true)])"
+    },
+    {
+      "name": "attribute annotation",
+      "source": "object.value: int",
+      "want_ast": "Module(body=[AnnAssignStmt(target=AttributeExpr(value=Name(id=\"object\", context=Load), name=\"value\", context=Store), annotation=Name(id=\"int\", context=Load), value=nil, simple=false)])"
+    },
+    {
+      "name": "augmented assignment",
+      "source": "total += amount",
+      "want_ast": "Module(body=[AugAssignStmt(target=Name(id=\"total\", context=Store), op=Add, value=Name(id=\"amount\", context=Load))])"
+    },
+    {
+      "name": "return expression list",
+      "source": "return first, second",
+      "want_ast": "Module(body=[ReturnStmt(value=TupleExpr(elements=[Name(id=\"first\", context=Load), Name(id=\"second\", context=Load)], context=Load))])"
+    },
+    {
+      "name": "raise with cause",
+      "source": "raise Error() from cause",
+      "want_ast": "Module(body=[RaiseStmt(exception=CallExpr(function=Name(id=\"Error\", context=Load), arguments=[], keywords=[]), cause=Name(id=\"cause\", context=Load))])"
+    },
+    {
+      "name": "delete targets",
+      "source": "del items[0], other",
+      "want_ast": "Module(body=[DeleteStmt(targets=[TupleExpr(elements=[SubscriptExpr(value=Name(id=\"items\", context=Load), index=NumberLiteral(text=\"0\"), context=Delete), Name(id=\"other\", context=Delete)], context=Delete)])])"
+    },
+    {
+      "name": "assert with message",
+      "source": "assert ready, \"not ready\"",
+      "want_ast": "Module(body=[AssertStmt(condition=Name(id=\"ready\", context=Load), message=StringLiteral(text=\"\\\"not ready\\\"\"))])"
+    },
+    {
+      "name": "loop control statements",
+      "source": "break; continue; pass",
+      "want_ast": "Module(body=[BreakStmt(), ContinueStmt(), PassStmt()])"
+    },
+    {
+      "name": "scope declarations",
+      "source": "global first, second\nnonlocal outer",
+      "want_ast": "Module(body=[GlobalStmt(names=[\"first\", \"second\"]), NonlocalStmt(names=[\"outer\"])])"
+    },
+    {
+      "name": "module imports",
+      "source": "import package.module as module, os",
+      "want_ast": "Module(body=[ImportStmt(names=[ImportAlias(name=\"package.module\", alias=\"module\"), ImportAlias(name=\"os\", alias=\"\")])])"
+    },
+    {
+      "name": "relative from import",
+      "source": "from ..package import value as local, other",
+      "want_ast": "Module(body=[FromImportStmt(module=\"package\", names=[ImportAlias(name=\"value\", alias=\"local\"), ImportAlias(name=\"other\", alias=\"\")], level=2, wildcard=false)])"
+    },
+    {
+      "name": "wildcard import",
+      "source": "from package import *",
+      "want_ast": "Module(body=[FromImportStmt(module=\"package\", names=[], level=0, wildcard=true)])"
     }
   ],
   "errors": [
@@ -394,6 +464,54 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "expected 'else' in conditional expression",
+      "incomplete": false
+    },
+    {
+      "name": "invalid annotated assignment target",
+      "source": "(first, second): tuple = value",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "invalid annotated assignment target",
+      "incomplete": false
+    },
+    {
+      "name": "invalid augmented assignment target",
+      "source": "first, second += values",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "invalid augmented assignment target",
+      "incomplete": false
+    },
+    {
+      "name": "multiple starred assignment targets",
+      "source": "first, *middle, *rest = values",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "multiple starred expressions in assignment",
+      "incomplete": false
+    },
+    {
+      "name": "invalid delete target",
+      "source": "del 1",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "invalid delete target",
+      "incomplete": false
+    },
+    {
+      "name": "import without alias name",
+      "source": "import package as",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected name after 'as'",
+      "incomplete": false
+    },
+    {
+      "name": "empty global declaration",
+      "source": "global",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected name in declaration",
       "incomplete": false
     }
   ]

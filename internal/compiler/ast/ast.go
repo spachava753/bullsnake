@@ -61,6 +61,165 @@ func (*AssignStmt) stmt() {}
 // Span returns the source range covered by the assignment.
 func (statement *AssignStmt) Span() lexer.Span { return statement.Range }
 
+// AugAssignStmt applies an operator and stores the result in one target.
+type AugAssignStmt struct {
+	Range  lexer.Span
+	Target Expr
+	Op     BinaryOperator
+	Value  Expr
+}
+
+func (*AugAssignStmt) node() {}
+func (*AugAssignStmt) stmt() {}
+
+// Span returns the source range covered by the augmented assignment.
+func (statement *AugAssignStmt) Span() lexer.Span { return statement.Range }
+
+// AnnAssignStmt assigns an optional value to an annotated target.
+type AnnAssignStmt struct {
+	Range      lexer.Span
+	Target     Expr
+	Annotation Expr
+	Value      Expr
+	Simple     bool
+}
+
+func (*AnnAssignStmt) node() {}
+func (*AnnAssignStmt) stmt() {}
+
+// Span returns the source range covered by the annotated assignment.
+func (statement *AnnAssignStmt) Span() lexer.Span { return statement.Range }
+
+// ReturnStmt returns an optional value from a function.
+type ReturnStmt struct {
+	Range lexer.Span
+	Value Expr
+}
+
+func (*ReturnStmt) node() {}
+func (*ReturnStmt) stmt() {}
+
+// Span returns the source range covered by the return statement.
+func (statement *ReturnStmt) Span() lexer.Span { return statement.Range }
+
+// RaiseStmt raises an optional exception with an optional explicit cause.
+type RaiseStmt struct {
+	Range     lexer.Span
+	Exception Expr
+	Cause     Expr
+}
+
+func (*RaiseStmt) node() {}
+func (*RaiseStmt) stmt() {}
+
+// Span returns the source range covered by the raise statement.
+func (statement *RaiseStmt) Span() lexer.Span { return statement.Range }
+
+// DeleteStmt deletes one or more targets.
+type DeleteStmt struct {
+	Range   lexer.Span
+	Targets []Expr
+}
+
+func (*DeleteStmt) node() {}
+func (*DeleteStmt) stmt() {}
+
+// Span returns the source range covered by the delete statement.
+func (statement *DeleteStmt) Span() lexer.Span { return statement.Range }
+
+// AssertStmt checks a condition and carries an optional failure message.
+type AssertStmt struct {
+	Range     lexer.Span
+	Condition Expr
+	Message   Expr
+}
+
+func (*AssertStmt) node() {}
+func (*AssertStmt) stmt() {}
+
+// Span returns the source range covered by the assertion.
+func (statement *AssertStmt) Span() lexer.Span { return statement.Range }
+
+// BreakStmt exits the nearest loop.
+type BreakStmt struct {
+	Range lexer.Span
+}
+
+func (*BreakStmt) node() {}
+func (*BreakStmt) stmt() {}
+
+// Span returns the source range covered by the break statement.
+func (statement *BreakStmt) Span() lexer.Span { return statement.Range }
+
+// ContinueStmt starts the nearest loop's next iteration.
+type ContinueStmt struct {
+	Range lexer.Span
+}
+
+func (*ContinueStmt) node() {}
+func (*ContinueStmt) stmt() {}
+
+// Span returns the source range covered by the continue statement.
+func (statement *ContinueStmt) Span() lexer.Span { return statement.Range }
+
+// GlobalStmt declares names as module bindings in the current scope.
+type GlobalStmt struct {
+	Range lexer.Span
+	Names []string
+}
+
+func (*GlobalStmt) node() {}
+func (*GlobalStmt) stmt() {}
+
+// Span returns the source range covered by the global statement.
+func (statement *GlobalStmt) Span() lexer.Span { return statement.Range }
+
+// NonlocalStmt declares names as enclosing-function bindings.
+type NonlocalStmt struct {
+	Range lexer.Span
+	Names []string
+}
+
+func (*NonlocalStmt) node() {}
+func (*NonlocalStmt) stmt() {}
+
+// Span returns the source range covered by the nonlocal statement.
+func (statement *NonlocalStmt) Span() lexer.Span { return statement.Range }
+
+// ImportAlias is one imported dotted name and its optional local alias.
+type ImportAlias struct {
+	Range lexer.Span
+	Name  string
+	Alias string
+}
+
+// ImportStmt imports one or more modules.
+type ImportStmt struct {
+	Range lexer.Span
+	Names []ImportAlias
+}
+
+func (*ImportStmt) node() {}
+func (*ImportStmt) stmt() {}
+
+// Span returns the source range covered by the import statement.
+func (statement *ImportStmt) Span() lexer.Span { return statement.Range }
+
+// FromImportStmt imports names from a relative or absolute module.
+type FromImportStmt struct {
+	Range    lexer.Span
+	Module   string
+	Names    []ImportAlias
+	Level    int
+	Wildcard bool
+}
+
+func (*FromImportStmt) node() {}
+func (*FromImportStmt) stmt() {}
+
+// Span returns the source range covered by the from-import statement.
+func (statement *FromImportStmt) Span() lexer.Span { return statement.Range }
+
 // PassStmt performs no operation.
 type PassStmt struct {
 	Range lexer.Span
