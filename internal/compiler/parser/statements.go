@@ -174,6 +174,9 @@ func (parser *parserState) parseSimpleStatement() (compilerast.Stmt, error) {
 		if !matched {
 			break
 		}
+		if starred, ok := current.(*compilerast.StarredExpr); ok {
+			return nil, parser.errorAt(starred.Span(), "starred target must be in a list or tuple", false)
+		}
 		if err := parser.setStoreContext(current); err != nil {
 			return nil, err
 		}
@@ -193,6 +196,9 @@ func (parser *parserState) parseSimpleStatement() (compilerast.Stmt, error) {
 			Targets: targets,
 			Value:   current,
 		}, nil
+	}
+	if starred, ok := left.(*compilerast.StarredExpr); ok {
+		return nil, parser.errorAt(starred.Span(), "starred expression must be in an expression list", false)
 	}
 	return &compilerast.ExprStmt{Range: left.Span(), Value: left}, nil
 }

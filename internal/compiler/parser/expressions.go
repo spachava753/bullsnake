@@ -5,14 +5,145 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
 
-// parseExpression promotes comma-separated comparisons to a tuple while
-// leaving a single expression unchanged.
+// parseExpression parses yield or a possibly starred, comma-separated
+// expression list.
 func (parser *parserState) parseExpression() (compilerast.Expr, error) {
-	first, err := parser.parseDisjunction()
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	if token.Kind == lexer.Name && token.Text == "yield" {
+		return parser.parseYieldExpression()
+	}
+	first, err := parser.parseStarExpression()
 	if err != nil {
 		return nil, err
 	}
 	return parser.finishTupleExpression(first)
+}
+
+func (parser *parserState) parseStarExpression() (compilerast.Expr, error) {
+	star, matched, err := parser.take(lexer.Star)
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return parser.parseConditionalExpression()
+	}
+	value, err := parser.parseDisjunction()
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.StarredExpr{
+		Range:   joinSpans(star.Span, value.Span()),
+		Value:   value,
+		Context: compilerast.Load,
+	}, nil
+}
+
+// parseNamedExpression recognizes NAME := value with two-token lookahead and
+// otherwise leaves the input to ordinary conditional-expression parsing.
+func (parser *parserState) parseNamedExpression() (compilerast.Expr, error) {
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	if token.Kind != lexer.Name || isHardKeyword(token.Text) {
+		return parser.parseConditionalExpression()
+	}
+	next, err := parser.peek(1)
+	if err != nil {
+		return nil, err
+	}
+	if next.Kind != lexer.ColonEqual {
+		return parser.parseConditionalExpression()
+	}
+	if _, err := parser.advance(); err != nil {
+		return nil, err
+	}
+	if _, err := parser.advance(); err != nil {
+		return nil, err
+	}
+	value, err := parser.parseConditionalExpression()
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.NamedExpr{
+		Range:  joinSpans(token.Span, value.Span()),
+		Target: &compilerast.Name{Range: token.Span, ID: token.Text, Context: compilerast.Store},
+		Value:  value,
+	}, nil
+}
+
+// parseConditionalExpression parses Python's right-associative value if
+// condition else alternative form above boolean precedence.
+func (parser *parserState) parseConditionalExpression() (compilerast.Expr, error) {
+	thenValue, err := parser.parseDisjunction()
+	if err != nil {
+		return nil, err
+	}
+	_, matched, err := parser.takeKeyword("if")
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return thenValue, nil
+	}
+	condition, err := parser.parseDisjunction()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := parser.expectKeyword("else", "expected 'else' in conditional expression"); err != nil {
+		return nil, err
+	}
+	alternative, err := parser.parseConditionalExpression()
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.ConditionalExpr{
+		Range:     joinSpans(thenValue.Span(), alternative.Span()),
+		Condition: condition,
+		Then:      thenValue,
+		Else:      alternative,
+	}, nil
+}
+
+// parseYieldExpression parses an empty yield, a yielded expression list, or
+// delegation through yield from.
+func (parser *parserState) parseYieldExpression() (compilerast.Expr, error) {
+	keyword, err := parser.expectKeyword("yield", "expected 'yield'")
+	if err != nil {
+		return nil, err
+	}
+	_, from, err := parser.takeKeyword("from")
+	if err != nil {
+		return nil, err
+	}
+	if from {
+		value, err := parser.parseConditionalExpression()
+		if err != nil {
+			return nil, err
+		}
+		return &compilerast.YieldExpr{Range: joinSpans(keyword.Span, value.Span()), Value: value, From: true}, nil
+	}
+
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	switch token.Kind {
+	case lexer.Newline, lexer.EndMarker, lexer.RParen, lexer.RSquare, lexer.RBrace, lexer.Semicolon:
+		return &compilerast.YieldExpr{Range: keyword.Span}, nil
+	}
+	value, err := parser.parseStarExpression()
+	if err != nil {
+		return nil, err
+	}
+	value, err = parser.finishTupleExpression(value)
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.YieldExpr{Range: joinSpans(keyword.Span, value.Span()), Value: value}, nil
 }
 
 // finishTupleExpression parses the comma-separated tail after an already
@@ -36,7 +167,7 @@ func (parser *parserState) finishTupleExpression(first compilerast.Expr) (compil
 		if tupleTerminator(token.Kind) {
 			break
 		}
-		element, err := parser.parseDisjunction()
+		element, err := parser.parseStarExpression()
 		if err != nil {
 			return nil, err
 		}
@@ -212,8 +343,23 @@ func (parser *parserState) parseFactor() (compilerast.Expr, error) {
 	}, nil
 }
 
+func (parser *parserState) parseAwaitPrimary() (compilerast.Expr, error) {
+	keyword, matched, err := parser.takeKeyword("await")
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return parser.parsePrimary()
+	}
+	value, err := parser.parsePrimary()
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.AwaitExpr{Range: joinSpans(keyword.Span, value.Span()), Value: value}, nil
+}
+
 func (parser *parserState) parsePower() (compilerast.Expr, error) {
-	left, err := parser.parsePrimary()
+	left, err := parser.parseAwaitPrimary()
 	if err != nil {
 		return nil, err
 	}

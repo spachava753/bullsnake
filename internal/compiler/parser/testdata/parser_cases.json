@@ -179,6 +179,56 @@
       "name": "async list comprehension",
       "source": "[item async for item in source if item]",
       "want_ast": "Module(body=[ExprStmt(value=ListComprehensionExpr(element=Name(id=\"item\", context=Load), clauses=[Comprehension(target=Name(id=\"item\", context=Store), iterable=Name(id=\"source\", context=Load), conditions=[Name(id=\"item\", context=Load)], async=true)]))])"
+    },
+    {
+      "name": "conditional expression",
+      "source": "result = left if ready else right",
+      "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"result\", context=Store)], value=ConditionalExpr(condition=Name(id=\"ready\", context=Load), then=Name(id=\"left\", context=Load), else=Name(id=\"right\", context=Load)))])"
+    },
+    {
+      "name": "nested conditional expression",
+      "source": "a if first else b if second else c",
+      "want_ast": "Module(body=[ExprStmt(value=ConditionalExpr(condition=Name(id=\"first\", context=Load), then=Name(id=\"a\", context=Load), else=ConditionalExpr(condition=Name(id=\"second\", context=Load), then=Name(id=\"b\", context=Load), else=Name(id=\"c\", context=Load))))])"
+    },
+    {
+      "name": "assignment expression",
+      "source": "(value := compute())",
+      "want_ast": "Module(body=[ExprStmt(value=NamedExpr(target=Name(id=\"value\", context=Store), value=CallExpr(function=Name(id=\"compute\", context=Load), arguments=[], keywords=[])))])"
+    },
+    {
+      "name": "assignment expression in list",
+      "source": "[value := source]",
+      "want_ast": "Module(body=[ExprStmt(value=ListExpr(elements=[NamedExpr(target=Name(id=\"value\", context=Store), value=Name(id=\"source\", context=Load))], context=Load))])"
+    },
+    {
+      "name": "await expression",
+      "source": "await worker()",
+      "want_ast": "Module(body=[ExprStmt(value=AwaitExpr(value=CallExpr(function=Name(id=\"worker\", context=Load), arguments=[], keywords=[])))])"
+    },
+    {
+      "name": "empty yield expression",
+      "source": "yield",
+      "want_ast": "Module(body=[ExprStmt(value=YieldExpr(value=nil, from=false))])"
+    },
+    {
+      "name": "yield expression list",
+      "source": "yield first, second",
+      "want_ast": "Module(body=[ExprStmt(value=YieldExpr(value=TupleExpr(elements=[Name(id=\"first\", context=Load), Name(id=\"second\", context=Load)], context=Load), from=false))])"
+    },
+    {
+      "name": "yield from expression",
+      "source": "yield from items",
+      "want_ast": "Module(body=[ExprStmt(value=YieldExpr(value=Name(id=\"items\", context=Load), from=true))])"
+    },
+    {
+      "name": "starred expression list",
+      "source": "head, *tail",
+      "want_ast": "Module(body=[ExprStmt(value=TupleExpr(elements=[Name(id=\"head\", context=Load), StarredExpr(value=Name(id=\"tail\", context=Load), context=Load)], context=Load))])"
+    },
+    {
+      "name": "starred tuple assignment",
+      "source": "first, *rest = values",
+      "want_ast": "Module(body=[AssignStmt(targets=[TupleExpr(elements=[Name(id=\"first\", context=Store), StarredExpr(value=Name(id=\"rest\", context=Store), context=Store)], context=Store)], value=Name(id=\"values\", context=Load))])"
     }
   ],
   "errors": [
@@ -312,6 +362,38 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "generator expression must be parenthesized",
+      "incomplete": false
+    },
+    {
+      "name": "bare assignment expression",
+      "source": "value := 1",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected end of statement",
+      "incomplete": false
+    },
+    {
+      "name": "standalone starred expression",
+      "source": "*values",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "starred expression must be in an expression list",
+      "incomplete": false
+    },
+    {
+      "name": "standalone starred target",
+      "source": "*rest = values",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "starred target must be in a list or tuple",
+      "incomplete": false
+    },
+    {
+      "name": "conditional expression without else",
+      "source": "value if condition",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected 'else' in conditional expression",
       "incomplete": false
     }
   ]

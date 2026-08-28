@@ -102,7 +102,7 @@ func (parser *parserState) parseBraceDisplay(open lexer.Token) (compilerast.Expr
 		return parser.finishSetDisplay(open, first)
 	}
 
-	first, err := parser.parseDisjunction()
+	first, err := parser.parseNamedExpression()
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (parser *parserState) parseBraceDisplay(open lexer.Token) (compilerast.Expr
 	if !dictionary {
 		return parser.finishSetDisplay(open, first)
 	}
-	value, err := parser.parseDisjunction()
+	value, err := parser.parseConditionalExpression()
 	if err != nil {
 		return nil, err
 	}
@@ -229,14 +229,14 @@ func (parser *parserState) parseDictionaryEntry() (compilerast.Expr, compilerast
 		value, err := parser.parseDisjunction()
 		return nil, value, err
 	}
-	key, err := parser.parseDisjunction()
+	key, err := parser.parseConditionalExpression()
 	if err != nil {
 		return nil, nil, err
 	}
 	if _, err := parser.expect(lexer.Colon, "expected ':' in dictionary entry"); err != nil {
 		return nil, nil, err
 	}
-	value, err := parser.parseDisjunction()
+	value, err := parser.parseConditionalExpression()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -249,7 +249,7 @@ func (parser *parserState) parseStarredDisplayElement() (compilerast.Expr, error
 		return nil, err
 	}
 	if !matched {
-		return parser.parseDisjunction()
+		return parser.parseNamedExpression()
 	}
 	value, err := parser.parseDisjunction()
 	if err != nil {

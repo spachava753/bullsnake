@@ -109,7 +109,16 @@ func (parser *parserState) parseAtom() (compilerast.Expr, error) {
 				Context: compilerast.Load,
 			}, nil
 		}
-		first, err := parser.parseDisjunction()
+		token, err := parser.peek(0)
+		if err != nil {
+			return nil, err
+		}
+		var first compilerast.Expr
+		if token.Kind == lexer.Name && token.Text == "yield" {
+			first, err = parser.parseYieldExpression()
+		} else {
+			first, err = parser.parseNamedExpression()
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -236,7 +245,7 @@ func (parser *parserState) parseSliceItem() (compilerast.Expr, error) {
 	}
 	var lower compilerast.Expr
 	if token.Kind != lexer.Colon {
-		lower, err = parser.parseDisjunction()
+		lower, err = parser.parseConditionalExpression()
 		if err != nil {
 			return nil, err
 		}
@@ -261,7 +270,7 @@ func (parser *parserState) parseSliceItem() (compilerast.Expr, error) {
 		return nil, err
 	}
 	if token.Kind != lexer.Colon && token.Kind != lexer.Comma && token.Kind != lexer.RSquare {
-		upper, err = parser.parseDisjunction()
+		upper, err = parser.parseConditionalExpression()
 		if err != nil {
 			return nil, err
 		}
@@ -280,7 +289,7 @@ func (parser *parserState) parseSliceItem() (compilerast.Expr, error) {
 			return nil, err
 		}
 		if token.Kind != lexer.Comma && token.Kind != lexer.RSquare {
-			step, err = parser.parseDisjunction()
+			step, err = parser.parseConditionalExpression()
 			if err != nil {
 				return nil, err
 			}

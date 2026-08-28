@@ -180,6 +180,58 @@ func (*EllipsisLiteral) expr() {}
 // Span returns the source range covered by the literal.
 func (literal *EllipsisLiteral) Span() lexer.Span { return literal.Range }
 
+// NamedExpr assigns and returns one value inside an expression.
+type NamedExpr struct {
+	Range  lexer.Span
+	Target Expr
+	Value  Expr
+}
+
+func (*NamedExpr) node() {}
+func (*NamedExpr) expr() {}
+
+// Span returns the source range covered by the assignment expression.
+func (expression *NamedExpr) Span() lexer.Span { return expression.Range }
+
+// ConditionalExpr chooses between two values.
+type ConditionalExpr struct {
+	Range     lexer.Span
+	Condition Expr
+	Then      Expr
+	Else      Expr
+}
+
+func (*ConditionalExpr) node() {}
+func (*ConditionalExpr) expr() {}
+
+// Span returns the source range covered by the conditional expression.
+func (expression *ConditionalExpr) Span() lexer.Span { return expression.Range }
+
+// AwaitExpr suspends until its operand completes.
+type AwaitExpr struct {
+	Range lexer.Span
+	Value Expr
+}
+
+func (*AwaitExpr) node() {}
+func (*AwaitExpr) expr() {}
+
+// Span returns the source range covered by the await expression.
+func (expression *AwaitExpr) Span() lexer.Span { return expression.Range }
+
+// YieldExpr yields an optional value or delegates with yield from.
+type YieldExpr struct {
+	Range lexer.Span
+	Value Expr
+	From  bool
+}
+
+func (*YieldExpr) node() {}
+func (*YieldExpr) expr() {}
+
+// Span returns the source range covered by the yield expression.
+func (expression *YieldExpr) Span() lexer.Span { return expression.Range }
+
 // UnaryOperator identifies an operation with one operand.
 type UnaryOperator uint8
 

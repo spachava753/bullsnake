@@ -84,7 +84,7 @@ func (parser *parserState) finishCall(function compilerast.Expr) (compilerast.Ex
 				if _, err := parser.advance(); err != nil {
 					return nil, err
 				}
-				value, err := parser.parseDisjunction()
+				value, err := parser.parseConditionalExpression()
 				if err != nil {
 					return nil, err
 				}
@@ -99,7 +99,7 @@ func (parser *parserState) finishCall(function compilerast.Expr) (compilerast.Ex
 				if seenKeyword {
 					return nil, parser.syntaxError(token, "positional argument follows keyword argument")
 				}
-				argument, err := parser.parseDisjunction()
+				argument, err := parser.parseNamedExpression()
 				if err != nil {
 					return nil, err
 				}
