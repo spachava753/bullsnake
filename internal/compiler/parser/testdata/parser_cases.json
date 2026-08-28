@@ -33,7 +33,7 @@
     {
       "name": "positional call",
       "source": "f(1, 2)",
-      "want_ast": "Module(body=[ExprStmt(value=CallExpr(function=Name(id=\"f\", context=Load), arguments=[NumberLiteral(text=\"1\"), NumberLiteral(text=\"2\")]))])"
+      "want_ast": "Module(body=[ExprStmt(value=CallExpr(function=Name(id=\"f\", context=Load), arguments=[NumberLiteral(text=\"1\"), NumberLiteral(text=\"2\")], keywords=[]))])"
     },
     {
       "name": "tuple expression",
@@ -93,7 +93,7 @@
     {
       "name": "call attribute chain",
       "source": "factory().item",
-      "want_ast": "Module(body=[ExprStmt(value=AttributeExpr(value=CallExpr(function=Name(id=\"factory\", context=Load), arguments=[]), name=\"item\", context=Load))])"
+      "want_ast": "Module(body=[ExprStmt(value=AttributeExpr(value=CallExpr(function=Name(id=\"factory\", context=Load), arguments=[], keywords=[]), name=\"item\", context=Load))])"
     },
     {
       "name": "subscript expression",
@@ -119,6 +119,36 @@
       "name": "subscript assignment",
       "source": "items[0] = value",
       "want_ast": "Module(body=[AssignStmt(targets=[SubscriptExpr(value=Name(id=\"items\", context=Load), index=NumberLiteral(text=\"0\"), context=Store)], value=Name(id=\"value\", context=Load))])"
+    },
+    {
+      "name": "list display unpacking",
+      "source": "[1, *items, 3]",
+      "want_ast": "Module(body=[ExprStmt(value=ListExpr(elements=[NumberLiteral(text=\"1\"), StarredExpr(value=Name(id=\"items\", context=Load), context=Load), NumberLiteral(text=\"3\")], context=Load))])"
+    },
+    {
+      "name": "set display unpacking",
+      "source": "{first, *others}",
+      "want_ast": "Module(body=[ExprStmt(value=SetExpr(elements=[Name(id=\"first\", context=Load), StarredExpr(value=Name(id=\"others\", context=Load), context=Load)]))])"
+    },
+    {
+      "name": "dictionary display unpacking",
+      "source": "{'name': value, **defaults}",
+      "want_ast": "Module(body=[ExprStmt(value=DictExpr(keys=[StringLiteral(text=\"'name'\"), nil], values=[Name(id=\"value\", context=Load), Name(id=\"defaults\", context=Load)]))])"
+    },
+    {
+      "name": "expanded call arguments",
+      "source": "build(1, *items, mode=\"fast\", **options)",
+      "want_ast": "Module(body=[ExprStmt(value=CallExpr(function=Name(id=\"build\", context=Load), arguments=[NumberLiteral(text=\"1\"), StarredExpr(value=Name(id=\"items\", context=Load), context=Load)], keywords=[KeywordArgument(name=\"mode\", value=StringLiteral(text=\"\\\"fast\\\"\")), KeywordArgument(name=\"\", value=Name(id=\"options\", context=Load))]))])"
+    },
+    {
+      "name": "list unpacking assignment",
+      "source": "[first, *rest] = values",
+      "want_ast": "Module(body=[AssignStmt(targets=[ListExpr(elements=[Name(id=\"first\", context=Store), StarredExpr(value=Name(id=\"rest\", context=Store), context=Store)], context=Store)], value=Name(id=\"values\", context=Load))])"
+    },
+    {
+      "name": "ellipsis literal",
+      "source": "...",
+      "want_ast": "Module(body=[ExprStmt(value=EllipsisLiteral())])"
     }
   ],
   "errors": [
@@ -204,6 +234,30 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "expected subscript",
+      "incomplete": false
+    },
+    {
+      "name": "positional argument after keyword",
+      "source": "f(name=1, 2)",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "positional argument follows keyword argument",
+      "incomplete": false
+    },
+    {
+      "name": "duplicate keyword argument",
+      "source": "f(name=1, name=2)",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "keyword argument repeated",
+      "incomplete": false
+    },
+    {
+      "name": "dictionary entry without value",
+      "source": "{value:}",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected expression",
       "incomplete": false
     }
   ]

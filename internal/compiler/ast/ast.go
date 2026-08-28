@@ -169,6 +169,17 @@ func (*NoneLiteral) expr() {}
 // Span returns the source range covered by the literal.
 func (literal *NoneLiteral) Span() lexer.Span { return literal.Range }
 
+// EllipsisLiteral is the ... expression.
+type EllipsisLiteral struct {
+	Range lexer.Span
+}
+
+func (*EllipsisLiteral) node() {}
+func (*EllipsisLiteral) expr() {}
+
+// Span returns the source range covered by the literal.
+func (literal *EllipsisLiteral) Span() lexer.Span { return literal.Range }
+
 // UnaryOperator identifies an operation with one operand.
 type UnaryOperator uint8
 
@@ -341,12 +352,20 @@ func (*CompareExpr) expr() {}
 // Span returns the source range covered by the comparison.
 func (expression *CompareExpr) Span() lexer.Span { return expression.Range }
 
-// CallExpr calls an expression with positional arguments.
-// Keyword and unpacking argument forms will extend this node with the grammar.
+// KeywordArgument is one named or dictionary-unpacked call argument.
+// Name is empty for a **value argument.
+type KeywordArgument struct {
+	Range lexer.Span
+	Name  string
+	Value Expr
+}
+
+// CallExpr calls an expression with positional, starred, and keyword arguments.
 type CallExpr struct {
 	Range     lexer.Span
 	Function  Expr
 	Arguments []Expr
+	Keywords  []KeywordArgument
 }
 
 func (*CallExpr) node() {}
@@ -396,6 +415,57 @@ func (*SliceExpr) expr() {}
 
 // Span returns the source range covered by the slice expression.
 func (expression *SliceExpr) Span() lexer.Span { return expression.Range }
+
+// StarredExpr unpacks one value in a display, call, or assignment target.
+type StarredExpr struct {
+	Range   lexer.Span
+	Value   Expr
+	Context ExprContext
+}
+
+func (*StarredExpr) node() {}
+func (*StarredExpr) expr() {}
+
+// Span returns the source range covered by the starred expression.
+func (expression *StarredExpr) Span() lexer.Span { return expression.Range }
+
+// ListExpr is a list display or assignment target.
+type ListExpr struct {
+	Range    lexer.Span
+	Elements []Expr
+	Context  ExprContext
+}
+
+func (*ListExpr) node() {}
+func (*ListExpr) expr() {}
+
+// Span returns the source range covered by the list.
+func (expression *ListExpr) Span() lexer.Span { return expression.Range }
+
+// SetExpr is a set display.
+type SetExpr struct {
+	Range    lexer.Span
+	Elements []Expr
+}
+
+func (*SetExpr) node() {}
+func (*SetExpr) expr() {}
+
+// Span returns the source range covered by the set.
+func (expression *SetExpr) Span() lexer.Span { return expression.Range }
+
+// DictExpr is a dictionary display. A nil key marks a **value entry.
+type DictExpr struct {
+	Range  lexer.Span
+	Keys   []Expr
+	Values []Expr
+}
+
+func (*DictExpr) node() {}
+func (*DictExpr) expr() {}
+
+// Span returns the source range covered by the dictionary.
+func (expression *DictExpr) Span() lexer.Span { return expression.Range }
 
 // TupleExpr is a tuple display or an unparenthesized tuple expression.
 type TupleExpr struct {

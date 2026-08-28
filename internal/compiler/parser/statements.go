@@ -227,6 +227,17 @@ func (parser *parserState) setStoreContext(expression compilerast.Expr) error {
 			}
 		}
 		return nil
+	case *compilerast.ListExpr:
+		expression.Context = compilerast.Store
+		for _, element := range expression.Elements {
+			if err := parser.setStoreContext(element); err != nil {
+				return err
+			}
+		}
+		return nil
+	case *compilerast.StarredExpr:
+		expression.Context = compilerast.Store
+		return parser.setStoreContext(expression.Value)
 	case *compilerast.AttributeExpr:
 		expression.Context = compilerast.Store
 		return nil

@@ -77,6 +77,23 @@ func (parser *parserState) parseAtom() (compilerast.Expr, error) {
 			return nil, err
 		}
 		return &compilerast.StringLiteral{Range: token.Span, Text: token.Text}, nil
+	case lexer.Ellipsis:
+		if _, err := parser.advance(); err != nil {
+			return nil, err
+		}
+		return &compilerast.EllipsisLiteral{Range: token.Span}, nil
+	case lexer.LSquare:
+		open, err := parser.advance()
+		if err != nil {
+			return nil, err
+		}
+		return parser.parseListDisplay(open)
+	case lexer.LBrace:
+		open, err := parser.advance()
+		if err != nil {
+			return nil, err
+		}
+		return parser.parseBraceDisplay(open)
 	case lexer.LParen:
 		open, err := parser.advance()
 		if err != nil {
@@ -256,66 +273,6 @@ func (parser *parserState) parseSliceItem() (compilerast.Expr, error) {
 		Lower: lower,
 		Upper: upper,
 		Step:  step,
-	}, nil
-}
-
-// finishCall parses positional arguments after an opening parenthesis and
-// permits one trailing comma before the closing parenthesis.
-func (parser *parserState) finishCall(function compilerast.Expr) (compilerast.Expr, error) {
-	close, matched, err := parser.take(lexer.RParen)
-	if err != nil {
-		return nil, err
-	}
-	if matched {
-		return &compilerast.CallExpr{
-			Range:    joinSpans(function.Span(), close.Span),
-			Function: function,
-		}, nil
-	}
-
-	token, err := parser.peek(0)
-	if err != nil {
-		return nil, err
-	}
-	if token.Kind == lexer.Comma {
-		return nil, parser.syntaxError(token, "expected argument")
-	}
-
-	var arguments []compilerast.Expr
-	for {
-		argument, err := parser.parseDisjunction()
-		if err != nil {
-			return nil, err
-		}
-		arguments = append(arguments, argument)
-
-		_, comma, err := parser.take(lexer.Comma)
-		if err != nil {
-			return nil, err
-		}
-		if !comma {
-			break
-		}
-		token, err = parser.peek(0)
-		if err != nil {
-			return nil, err
-		}
-		if token.Kind == lexer.RParen {
-			break
-		}
-		if token.Kind == lexer.Comma {
-			return nil, parser.syntaxError(token, "expected argument")
-		}
-	}
-
-	close, err = parser.expect(lexer.RParen, "expected ')' after arguments")
-	if err != nil {
-		return nil, err
-	}
-	return &compilerast.CallExpr{
-		Range:     joinSpans(function.Span(), close.Span),
-		Function:  function,
-		Arguments: arguments,
 	}, nil
 }
 
