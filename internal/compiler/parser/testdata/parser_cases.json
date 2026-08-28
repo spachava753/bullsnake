@@ -324,6 +324,26 @@
       "name": "for iterable expression list",
       "source": "for item in first, second: pass",
       "want_ast": "Module(body=[ForStmt(target=Name(id=\"item\", context=Store), iterable=TupleExpr(elements=[Name(id=\"first\", context=Load), Name(id=\"second\", context=Load)], context=Load), body=[PassStmt()], else=[], async=false)])"
+    },
+    {
+      "name": "function definition",
+      "source": "def add(left, right):\n    return left + right\n",
+      "want_ast": "Module(body=[FunctionDefStmt(name=\"add\", parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"left\", annotation=nil, default=nil), Parameter(name=\"right\", annotation=nil, default=nil)], varArg=nil, keywordOnly=[], keywordVarArg=nil), returns=nil, body=[ReturnStmt(value=BinaryExpr(left=Name(id=\"left\", context=Load), op=Add, right=Name(id=\"right\", context=Load)))], decorators=[], async=false)])"
+    },
+    {
+      "name": "complete function signature",
+      "source": "def transform(a, /, b: int = 1, *items: tuple, flag=True, **options) -> Result:\n    return b\n",
+      "want_ast": "Module(body=[FunctionDefStmt(name=\"transform\", parameters=Parameters(positionalOnly=[Parameter(name=\"a\", annotation=nil, default=nil)], positional=[Parameter(name=\"b\", annotation=Name(id=\"int\", context=Load), default=NumberLiteral(text=\"1\"))], varArg=Parameter(name=\"items\", annotation=Name(id=\"tuple\", context=Load), default=nil), keywordOnly=[Parameter(name=\"flag\", annotation=nil, default=BooleanLiteral(value=true))], keywordVarArg=Parameter(name=\"options\", annotation=nil, default=nil)), returns=Name(id=\"Result\", context=Load), body=[ReturnStmt(value=Name(id=\"b\", context=Load))], decorators=[], async=false)])"
+    },
+    {
+      "name": "async function definition",
+      "source": "async def fetch(url):\n    return await request(url)\n",
+      "want_ast": "Module(body=[FunctionDefStmt(name=\"fetch\", parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"url\", annotation=nil, default=nil)], varArg=nil, keywordOnly=[], keywordVarArg=nil), returns=nil, body=[ReturnStmt(value=AwaitExpr(value=CallExpr(function=Name(id=\"request\", context=Load), arguments=[Name(id=\"url\", context=Load)], keywords=[])))], decorators=[], async=true)])"
+    },
+    {
+      "name": "lambda expression",
+      "source": "operation = lambda left, right=1: left + right",
+      "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"operation\", context=Store)], value=LambdaExpr(parameters=Parameters(positionalOnly=[], positional=[Parameter(name=\"left\", annotation=nil, default=nil), Parameter(name=\"right\", annotation=nil, default=NumberLiteral(text=\"1\"))], varArg=nil, keywordOnly=[], keywordVarArg=nil), body=BinaryExpr(left=Name(id=\"left\", context=Load), op=Add, right=Name(id=\"right\", context=Load))))])"
     }
   ],
   "errors": [
@@ -561,6 +581,46 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "expected ':' after for iterable",
+      "incomplete": false
+    },
+    {
+      "name": "duplicate function parameter",
+      "source": "def function(value, value): pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "duplicate parameter name",
+      "incomplete": false
+    },
+    {
+      "name": "required parameter after default",
+      "source": "def function(first=1, second): pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "non-default parameter follows default parameter",
+      "incomplete": false
+    },
+    {
+      "name": "bare star without keyword parameter",
+      "source": "def function(*): pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "named arguments must follow bare *",
+      "incomplete": false
+    },
+    {
+      "name": "variadic parameter with default",
+      "source": "def function(*values=items): pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "variadic parameter cannot have a default",
+      "incomplete": false
+    },
+    {
+      "name": "function signature without colon",
+      "source": "def function() pass",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected ':' after function signature",
       "incomplete": false
     }
   ]

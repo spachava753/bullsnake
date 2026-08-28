@@ -78,6 +78,13 @@ func (parser *parserState) parseNamedExpression() (compilerast.Expr, error) {
 // parseConditionalExpression parses Python's right-associative value if
 // condition else alternative form above boolean precedence.
 func (parser *parserState) parseConditionalExpression() (compilerast.Expr, error) {
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	if token.Kind == lexer.Name && token.Text == "lambda" {
+		return parser.parseLambdaExpression()
+	}
 	thenValue, err := parser.parseDisjunction()
 	if err != nil {
 		return nil, err

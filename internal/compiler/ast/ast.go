@@ -275,6 +275,40 @@ func (*ForStmt) stmt() {}
 // Span returns the source range covered by the for statement.
 func (statement *ForStmt) Span() lexer.Span { return statement.Range }
 
+// Parameter is one named function or lambda parameter.
+type Parameter struct {
+	Range      lexer.Span
+	Name       string
+	Annotation Expr
+	Default    Expr
+}
+
+// Parameters groups parameters by their Python calling convention.
+type Parameters struct {
+	PositionalOnly []Parameter
+	Positional     []Parameter
+	VarArg         *Parameter
+	KeywordOnly    []Parameter
+	KeywordVarArg  *Parameter
+}
+
+// FunctionDefStmt defines a synchronous or asynchronous function.
+type FunctionDefStmt struct {
+	Range      lexer.Span
+	Name       string
+	Parameters Parameters
+	Returns    Expr
+	Body       []Stmt
+	Decorators []Expr
+	Async      bool
+}
+
+func (*FunctionDefStmt) node() {}
+func (*FunctionDefStmt) stmt() {}
+
+// Span returns the source range covered by the function definition.
+func (statement *FunctionDefStmt) Span() lexer.Span { return statement.Range }
+
 // ExprContext identifies how an expression is used.
 type ExprContext uint8
 
@@ -368,6 +402,19 @@ func (*EllipsisLiteral) expr() {}
 
 // Span returns the source range covered by the literal.
 func (literal *EllipsisLiteral) Span() lexer.Span { return literal.Range }
+
+// LambdaExpr defines an anonymous function.
+type LambdaExpr struct {
+	Range      lexer.Span
+	Parameters Parameters
+	Body       Expr
+}
+
+func (*LambdaExpr) node() {}
+func (*LambdaExpr) expr() {}
+
+// Span returns the source range covered by the lambda expression.
+func (expression *LambdaExpr) Span() lexer.Span { return expression.Range }
 
 // NamedExpr assigns and returns one value inside an expression.
 type NamedExpr struct {

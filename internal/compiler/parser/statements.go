@@ -59,15 +59,24 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 		statement, err = parser.parseWhileStatement()
 	case "for":
 		statement, err = parser.parseForStatement(false)
+	case "def":
+		statement, err = parser.parseFunctionDefinition(false)
 	case "async":
 		next, peekErr := parser.peek(1)
 		if peekErr != nil {
 			return nil, peekErr
 		}
-		if next.Kind != lexer.Name || next.Text != "for" {
+		if next.Kind != lexer.Name {
 			return parser.parseSimpleStatementLine()
 		}
-		statement, err = parser.parseForStatement(true)
+		switch next.Text {
+		case "for":
+			statement, err = parser.parseForStatement(true)
+		case "def":
+			statement, err = parser.parseFunctionDefinition(true)
+		default:
+			return parser.parseSimpleStatementLine()
+		}
 	default:
 		return parser.parseSimpleStatementLine()
 	}
