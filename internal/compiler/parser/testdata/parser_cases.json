@@ -419,6 +419,36 @@
       "name": "template string",
       "source": "t\"hello {name}\"",
       "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[StringLiteral(text=\"hello \"), FormattedValueExpr(value=Name(id=\"name\", context=Load), conversion=\"\", format=[], debug=false)], template=true))])"
+    },
+    {
+      "name": "literal and guarded match cases",
+      "source": "match value:\n    case 0:\n        zero()\n    case 1 | 2 as number if ready:\n        use(number)\n    case _:\n        pass\n",
+      "want_ast": "Module(body=[MatchStmt(subject=Name(id=\"value\", context=Load), cases=[MatchCase(pattern=ValuePattern(value=NumberLiteral(text=\"0\")), guard=nil, body=[ExprStmt(value=CallExpr(function=Name(id=\"zero\", context=Load), arguments=[], keywords=[]))]), MatchCase(pattern=AsPattern(pattern=OrPattern(patterns=[ValuePattern(value=NumberLiteral(text=\"1\")), ValuePattern(value=NumberLiteral(text=\"2\"))]), name=\"number\"), guard=Name(id=\"ready\", context=Load), body=[ExprStmt(value=CallExpr(function=Name(id=\"use\", context=Load), arguments=[Name(id=\"number\", context=Load)], keywords=[]))]), MatchCase(pattern=WildcardPattern(), guard=nil, body=[PassStmt()])])])"
+    },
+    {
+      "name": "sequence match pattern",
+      "source": "match values:\n    case [first, *rest]: consume(first, rest)\n",
+      "want_ast": "Module(body=[MatchStmt(subject=Name(id=\"values\", context=Load), cases=[MatchCase(pattern=SequencePattern(elements=[CapturePattern(name=\"first\"), StarPattern(name=\"rest\")]), guard=nil, body=[ExprStmt(value=CallExpr(function=Name(id=\"consume\", context=Load), arguments=[Name(id=\"first\", context=Load), Name(id=\"rest\", context=Load)], keywords=[]))])])])"
+    },
+    {
+      "name": "mapping match pattern",
+      "source": "match record:\n    case {\"name\": name, **rest}: consume(name, rest)\n",
+      "want_ast": "Module(body=[MatchStmt(subject=Name(id=\"record\", context=Load), cases=[MatchCase(pattern=MappingPattern(keys=[StringLiteral(text=\"\\\"name\\\"\")], patterns=[CapturePattern(name=\"name\")], rest=\"rest\"), guard=nil, body=[ExprStmt(value=CallExpr(function=Name(id=\"consume\", context=Load), arguments=[Name(id=\"name\", context=Load), Name(id=\"rest\", context=Load)], keywords=[]))])])])"
+    },
+    {
+      "name": "class match pattern",
+      "source": "match point:\n    case Point(x, y=0): consume(x)\n",
+      "want_ast": "Module(body=[MatchStmt(subject=Name(id=\"point\", context=Load), cases=[MatchCase(pattern=ClassPattern(class=Name(id=\"Point\", context=Load), positional=[CapturePattern(name=\"x\")], keywords=[PatternKeyword(name=\"y\", pattern=ValuePattern(value=NumberLiteral(text=\"0\")))]), guard=nil, body=[ExprStmt(value=CallExpr(function=Name(id=\"consume\", context=Load), arguments=[Name(id=\"x\", context=Load)], keywords=[]))])])])"
+    },
+    {
+      "name": "dotted value match pattern",
+      "source": "match color:\n    case Color.RED: pass\n",
+      "want_ast": "Module(body=[MatchStmt(subject=Name(id=\"color\", context=Load), cases=[MatchCase(pattern=ValuePattern(value=AttributeExpr(value=Name(id=\"Color\", context=Load), name=\"RED\", context=Load)), guard=nil, body=[PassStmt()])])])"
+    },
+    {
+      "name": "match soft keyword assignment",
+      "source": "match = value",
+      "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"match\", context=Store)], value=Name(id=\"value\", context=Load))])"
     }
   ],
   "errors": [
@@ -792,6 +822,38 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "cannot concatenate template and non-template strings",
+      "incomplete": false
+    },
+    {
+      "name": "match without case",
+      "source": "match value:\n    pass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "match requires at least one case",
+      "incomplete": false
+    },
+    {
+      "name": "multiple stars in sequence pattern",
+      "source": "match values:\n    case [*first, *second]: pass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "multiple starred names in sequence pattern",
+      "incomplete": false
+    },
+    {
+      "name": "positional class pattern after keyword",
+      "source": "match point:\n    case Point(x=1, other): pass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "positional pattern follows keyword pattern",
+      "incomplete": false
+    },
+    {
+      "name": "capture used as mapping key",
+      "source": "match record:\n    case {name: value}: pass\n",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "mapping pattern key must be a literal or dotted value",
       "incomplete": false
     }
   ]

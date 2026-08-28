@@ -172,7 +172,8 @@ future phase.
 the module root; expression, chained, annotated, and augmented assignments;
 `pass`, `return`, `raise`, `del`, `assert`, loop-control, scope-declaration,
 import, conditional, loop, function-definition, class-definition, type-alias,
-context-manager, and exception-handling statements; names; number, plain string,
+context-manager, exception-handling, and structural pattern-matching statements;
+names; number, plain string,
 boolean, `None`, ellipsis, adjacent-string, formatted-string, and template-string
 literals; unary, binary, boolean, comparison, conditional,
 lambda, named-assignment, await, yield,
@@ -209,8 +210,9 @@ Simple-statement lines support semicolon separators, all assignment forms,
 `return`, `raise`, `del`, `assert`, `pass`, `break`, `continue`, `global`,
 `nonlocal`, and imports. Context-manager statements support multiple items,
 parentheses, assignment targets, and `async with`. Exception handling supports
-`except`, `except*`, `else`, and `finally`. `if`/`elif`/`else` supports a
-same-line simple-statement
+`except`, `except*`, `else`, and `finally`. Structural matching supports literal,
+capture, wildcard, value, OR, AS, sequence, mapping, and class patterns with
+optional guards. `if`/`elif`/`else` supports a same-line simple-statement
 list or an indented statement list; `elif` clauses become nested `IfStmt`
 alternatives. `while` and synchronous or asynchronous `for` loops support
 optional `else` suites. Functions and lambdas support positional-only,
@@ -287,7 +289,7 @@ pipeline stages exist.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains eighty-three successful AST cases and forty-six
+The initial corpus contains eighty-nine successful AST cases and fifty
 failures.
 Successful cases record source and a normalized module dump. Failures record
 the owning compiler phase, exception family, message fragment, completeness,

@@ -25,6 +25,12 @@ type Expr interface {
 	expr()
 }
 
+// Pattern is one structural pattern-matching form.
+type Pattern interface {
+	Node
+	pattern()
+}
+
 // Module is the root produced for one source input.
 type Module struct {
 	Range lexer.Span
