@@ -89,6 +89,36 @@
       "name": "boolean precedence",
       "source": "not a and b or c",
       "want_ast": "Module(body=[ExprStmt(value=BooleanExpr(op=Or, values=[BooleanExpr(op=And, values=[UnaryExpr(op=Not, operand=Name(id=\"a\", context=Load)), Name(id=\"b\", context=Load)]), Name(id=\"c\", context=Load)]))])"
+    },
+    {
+      "name": "call attribute chain",
+      "source": "factory().item",
+      "want_ast": "Module(body=[ExprStmt(value=AttributeExpr(value=CallExpr(function=Name(id=\"factory\", context=Load), arguments=[]), name=\"item\", context=Load))])"
+    },
+    {
+      "name": "subscript expression",
+      "source": "items[index]",
+      "want_ast": "Module(body=[ExprStmt(value=SubscriptExpr(value=Name(id=\"items\", context=Load), index=Name(id=\"index\", context=Load), context=Load))])"
+    },
+    {
+      "name": "slice expression",
+      "source": "items[1:stop:2]",
+      "want_ast": "Module(body=[ExprStmt(value=SubscriptExpr(value=Name(id=\"items\", context=Load), index=SliceExpr(lower=NumberLiteral(text=\"1\"), upper=Name(id=\"stop\", context=Load), step=NumberLiteral(text=\"2\")), context=Load))])"
+    },
+    {
+      "name": "multi-index subscript",
+      "source": "matrix[1:3, column]",
+      "want_ast": "Module(body=[ExprStmt(value=SubscriptExpr(value=Name(id=\"matrix\", context=Load), index=TupleExpr(elements=[SliceExpr(lower=NumberLiteral(text=\"1\"), upper=NumberLiteral(text=\"3\"), step=nil), Name(id=\"column\", context=Load)], context=Load), context=Load))])"
+    },
+    {
+      "name": "attribute assignment",
+      "source": "object.value = items[0]",
+      "want_ast": "Module(body=[AssignStmt(targets=[AttributeExpr(value=Name(id=\"object\", context=Load), name=\"value\", context=Store)], value=SubscriptExpr(value=Name(id=\"items\", context=Load), index=NumberLiteral(text=\"0\"), context=Load))])"
+    },
+    {
+      "name": "subscript assignment",
+      "source": "items[0] = value",
+      "want_ast": "Module(body=[AssignStmt(targets=[SubscriptExpr(value=Name(id=\"items\", context=Load), index=NumberLiteral(text=\"0\"), context=Store)], value=Name(id=\"value\", context=Load))])"
     }
   ],
   "errors": [
@@ -158,6 +188,22 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "expected expression",
+      "incomplete": false
+    },
+    {
+      "name": "missing attribute name",
+      "source": "value.",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected attribute name",
+      "incomplete": false
+    },
+    {
+      "name": "empty subscript",
+      "source": "items[]",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected subscript",
       "incomplete": false
     }
   ]

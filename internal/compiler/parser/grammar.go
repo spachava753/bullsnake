@@ -231,6 +231,7 @@ func (parser *parserState) expectStatementEnd() error {
 	return err
 }
 
+// setStoreContext marks valid assignment targets as Store and recursively updates tuple elements.
 func (parser *parserState) setStoreContext(expression compilerast.Expr) error {
 	switch expression := expression.(type) {
 	case *compilerast.Name:
@@ -243,6 +244,12 @@ func (parser *parserState) setStoreContext(expression compilerast.Expr) error {
 				return err
 			}
 		}
+		return nil
+	case *compilerast.AttributeExpr:
+		expression.Context = compilerast.Store
+		return nil
+	case *compilerast.SubscriptExpr:
+		expression.Context = compilerast.Store
 		return nil
 	default:
 		return parser.errorAt(expression.Span(), "invalid assignment target", false)
@@ -475,22 +482,37 @@ func (parser *parserState) parsePower() (compilerast.Expr, error) {
 	}, nil
 }
 
-// parsePrimary repeatedly attaches call suffixes to an atom, which permits
-// call chains without left-recursive grammar rules.
+// parsePrimary repeatedly attaches call, attribute, and subscript suffixes to
+// an atom, which permits chains without left-recursive grammar rules.
 func (parser *parserState) parsePrimary() (compilerast.Expr, error) {
 	expression, err := parser.parseAtom()
 	if err != nil {
 		return nil, err
 	}
 	for {
-		_, matched, err := parser.take(lexer.LParen)
+		token, err := parser.peek(0)
 		if err != nil {
 			return nil, err
 		}
-		if !matched {
+		switch token.Kind {
+		case lexer.LParen:
+			if _, err := parser.advance(); err != nil {
+				return nil, err
+			}
+			expression, err = parser.finishCall(expression)
+		case lexer.Dot:
+			if _, err := parser.advance(); err != nil {
+				return nil, err
+			}
+			expression, err = parser.finishAttribute(expression)
+		case lexer.LSquare:
+			if _, err := parser.advance(); err != nil {
+				return nil, err
+			}
+			expression, err = parser.finishSubscript(expression)
+		default:
 			return expression, nil
 		}
-		expression, err = parser.finishCall(expression)
 		if err != nil {
 			return nil, err
 		}
@@ -562,6 +584,156 @@ func (parser *parserState) parseAtom() (compilerast.Expr, error) {
 	default:
 		return nil, parser.syntaxError(token, "expected expression")
 	}
+}
+
+func (parser *parserState) finishAttribute(value compilerast.Expr) (compilerast.Expr, error) {
+	name, err := parser.expect(lexer.Name, "expected attribute name")
+	if err != nil {
+		return nil, err
+	}
+	if isHardKeyword(name.Text) {
+		return nil, parser.syntaxError(name, "expected attribute name")
+	}
+	return &compilerast.AttributeExpr{
+		Range:   joinSpans(value.Span(), name.Span),
+		Value:   value,
+		Name:    name.Text,
+		Context: compilerast.Load,
+	}, nil
+}
+
+// finishSubscript parses one or more indexes or slices and keeps commas as a
+// tuple in the subscript index.
+func (parser *parserState) finishSubscript(value compilerast.Expr) (compilerast.Expr, error) {
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	if token.Kind == lexer.RSquare || token.Kind == lexer.Comma {
+		return nil, parser.syntaxError(token, "expected subscript")
+	}
+
+	first, err := parser.parseSliceItem()
+	if err != nil {
+		return nil, err
+	}
+	items := []compilerast.Expr{first}
+	end := first.Span()
+	tuple := false
+	for {
+		comma, matched, err := parser.take(lexer.Comma)
+		if err != nil {
+			return nil, err
+		}
+		if !matched {
+			break
+		}
+		tuple = true
+		end = comma.Span
+		token, err = parser.peek(0)
+		if err != nil {
+			return nil, err
+		}
+		if token.Kind == lexer.RSquare {
+			break
+		}
+		if token.Kind == lexer.Comma {
+			return nil, parser.syntaxError(token, "expected subscript")
+		}
+		item, err := parser.parseSliceItem()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+		end = item.Span()
+	}
+
+	index := first
+	if tuple {
+		index = &compilerast.TupleExpr{
+			Range:    joinSpans(first.Span(), end),
+			Elements: items,
+			Context:  compilerast.Load,
+		}
+	}
+	close, err := parser.expect(lexer.RSquare, "expected ']'")
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.SubscriptExpr{
+		Range:   joinSpans(value.Span(), close.Span),
+		Value:   value,
+		Index:   index,
+		Context: compilerast.Load,
+	}, nil
+}
+
+// parseSliceItem parses either one index expression or a slice with optional
+// lower, upper, and step expressions.
+func (parser *parserState) parseSliceItem() (compilerast.Expr, error) {
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	var lower compilerast.Expr
+	if token.Kind != lexer.Colon {
+		lower, err = parser.parseDisjunction()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	colon, sliced, err := parser.take(lexer.Colon)
+	if err != nil {
+		return nil, err
+	}
+	if !sliced {
+		return lower, nil
+	}
+	start := colon.Span
+	if lower != nil {
+		start = lower.Span()
+	}
+	end := colon.Span
+
+	var upper compilerast.Expr
+	token, err = parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	if token.Kind != lexer.Colon && token.Kind != lexer.Comma && token.Kind != lexer.RSquare {
+		upper, err = parser.parseDisjunction()
+		if err != nil {
+			return nil, err
+		}
+		end = upper.Span()
+	}
+
+	var step compilerast.Expr
+	secondColon, stepped, err := parser.take(lexer.Colon)
+	if err != nil {
+		return nil, err
+	}
+	if stepped {
+		end = secondColon.Span
+		token, err = parser.peek(0)
+		if err != nil {
+			return nil, err
+		}
+		if token.Kind != lexer.Comma && token.Kind != lexer.RSquare {
+			step, err = parser.parseDisjunction()
+			if err != nil {
+				return nil, err
+			}
+			end = step.Span()
+		}
+	}
+	return &compilerast.SliceExpr{
+		Range: joinSpans(start, end),
+		Lower: lower,
+		Upper: upper,
+		Step:  step,
+	}, nil
 }
 
 // finishCall parses positional arguments after an opening parenthesis and

@@ -355,6 +355,48 @@ func (*CallExpr) expr() {}
 // Span returns the source range covered by the call.
 func (expression *CallExpr) Span() lexer.Span { return expression.Range }
 
+// AttributeExpr reads or writes one named attribute.
+type AttributeExpr struct {
+	Range   lexer.Span
+	Value   Expr
+	Name    string
+	Context ExprContext
+}
+
+func (*AttributeExpr) node() {}
+func (*AttributeExpr) expr() {}
+
+// Span returns the source range covered by the attribute expression.
+func (expression *AttributeExpr) Span() lexer.Span { return expression.Range }
+
+// SubscriptExpr reads or writes one indexed value.
+type SubscriptExpr struct {
+	Range   lexer.Span
+	Value   Expr
+	Index   Expr
+	Context ExprContext
+}
+
+func (*SubscriptExpr) node() {}
+func (*SubscriptExpr) expr() {}
+
+// Span returns the source range covered by the subscript expression.
+func (expression *SubscriptExpr) Span() lexer.Span { return expression.Range }
+
+// SliceExpr holds optional lower, upper, and step bounds.
+type SliceExpr struct {
+	Range lexer.Span
+	Lower Expr
+	Upper Expr
+	Step  Expr
+}
+
+func (*SliceExpr) node() {}
+func (*SliceExpr) expr() {}
+
+// Span returns the source range covered by the slice expression.
+func (expression *SliceExpr) Span() lexer.Span { return expression.Range }
+
 // TupleExpr is a tuple display or an unparenthesized tuple expression.
 type TupleExpr struct {
 	Range    lexer.Span

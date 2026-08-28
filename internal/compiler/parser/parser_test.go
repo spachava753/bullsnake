@@ -53,6 +53,15 @@ func TestParsePreservesSourceSpans(t *testing.T) {
 	if got := compilerast.Dump(root, compilerast.DumpOptions{IncludeSpans: true}); got != want {
 		t.Fatalf("boolean AST with spans =\n%s\nwant:\n%s", got, want)
 	}
+
+	root, err = Parse("input.py", "object.items[1:3]")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = `Module(body=[ExprStmt(value=SubscriptExpr(value=AttributeExpr(value=Name(id="object", context=Load)@1:0-1:6, name="items", context=Load)@1:0-1:12, index=SliceExpr(lower=NumberLiteral(text="1")@1:13-1:14, upper=NumberLiteral(text="3")@1:15-1:16, step=nil)@1:13-1:16, context=Load)@1:0-1:17)@1:0-1:17])@1:0-1:17`
+	if got := compilerast.Dump(root, compilerast.DumpOptions{IncludeSpans: true}); got != want {
+		t.Fatalf("subscript AST with spans =\n%s\nwant:\n%s", got, want)
+	}
 }
 
 // TestErrorFormatting protects the complete human-readable diagnostic,
