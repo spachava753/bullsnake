@@ -72,11 +72,8 @@ func (parser *parserState) parseAtom() (compilerast.Expr, error) {
 			return nil, err
 		}
 		return &compilerast.NumberLiteral{Range: token.Span, Text: token.Text}, nil
-	case lexer.String:
-		if _, err := parser.advance(); err != nil {
-			return nil, err
-		}
-		return &compilerast.StringLiteral{Range: token.Span, Text: token.Text}, nil
+	case lexer.String, lexer.FStringStart, lexer.TStringStart:
+		return parser.parseStrings()
 	case lexer.Ellipsis:
 		if _, err := parser.advance(); err != nil {
 			return nil, err

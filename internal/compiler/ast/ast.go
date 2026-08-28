@@ -475,6 +475,46 @@ func (*StringLiteral) expr() {}
 // Span returns the source range covered by the literal.
 func (literal *StringLiteral) Span() lexer.Span { return literal.Range }
 
+// StringConcatExpr preserves adjacent plain, formatted, or template strings.
+type StringConcatExpr struct {
+	Range lexer.Span
+	Parts []Expr
+}
+
+func (*StringConcatExpr) node() {}
+func (*StringConcatExpr) expr() {}
+
+// Span returns the source range covered by the adjacent strings.
+func (expression *StringConcatExpr) Span() lexer.Span { return expression.Range }
+
+// FormattedStringExpr is an f-string or template string split into parts.
+type FormattedStringExpr struct {
+	Range    lexer.Span
+	Parts    []Expr
+	Template bool
+}
+
+func (*FormattedStringExpr) node() {}
+func (*FormattedStringExpr) expr() {}
+
+// Span returns the source range covered by the formatted string.
+func (expression *FormattedStringExpr) Span() lexer.Span { return expression.Range }
+
+// FormattedValueExpr is one replacement field and optional format specifier.
+type FormattedValueExpr struct {
+	Range      lexer.Span
+	Value      Expr
+	Conversion string
+	Format     []Expr
+	Debug      bool
+}
+
+func (*FormattedValueExpr) node() {}
+func (*FormattedValueExpr) expr() {}
+
+// Span returns the source range covered by the replacement field.
+func (expression *FormattedValueExpr) Span() lexer.Span { return expression.Range }
+
 // BooleanLiteral is a True or False expression.
 type BooleanLiteral struct {
 	Range lexer.Span

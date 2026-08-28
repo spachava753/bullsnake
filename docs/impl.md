@@ -173,8 +173,8 @@ the module root; expression, chained, annotated, and augmented assignments;
 `pass`, `return`, `raise`, `del`, `assert`, loop-control, scope-declaration,
 import, conditional, loop, function-definition, class-definition, type-alias,
 context-manager, and exception-handling statements; names; number, plain string,
-boolean,
-`None`, and ellipsis literals; unary, binary, boolean, comparison, conditional,
+boolean, `None`, ellipsis, adjacent-string, formatted-string, and template-string
+literals; unary, binary, boolean, comparison, conditional,
 lambda, named-assignment, await, yield,
 attribute, subscript, slice, starred, list, set, dictionary, comprehension, and
 generator expressions; positional, starred, named, and dictionary-unpacked
@@ -217,8 +217,9 @@ optional `else` suites. Functions and lambdas support positional-only,
 ordinary, variadic, keyword-only, and keyword-variadic parameters and defaults.
 Functions also support parameter and return annotations. Functions, classes,
 and type aliases support generic type parameters; functions and classes support
-decorators. Adjacent string concatenation and formatted strings remain future
-grammar stages.
+decorators. Adjacent plain and formatted strings, nested format specifications,
+debug fields, and template strings are parsed directly from the lexer's string
+tokens.
 
 The resolver will handle bindings, scopes, and contextual placement rules.
 Parser tests identify whether an invalid program belongs to the lexer or parser
@@ -286,7 +287,7 @@ pipeline stages exist.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains seventy-eight successful AST cases and forty-four
+The initial corpus contains eighty-three successful AST cases and forty-six
 failures.
 Successful cases record source and a normalized module dump. Failures record
 the owning compiler phase, exception family, message fragment, completeness,

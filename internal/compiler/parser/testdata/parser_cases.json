@@ -394,6 +394,31 @@
       "name": "try finally statement",
       "source": "try: work()\nfinally: cleanup()\n",
       "want_ast": "Module(body=[TryStmt(body=[ExprStmt(value=CallExpr(function=Name(id=\"work\", context=Load), arguments=[], keywords=[]))], handlers=[], else=[], finally=[ExprStmt(value=CallExpr(function=Name(id=\"cleanup\", context=Load), arguments=[], keywords=[]))])])"
+    },
+    {
+      "name": "adjacent string literals",
+      "source": "\"hello \" 'world'",
+      "want_ast": "Module(body=[ExprStmt(value=StringConcatExpr(parts=[StringLiteral(text=\"\\\"hello \\\"\"), StringLiteral(text=\"'world'\")]))])"
+    },
+    {
+      "name": "formatted string conversion",
+      "source": "f\"hello {name!r}\"",
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[StringLiteral(text=\"hello \"), FormattedValueExpr(value=Name(id=\"name\", context=Load), conversion=\"r\", format=[], debug=false)], template=false))])"
+    },
+    {
+      "name": "formatted string nested spec",
+      "source": "f\"{value:>{width}}\"",
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[FormattedValueExpr(value=Name(id=\"value\", context=Load), conversion=\"\", format=[StringLiteral(text=\">\"), FormattedValueExpr(value=Name(id=\"width\", context=Load), conversion=\"\", format=[], debug=false), StringLiteral(text=\"\")], debug=false)], template=false))])"
+    },
+    {
+      "name": "formatted string debug field",
+      "source": "f\"{value=}\"",
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[FormattedValueExpr(value=Name(id=\"value\", context=Load), conversion=\"\", format=[], debug=true)], template=false))])"
+    },
+    {
+      "name": "template string",
+      "source": "t\"hello {name}\"",
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[StringLiteral(text=\"hello \"), FormattedValueExpr(value=Name(id=\"name\", context=Load), conversion=\"\", format=[], debug=false)], template=true))])"
     }
   ],
   "errors": [
@@ -751,6 +776,22 @@
       "phase": "parser",
       "kind": "SyntaxError",
       "message_contains": "except* requires an exception type",
+      "incomplete": false
+    },
+    {
+      "name": "invalid formatted string conversion",
+      "source": "f\"{value!q}\"",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "invalid formatted string conversion",
+      "incomplete": false
+    },
+    {
+      "name": "mixed template concatenation",
+      "source": "t\"{value}\" \"plain\"",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "cannot concatenate template and non-template strings",
       "incomplete": false
     }
   ]
