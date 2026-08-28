@@ -49,6 +49,12 @@ func TestEnumStringsRemainDefinedOutsideKnownRange(t *testing.T) {
 	if got := ComparisonOperator(255).String(); got != "ComparisonOperator(255)" {
 		t.Fatalf("unknown comparison operator = %q", got)
 	}
+	if got := UnaryOperator(255).String(); got != "UnaryOperator(255)" {
+		t.Fatalf("unknown unary operator = %q", got)
+	}
+	if got := BooleanOperator(255).String(); got != "BooleanOperator(255)" {
+		t.Fatalf("unknown boolean operator = %q", got)
+	}
 }
 
 func testSpan(startOffset, endOffset, startLine, startColumn, endLine, endColumn int) lexer.Span {

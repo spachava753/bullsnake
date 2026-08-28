@@ -134,6 +134,105 @@ func (*NumberLiteral) expr() {}
 // Span returns the source range covered by the literal.
 func (literal *NumberLiteral) Span() lexer.Span { return literal.Range }
 
+// StringLiteral retains a plain string or bytes literal's source spelling.
+type StringLiteral struct {
+	Range lexer.Span
+	Text  string
+}
+
+func (*StringLiteral) node() {}
+func (*StringLiteral) expr() {}
+
+// Span returns the source range covered by the literal.
+func (literal *StringLiteral) Span() lexer.Span { return literal.Range }
+
+// BooleanLiteral is a True or False expression.
+type BooleanLiteral struct {
+	Range lexer.Span
+	Value bool
+}
+
+func (*BooleanLiteral) node() {}
+func (*BooleanLiteral) expr() {}
+
+// Span returns the source range covered by the literal.
+func (literal *BooleanLiteral) Span() lexer.Span { return literal.Range }
+
+// NoneLiteral is the None expression.
+type NoneLiteral struct {
+	Range lexer.Span
+}
+
+func (*NoneLiteral) node() {}
+func (*NoneLiteral) expr() {}
+
+// Span returns the source range covered by the literal.
+func (literal *NoneLiteral) Span() lexer.Span { return literal.Range }
+
+// UnaryOperator identifies an operation with one operand.
+type UnaryOperator uint8
+
+const (
+	Positive UnaryOperator = iota
+	Negative
+	Invert
+	Not
+)
+
+var unaryOperatorNames = [...]string{"Positive", "Negative", "Invert", "Not"}
+
+// String returns the AST spelling of a unary operator.
+func (operator UnaryOperator) String() string {
+	if int(operator) >= len(unaryOperatorNames) {
+		return fmt.Sprintf("UnaryOperator(%d)", operator)
+	}
+	return unaryOperatorNames[operator]
+}
+
+// UnaryExpr applies one unary operator to an expression.
+type UnaryExpr struct {
+	Range   lexer.Span
+	Op      UnaryOperator
+	Operand Expr
+}
+
+func (*UnaryExpr) node() {}
+func (*UnaryExpr) expr() {}
+
+// Span returns the source range covered by the unary expression.
+func (expression *UnaryExpr) Span() lexer.Span { return expression.Range }
+
+// BooleanOperator identifies a short-circuiting boolean operation.
+type BooleanOperator uint8
+
+const (
+	And BooleanOperator = iota
+	Or
+)
+
+var booleanOperatorNames = [...]string{"And", "Or"}
+
+// String returns the AST spelling of a boolean operator.
+func (operator BooleanOperator) String() string {
+	if int(operator) >= len(booleanOperatorNames) {
+		return fmt.Sprintf("BooleanOperator(%d)", operator)
+	}
+	return booleanOperatorNames[operator]
+}
+
+// BooleanExpr holds all values in one and/or chain.
+type BooleanExpr struct {
+	Range  lexer.Span
+	Op     BooleanOperator
+	Values []Expr
+}
+
+func (*BooleanExpr) node() {}
+func (*BooleanExpr) expr() {}
+
+// Span returns the source range covered by the boolean expression.
+func (expression *BooleanExpr) Span() lexer.Span { return expression.Range }
+
 // BinaryOperator identifies an ordinary binary operation.
 type BinaryOperator uint8
 

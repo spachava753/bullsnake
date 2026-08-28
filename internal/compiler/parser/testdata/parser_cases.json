@@ -59,6 +59,36 @@
       "name": "conditional chain",
       "source": "if first:\n    pass\nelif second:\n    pass\nelse:\n    pass\n",
       "want_ast": "Module(body=[IfStmt(condition=Name(id=\"first\", context=Load), body=[PassStmt()], else=[IfStmt(condition=Name(id=\"second\", context=Load), body=[PassStmt()], else=[PassStmt()])])])"
+    },
+    {
+      "name": "plain string literal",
+      "source": "'hello'",
+      "want_ast": "Module(body=[ExprStmt(value=StringLiteral(text=\"'hello'\"))])"
+    },
+    {
+      "name": "keyword constants",
+      "source": "True, False, None",
+      "want_ast": "Module(body=[ExprStmt(value=TupleExpr(elements=[BooleanLiteral(value=true), BooleanLiteral(value=false), NoneLiteral()], context=Load))])"
+    },
+    {
+      "name": "unary operators",
+      "source": "+a, ~b",
+      "want_ast": "Module(body=[ExprStmt(value=TupleExpr(elements=[UnaryExpr(op=Positive, operand=Name(id=\"a\", context=Load)), UnaryExpr(op=Invert, operand=Name(id=\"b\", context=Load))], context=Load))])"
+    },
+    {
+      "name": "unary before power",
+      "source": "-2 ** 2",
+      "want_ast": "Module(body=[ExprStmt(value=UnaryExpr(op=Negative, operand=BinaryExpr(left=NumberLiteral(text=\"2\"), op=Power, right=NumberLiteral(text=\"2\"))))])"
+    },
+    {
+      "name": "unary power operand",
+      "source": "2 ** -1",
+      "want_ast": "Module(body=[ExprStmt(value=BinaryExpr(left=NumberLiteral(text=\"2\"), op=Power, right=UnaryExpr(op=Negative, operand=NumberLiteral(text=\"1\"))))])"
+    },
+    {
+      "name": "boolean precedence",
+      "source": "not a and b or c",
+      "want_ast": "Module(body=[ExprStmt(value=BooleanExpr(op=Or, values=[BooleanExpr(op=And, values=[UnaryExpr(op=Not, operand=Name(id=\"a\", context=Load)), Name(id=\"b\", context=Load)]), Name(id=\"c\", context=Load)]))])"
     }
   ],
   "errors": [
@@ -113,6 +143,22 @@
         "start": {"line": 1, "column": 0},
         "end": {"line": 1, "column": 1}
       }
+    },
+    {
+      "name": "missing unary operand",
+      "source": "not",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected expression",
+      "incomplete": false
+    },
+    {
+      "name": "missing power operand",
+      "source": "2 **",
+      "phase": "parser",
+      "kind": "SyntaxError",
+      "message_contains": "expected expression",
+      "incomplete": false
     }
   ]
 }

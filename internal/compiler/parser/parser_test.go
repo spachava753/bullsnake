@@ -44,6 +44,15 @@ func TestParsePreservesSourceSpans(t *testing.T) {
 	if got := compilerast.Dump(root, compilerast.DumpOptions{IncludeSpans: true}); got != want {
 		t.Fatalf("conditional AST with spans =\n%s\nwant:\n%s", got, want)
 	}
+
+	root, err = Parse("input.py", "not a and b or c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = `Module(body=[ExprStmt(value=BooleanExpr(op=Or, values=[BooleanExpr(op=And, values=[UnaryExpr(op=Not, operand=Name(id="a", context=Load)@1:4-1:5)@1:0-1:5, Name(id="b", context=Load)@1:10-1:11])@1:0-1:11, Name(id="c", context=Load)@1:15-1:16])@1:0-1:16)@1:0-1:16])@1:0-1:16`
+	if got := compilerast.Dump(root, compilerast.DumpOptions{IncludeSpans: true}); got != want {
+		t.Fatalf("boolean AST with spans =\n%s\nwant:\n%s", got, want)
+	}
 }
 
 // TestErrorFormatting protects the complete human-readable diagnostic,

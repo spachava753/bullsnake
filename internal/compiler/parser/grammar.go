@@ -252,7 +252,7 @@ func (parser *parserState) setStoreContext(expression compilerast.Expr) error {
 // parseExpression promotes comma-separated comparisons to a tuple while
 // leaving a single expression unchanged.
 func (parser *parserState) parseExpression() (compilerast.Expr, error) {
-	first, err := parser.parseComparison()
+	first, err := parser.parseDisjunction()
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (parser *parserState) parseExpression() (compilerast.Expr, error) {
 		if tupleTerminator(token.Kind) {
 			break
 		}
-		element, err := parser.parseComparison()
+		element, err := parser.parseDisjunction()
 		if err != nil {
 			return nil, err
 		}
@@ -289,6 +289,69 @@ func (parser *parserState) parseExpression() (compilerast.Expr, error) {
 		Range:    joinSpans(first.Span(), end),
 		Elements: elements,
 		Context:  compilerast.Load,
+	}, nil
+}
+
+func (parser *parserState) parseDisjunction() (compilerast.Expr, error) {
+	return parser.parseBooleanChain("or", compilerast.Or, parser.parseConjunction)
+}
+
+func (parser *parserState) parseConjunction() (compilerast.Expr, error) {
+	return parser.parseBooleanChain("and", compilerast.And, parser.parseInversion)
+}
+
+// parseBooleanChain collects one short-circuiting and/or chain into a single
+// node while its operand function handles the next tighter precedence level.
+func (parser *parserState) parseBooleanChain(
+	keyword string,
+	operator compilerast.BooleanOperator,
+	parseOperand func() (compilerast.Expr, error),
+) (compilerast.Expr, error) {
+	first, err := parseOperand()
+	if err != nil {
+		return nil, err
+	}
+	values := []compilerast.Expr{first}
+	for {
+		_, matched, err := parser.takeKeyword(keyword)
+		if err != nil {
+			return nil, err
+		}
+		if !matched {
+			break
+		}
+		value, err := parseOperand()
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+	}
+	if len(values) == 1 {
+		return first, nil
+	}
+	return &compilerast.BooleanExpr{
+		Range:  joinSpans(first.Span(), values[len(values)-1].Span()),
+		Op:     operator,
+		Values: values,
+	}, nil
+}
+
+func (parser *parserState) parseInversion() (compilerast.Expr, error) {
+	keyword, matched, err := parser.takeKeyword("not")
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return parser.parseComparison()
+	}
+	operand, err := parser.parseInversion()
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.UnaryExpr{
+		Range:   joinSpans(keyword.Span, operand.Span()),
+		Op:      compilerast.Not,
+		Operand: operand,
 	}, nil
 }
 
@@ -336,7 +399,7 @@ func (parser *parserState) parseComparison() (compilerast.Expr, error) {
 // parseBinary uses precedence climbing for the ordinary left-associative
 // operators currently supported by the AST.
 func (parser *parserState) parseBinary(minimumPrecedence int) (compilerast.Expr, error) {
-	left, err := parser.parsePrimary()
+	left, err := parser.parseFactor()
 	if err != nil {
 		return nil, err
 	}
@@ -363,6 +426,53 @@ func (parser *parserState) parseBinary(minimumPrecedence int) (compilerast.Expr,
 			Right: right,
 		}
 	}
+}
+
+func (parser *parserState) parseFactor() (compilerast.Expr, error) {
+	token, err := parser.peek(0)
+	if err != nil {
+		return nil, err
+	}
+	operator, matched := factorOperators[token.Kind]
+	if !matched {
+		return parser.parsePower()
+	}
+	if _, err := parser.advance(); err != nil {
+		return nil, err
+	}
+	operand, err := parser.parseFactor()
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.UnaryExpr{
+		Range:   joinSpans(token.Span, operand.Span()),
+		Op:      operator,
+		Operand: operand,
+	}, nil
+}
+
+func (parser *parserState) parsePower() (compilerast.Expr, error) {
+	left, err := parser.parsePrimary()
+	if err != nil {
+		return nil, err
+	}
+	_, matched, err := parser.take(lexer.DoubleStar)
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return left, nil
+	}
+	right, err := parser.parseFactor()
+	if err != nil {
+		return nil, err
+	}
+	return &compilerast.BinaryExpr{
+		Range: joinSpans(left.Span(), right.Span()),
+		Left:  left,
+		Op:    compilerast.Power,
+		Right: right,
+	}, nil
 }
 
 // parsePrimary repeatedly attaches call suffixes to an atom, which permits
@@ -396,18 +506,32 @@ func (parser *parserState) parseAtom() (compilerast.Expr, error) {
 	}
 	switch token.Kind {
 	case lexer.Name:
-		if isHardKeyword(token.Text) {
-			return nil, parser.syntaxError(token, "expected expression")
-		}
 		if _, err := parser.advance(); err != nil {
 			return nil, err
 		}
-		return &compilerast.Name{Range: token.Span, ID: token.Text, Context: compilerast.Load}, nil
+		switch token.Text {
+		case "True":
+			return &compilerast.BooleanLiteral{Range: token.Span, Value: true}, nil
+		case "False":
+			return &compilerast.BooleanLiteral{Range: token.Span, Value: false}, nil
+		case "None":
+			return &compilerast.NoneLiteral{Range: token.Span}, nil
+		default:
+			if isHardKeyword(token.Text) {
+				return nil, parser.syntaxError(token, "expected expression")
+			}
+			return &compilerast.Name{Range: token.Span, ID: token.Text, Context: compilerast.Load}, nil
+		}
 	case lexer.Number:
 		if _, err := parser.advance(); err != nil {
 			return nil, err
 		}
 		return &compilerast.NumberLiteral{Range: token.Span, Text: token.Text}, nil
+	case lexer.String:
+		if _, err := parser.advance(); err != nil {
+			return nil, err
+		}
+		return &compilerast.StringLiteral{Range: token.Span, Text: token.Text}, nil
 	case lexer.LParen:
 		open, err := parser.advance()
 		if err != nil {
@@ -464,7 +588,7 @@ func (parser *parserState) finishCall(function compilerast.Expr) (compilerast.Ex
 
 	var arguments []compilerast.Expr
 	for {
-		argument, err := parser.parseComparison()
+		argument, err := parser.parseDisjunction()
 		if err != nil {
 			return nil, err
 		}
@@ -568,6 +692,18 @@ func (parser *parserState) take(kind lexer.Kind) (lexer.Token, bool, error) {
 	return token, true, err
 }
 
+func (parser *parserState) takeKeyword(text string) (lexer.Token, bool, error) {
+	token, err := parser.peek(0)
+	if err != nil {
+		return token, false, err
+	}
+	if token.Kind != lexer.Name || token.Text != text {
+		return token, false, nil
+	}
+	token, err = parser.cursor.next()
+	return token, true, err
+}
+
 func (parser *parserState) expect(kind lexer.Kind, message string) (lexer.Token, error) {
 	token, matched, err := parser.take(kind)
 	if err != nil {
@@ -591,6 +727,12 @@ func (parser *parserState) errorAt(span lexer.Span, message string, incomplete b
 		Span:       span,
 		Incomplete: incomplete,
 	}
+}
+
+var factorOperators = map[lexer.Kind]compilerast.UnaryOperator{
+	lexer.Plus:  compilerast.Positive,
+	lexer.Minus: compilerast.Negative,
+	lexer.Tilde: compilerast.Invert,
 }
 
 type binaryOperatorDefinition struct {
