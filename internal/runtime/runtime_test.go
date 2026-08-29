@@ -691,6 +691,34 @@ func TestDictionaryDisplays(t *testing.T) {
 	}
 }
 
+func TestMappingSubscription(t *testing.T) {
+	code := compileSource(t, "mapping = {'name': 'bullsnake', (1, 2): 'pair', True: 'truth'}\n"+
+		"by_name = mapping['name']\n"+
+		"by_tuple = mapping[(1, 2)]\n"+
+		"by_integer = mapping[1]\n"+
+		"nested = {'inner': {'value': 7}}['inner']['value']\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("dictionary subscription", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"by_name":    "'bullsnake'",
+		"by_tuple":   "'pair'",
+		"by_integer": "'truth'",
+		"nested":     "7",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -827,6 +855,24 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "missing dictionary key",
+			source:      "answer = {'present': 1}['missing']\n",
+			wantType:    "KeyError",
+			wantMessage: "'missing'",
+		},
+		{
+			name:        "missing tuple dictionary key",
+			source:      "answer = {}[(1, 2)]\n",
+			wantType:    "KeyError",
+			wantMessage: "(1, 2)",
+		},
+		{
+			name:        "unhashable dictionary subscription",
+			source:      "answer = {}[[1]]\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'list' as a dict key (unhashable type: 'list')",
 		},
 		{
 			name:        "unhashable dictionary key",

@@ -455,11 +455,13 @@ current tuple/list iterables in source order.
 Dictionary values keep an insertion-ordered entry slice and currently find keys
 with a linear identity-or-equality scan. `BUILD_MAP` consumes pairs in source
 order. Updating an equal key retains its original object and position. Current
-scalar values and recursively hashable tuples may be keys; unhashable keys raise
-the contextual Python 3.14 `TypeError`. Dictionary truth depends on entry count.
-A later object-model slice can replace the linear storage after user-defined
-hash and equality protocols exist. Mutation, string and bytes subscription, and
-cyclic representations are not implemented.
+scalar values and recursively hashable tuples may be keys; construction and
+subscription report the contextual Python 3.14 `TypeError` for unhashable keys.
+Subscription returns the stored object and raises `KeyError` with the missing
+key's representation. Dictionary truth depends on entry count. A later
+object-model slice can replace the linear storage after user-defined hash and
+equality protocols exist. Mutation, string and bytes subscription, and cyclic
+representations are not implemented.
 
 Scalar truth testing follows Python for the current fixed types: `None`, false
 booleans, numeric zero, and empty strings or bytes are false; other scalar
@@ -573,7 +575,8 @@ Runtime tests compile source through the complete front end before executing
 it. The initial cases cover module globals, discarded expressions, scalar
 values, fixed and starred tuple/list displays, fixed dictionary displays, and
 integer and slice tuple/list subscription. Dictionary cases cover insertion
-order, duplicate scalar and tuple keys, nesting, truth, and unhashable keys.
+order, duplicate scalar and tuple keys, nesting, truth, subscription, missing
+keys, and contextual unhashable-key errors.
 Fixed and starred destructuring cases include nested targets.
 Other cases cover singleton identity, scalar and sequence truth testing, numeric
 unary operations, selected arbitrary-precision integer binary

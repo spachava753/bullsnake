@@ -193,8 +193,8 @@ func executeListToTuple(frame *frame, instruction int) (instructionOutcome, erro
 	return pushOutcome(frame, instruction, &tupleValue{elements: elements})
 }
 
-// executeBinarySubscript implements integer indexing for the fixed sequence
-// types while retaining Python's conversion, normalization, and error order.
+// executeBinarySubscript dispatches dictionary lookup or fixed-sequence integer
+// and slice subscription while preserving each container's error order.
 func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, error) {
 	indexValue, ok := frame.pop()
 	if !ok {
@@ -203,6 +203,20 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 	container, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+
+	if dictionary, ok := container.(*dictValue); ok {
+		value, found, exception := dictionary.get(indexValue)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if !found {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("KeyError", indexValue.Repr()),
+			}, nil
+		}
+		return pushOutcome(frame, instruction, value)
 	}
 
 	var elements []Value

@@ -442,9 +442,9 @@ insertion-ordered entries.
 The current object operations cover fixed scalar truth, numeric unary
 operators, selected arbitrary-precision integer binary operators, scalar and
 tuple equality, object identity, fixed and starred tuple/list construction and
-unpacking, tuple/list iteration and subscription, and fixed dictionary displays.
-Dictionary lookup during construction is linear until user-defined hash and
-equality protocols justify a hash table. Later user-defined protocols must
+unpacking, tuple/list iteration and subscription, fixed dictionary displays, and
+dictionary subscription. Dictionary key matching is linear until user-defined
+hash and equality protocols justify a hash table. Later user-defined protocols must
 reuse the VM's outcome and exception paths.
 
 The object model can become the largest compatibility component, so it should

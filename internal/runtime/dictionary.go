@@ -29,12 +29,8 @@ func (dictionary *dictValue) Repr() string {
 func (*dictValue) isValue() {}
 
 func (dictionary *dictValue) set(key, value Value) *Exception {
-	if unhashable, found := unhashableComponent(key); found {
-		return newException(
-			"TypeError",
-			"cannot use '"+key.TypeName()+"' as a dict key (unhashable type: '"+
-				unhashable+"')",
-		)
+	if exception := validateDictKey(key); exception != nil {
+		return exception
 	}
 	for index := range dictionary.entries {
 		entry := &dictionary.entries[index]
@@ -44,6 +40,29 @@ func (dictionary *dictValue) set(key, value Value) *Exception {
 		}
 	}
 	dictionary.entries = append(dictionary.entries, dictEntry{key: key, value: value})
+	return nil
+}
+
+func (dictionary *dictValue) get(key Value) (Value, bool, *Exception) {
+	if exception := validateDictKey(key); exception != nil {
+		return nil, false, exception
+	}
+	for _, entry := range dictionary.entries {
+		if entry.key == key || valuesEqual(entry.key, key) {
+			return entry.value, true, nil
+		}
+	}
+	return nil, false, nil
+}
+
+func validateDictKey(key Value) *Exception {
+	if unhashable, found := unhashableComponent(key); found {
+		return newException(
+			"TypeError",
+			"cannot use '"+key.TypeName()+"' as a dict key (unhashable type: '"+
+				unhashable+"')",
+		)
+	}
 	return nil
 }
 
