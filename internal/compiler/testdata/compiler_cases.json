@@ -38,6 +38,26 @@
       "name": "float and imaginary literals",
       "source": "fraction = 1.25\nexponent = 1e3\nimaginary = 3.5j\nwhole_imaginary = 2j\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Float(1.25), Float(1000), Imag(3.5), Imag(2), None], names=[\"fraction\", \"exponent\", \"imaginary\", \"whole_imaginary\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_CONST 2, STORE_NAME 2, LOAD_CONST 3, STORE_NAME 3, LOAD_CONST 4, RETURN_VALUE])"
+    },
+    {
+      "name": "text string escape evaluation",
+      "source": "plain = 'plain'\nescaped = \"line\\n\\t\\x41\\u2603\\U0001F40D\"\nraw = r\"\\n\\x41\"\nnamed = \"\\N{SNOWMAN}\"\nsurrogate = \"\\ud800\"\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[String(\"plain\"), String(\"line\\n\\tA\u2603\ud83d\udc0d\"), String(\"\\\\n\\\\x41\"), String(\"\u2603\"), String(\"\\xed\\xa0\\x80\"), None], names=[\"plain\", \"escaped\", \"raw\", \"named\", \"surrogate\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_CONST 2, STORE_NAME 2, LOAD_CONST 3, STORE_NAME 3, LOAD_CONST 4, STORE_NAME 4, LOAD_CONST 5, RETURN_VALUE])"
+    },
+    {
+      "name": "triple string newline normalization",
+      "source": "triple = '''first\r\nsecond\rthird'''\r\njoined = 'left\\\r\nright'\r\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[String(\"first\\nsecond\\nthird\"), String(\"leftright\"), None], names=[\"triple\", \"joined\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
+      "name": "bytes literal evaluation",
+      "source": "escaped = b'\\x00\\101\\377'\nraw = br'\\x41'\nunknown = b'\\q\\u2603'\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Bytes(\"\\x00A\\xff\"), Bytes(\"\\\\x41\"), Bytes(\"\\\\q\\\\u2603\"), None], names=[\"escaped\", \"raw\", \"unknown\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_CONST 2, STORE_NAME 2, LOAD_CONST 3, RETURN_VALUE])"
+    },
+    {
+      "name": "adjacent plain literal folding",
+      "source": "text = 'hello' \" \" r'world'\ndata = b'\\x41' b'B'\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[String(\"hello world\"), Bytes(\"AB\"), None], names=[\"text\", \"data\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_CONST 2, RETURN_VALUE])"
     }
   ]
 }

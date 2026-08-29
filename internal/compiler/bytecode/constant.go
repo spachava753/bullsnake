@@ -16,6 +16,8 @@ const (
 	IntegerConstant
 	FloatConstant
 	ImaginaryConstant
+	StringConstant
+	BytesConstant
 )
 
 // Constant is an immutable literal descriptor stored in a code object.
@@ -50,6 +52,17 @@ func Imaginary(value float64) Constant {
 	return Constant{Kind: ImaginaryConstant, Bits: math.Float64bits(value)}
 }
 
+// TextString returns a Python string constant. Value may contain WTF-8 bytes
+// for lone surrogate escapes, which Go strings preserve losslessly.
+func TextString(value string) Constant {
+	return Constant{Kind: StringConstant, Text: value}
+}
+
+// Bytes returns a Python bytes constant with an arbitrary byte payload.
+func Bytes(value string) Constant {
+	return Constant{Kind: BytesConstant, Text: value}
+}
+
 // String returns the stable dump spelling of a constant.
 func (constant Constant) String() string {
 	switch constant.Kind {
@@ -68,6 +81,10 @@ func (constant Constant) String() string {
 		return "Float(" + formatFloat(constant.Bits) + ")"
 	case ImaginaryConstant:
 		return "Imag(" + formatFloat(constant.Bits) + ")"
+	case StringConstant:
+		return "String(" + strconv.Quote(constant.Text) + ")"
+	case BytesConstant:
+		return "Bytes(" + strconv.Quote(constant.Text) + ")"
 	default:
 		return fmt.Sprintf("Constant(kind=%d)", constant.Kind)
 	}

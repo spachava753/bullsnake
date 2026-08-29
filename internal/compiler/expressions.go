@@ -26,6 +26,18 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 			compiler.constantIndex(constant),
 			expression.Span(),
 		)
+	case *compilerast.StringLiteral:
+		constant, err := parseStringLiteral(expression.Text)
+		if err != nil {
+			return compiler.error(expression.Span(), "%v", err)
+		}
+		return compiler.emit(
+			bytecode.LoadConst,
+			compiler.constantIndex(constant),
+			expression.Span(),
+		)
+	case *compilerast.StringConcatExpr:
+		return compiler.compileStringConcat(expression)
 	case *compilerast.NoneLiteral:
 		return compiler.emit(
 			bytecode.LoadConst,
