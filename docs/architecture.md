@@ -1,6 +1,6 @@
 # Bullsnake runtime design
 
-Status: Draft
+Status: Living design
 
 Last updated: 2026-08-27
 
@@ -20,12 +20,11 @@ Bullsnake owns its compiler, bytecode, object representation, memory model, and
 extension API. CPython bytecode, reference counting, runtime inspection APIs,
 and C extension machinery do not constrain the design.
 
-The architecture should be the simplest one that can support the chosen
-features cleanly. The current recommendation is a small stack-based bytecode
-virtual machine with explicit Python frames stored on the Go heap. That design
-costs more than a tree-walking interpreter at the first milestone, but it gives
-ordinary calls, generators, coroutines, and tracebacks one execution model.
-Go goroutines provide the separate lightweight-thread mechanism.
+The implementation uses a small stack-based bytecode virtual machine with
+explicit Python frames stored on the Go heap. That design costs more than a
+tree-walking interpreter at the first milestone, but it gives ordinary calls,
+generators, coroutines, and tracebacks one execution model. Go goroutines
+provide the separate lightweight-thread mechanism.
 
 Correctness means that implemented features obey Bullsnake's documented
 semantics consistently. Python-compatible behavior is the default when it is
@@ -33,9 +32,9 @@ clear and useful. Deliberate, documented differences are acceptable when they
 remove a common pitfall, avoid CPython-specific behavior, or keep the
 implementation substantially simpler.
 
-## Proposed decisions
+## Decisions
 
-These decisions are the starting point for discussion:
+These decisions guide the implementation:
 
 1. Use Python 3.14 as the reference version for syntax and selected runtime
    behavior. Maintain an explicit feature manifest instead of claiming full
@@ -285,13 +284,13 @@ Four implementation styles are plausible:
 | Transpile Python to Go | Conflicts with `eval`, `exec`, dynamic classes, frame inspection, fast startup, and runtime compilation. Go compilation also becomes part of normal execution. |
 | Compile to Bullsnake bytecode | Separates syntax from execution, supports explicit frames, permits interpreter-specific instructions, and leaves room for later optimization. |
 
-Bullsnake should choose its own bytecode VM. It can borrow the proven compiler
-stages used by CPython and other interpreters without copying CPython's
-bytecode or memory architecture.
+Bullsnake uses its own bytecode VM. It borrows proven compiler stages from
+CPython and other interpreters without copying CPython's bytecode or memory
+architecture.
 
-A stack machine is the recommended first VM. Python expressions map naturally
-to an operand stack, the compiler stays small, and bytecode is easy to inspect
-in tests. A register VM may reduce dispatch and copying later, but that is a
+The initial VM is a stack machine. Python expressions map naturally to an
+operand stack, the compiler stays small, and bytecode is easy to inspect in
+tests. A register VM may reduce dispatch and copying later, but that is a
 performance decision to make from profiles.
 
 ## Simplicity rules
@@ -400,44 +399,40 @@ added after semantic conformance and profiling.
 
 ## Virtual machine and frames
 
-A Python frame is a heap object containing at least:
+The first VM slice executes module code with a heap-allocated frame. A frame
+contains prepared immutable code, the next instruction index, an operand
+stack, local, global, and builtin namespaces, and a link to its logical caller.
+A thread state points to the active frame. The iterative dispatcher handles
+normal progress, return, and Python exception outcomes without using a Go call
+as the definition of a Python frame.
 
-- A code object and instruction pointer
-- An operand stack
-- Fast locals or another local storage representation
-- Global and built-in namespaces
-- Closure cells
-- Active exception and cleanup state
-- A link to the logical caller
-- Tracing, profiling, and source-position state
+Before execution, the runtime copies the code tables it consumes, materializes
+compiler constants as runtime values, and validates every instruction,
+operand, table index, and linear stack transition. Unsupported or malformed
+bytecode fails before the module body can produce side effects. Prepared code
+and its materialized constants are cached per runtime and immutable code-object
+identity.
 
-A `ThreadState` owns the active frame chain for its goroutine. A suspended async
-task or generator owns the frame state needed to resume it. The VM repeatedly
-executes the current frame. A Python call pushes a frame. Return and exception
-propagation pop frames. The Go dispatcher remains iterative.
+The frame and dispatcher are intentionally shaped for later calls and
+suspension even though the first slice executes only modules. A Python call
+will replace the active frame with a child whose `previous` link names the
+caller. Return will restore that caller and push the result. A suspended async
+task or generator will own the same frame state needed to resume it.
 
-The VM must represent these outcomes explicitly:
-
-- Normal instruction progress
-- Python call
-- Return
-- Yield
-- Await suspension
-- Exception propagation
-- Scheduler safe point
-- Host cancellation or execution-budget stop
-
-This design supports ordinary calls, generators, native coroutines,
-asynchronous generators, tracebacks, and independent goroutine-backed Python
-threads with one frame representation.
-
-A call into a synchronous Go extension runs on the Python thread's current Go
-stack. If it blocks, it must release the runtime execution token so other
-Python thread goroutines can run. If it needs to suspend only the current async
-task while the same Python thread runs other tasks, it returns a Bullsnake
-awaitable or future instead. Neither path requires capturing a Go stack.
+As more execution forms enter the supported subset, the VM must add outcomes
+for calls, yield, await suspension, exception propagation through handlers,
+scheduler safe points, host cancellation, and execution-budget stops. A call
+into a synchronous Go extension will run on the Python thread's current Go
+stack, but a Python-to-Python call will remain in the iterative dispatcher.
 
 ## Object model
+
+The first runtime slice has a sealed internal `Value` interface, an immutable
+`None` singleton, heap-backed arbitrary-precision integers, and Python
+exception values. Every live reference remains in a typed pointer or interface
+visible to Go's collector. Module bindings use a temporary string-keyed
+namespace rather than pretending that a Go map already implements Python
+dictionary semantics.
 
 The object model can become the largest compatibility component, so it should
 remain feature-driven. It should be designed before a large instruction set
@@ -472,7 +467,13 @@ languages.
 
 ## Runtime instances
 
-A runtime instance owns:
+The initial `Runtime` owns a prepared-code cache, a builtin namespace, and
+successfully executed modules. Module execution creates a fresh namespace and
+publishes the module in the runtime cache only after normal return. Mutable
+state is instance-local; only the immutable `None` singleton is currently
+shared process-wide.
+
+As the supported subset grows, a runtime instance will also own:
 
 - The built-in namespace and implementation-specific `sys` state
 - `sys.modules`, import paths, finders, loaders, and import locks

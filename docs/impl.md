@@ -26,9 +26,9 @@ describes the code that exists.
 | Source loading | Initial PEP 263 behavior implemented for supported codecs |
 | Lexer | Initial Python 3.14 behavior implemented |
 | Parser and resolver | Initial Python 3.14 parser and name resolution implemented |
-| Compiler and bytecode | Initial module bytecode foundation implemented |
-| Virtual machine and frames | Not implemented |
-| Object model and runtime | Not implemented |
+| Compiler and bytecode | Initial Python 3.14-derived bytecode subset implemented |
+| Virtual machine and frames | Initial module execution slice implemented |
+| Object model and runtime | Initial scalar values and module runtime implemented |
 | Import system and standard library | Not implemented |
 | Go embedding API | Not implemented |
 | Async and scheduling | Not implemented |
@@ -386,13 +386,46 @@ Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
 
-Not implemented. This section will record dispatch, operand stacks, calls,
-suspension, frames, tracebacks, and introspection behavior.
+`internal/runtime` contains the first executable VM slice. `Runtime.ExecuteModule`
+accepts an immutable code object, prepares it once per runtime, executes it in a
+new module namespace, and caches the module by name only after normal return.
+`Runtime.Module` and `Module.Get` expose successful executions to internal
+callers and tests. There is not yet a public Go embedding API.
+
+Preparation copies the instruction and name tables, materializes code constants
+as runtime values, and validates the complete code object before execution.
+Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
+`POP_TOP`, integer-add `BINARY_OP`, and `RETURN_VALUE`. It checks constant and
+name indexes, binary operands, stack underflow, the declared maximum stack
+size, return stack balance, and terminating return. Any unsupported constant,
+instruction, or operand fails with a source-located `BytecodeError` before a
+module can observe side effects.
+
+A heap-allocated frame contains prepared code, the next instruction index, a
+preallocated operand stack, local, global, and builtin namespaces, and its
+logical predecessor. A thread state points at the active frame. The dispatch
+loop handles explicit advance, return, and raise outcomes. Returning replaces
+the active frame with its predecessor and will let a later Python call use the
+same iterative loop without Go recursion. Calls, suspension, exception
+handlers, traceback chains, cancellation, and execution budgets are not yet
+implemented.
 
 ## Object model and runtime
 
-Not implemented. This section will record object representation, type slots,
-attribute access, descriptors, exceptions, builtins, and runtime isolation.
+The initial sealed `Value` interface keeps every Python reference in a typed Go
+interface or pointer. It has a process-wide immutable `None` singleton,
+heap-backed arbitrary-precision integers, and exception values. Integer
+constants are materialized once for each runtime and code object; integer
+addition creates a new value. Missing names raise a `NameError` value and
+invalid integer addition raises a `TypeError` value. `UncaughtException` carries
+the exception across the current Go host boundary.
+
+A runtime owns its prepared-code cache, builtin namespace, and successful
+modules. A module owns one string-keyed namespace used as both locals and
+globals during module execution. This namespace is intentionally narrower than
+a Python dictionary. General hashing, equality, insertion ordering, ordinary
+collections, user types, descriptors, attributes, and callable values remain
+unimplemented.
 
 ## Import system
 
@@ -412,10 +445,13 @@ asynchronous generators, and scheduler integration.
 
 ## Memory management
 
-The interpreter runtime is not implemented. Go GC behavior relevant to object
-identity, finalizers, weak pointers, cleanup, and cycles is explored in
-`experiments/gcprobe`; runtime choices remain documented in the architecture
-until production code adopts them.
+The initial runtime relies on Go's collector. Frames, operand stacks,
+namespaces, integers, and exceptions retain Python references through typed
+pointers and interfaces; the VM does not hide references in integers or unsafe
+storage. Behavior relevant to object identity, finalizers, weak pointers,
+cleanup, and cycles is explored in `experiments/gcprobe`. Those features remain
+design constraints until a supported runtime feature requires production
+machinery.
 
 ## REPL
 
@@ -467,6 +503,12 @@ expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object
 copying, opcode formatting, literal decoding, formatted-string errors, and
 compiler input errors.
+
+Runtime tests compile source through the complete front end before executing
+it. The initial cases cover module globals, discarded expressions,
+arbitrary-precision integer addition, and Python `NameError` and `TypeError`
+values. Focused malformed-code cases cover unsupported instructions, operands,
+and constants; table bounds; stack underflow and overflow; and missing returns.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.
