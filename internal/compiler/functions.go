@@ -16,29 +16,6 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if len(statement.TypeParameters) != 0 {
 		return compiler.error(statement.Span(), "generic functions are not compiled")
 	}
-	if statement.Returns != nil {
-		return compiler.error(statement.Returns.Span(), "function annotations are not compiled")
-	}
-	parameterGroups := [][]compilerast.Parameter{
-		statement.Parameters.PositionalOnly,
-		statement.Parameters.Positional,
-		statement.Parameters.KeywordOnly,
-	}
-	for _, group := range parameterGroups {
-		for _, parameter := range group {
-			if parameter.Annotation != nil {
-				return compiler.error(parameter.Range, "parameter annotations are not compiled")
-			}
-		}
-	}
-	for _, parameter := range []*compilerast.Parameter{
-		statement.Parameters.VarArg,
-		statement.Parameters.KeywordVarArg,
-	} {
-		if parameter != nil && parameter.Annotation != nil {
-			return compiler.error(parameter.Range, "parameter annotations are not compiled")
-		}
-	}
 
 	scope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
 	if scope == nil || scope.Kind != resolver.FunctionScope {
@@ -56,6 +33,10 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if err != nil {
 		return err
 	}
+	annotations, err := compiler.compileFunctionAnnotations(statement)
+	if err != nil {
+		return err
+	}
 	child := compiler.newFunctionCompiler(statement, scope, statement.Parameters, statement.Name)
 
 	if err := child.compileStatements(statement.Body); err != nil {
@@ -69,7 +50,13 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if err != nil {
 		return err
 	}
-	if err := compiler.emitFunction(code, defaults, keywordDefaults, statement.Span()); err != nil {
+	if err := compiler.emitFunction(
+		code,
+		defaults,
+		keywordDefaults,
+		annotations,
+		statement.Span(),
+	); err != nil {
 		return err
 	}
 	for index := len(statement.Decorators) - 1; index >= 0; index-- {
@@ -134,11 +121,12 @@ func (compiler *compilerState) childQualifiedName(codeName string) string {
 }
 
 // emitFunction captures a child's free cells, creates the function, and
-// consumes closure and default payloads in reverse stack order.
+// consumes closure, annotation, and default payloads in reverse stack order.
 func (compiler *compilerState) emitFunction(
 	code *bytecode.Code,
 	defaults bool,
 	keywordDefaults bool,
+	annotations bool,
 	span lexer.Span,
 ) error {
 	freeVars := code.FreeVars()
@@ -166,6 +154,15 @@ func (compiler *compilerState) emitFunction(
 		if err := compiler.emit(
 			bytecode.SetFunctionAttribute,
 			uint32(bytecode.FunctionClosure),
+			span,
+		); err != nil {
+			return err
+		}
+	}
+	if annotations {
+		if err := compiler.emit(
+			bytecode.SetFunctionAttribute,
+			uint32(bytecode.FunctionAnnotate),
 			span,
 		); err != nil {
 			return err

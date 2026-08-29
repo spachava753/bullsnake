@@ -31,5 +31,5 @@ func (compiler *compilerState) compileLambdaExpression(expression *compilerast.L
 	if err != nil {
 		return err
 	}
-	return compiler.emitFunction(code, defaults, keywordDefaults, expression.Span())
+	return compiler.emitFunction(code, defaults, keywordDefaults, false, expression.Span())
 }

@@ -81,6 +81,7 @@ const (
 	FunctionDefaults        FunctionAttribute = 0x01
 	FunctionKeywordDefaults FunctionAttribute = 0x02
 	FunctionClosure         FunctionAttribute = 0x08
+	FunctionAnnotate        FunctionAttribute = 0x10
 )
 
 // Opcode identifies one virtual-machine instruction.
@@ -135,6 +136,7 @@ const (
 	DeleteSubscript
 	PopJumpIfTrue
 	LoadAssertionError
+	LoadNotImplementedError
 	RaiseVarargs
 	LoadFast
 	StoreFast
@@ -203,6 +205,7 @@ var opcodeNames = [...]string{
 	"DELETE_SUBSCR",
 	"POP_JUMP_IF_TRUE",
 	"LOAD_ASSERTION_ERROR",
+	"LOAD_NOT_IMPLEMENTED_ERROR",
 	"RAISE_VARARGS",
 	"LOAD_FAST",
 	"STORE_FAST",
@@ -251,9 +254,9 @@ func (opcode Opcode) HasOperand() bool {
 // Jump edges with different effects are tracked by the compiler's labels.
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
-	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError, LoadFast,
-		LoadGlobal, MakeFunction, LoadDeref, LoadClosure, ImportFrom,
-		LoadBuildClass:
+	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError,
+		LoadNotImplementedError, LoadFast, LoadGlobal, MakeFunction, LoadDeref,
+		LoadClosure, ImportFrom, LoadBuildClass:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,

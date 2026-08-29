@@ -257,6 +257,12 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := LoadAssertionError.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_ASSERTION_ERROR stack effect = %d, want 1", got)
 	}
+	if got := LoadNotImplementedError.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_NOT_IMPLEMENTED_ERROR stack effect = %d, want 1", got)
+	}
+	if FunctionAnnotate != 0x10 {
+		t.Fatalf("annotation function attribute = %#x, want 0x10", FunctionAnnotate)
+	}
 	raise := Instruction{Opcode: RaiseVarargs, Operand: 2}
 	if got := raise.String(); got != "RAISE_VARARGS 2" {
 		t.Fatalf("raise instruction = %q", got)

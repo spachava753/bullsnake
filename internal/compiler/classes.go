@@ -64,7 +64,7 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 	if err := compiler.emit(bytecode.LoadBuildClass, 0, statement.Span()); err != nil {
 		return err
 	}
-	if err := compiler.emitFunction(code, false, false, statement.Span()); err != nil {
+	if err := compiler.emitFunction(code, false, false, false, statement.Span()); err != nil {
 		return err
 	}
 	if err := compiler.emit(

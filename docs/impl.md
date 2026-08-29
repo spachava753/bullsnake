@@ -273,7 +273,8 @@ collection displays; unary, binary, boolean, comparison, conditional, named,
 lambda, attribute, subscription, slice, and call expressions; ordinary,
 relative, aliased, and wildcard imports; assertions; bare and explicit raises;
 synchronous function definitions with decorators, required and defaulted
-parameters, closures, and returns; class definitions with decorators, ordinary
+parameters, lazy parameter and return annotations outside class-visible scopes,
+closures, and returns; class definitions with decorators, ordinary
 and starred bases, class keywords, methods, zero-argument `super()`, and
 enclosing closure reads;
 `if`/`elif`/`else`
@@ -336,7 +337,13 @@ tuple and creating the function. Attribute instructions attach the closure,
 keyword-only map, and positional tuple in reverse stack order while retaining
 the function. Decorator expressions evaluate in source order before defaults.
 Calls apply them in reverse order after function creation and attribute
-attachment. Class definitions evaluate decorators before class construction.
+attachment. Parameter and return annotations compile into a sibling
+`__annotate__` code object with one positional-only `format` argument. Its
+format guard matches CPython 3.14's VALUE and internal fake-globals boundary,
+and the body returns an insertion-ordered map of annotation names to values.
+The annotation callable may capture enclosing cells and attaches with function
+attribute `0x10` before defaults and decorators are consumed. Class definitions
+evaluate decorators before class construction.
 `LOAD_BUILD_CLASS` calls a namespace body function with the class name and
 bases. Ordinary arguments use inline `CALL`; starred bases and keyword maps use
 a seeded positional list, `MAP_MERGE`, and `CALL_EX`. The body initializes
@@ -359,7 +366,8 @@ Constants and referenced names use deterministic indexed tables. Stable code
 dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, annotations, generic and async functions, class docstrings,
+Template strings, annotated assignments, future annotations, class-visible
+annotation scopes, generic and async functions, class docstrings,
 static-attribute metadata, `__classdict__` cells, `async for`, exception
 handling, and suspended execution are not yet compiled.
 Unsupported AST nodes fail with a source-located compiler error.
@@ -441,7 +449,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains seventy-one successful
+The compiler corpus currently contains seventy-four successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object
