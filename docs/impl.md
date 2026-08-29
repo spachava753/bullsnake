@@ -222,7 +222,8 @@ Functions also support parameter and return annotations. Functions, classes,
 and type aliases support generic type parameters; functions and classes support
 decorators. Adjacent plain and formatted strings, nested format specifications,
 debug fields, and template strings are parsed directly from the lexer's string
-tokens.
+tokens. Formatted-string nodes retain raw-prefix mode and the exact debug-field
+spelling needed by bytecode generation.
 
 `internal/compiler/resolver.Resolve` accepts a filename and parsed module. Its
 first walk follows source order, creates the scope tree, records every use and
@@ -335,7 +336,7 @@ pipeline stages exist.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains ninety-four successful AST cases and fifty-one
+The initial corpus contains ninety-six successful AST cases and fifty-one
 failures.
 Successful cases record source and a normalized module dump. Failures record
 the owning compiler phase, exception family, message fragment, completeness,

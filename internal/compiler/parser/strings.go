@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"strings"
+
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
@@ -89,10 +91,13 @@ func (parser *parserState) parseFormattedString(template bool) (compilerast.Expr
 			if err != nil {
 				return nil, err
 			}
+			quote := strings.IndexAny(start.Text, "'\"")
+			raw := quote >= 0 && strings.Contains(strings.ToLower(start.Text[:quote]), "r")
 			return &compilerast.FormattedStringExpr{
 				Range:    joinSpans(start.Span, end.Span),
 				Parts:    parts,
 				Template: template,
+				Raw:      raw,
 			}, nil
 		default:
 			return nil, parser.syntaxError(token, "expected formatted string part")
@@ -110,6 +115,14 @@ func (parser *parserState) parseFormattedValue(open lexer.Token, middleKind lexe
 	_, debug, err := parser.take(lexer.Equal)
 	if err != nil {
 		return nil, err
+	}
+	debugText := ""
+	if debug {
+		next, err := parser.peek(0)
+		if err != nil {
+			return nil, err
+		}
+		debugText = parser.source[open.Span.End.Offset:next.Span.Start.Offset]
 	}
 	conversion := ""
 	if _, matched, err := parser.take(lexer.Exclamation); err != nil {
@@ -143,6 +156,7 @@ func (parser *parserState) parseFormattedValue(open lexer.Token, middleKind lexe
 		Conversion: conversion,
 		Format:     format,
 		Debug:      debug,
+		DebugText:  debugText,
 	}, nil
 }
 

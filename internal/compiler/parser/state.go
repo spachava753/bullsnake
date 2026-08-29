@@ -4,6 +4,7 @@ import "github.com/spachava753/bullsnake/internal/compiler/lexer"
 
 type parserState struct {
 	filename string
+	source   string
 	cursor   tokenCursor
 }
 

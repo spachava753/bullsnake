@@ -498,6 +498,7 @@ type FormattedStringExpr struct {
 	Range    lexer.Span
 	Parts    []Expr
 	Template bool
+	Raw      bool
 }
 
 func (*FormattedStringExpr) node() {}
@@ -513,6 +514,7 @@ type FormattedValueExpr struct {
 	Conversion string
 	Format     []Expr
 	Debug      bool
+	DebugText  string
 }
 
 func (*FormattedValueExpr) node() {}

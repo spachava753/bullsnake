@@ -14,6 +14,7 @@ func Parse(filename, source string) (*compilerast.Module, error) {
 	}
 	state := parserState{
 		filename: filename,
+		source:   source,
 		cursor:   tokenCursor{source: tokenizer},
 	}
 	return state.parseModule()

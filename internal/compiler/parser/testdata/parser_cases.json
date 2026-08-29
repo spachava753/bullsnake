@@ -403,22 +403,32 @@
     {
       "name": "formatted string conversion",
       "source": "f\"hello {name!r}\"",
-      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[StringLiteral(text=\"hello \"), FormattedValueExpr(value=Name(id=\"name\", context=Load), conversion=\"r\", format=[], debug=false)], template=false))])"
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[StringLiteral(text=\"hello \"), FormattedValueExpr(value=Name(id=\"name\", context=Load), conversion=\"r\", format=[], debug=false, debugText=\"\")], template=false, raw=false))])"
     },
     {
       "name": "formatted string nested spec",
       "source": "f\"{value:>{width}}\"",
-      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[FormattedValueExpr(value=Name(id=\"value\", context=Load), conversion=\"\", format=[StringLiteral(text=\">\"), FormattedValueExpr(value=Name(id=\"width\", context=Load), conversion=\"\", format=[], debug=false), StringLiteral(text=\"\")], debug=false)], template=false))])"
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[FormattedValueExpr(value=Name(id=\"value\", context=Load), conversion=\"\", format=[StringLiteral(text=\">\"), FormattedValueExpr(value=Name(id=\"width\", context=Load), conversion=\"\", format=[], debug=false, debugText=\"\"), StringLiteral(text=\"\")], debug=false, debugText=\"\")], template=false, raw=false))])"
     },
     {
       "name": "formatted string debug field",
       "source": "f\"{value=}\"",
-      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[FormattedValueExpr(value=Name(id=\"value\", context=Load), conversion=\"\", format=[], debug=true)], template=false))])"
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[FormattedValueExpr(value=Name(id=\"value\", context=Load), conversion=\"\", format=[], debug=true, debugText=\"value=\")], template=false, raw=false))])"
+    },
+    {
+      "name": "raw formatted string",
+      "source": "rf\"\\n{name}\"",
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[StringLiteral(text=\"\\\\n\"), FormattedValueExpr(value=Name(id=\"name\", context=Load), conversion=\"\", format=[], debug=false, debugText=\"\")], template=false, raw=true))])"
+    },
+    {
+      "name": "formatted string debug spelling",
+      "source": "f\"{ value = !s}\"",
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[FormattedValueExpr(value=Name(id=\"value\", context=Load), conversion=\"s\", format=[], debug=true, debugText=\" value = \")], template=false, raw=false))])"
     },
     {
       "name": "template string",
       "source": "t\"hello {name}\"",
-      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[StringLiteral(text=\"hello \"), FormattedValueExpr(value=Name(id=\"name\", context=Load), conversion=\"\", format=[], debug=false)], template=true))])"
+      "want_ast": "Module(body=[ExprStmt(value=FormattedStringExpr(parts=[StringLiteral(text=\"hello \"), FormattedValueExpr(value=Name(id=\"name\", context=Load), conversion=\"\", format=[], debug=false, debugText=\"\")], template=true, raw=false))])"
     },
     {
       "name": "literal and guarded match cases",
