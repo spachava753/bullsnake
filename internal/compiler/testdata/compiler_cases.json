@@ -228,6 +228,21 @@
       "name": "nested delete targets",
       "source": "del (first, [second, object.other], mapping[index])\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[None], names=[\"first\", \"second\", \"object\", \"other\", \"mapping\", \"index\"], locals=[], cells=[], free=[], instructions=[DELETE_NAME 0, DELETE_NAME 1, LOAD_NAME 2, DELETE_ATTR 3, LOAD_NAME 4, LOAD_NAME 5, DELETE_SUBSCR, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "assert statements",
+      "source": "assert condition\nassert ready, message\nafter = 1\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(1), None], names=[\"condition\", \"ready\", \"message\", \"after\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, POP_JUMP_IF_TRUE 4, LOAD_ASSERTION_ERROR, RAISE_VARARGS 1, LOAD_NAME 1, POP_JUMP_IF_TRUE 10, LOAD_ASSERTION_ERROR, LOAD_NAME 2, CALL 1, RAISE_VARARGS 1, LOAD_CONST 0, STORE_NAME 3, LOAD_CONST 1, RETURN_VALUE])"
+    },
+    {
+      "name": "raise statement variants",
+      "source": "if bare:\n    raise\nelif caused:\n    raise Error(value) from cause\nelse:\n    raise Error()\nunreachable()\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[], names=[\"bare\", \"caused\", \"Error\", \"value\", \"cause\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, POP_JUMP_IF_FALSE 3, RAISE_VARARGS 0, LOAD_NAME 1, POP_JUMP_IF_FALSE 10, LOAD_NAME 2, LOAD_NAME 3, CALL 1, LOAD_NAME 4, RAISE_VARARGS 2, LOAD_NAME 2, CALL 0, RAISE_VARARGS 1])"
+    },
+    {
+      "name": "conditional raise continuation",
+      "source": "if failed:\n    raise error\nafter = 1\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Int(1), None], names=[\"failed\", \"error\", \"after\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, POP_JUMP_IF_FALSE 4, LOAD_NAME 1, RAISE_VARARGS 1, LOAD_CONST 0, STORE_NAME 2, LOAD_CONST 1, RETURN_VALUE])"
     }
   ]
 }

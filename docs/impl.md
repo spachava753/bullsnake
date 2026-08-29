@@ -267,15 +267,14 @@ require every incoming edge to have the same stack depth.
 
 Bytecode version 1 implements the initial file-input module slices: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
-constants, module name loads and stores, simple, chained, destructuring, and
-augmented assignments, recursive deletion targets, expression statements,
-collection displays, unary and binary operations, short-circuit boolean
-expressions, comparisons, conditional
-load-side attributes and subscriptions, slice construction, direct and
-unpacked calls, named assignment expressions, `if`/`elif`/`else` statements,
-`while` loops, and synchronous `for` loops with name, tuple, or list targets,
-including one starred target per sequence. Both loop forms support optional
-`else`, `break`, and `continue`. Modules end with a synthetic `None` return.
+constants; module name loads and stores; simple, chained, destructuring, and
+augmented assignments; recursive deletion targets; expression statements;
+collection displays; unary, binary, boolean, comparison, conditional, named,
+attribute, subscription, slice, and call expressions; assertions; bare and
+explicit raises; `if`/`elif`/`else` statements; `while` loops; and synchronous
+`for` loops with name, tuple, or list targets, including one starred target per
+sequence. Both loop forms support optional `else`, `break`, and `continue`.
+Reachable module fallthrough ends with a synthetic `None` return.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -290,8 +289,8 @@ binary, and in-place operations use the same explicit operand IDs. Augmented
 attribute and subscript assignments retain their evaluated address beneath the
 current value, then rotate the result into the ordinary store order without
 reevaluating the object or index. Boolean operators retain the selected operand
-across short-circuit jumps. Comparison chains evaluate each operand once, retain only
-the next left operand, and clean it up on a false edge. Conditional expressions
+across short-circuit jumps. Comparison chains evaluate each operand once,
+retain only the next left operand, and clean it up on a false edge. Conditional expressions
 merge their two value-producing branches at one checked stack depth. Attribute
 loads share the deterministic name table with ordinary names. Subscriptions
 evaluate the container before the index; slices represent omitted bounds with
@@ -306,9 +305,12 @@ Fixed tuple and list targets unpack once, then recursively consume targets from
 left to right. Starred targets use CPython's packed `UNPACK_EX` counts: the low
 byte records up to 255 targets before the star and the upper 24 bits record the
 targets after it. Delete statements recursively visit grouped targets without
-building or unpacking a runtime collection. Conditional statements use the
-same checked labels as conditional expressions; every true, false, and `elif`
-edge merges with an empty operand stack. The compiler keeps a
+building or unpacking a runtime collection. Assertions evaluate their message
+only on the failing edge, construct `AssertionError`, and terminate that edge
+with the same zero-, one-, or two-argument raise instruction used by `raise`.
+A fully terminating module has no synthetic return. Conditional statements use
+the same checked labels as conditional expressions; every true, false, and
+`elif` edge merges with an empty operand stack. The compiler keeps a
 nearest-loop stack for `break` and `continue`. A `while` condition's normal
 false edge enters `else`, while `break` targets the loop end directly. `for`
 keeps its iterator beneath the body stack; successful iteration pushes one
@@ -321,8 +323,8 @@ dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
 Template strings, `async for`, functions, closures, imports, annotations,
-exceptions, and suspended execution are not yet compiled. Unsupported AST
-nodes fail with a source-located compiler error.
+exception handling, and suspended execution are not yet compiled. Unsupported
+AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
 
@@ -401,7 +403,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains forty-five successful
+The compiler corpus currently contains forty-eight successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

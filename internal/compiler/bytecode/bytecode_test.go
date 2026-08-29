@@ -177,6 +177,23 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if _, ok := PackUnpackEx(0, 1<<24); ok {
 		t.Fatal("PackUnpackEx accepted overflowing trailing targets")
 	}
+	if got := LoadAssertionError.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_ASSERTION_ERROR stack effect = %d, want 1", got)
+	}
+	raise := Instruction{Opcode: RaiseVarargs, Operand: 2}
+	if got := raise.String(); got != "RAISE_VARARGS 2" {
+		t.Fatalf("raise instruction = %q", got)
+	}
+	if got := RaiseVarargs.StackEffect(2); got != -2 {
+		t.Fatalf("RAISE_VARARGS 2 stack effect = %d, want -2", got)
+	}
+	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
+	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
+		t.Fatalf("true jump instruction = %q", got)
+	}
+	if got := PopJumpIfTrue.StackEffect(7); got != -1 {
+		t.Fatalf("POP_JUMP_IF_TRUE stack effect = %d, want -1", got)
+	}
 	jump := Instruction{Opcode: JumpIfFalseOrPop, Operand: 9}
 	if got := jump.String(); got != "JUMP_IF_FALSE_OR_POP 9" {
 		t.Fatalf("jump instruction = %q", got)

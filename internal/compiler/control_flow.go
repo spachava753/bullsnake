@@ -32,7 +32,7 @@ func (compiler *compilerState) emitJump(opcode bytecode.Opcode, label *jumpLabel
 	fallthroughDepth := compiler.stackDepth
 	switch opcode {
 	case bytecode.Jump:
-	case bytecode.PopJumpIfFalse:
+	case bytecode.PopJumpIfFalse, bytecode.PopJumpIfTrue:
 		targetDepth--
 		fallthroughDepth--
 	case bytecode.JumpIfFalseOrPop, bytecode.JumpIfTrueOrPop:

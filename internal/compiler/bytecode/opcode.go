@@ -124,6 +124,9 @@ const (
 	DeleteName
 	DeleteAttr
 	DeleteSubscript
+	PopJumpIfTrue
+	LoadAssertionError
+	RaiseVarargs
 )
 
 var opcodeNames = [...]string{
@@ -173,6 +176,9 @@ var opcodeNames = [...]string{
 	"DELETE_NAME",
 	"DELETE_ATTR",
 	"DELETE_SUBSCR",
+	"POP_JUMP_IF_TRUE",
+	"LOAD_ASSERTION_ERROR",
+	"RAISE_VARARGS",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -188,9 +194,10 @@ func (opcode Opcode) HasOperand() bool {
 	switch opcode {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
-		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
-		LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr, UnpackSequence,
-		UnpackEx, InplaceOp, DeleteName, DeleteAttr:
+		CompareOp, Jump, PopJumpIfFalse, PopJumpIfTrue, JumpIfFalseOrPop,
+		JumpIfTrueOrPop, LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr,
+		UnpackSequence, UnpackEx, InplaceOp, DeleteName, DeleteAttr,
+		RaiseVarargs:
 		return true
 	default:
 		return false
@@ -201,12 +208,12 @@ func (opcode Opcode) HasOperand() bool {
 // Jump edges with different effects are tracked by the compiler's labels.
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
-	case LoadConst, LoadName, Copy, ForIter:
+	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError:
 		return 1
 	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp, InplaceOp,
-		CompareOp, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
-		BinarySubscript, DeleteAttr, ListAppend, ListExtend, SetAdd, SetUpdate,
-		MapUpdate, MapMerge:
+		CompareOp, PopJumpIfFalse, PopJumpIfTrue, JumpIfFalseOrPop,
+		JumpIfTrueOrPop, BinarySubscript, DeleteAttr, ListAppend, ListExtend,
+		SetAdd, SetUpdate, MapUpdate, MapMerge:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript:
 		return -2
@@ -217,6 +224,8 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	case UnpackEx:
 		before, after := UnpackExCounts(operand)
 		return int(before + after)
+	case RaiseVarargs:
+		return -int(operand)
 	case Call:
 		return -int(operand)
 	case CallEx:

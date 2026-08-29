@@ -28,16 +28,18 @@ func Compile(filename string, module *compilerast.Module, table *resolver.Table)
 	if err := state.compileStatements(module.Body); err != nil {
 		return nil, err
 	}
-	position := module.Span().End
-	if position.Line == 0 {
-		position.Line = 1
-	}
-	span := lexer.Span{Start: position, End: position}
-	if err := state.emit(bytecode.LoadConst, state.constantIndex(bytecode.None()), span); err != nil {
-		return nil, err
-	}
-	if err := state.emit(bytecode.ReturnValue, 0, span); err != nil {
-		return nil, err
+	if state.reachable {
+		position := module.Span().End
+		if position.Line == 0 {
+			position.Line = 1
+		}
+		span := lexer.Span{Start: position, End: position}
+		if err := state.emit(bytecode.LoadConst, state.constantIndex(bytecode.None()), span); err != nil {
+			return nil, err
+		}
+		if err := state.emit(bytecode.ReturnValue, 0, span); err != nil {
+			return nil, err
+		}
 	}
 	return state.finish()
 }

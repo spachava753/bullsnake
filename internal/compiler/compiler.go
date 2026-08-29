@@ -46,6 +46,14 @@ func (compiler *compilerState) emit(opcode bytecode.Opcode, operand uint32, span
 	return nil
 }
 
+func (compiler *compilerState) emitTerminator(opcode bytecode.Opcode, operand uint32, span lexer.Span) error {
+	if err := compiler.emit(opcode, operand, span); err != nil {
+		return err
+	}
+	compiler.reachable = false
+	return nil
+}
+
 func (compiler *compilerState) appendInstruction(opcode bytecode.Opcode, operand uint32, span lexer.Span) int {
 	index := len(compiler.instructions)
 	compiler.instructions = append(compiler.instructions, bytecode.Instruction{
@@ -84,10 +92,7 @@ func (compiler *compilerState) finish() (*bytecode.Code, error) {
 			return nil, compiler.error(compiler.module.Span(), "unresolved jump label")
 		}
 	}
-	if !compiler.reachable {
-		return nil, compiler.error(compiler.module.Span(), "module ends on an unreachable path")
-	}
-	if compiler.stackDepth != 0 {
+	if compiler.reachable && compiler.stackDepth != 0 {
 		return nil, compiler.error(
 			compiler.module.Span(),
 			"module leaves %d values on the operand stack",

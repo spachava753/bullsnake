@@ -47,6 +47,10 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return compiler.compileAugmentedAssignment(statement)
 	case *compilerast.DeleteStmt:
 		return compiler.compileDeleteStatement(statement)
+	case *compilerast.RaiseStmt:
+		return compiler.compileRaiseStatement(statement)
+	case *compilerast.AssertStmt:
+		return compiler.compileAssertStatement(statement)
 	case *compilerast.IfStmt:
 		return compiler.compileIfStatement(statement)
 	case *compilerast.WhileStmt:
