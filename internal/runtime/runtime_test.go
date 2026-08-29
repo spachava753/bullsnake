@@ -623,6 +623,37 @@ func TestTupleAndListSlicing(t *testing.T) {
 	}
 }
 
+func TestStarredTupleAndListDisplays(t *testing.T) {
+	code := compileSource(t, "source = [1, 2]\n"+
+		"list_value = [0, *source, 3, *(4, 5)]\n"+
+		"tuple_value = (0, *source, 3, *[4, 5])\n"+
+		"nested = [*[(1, 2)], *[[3, 4]]]\n"+
+		"empty_list = [*()]\n"+
+		"empty_tuple = (*[],)\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("starred displays", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"source":      "[1, 2]",
+		"list_value":  "[0, 1, 2, 3, 4, 5]",
+		"tuple_value": "(0, 1, 2, 3, 4, 5)",
+		"nested":      "[(1, 2), [3, 4]]",
+		"empty_list":  "[]",
+		"empty_tuple": "()",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -719,6 +750,12 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "non-iterable starred display",
+			source:      "answer = [*1]\n",
+			wantType:    "TypeError",
+			wantMessage: "Value after * must be an iterable, not int",
 		},
 		{
 			name:        "zero slice step",
@@ -843,6 +880,48 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "list append underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildList},
+					{Opcode: bytecode.ListAppend},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "list extend underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildList},
+					{Opcode: bytecode.ListExtend},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "list to tuple underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.ListToTuple},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
 		{
 			name: "invalid build slice operand",
 			code: testCode(

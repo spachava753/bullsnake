@@ -127,6 +127,72 @@ func executeUnpackSequence(
 	return instructionOutcome{kind: advance}, nil
 }
 
+func executeListAppend(frame *frame, instruction int) (instructionOutcome, error) {
+	value, ok := frame.pop()
+	if !ok || len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	list, ok := frame.stack[len(frame.stack)-1].(*listValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"LIST_APPEND accumulator is not a list",
+		)
+	}
+	list.elements = append(list.elements, value)
+	return instructionOutcome{kind: advance}, nil
+}
+
+// executeListExtend keeps the accumulator on the stack and appends elements
+// from the tuple/list iterable above it in source order.
+func executeListExtend(frame *frame, instruction int) (instructionOutcome, error) {
+	iterable, ok := frame.pop()
+	if !ok || len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	list, ok := frame.stack[len(frame.stack)-1].(*listValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"LIST_EXTEND accumulator is not a list",
+		)
+	}
+	var elements []Value
+	switch iterable := iterable.(type) {
+	case *tupleValue:
+		elements = iterable.elements
+	case *listValue:
+		elements = iterable.elements
+	default:
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"Value after * must be an iterable, not "+iterable.TypeName(),
+			),
+		}, nil
+	}
+	list.elements = append(list.elements, elements...)
+	return instructionOutcome{kind: advance}, nil
+}
+
+func executeListToTuple(frame *frame, instruction int) (instructionOutcome, error) {
+	value, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	list, ok := value.(*listValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"LIST_TO_TUPLE value is not a list",
+		)
+	}
+	elements := make([]Value, len(list.elements))
+	copy(elements, list.elements)
+	return pushOutcome(frame, instruction, &tupleValue{elements: elements})
+}
+
 // executeBinarySubscript implements integer indexing for the fixed sequence
 // types while retaining Python's conversion, normalization, and error order.
 func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, error) {

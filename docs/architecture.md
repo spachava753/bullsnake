@@ -439,9 +439,10 @@ visible to Go's collector. Module bindings use a temporary string-keyed
 namespace rather than pretending that a Go map already implements Python
 dictionary semantics. The current object operations cover fixed scalar truth,
 numeric unary operators, selected arbitrary-precision integer binary operators,
-scalar equality and ordering, object identity, fixed sequence construction and
-unpacking, tuple/list iteration, and integer and slice tuple/list subscription.
-Later user-defined protocols must reuse these VM outcome and exception paths.
+scalar equality and ordering, object identity, fixed and starred tuple/list
+construction, unpacking, tuple/list iteration, and integer and slice tuple/list
+subscription. Later user-defined protocols must reuse these VM outcome and
+exception paths.
 
 The object model can become the largest compatibility component, so it should
 remain feature-driven. It should be designed before a large instruction set

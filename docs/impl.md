@@ -396,11 +396,12 @@ Preparation copies the instruction and name tables, materializes code constants
 as runtime values, and validates the complete code object before execution.
 Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
 `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`, `BUILD_SLICE`,
-`UNPACK_SEQUENCE`, `GET_ITER`, `FOR_ITER`, and integer or slice
-`BINARY_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP`; scalar
-`COMPARE_OP` variants; absolute `JUMP`; both pop-and-test jumps; both
-short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks constant and name
-indexes, operation operands, jump targets, stack underflow, the declared maximum
+`LIST_APPEND`, `LIST_EXTEND`, `LIST_TO_TUPLE`, `UNPACK_SEQUENCE`, `GET_ITER`,
+`FOR_ITER`, and integer or slice `BINARY_SUBSCR`; scalar `UNARY_OP`; selected
+integer `BINARY_OP`; scalar `COMPARE_OP` variants; absolute `JUMP`;
+both pop-and-test jumps; both short-circuit-or-pop jumps; and `RETURN_VALUE`.
+It checks constant and name indexes, operation operands, jump targets, stack
+underflow, the declared maximum
 stack size, return stack balance, and reachable termination. Any unsupported
 constant, instruction, or operand fails with a source-located `BytecodeError`
 before a module can observe side effects.
@@ -448,9 +449,10 @@ lists. Integer and boolean subscription returns the existing tuple or list
 element, normalizes negative indexes, and reports index-sized overflow before
 bounds failures. Slice subscription clips arbitrary-size integer or boolean
 bounds, supports positive and negative steps, reuses a tuple for a complete
-unit-step slice, and always allocates a list result. Starred construction and
-unpacking, mutation, string and bytes subscription, and cyclic representations
-are not implemented.
+unit-step slice, and always allocates a list result. Starred tuple and list
+displays append ordinary values and extend from current tuple/list iterables in
+source order. Starred assignment unpacking, mutation, string and bytes
+subscription, and cyclic representations are not implemented.
 
 Scalar truth testing follows Python for the current fixed types: `None`, false
 booleans, numeric zero, and empty strings or bytes are false; other scalar
@@ -561,10 +563,11 @@ copying, opcode formatting, literal decoding, formatted-string errors, and
 compiler input errors.
 
 Runtime tests compile source through the complete front end before executing
-it. The initial cases cover module globals, discarded expressions, scalar and
-fixed-sequence values, integer and slice tuple/list subscription, nested
-destructuring assignment, singleton identity, scalar and sequence truth
-testing, numeric unary operations, selected arbitrary-precision integer binary
+it. The initial cases cover module globals, discarded expressions, scalar
+values, fixed and starred tuple/list displays, and integer and slice tuple/list
+subscription. Cases also cover nested destructuring assignment,
+singleton identity, scalar and sequence truth testing,
+numeric unary operations, selected arbitrary-precision integer binary
 operations, boolean short-circuiting, conditional expressions and statements,
 chained scalar comparisons, `while` loops, and tuple/list `for` loops. Loop
 cases cover normal exhaustion, `else`, `break`, `continue`, empty inputs,

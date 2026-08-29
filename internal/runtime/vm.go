@@ -153,6 +153,12 @@ func executeInstruction(
 		return executeBuildSequence(frame, index, int(instruction.Operand), true)
 	case bytecode.BuildList:
 		return executeBuildSequence(frame, index, int(instruction.Operand), false)
+	case bytecode.ListAppend:
+		return executeListAppend(frame, index)
+	case bytecode.ListExtend:
+		return executeListExtend(frame, index)
+	case bytecode.ListToTuple:
+		return executeListToTuple(frame, index)
 	case bytecode.BuildSlice:
 		return executeBuildSlice(frame, index, int(instruction.Operand))
 	case bytecode.GetIter:
