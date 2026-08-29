@@ -260,6 +260,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			)
 		}
 		return nil
+	case bytecode.UnpackSequence:
+		if uint64(instruction.Operand) > uint64(code.stackSize) {
+			return code.failure(
+				index,
+				"unpack count %d exceeds stack size",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.UnaryOp:
 		if instruction.Operand > bytecode.UnaryNot {
 			return code.failure(
@@ -326,6 +335,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 2, 1
 	case bytecode.BuildTuple, bytecode.BuildList:
 		return int(instruction.Operand), 1
+	case bytecode.UnpackSequence:
+		return 1, int(instruction.Operand)
 	default:
 		return 0, 0
 	}

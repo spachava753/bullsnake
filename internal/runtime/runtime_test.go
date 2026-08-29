@@ -440,7 +440,7 @@ func TestComparisons(t *testing.T) {
 	}
 }
 
-func TestSequenceDisplays(t *testing.T) {
+func TestCollectionDisplays(t *testing.T) {
 	code := compileSource(t, "empty_tuple = ()\n"+
 		"tuple_value = (1, True, 'text')\n"+
 		"single_tuple = (1,)\n"+
@@ -463,6 +463,35 @@ func TestSequenceDisplays(t *testing.T) {
 		"tuple_is_false": "True",
 		"list_is_false":  "True",
 		"list_is_true":   "False",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
+func TestDestructuringAssignment(t *testing.T) {
+	code := compileSource(t, "first, second = (1, 2)\n"+
+		"[third, fourth] = [3, 4]\n"+
+		"left, (middle, right) = [5, (6, 7)]\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("sequence unpacking", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"first":  "1",
+		"second": "2",
+		"third":  "3",
+		"fourth": "4",
+		"left":   "5",
+		"middle": "6",
+		"right":  "7",
 	}
 	for name, expected := range want {
 		value, ok := module.Get(name)
@@ -542,6 +571,24 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "not enough values to unpack",
+			source:      "first, second = (1,)\n",
+			wantType:    "ValueError",
+			wantMessage: "not enough values to unpack (expected 2, got 1)",
+		},
+		{
+			name:        "too many values to unpack",
+			source:      "first, second = (1, 2, 3)\n",
+			wantType:    "ValueError",
+			wantMessage: "too many values to unpack (expected 2)",
+		},
+		{
+			name:        "non-iterable unpack",
+			source:      "first, second = 1\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot unpack non-iterable int object",
 		},
 		{
 			name:        "unsupported ordering",
