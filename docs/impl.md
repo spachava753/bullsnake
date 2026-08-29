@@ -269,8 +269,9 @@ Bytecode version 1 implements the initial file-input module slices: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
 constants, module name loads and stores, simple and chained assignments,
 expression statements, collection displays, unary and binary operations,
-short-circuit boolean expressions, comparisons, conditional expressions, and
-the synthetic `None` return at module completion.
+short-circuit boolean expressions, comparisons, conditional expressions,
+load-side attributes and subscriptions, slice construction, and the synthetic
+`None` return at module completion.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -285,12 +286,15 @@ binary expressions use explicit operand IDs shared with future augmented
 assignment emission. Boolean operators retain the selected operand across
 short-circuit jumps. Comparison chains evaluate each operand once, retain only
 the next left operand, and clean it up on a false edge. Conditional expressions
-merge their two value-producing branches at one checked stack depth. Constants
-and referenced names use deterministic indexed tables. Stable code dumps
-support compiler tests and future diagnostics.
+merge their two value-producing branches at one checked stack depth. Attribute
+loads share the deterministic name table with ordinary names. Subscriptions
+evaluate the container before the index; slices represent omitted bounds with
+`None` and use one build instruction for two or three components. Constants and
+referenced names use deterministic indexed tables. Stable code dumps support
+compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, attributes, subscripts, calls, statement control flow,
+Template strings, calls, attribute and subscript stores, statement control flow,
 functions, closures, imports, annotations, exceptions, and suspended execution
 are not yet compiled. Unsupported AST nodes fail with a source-located compiler
 error.
@@ -372,7 +376,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains twenty-one successful
+The compiler corpus currently contains twenty-four successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

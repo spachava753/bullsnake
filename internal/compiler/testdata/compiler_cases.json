@@ -108,6 +108,21 @@
       "name": "chained comparison and conditional expressions",
       "source": "chain = 1 < 2 <= 3 != 4\nselected = 'yes' if condition else 'no'\nnested = 10 if first else 20 if second else 30\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(1), Int(2), Int(3), Int(4), String(\"yes\"), String(\"no\"), Int(10), Int(20), Int(30), None], names=[\"chain\", \"condition\", \"selected\", \"first\", \"second\", \"nested\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, LOAD_CONST 1, SWAP 2, COPY 2, COMPARE_OP 2, JUMP_IF_FALSE_OR_POP 14, LOAD_CONST 2, SWAP 2, COPY 2, COMPARE_OP 3, JUMP_IF_FALSE_OR_POP 14, LOAD_CONST 3, COMPARE_OP 1, JUMP 16, SWAP 2, POP_TOP, STORE_NAME 0, LOAD_NAME 1, POP_JUMP_IF_FALSE 21, LOAD_CONST 4, JUMP 22, LOAD_CONST 5, STORE_NAME 2, LOAD_NAME 3, POP_JUMP_IF_FALSE 27, LOAD_CONST 6, JUMP 32, LOAD_NAME 4, POP_JUMP_IF_FALSE 31, LOAD_CONST 7, JUMP 32, LOAD_CONST 8, STORE_NAME 5, LOAD_CONST 9, RETURN_VALUE])"
+    },
+    {
+      "name": "attribute and subscript loads",
+      "source": "attribute = root.child\nnested = root.items[0].name\nindexed = values[position]\ntuple_index = matrix[1, 2]\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(0), Int(1), Int(2), None], names=[\"root\", \"child\", \"attribute\", \"items\", \"name\", \"nested\", \"values\", \"position\", \"indexed\", \"matrix\", \"tuple_index\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, LOAD_ATTR 1, STORE_NAME 2, LOAD_NAME 0, LOAD_ATTR 3, LOAD_CONST 0, BINARY_SUBSCR, LOAD_ATTR 4, STORE_NAME 5, LOAD_NAME 6, LOAD_NAME 7, BINARY_SUBSCR, STORE_NAME 8, LOAD_NAME 9, LOAD_CONST 1, LOAD_CONST 2, BUILD_TUPLE 2, BINARY_SUBSCR, STORE_NAME 10, LOAD_CONST 3, RETURN_VALUE])"
+    },
+    {
+      "name": "slice loads",
+      "source": "bounded = values[1:4]\nopen_start = values[:4]\nopen_stop = values[1:]\nstepped = values[1:4:2]\nstride = values[::2]\nreversed_values = values[::-1]\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[Int(1), Int(4), None, Int(2)], names=[\"values\", \"bounded\", \"open_start\", \"open_stop\", \"stepped\", \"stride\", \"reversed_values\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, LOAD_CONST 0, LOAD_CONST 1, BUILD_SLICE 2, BINARY_SUBSCR, STORE_NAME 1, LOAD_NAME 0, LOAD_CONST 2, LOAD_CONST 1, BUILD_SLICE 2, BINARY_SUBSCR, STORE_NAME 2, LOAD_NAME 0, LOAD_CONST 0, LOAD_CONST 2, BUILD_SLICE 2, BINARY_SUBSCR, STORE_NAME 3, LOAD_NAME 0, LOAD_CONST 0, LOAD_CONST 1, LOAD_CONST 3, BUILD_SLICE 3, BINARY_SUBSCR, STORE_NAME 4, LOAD_NAME 0, LOAD_CONST 2, LOAD_CONST 2, LOAD_CONST 3, BUILD_SLICE 3, BINARY_SUBSCR, STORE_NAME 5, LOAD_NAME 0, LOAD_CONST 2, LOAD_CONST 2, LOAD_CONST 0, UNARY_OP 1, BUILD_SLICE 3, BINARY_SUBSCR, STORE_NAME 6, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
+      "name": "multidimensional subscript loads",
+      "source": "row = matrix[1:4, column]\nblock = matrix[:, 1:3]\nellipsis_item = tensor[..., None]\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[Int(1), Int(4), None, Int(3), Ellipsis], names=[\"matrix\", \"column\", \"row\", \"block\", \"tensor\", \"ellipsis_item\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, LOAD_CONST 0, LOAD_CONST 1, BUILD_SLICE 2, LOAD_NAME 1, BUILD_TUPLE 2, BINARY_SUBSCR, STORE_NAME 2, LOAD_NAME 0, LOAD_CONST 2, LOAD_CONST 2, BUILD_SLICE 2, LOAD_CONST 0, LOAD_CONST 3, BUILD_SLICE 2, BUILD_TUPLE 2, BINARY_SUBSCR, STORE_NAME 3, LOAD_NAME 4, LOAD_CONST 4, LOAD_CONST 2, BUILD_TUPLE 2, BINARY_SUBSCR, STORE_NAME 5, LOAD_CONST 2, RETURN_VALUE])"
     }
   ]
 }

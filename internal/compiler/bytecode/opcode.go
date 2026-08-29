@@ -87,6 +87,9 @@ const (
 	PopJumpIfFalse
 	JumpIfFalseOrPop
 	JumpIfTrueOrPop
+	LoadAttr
+	BinarySubscript
+	BuildSlice
 )
 
 var opcodeNames = [...]string{
@@ -120,6 +123,9 @@ var opcodeNames = [...]string{
 	"POP_JUMP_IF_FALSE",
 	"JUMP_IF_FALSE_OR_POP",
 	"JUMP_IF_TRUE_OR_POP",
+	"LOAD_ATTR",
+	"BINARY_SUBSCR",
+	"BUILD_SLICE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -135,7 +141,8 @@ func (opcode Opcode) HasOperand() bool {
 	switch opcode {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
-		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop:
+		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
+		LoadAttr, BuildSlice:
 		return true
 	default:
 		return false
@@ -149,12 +156,12 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	case LoadConst, LoadName, Copy:
 		return 1
 	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp, CompareOp,
-		PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
+		PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate:
 		return -1
 	case MapSet:
 		return -2
-	case BuildString, BuildTuple, BuildList, BuildSet:
+	case BuildString, BuildTuple, BuildList, BuildSet, BuildSlice:
 		return 1 - int(operand)
 	case BuildMap:
 		return 1 - 2*int(operand)

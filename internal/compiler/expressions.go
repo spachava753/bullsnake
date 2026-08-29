@@ -88,6 +88,12 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		return compiler.compileComparison(expression)
 	case *compilerast.ConditionalExpr:
 		return compiler.compileConditional(expression)
+	case *compilerast.AttributeExpr:
+		return compiler.compileAttribute(expression)
+	case *compilerast.SubscriptExpr:
+		return compiler.compileSubscript(expression)
+	case *compilerast.SliceExpr:
+		return compiler.compileSlice(expression)
 	case *compilerast.NoneLiteral:
 		return compiler.emit(
 			bytecode.LoadConst,

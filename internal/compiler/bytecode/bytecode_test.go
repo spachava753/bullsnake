@@ -90,6 +90,16 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := BinaryOp.StackEffect(BinaryPower); got != -1 {
 		t.Fatalf("BINARY_OP stack effect = %d, want -1", got)
 	}
+	attribute := Instruction{Opcode: LoadAttr, Operand: 4}
+	if got := attribute.String(); got != "LOAD_ATTR 4" {
+		t.Fatalf("attribute instruction = %q", got)
+	}
+	if got := BinarySubscript.StackEffect(0); got != -1 {
+		t.Fatalf("BINARY_SUBSCR stack effect = %d, want -1", got)
+	}
+	if got := BuildSlice.StackEffect(3); got != -2 {
+		t.Fatalf("BUILD_SLICE 3 stack effect = %d, want -2", got)
+	}
 	jump := Instruction{Opcode: JumpIfFalseOrPop, Operand: 9}
 	if got := jump.String(); got != "JUMP_IF_FALSE_OR_POP 9" {
 		t.Fatalf("jump instruction = %q", got)
