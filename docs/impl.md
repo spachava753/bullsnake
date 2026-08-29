@@ -272,8 +272,9 @@ expression statements, collection displays, unary and binary operations,
 short-circuit boolean expressions, comparisons, conditional expressions,
 load-side attributes and subscriptions, slice construction, direct and
 unpacked calls, named assignment expressions, `if`/`elif`/`else` statements,
-`while` loops with optional `else`, `break`, and `continue`, and the synthetic
-`None` return at module completion.
+`while` loops, and synchronous `for` loops with name targets. Both loop forms
+support optional `else`, `break`, and `continue`. Modules end with a synthetic
+`None` return.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -300,15 +301,19 @@ target, so the same value remains as the expression result. Conditional
 statements use the same checked labels as conditional expressions; every true,
 false, and `elif` edge merges with an empty operand stack. The compiler keeps a
 nearest-loop stack for `break` and `continue`. A `while` condition's normal
-false edge enters `else`, while `break` targets the loop end directly. A suite
-stops emitting after an unconditional jump, and a join with no reachable input
-remains unreachable. Constants and referenced names use deterministic indexed
-tables. Stable code dumps support compiler tests and future diagnostics.
+false edge enters `else`, while `break` targets the loop end directly. `for`
+keeps its iterator beneath the body stack; successful iteration pushes one
+item, normal exhaustion removes the iterator and enters `else`, and `break`
+pops to the loop's recorded base depth before skipping `else`. This depth rule
+preserves outer iterators in nested loops. A suite stops emitting after an
+unconditional jump, and a join with no reachable input remains unreachable.
+Constants and referenced names use deterministic indexed tables. Stable code
+dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, attribute and subscript stores, `for` loops, functions,
-closures, imports, annotations, exceptions, and suspended execution are not yet
-compiled. Unsupported AST nodes fail with a
+Template strings, attribute and subscript stores, destructuring loop targets,
+`async for`, functions, closures, imports, annotations, exceptions, and
+suspended execution are not yet compiled. Unsupported AST nodes fail with a
 source-located compiler error.
 
 ## Virtual machine and frames
@@ -388,7 +393,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains thirty-two successful
+The compiler corpus currently contains thirty-five successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

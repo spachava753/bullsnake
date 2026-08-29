@@ -47,11 +47,21 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return compiler.compileIfStatement(statement)
 	case *compilerast.WhileStmt:
 		return compiler.compileWhileStatement(statement)
+	case *compilerast.ForStmt:
+		return compiler.compileForStatement(statement)
 	case *compilerast.BreakStmt:
 		if len(compiler.loops) == 0 {
 			return compiler.error(statement.Span(), "break has no enclosing loop")
 		}
 		loop := compiler.loops[len(compiler.loops)-1]
+		if compiler.stackDepth < loop.breakDepth {
+			return compiler.error(statement.Span(), "break is below its loop stack depth")
+		}
+		for compiler.stackDepth > loop.breakDepth {
+			if err := compiler.emit(bytecode.PopTop, 0, statement.Span()); err != nil {
+				return err
+			}
+		}
 		return compiler.emitJump(bytecode.Jump, loop.breakLabel, statement.Span())
 	case *compilerast.ContinueStmt:
 		if len(compiler.loops) == 0 {

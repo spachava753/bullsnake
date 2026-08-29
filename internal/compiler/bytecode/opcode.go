@@ -99,6 +99,8 @@ const (
 	MapMerge
 	Call
 	CallEx
+	GetIter
+	ForIter
 )
 
 var opcodeNames = [...]string{
@@ -138,6 +140,8 @@ var opcodeNames = [...]string{
 	"MAP_MERGE",
 	"CALL",
 	"CALL_EX",
+	"GET_ITER",
+	"FOR_ITER",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -154,7 +158,7 @@ func (opcode Opcode) HasOperand() bool {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
 		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
-		LoadAttr, BuildSlice, Call, CallEx:
+		LoadAttr, BuildSlice, Call, CallEx, ForIter:
 		return true
 	default:
 		return false
@@ -165,7 +169,7 @@ func (opcode Opcode) HasOperand() bool {
 // Jump edges with different effects are tracked by the compiler's labels.
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
-	case LoadConst, LoadName, Copy:
+	case LoadConst, LoadName, Copy, ForIter:
 		return 1
 	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp, CompareOp,
 		PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript,

@@ -113,6 +113,16 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := MapMerge.StackEffect(0); got != -1 {
 		t.Fatalf("MAP_MERGE stack effect = %d, want -1", got)
 	}
+	iterator := Instruction{Opcode: ForIter, Operand: 12}
+	if got := iterator.String(); got != "FOR_ITER 12" {
+		t.Fatalf("iterator instruction = %q", got)
+	}
+	if got := ForIter.StackEffect(12); got != 1 {
+		t.Fatalf("FOR_ITER fallthrough stack effect = %d, want 1", got)
+	}
+	if got := GetIter.StackEffect(0); got != 0 {
+		t.Fatalf("GET_ITER stack effect = %d, want 0", got)
+	}
 	jump := Instruction{Opcode: JumpIfFalseOrPop, Operand: 9}
 	if got := jump.String(); got != "JUMP_IF_FALSE_OR_POP 9" {
 		t.Fatalf("jump instruction = %q", got)

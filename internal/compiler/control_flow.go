@@ -37,6 +37,9 @@ func (compiler *compilerState) emitJump(opcode bytecode.Opcode, label *jumpLabel
 		fallthroughDepth--
 	case bytecode.JumpIfFalseOrPop, bytecode.JumpIfTrueOrPop:
 		fallthroughDepth--
+	case bytecode.ForIter:
+		targetDepth--
+		fallthroughDepth++
 	default:
 		return compiler.error(span, "instruction %s is not a supported jump", opcode)
 	}
@@ -57,6 +60,9 @@ func (compiler *compilerState) emitJump(opcode bytecode.Opcode, label *jumpLabel
 		return nil
 	}
 	compiler.stackDepth = fallthroughDepth
+	if compiler.stackDepth > compiler.maxStack {
+		compiler.maxStack = compiler.stackDepth
+	}
 	return nil
 }
 
