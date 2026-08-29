@@ -1,0 +1,129 @@
+package compiler
+
+import (
+	"strconv"
+
+	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+	"github.com/spachava753/bullsnake/internal/compiler/lexer"
+	"github.com/spachava753/bullsnake/internal/compiler/resolver"
+)
+
+// compileClassDefinition evaluates decorators first, creates a namespace body
+// function, calls the class builder with ordinary bases, and binds the result.
+func (compiler *compilerState) compileClassDefinition(statement *compilerast.ClassDefStmt) error {
+	if len(statement.TypeParameters) != 0 {
+		return compiler.error(statement.Span(), "generic classes are not compiled")
+	}
+	if len(statement.Keywords) != 0 {
+		return compiler.error(statement.Span(), "class keywords are not compiled")
+	}
+	for _, base := range statement.Bases {
+		if _, starred := base.(*compilerast.StarredExpr); starred {
+			return compiler.error(base.Span(), "starred class bases are not compiled")
+		}
+	}
+	scope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
+	if scope == nil || scope.Kind != resolver.ClassScope {
+		return compiler.error(statement.Span(), "resolver has no class scope for %q", statement.Name)
+	}
+	if scope.Flags&resolver.NeedsClassClosure != 0 {
+		return compiler.error(statement.Span(), "class closure is not compiled")
+	}
+	if scope.Flags&resolver.NeedsClassDict != 0 {
+		return compiler.error(statement.Span(), "class dictionary closure is not compiled")
+	}
+	for _, decorator := range statement.Decorators {
+		if err := compiler.compileExpr(decorator); err != nil {
+			return err
+		}
+	}
+
+	child := &compilerState{
+		filename:      compiler.filename,
+		module:        compiler.module,
+		owner:         statement,
+		table:         compiler.table,
+		scope:         scope,
+		codeName:      statement.Name,
+		qualifiedName: compiler.childQualifiedName(statement.Name),
+		firstLine:     statement.Span().Start.Line,
+		localIDs:      make(map[string]uint32),
+		derefIDs:      make(map[string]uint32),
+		constantIDs:   make(map[bytecode.Constant]uint32),
+		nameIDs:       make(map[string]uint32),
+		reachable:     true,
+	}
+	child.initializeDerefLayout(scope)
+	if err := child.emitClassNamespace(statement.Span()); err != nil {
+		return err
+	}
+	if err := child.compileStatements(statement.Body); err != nil {
+		return err
+	}
+	if err := child.emitImplicitReturn(statement.Span()); err != nil {
+		return err
+	}
+	code, err := child.finish()
+	if err != nil {
+		return err
+	}
+
+	if err := compiler.emit(bytecode.LoadBuildClass, 0, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emitFunction(code, false, false, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.TextString(statement.Name)),
+		statement.Span(),
+	); err != nil {
+		return err
+	}
+	for _, base := range statement.Bases {
+		if err := compiler.compileExpr(base); err != nil {
+			return err
+		}
+	}
+	if err := compiler.emit(bytecode.Call, uint32(2+len(statement.Bases)), statement.Span()); err != nil {
+		return err
+	}
+	for index := len(statement.Decorators) - 1; index >= 0; index-- {
+		decorator := statement.Decorators[index]
+		if err := compiler.emit(bytecode.Call, 1, decorator.Span()); err != nil {
+			return err
+		}
+	}
+	return compiler.emitNameStore(statement.Name, statement.Span())
+}
+
+// emitClassNamespace initializes the metadata entries that Python expects in a
+// fresh class namespace before compiling user statements.
+func (compiler *compilerState) emitClassNamespace(span lexer.Span) error {
+	if err := compiler.emit(bytecode.LoadName, compiler.nameIndex("__name__"), span); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.StoreName, compiler.nameIndex("__module__"), span); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.TextString(compiler.qualifiedName)),
+		span,
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.StoreName, compiler.nameIndex("__qualname__"), span); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.Integer(strconv.Itoa(compiler.firstLine))),
+		span,
+	); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.StoreName, compiler.nameIndex("__firstlineno__"), span)
+}

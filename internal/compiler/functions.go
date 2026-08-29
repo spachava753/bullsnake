@@ -89,10 +89,7 @@ func (compiler *compilerState) newFunctionCompiler(
 	parameters compilerast.Parameters,
 	codeName string,
 ) *compilerState {
-	qualifiedName := codeName
-	if compiler.codeName != "<module>" {
-		qualifiedName = compiler.qualifiedName + ".<locals>." + codeName
-	}
+	qualifiedName := compiler.childQualifiedName(codeName)
 	flags := bytecode.Optimized | bytecode.NewLocals
 	if scope.Flags&resolver.VarArgs != 0 {
 		flags |= bytecode.VarArgs
@@ -124,6 +121,16 @@ func (compiler *compilerState) newFunctionCompiler(
 	}
 	child.initializeScopeLayout(scope)
 	return child
+}
+
+func (compiler *compilerState) childQualifiedName(codeName string) string {
+	if compiler.codeName == "<module>" {
+		return codeName
+	}
+	if compiler.scope.Kind == resolver.ClassScope {
+		return compiler.qualifiedName + "." + codeName
+	}
+	return compiler.qualifiedName + ".<locals>." + codeName
 }
 
 // emitFunction captures a child's free cells, creates the function, and
@@ -275,6 +282,12 @@ func (compiler *compilerState) initializeScopeLayout(scope *resolver.Scope) {
 			compiler.addLocal(name)
 		}
 	}
+	compiler.initializeDerefLayout(scope)
+}
+
+// initializeDerefLayout assigns cells before free variables so every closure
+// operation shares one deterministic resolver-ordered index space.
+func (compiler *compilerState) initializeDerefLayout(scope *resolver.Scope) {
 	for _, name := range scope.SymbolOrder {
 		if symbol := scope.Symbols[name]; symbol != nil && symbol.Resolution == resolver.Cell {
 			compiler.addCell(name)

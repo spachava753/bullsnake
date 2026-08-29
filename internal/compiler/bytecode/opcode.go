@@ -151,6 +151,7 @@ const (
 	ImportName
 	ImportFrom
 	ImportStar
+	LoadBuildClass
 )
 
 var opcodeNames = [...]string{
@@ -218,6 +219,7 @@ var opcodeNames = [...]string{
 	"IMPORT_NAME",
 	"IMPORT_FROM",
 	"IMPORT_STAR",
+	"LOAD_BUILD_CLASS",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -250,7 +252,8 @@ func (opcode Opcode) HasOperand() bool {
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError, LoadFast,
-		LoadGlobal, MakeFunction, LoadDeref, LoadClosure, ImportFrom:
+		LoadGlobal, MakeFunction, LoadDeref, LoadClosure, ImportFrom,
+		LoadBuildClass:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,

@@ -15,8 +15,22 @@ func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error 
 	if err != nil {
 		return err
 	}
-	if compiler.scope.Kind != resolver.FunctionScope {
+	switch compiler.scope.Kind {
+	case resolver.ModuleScope:
 		return compiler.emit(bytecode.LoadName, compiler.nameIndex(name), span)
+	case resolver.ClassScope:
+		switch symbol.Resolution {
+		case resolver.Cell, resolver.Free:
+			index, indexErr := compiler.derefIndex(name)
+			if indexErr != nil {
+				return compiler.error(span, "%v", indexErr)
+			}
+			return compiler.emit(bytecode.LoadDeref, index, span)
+		case resolver.GlobalExplicit:
+			return compiler.emit(bytecode.LoadGlobal, compiler.nameIndex(name), span)
+		default:
+			return compiler.emit(bytecode.LoadName, compiler.nameIndex(name), span)
+		}
 	}
 	switch symbol.Resolution {
 	case resolver.Local:
@@ -45,8 +59,22 @@ func (compiler *compilerState) emitNameStore(name string, span lexer.Span) error
 	if err != nil {
 		return err
 	}
-	if compiler.scope.Kind != resolver.FunctionScope {
+	switch compiler.scope.Kind {
+	case resolver.ModuleScope:
 		return compiler.emit(bytecode.StoreName, compiler.nameIndex(name), span)
+	case resolver.ClassScope:
+		switch symbol.Resolution {
+		case resolver.Cell, resolver.Free:
+			index, indexErr := compiler.derefIndex(name)
+			if indexErr != nil {
+				return compiler.error(span, "%v", indexErr)
+			}
+			return compiler.emit(bytecode.StoreDeref, index, span)
+		case resolver.GlobalExplicit:
+			return compiler.emit(bytecode.StoreGlobal, compiler.nameIndex(name), span)
+		default:
+			return compiler.emit(bytecode.StoreName, compiler.nameIndex(name), span)
+		}
 	}
 	switch symbol.Resolution {
 	case resolver.Local:
@@ -75,8 +103,22 @@ func (compiler *compilerState) emitNameDelete(name string, span lexer.Span) erro
 	if err != nil {
 		return err
 	}
-	if compiler.scope.Kind != resolver.FunctionScope {
+	switch compiler.scope.Kind {
+	case resolver.ModuleScope:
 		return compiler.emit(bytecode.DeleteName, compiler.nameIndex(name), span)
+	case resolver.ClassScope:
+		switch symbol.Resolution {
+		case resolver.Cell, resolver.Free:
+			index, indexErr := compiler.derefIndex(name)
+			if indexErr != nil {
+				return compiler.error(span, "%v", indexErr)
+			}
+			return compiler.emit(bytecode.DeleteDeref, index, span)
+		case resolver.GlobalExplicit:
+			return compiler.emit(bytecode.DeleteGlobal, compiler.nameIndex(name), span)
+		default:
+			return compiler.emit(bytecode.DeleteName, compiler.nameIndex(name), span)
+		}
 	}
 	switch symbol.Resolution {
 	case resolver.Local:

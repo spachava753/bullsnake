@@ -111,6 +111,12 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := ImportStar.StackEffect(0); got != -1 {
 		t.Fatalf("IMPORT_STAR stack effect = %d, want -1", got)
 	}
+	if got := (Instruction{Opcode: LoadBuildClass}).String(); got != "LOAD_BUILD_CLASS" {
+		t.Fatalf("class instruction = %q", got)
+	}
+	if got := LoadBuildClass.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_BUILD_CLASS stack effect = %d, want 1", got)
+	}
 	if got := LoadFast.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_FAST stack effect = %d, want 1", got)
 	}
