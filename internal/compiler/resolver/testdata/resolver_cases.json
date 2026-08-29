@@ -184,6 +184,16 @@
       "name": "multiple free variables carried in stable order",
       "source": "def outer():\n    a = 1\n    z = 2\n    def middle():\n        def inner():\n            return z, a\n        return inner\n    return middle\n",
       "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[outer=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"outer\", private=\"\", flags=[ReturnsValue], parameters=[], symbols=[a=Cell[Assigned], z=Cell[Assigned], middle=Local[Used, Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"middle\", private=\"\", flags=[Nested, ReturnsValue], parameters=[], symbols=[inner=Local[Used, Assigned], a=Free[], z=Free[]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"inner\", private=\"\", flags=[Nested, ReturnsValue], parameters=[], symbols=[z=Free[Used], a=Free[Used]], children=[])])])]))"
+    },
+    {
+      "name": "local annotations do not capture names",
+      "source": "def f(x):\n    a: x\n    b: Missing = 1\n    return x, b\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue, UsesAnnotations], parameters=[\"x\"], symbols=[x=Local[Used, Parameter], a=Local[Assigned, Annotated], b=Local[Used, Assigned, Annotated]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested, UsesAnnotations, UnevaluatedAnnotations], parameters=[], symbols=[], children=[])])]))"
+    },
+    {
+      "name": "nested future local annotation does not capture",
+      "source": "from __future__ import annotations\ndef f(x):\n    callback: (lambda: x)\n    return x\n",
+      "want_table": "Table(features=[FutureAnnotations], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[annotations=Local[Imported], f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue, UsesAnnotations], parameters=[\"x\"], symbols=[x=Local[Used, Parameter], callback=Local[Assigned, Annotated]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested, UsesAnnotations, UnevaluatedAnnotations], parameters=[], symbols=[], children=[Function(name=\"lambda\", private=\"\", flags=[Nested], parameters=[], symbols=[x=Free[Used]], children=[])])])]))"
     }
   ],
   "errors": [

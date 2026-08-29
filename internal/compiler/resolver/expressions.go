@@ -14,6 +14,9 @@ func (state *resolver) collectExpr(expression compilerast.Expr) error {
 	}
 	switch expression := expression.(type) {
 	case *compilerast.Name:
+		if state.current.Flags&UnevaluatedAnnotations != 0 {
+			return nil
+		}
 		switch expression.Context {
 		case compilerast.Load:
 			state.record(expression.ID, Used, expression.Span())

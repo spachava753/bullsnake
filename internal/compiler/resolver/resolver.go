@@ -175,6 +175,7 @@ const (
 	NeedsClassClosure
 	NeedsClassDict
 	UsesAnnotations
+	UnevaluatedAnnotations
 	ListComprehension
 	SetComprehension
 	DictComprehension
@@ -197,6 +198,7 @@ var scopeFlagNames = [...]struct {
 	{NeedsClassClosure, "NeedsClassClosure"},
 	{NeedsClassDict, "NeedsClassDict"},
 	{UsesAnnotations, "UsesAnnotations"},
+	{UnevaluatedAnnotations, "UnevaluatedAnnotations"},
 	{ListComprehension, "ListComprehension"},
 	{SetComprehension, "SetComprehension"},
 	{DictComprehension, "DictComprehension"},

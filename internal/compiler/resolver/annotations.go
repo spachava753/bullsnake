@@ -25,11 +25,14 @@ func (state *resolver) collectAnnotatedAssignment(statement *compilerast.AnnAssi
 		return err
 	}
 
-	if state.table.Features&FutureAnnotations == 0 {
+	localAnnotation := state.current.Kind == FunctionScope
+	if state.table.Features&FutureAnnotations == 0 || localAnnotation {
 		annotationScope := state.annotations[state.current]
 		if annotationScope == nil {
 			annotationFlags := UsesAnnotations
-			if state.current.Kind == ClassScope {
+			if localAnnotation {
+				annotationFlags |= UnevaluatedAnnotations
+			} else if state.current.Kind == ClassScope {
 				annotationFlags |= CanSeeClassScope
 				state.current.Flags |= NeedsClassDict
 			}

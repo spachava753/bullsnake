@@ -99,6 +99,9 @@ func (state *resolver) analyzeScope(
 		if err != nil {
 			return nil, err
 		}
+		if scope.Flags&UnevaluatedAnnotations != 0 {
+			continue
+		}
 		for _, name := range sortedNames(childFree) {
 			if scope.Kind == ClassScope {
 				switch name {

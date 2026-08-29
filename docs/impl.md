@@ -246,8 +246,10 @@ comprehension iterator scopes and assignment-expression targets, deferred
 annotations, PEP 695 generic scopes, pattern capture validation, generator and
 coroutine flags, and placement checks for `return`, loop control, `yield`,
 `await`, asynchronous statements, `except*`, wildcard imports, and
-`__debug__`. Unknown names remain implicit globals for runtime lookup rather
-than becoming compile-time errors.
+`__debug__`. Function-local annotation expressions are traversed for syntax
+validation but do not record direct name facts or propagate closure requests.
+Unknown names remain implicit globals for runtime lookup rather than becoming
+compile-time errors.
 
 The resolver does not assign local, cell, or free-variable array positions and
 does not choose bytecode instructions. Those remain compiler responsibilities.
@@ -446,7 +448,7 @@ validation, error formatting, token-cursor laziness and rewinds, terminal-error
 caching, and parser fuzz seeds.
 
 The resolver corpus is pinned to the same CPython revision. It contains
-thirty-six successful symbol-table cases and fifty resolver-owned failures.
+thirty-eight successful symbol-table cases and fifty resolver-owned failures.
 Successful cases record complete stable scope dumps. Failures record the
 exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
