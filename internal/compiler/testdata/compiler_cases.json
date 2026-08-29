@@ -273,6 +273,16 @@
       "name": "keyword-only function defaults",
       "source": "def configure(*, required, mode=\"safe\", retries=3, verbose):\n    return required, mode, retries, verbose\nfunction = configure\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[String(\"mode\"), String(\"safe\"), String(\"retries\"), Int(3), None], names=[\"configure\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"configure\", qualname=\"configure\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=0, kwonly=4), stack=4, constants=[], names=[], locals=[\"required\", \"mode\", \"retries\", \"verbose\"], cells=[], free=[], instructions=[LOAD_FAST 0, LOAD_FAST 1, LOAD_FAST 2, LOAD_FAST 3, BUILD_TUPLE 4, RETURN_VALUE])], instructions=[LOAD_CONST 0, LOAD_CONST 1, LOAD_CONST 2, LOAD_CONST 3, BUILD_MAP 2, MAKE_FUNCTION 0, SET_FUNCTION_ATTRIBUTE 2, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 4, RETURN_VALUE])"
+    },
+    {
+      "name": "function decorator evaluation and application order",
+      "source": "decorator_arg = 1\ndefault_value = 2\n@make_decorator(decorator_arg)\n@inner_decorator\ndef target(value=default_value):\n    return value\nfunction = target\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[Int(1), Int(2), None], names=[\"decorator_arg\", \"default_value\", \"make_decorator\", \"inner_decorator\", \"target\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"target\", qualname=\"target\", filename=\"<test>\", first_line=3, flags=[Optimized, NewLocals], args=(posonly=0, positional=1, kwonly=0), stack=1, constants=[], names=[], locals=[\"value\"], cells=[], free=[], instructions=[LOAD_FAST 0, RETURN_VALUE])], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_NAME 2, LOAD_NAME 0, CALL 1, LOAD_NAME 3, LOAD_NAME 1, BUILD_TUPLE 1, MAKE_FUNCTION 0, SET_FUNCTION_ATTRIBUTE 1, CALL 1, CALL 1, STORE_NAME 4, LOAD_NAME 4, STORE_NAME 5, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
+      "name": "nested function decorator",
+      "source": "def outer(decorator):\n    @decorator\n    def inner():\n        return 1\n    return inner\nfunction = outer\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"outer\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"outer\", qualname=\"outer\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=1, kwonly=0), stack=2, constants=[], names=[], locals=[\"decorator\", \"inner\"], cells=[], free=[], children=[Code(name=\"inner\", qualname=\"outer.<locals>.inner\", filename=\"<test>\", first_line=2, flags=[Optimized, NewLocals, Nested], args=(posonly=0, positional=0, kwonly=0), stack=1, constants=[Int(1)], names=[], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, RETURN_VALUE])], instructions=[LOAD_FAST 0, MAKE_FUNCTION 0, CALL 1, STORE_FAST 1, LOAD_FAST 1, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }

@@ -13,9 +13,6 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if statement.Async {
 		return compiler.error(statement.Span(), "async functions are not compiled")
 	}
-	if len(statement.Decorators) != 0 {
-		return compiler.error(statement.Span(), "function decorators are not compiled")
-	}
 	if len(statement.TypeParameters) != 0 {
 		return compiler.error(statement.Span(), "generic functions are not compiled")
 	}
@@ -46,6 +43,18 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	scope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
 	if scope == nil || scope.Kind != resolver.FunctionScope {
 		return compiler.error(statement.Span(), "resolver has no function scope for %q", statement.Name)
+	}
+	for _, decorator := range statement.Decorators {
+		if err := compiler.compileExpr(decorator); err != nil {
+			return err
+		}
+	}
+	defaults, keywordDefaults, err := compiler.compileFunctionDefaults(
+		statement.Parameters,
+		statement.Span(),
+	)
+	if err != nil {
+		return err
 	}
 	qualifiedName := statement.Name
 	if compiler.codeName != "<module>" {
@@ -100,13 +109,6 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if err != nil {
 		return err
 	}
-	defaults, keywordDefaults, err := compiler.compileFunctionDefaults(
-		statement.Parameters,
-		statement.Span(),
-	)
-	if err != nil {
-		return err
-	}
 	childIndex := uint32(len(compiler.children))
 	compiler.children = append(compiler.children, code)
 	if err := compiler.emit(bytecode.MakeFunction, childIndex, statement.Span()); err != nil {
@@ -127,6 +129,12 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 			uint32(bytecode.FunctionDefaults),
 			statement.Span(),
 		); err != nil {
+			return err
+		}
+	}
+	for index := len(statement.Decorators) - 1; index >= 0; index-- {
+		decorator := statement.Decorators[index]
+		if err := compiler.emit(bytecode.Call, 1, decorator.Span()); err != nil {
 			return err
 		}
 	}

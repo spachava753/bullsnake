@@ -271,8 +271,8 @@ constants; module name loads and stores; simple, chained, destructuring, and
 augmented assignments; recursive deletion targets; expression statements;
 collection displays; unary, binary, boolean, comparison, conditional, named,
 attribute, subscription, slice, and call expressions; assertions; bare and
-explicit raises; synchronous function definitions with required and defaulted
-parameters and returns; `if`/`elif`/`else` statements; `while` loops; and
+explicit raises; synchronous function definitions with decorators, required and
+defaulted parameters, and returns; `if`/`elif`/`else` statements; `while` loops; and
 synchronous `for` loops with name, tuple, or list targets, including one starred
 target per
 sequence. Both loop forms support optional `else`, `break`, and `continue`.
@@ -319,6 +319,8 @@ Non-capturing nested functions receive Python-style qualified names. The parent
 code evaluates positional defaults into one tuple and sparse keyword-only
 defaults into one map before creating the function. Attribute instructions
 attach the map and tuple while retaining the function on the operand stack.
+Decorator expressions evaluate in source order before defaults. Calls apply
+them in reverse order after function creation and attribute attachment.
 Conditional statements use the same checked labels as conditional expressions;
 every true, false, and `elif` edge merges with an empty operand stack. The
 compiler keeps a nearest-loop stack for `break` and `continue`. A `while`
@@ -333,10 +335,9 @@ Constants and referenced names use deterministic indexed tables. Stable code
 dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, decorators, annotations, generic and async functions,
-closures, `async for`, imports, exception handling, and suspended execution are
-not yet compiled. Unsupported AST nodes fail with a source-located compiler
-error.
+Template strings, annotations, generic and async functions, closures, `async for`,
+imports, exception handling, and suspended execution are not yet compiled.
+Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
 
@@ -415,7 +416,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains fifty-four successful
+The compiler corpus currently contains fifty-six successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object
