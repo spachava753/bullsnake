@@ -279,6 +279,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			)
 		}
 		return nil
+	case bytecode.BuildSlice:
+		if instruction.Operand != 2 && instruction.Operand != 3 {
+			return code.failure(
+				index,
+				"unsupported BUILD_SLICE operand %d",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.UnaryOp:
 		if instruction.Operand > bytecode.UnaryNot {
 			return code.failure(
@@ -345,7 +354,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 1, 1
 	case bytecode.BinaryOp, bytecode.CompareOp, bytecode.BinarySubscript:
 		return 2, 1
-	case bytecode.BuildTuple, bytecode.BuildList:
+	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSlice:
 		return int(instruction.Operand), 1
 	case bytecode.UnpackSequence:
 		return 1, int(instruction.Operand)

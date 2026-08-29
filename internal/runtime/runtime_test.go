@@ -572,6 +572,57 @@ func TestSequenceIndexing(t *testing.T) {
 	}
 }
 
+func TestTupleAndListSlicing(t *testing.T) {
+	code := compileSource(t, "tuple_value = (0, 1, 2, 3, 4)\n"+
+		"tuple_middle = tuple_value[1:4]\n"+
+		"tuple_reverse = tuple_value[::-1]\n"+
+		"tuple_stride = tuple_value[4:0:-2]\n"+
+		"tuple_clipped = tuple_value[-100:100]\n"+
+		"tuple_same = tuple_value[:] is tuple_value\n"+
+		"list_value = [0, 1, 2, 3, 4]\n"+
+		"list_middle = list_value[-4:-1]\n"+
+		"list_reverse = list_value[::-1]\n"+
+		"list_stride = list_value[::2]\n"+
+		"list_empty = list_value[3:1]\n"+
+		"list_bool_bounds = list_value[False:True]\n"+
+		"list_none_step = list_value[1:4:None]\n"+
+		"list_huge = list_value[-1000000000000000000000000000000:"+
+		"1000000000000000000000000000000:"+
+		"1000000000000000000000000000000]\n"+
+		"list_copy = list_value[:]\n"+
+		"list_same = list_copy is list_value\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("sequence slicing", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"tuple_middle":     "(1, 2, 3)",
+		"tuple_reverse":    "(4, 3, 2, 1, 0)",
+		"tuple_stride":     "(4, 2)",
+		"tuple_clipped":    "(0, 1, 2, 3, 4)",
+		"tuple_same":       "True",
+		"list_middle":      "[1, 2, 3]",
+		"list_reverse":     "[4, 3, 2, 1, 0]",
+		"list_stride":      "[0, 2, 4]",
+		"list_empty":       "[]",
+		"list_bool_bounds": "[0]",
+		"list_none_step":   "[1, 2, 3]",
+		"list_huge":        "[0]",
+		"list_copy":        "[0, 1, 2, 3, 4]",
+		"list_same":        "False",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -668,6 +719,24 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "zero slice step",
+			source:      "answer = [1, 2][::0]\n",
+			wantType:    "ValueError",
+			wantMessage: "slice step cannot be zero",
+		},
+		{
+			name:        "non-integer slice bound",
+			source:      "answer = (1, 2)[1.5:]\n",
+			wantType:    "TypeError",
+			wantMessage: "slice indices must be integers or None or have an __index__ method",
+		},
+		{
+			name:        "non-subscriptable slice",
+			source:      "answer = None[:]\n",
+			wantType:    "TypeError",
+			wantMessage: "'NoneType' object is not subscriptable",
 		},
 		{
 			name:        "tuple index out of range",
@@ -774,6 +843,36 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "invalid build slice operand",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildSlice, Operand: 1},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "unsupported BUILD_SLICE operand 1",
+		},
+		{
+			name: "build slice underflow",
+			code: testCode(
+				3,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildSlice, Operand: 3},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
 		{
 			name: "binary subscript underflow",
 			code: testCode(

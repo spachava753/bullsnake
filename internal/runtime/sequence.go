@@ -158,6 +158,14 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 		}, nil
 	}
 
+	if descriptor, ok := indexValue.(*sliceValue); ok {
+		value, exception := sliceSequence(container, elements, descriptor)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		return pushOutcome(frame, instruction, value)
+	}
+
 	index, ok := integerOperand(indexValue)
 	if !ok {
 		return instructionOutcome{
