@@ -408,7 +408,11 @@ carries its operand-stack depth. Conditional jumps propagate their distinct
 fallthrough and taken-edge effects, loops terminate through already-seen
 instruction depths, and a merge with different depths is invalid. The
 validator allows well-formed unreachable instructions but still checks their
-opcodes, operands, and table indexes before execution.
+opcodes, operands, and table indexes before execution. These instructions now
+execute boolean short-circuit expressions, conditional expressions, `if`
+statements, and `while` loops. Loop `else`, `break`, and `continue` require no
+separate runtime mechanism; their compiler-selected jump targets preserve the
+same frame and operand stack.
 
 A heap-allocated frame contains prepared code, the next instruction index, a
 preallocated operand stack, local, global, and builtin namespaces, and its
@@ -534,7 +538,8 @@ Runtime tests compile source through the complete front end before executing
 it. The initial cases cover module globals, discarded expressions, every
 compiler scalar constant, singleton identity, scalar truth testing, numeric
 unary operations, selected arbitrary-precision integer binary operations,
-boolean short-circuiting, conditional expressions, and conditional statements.
+boolean short-circuiting, conditional expressions, conditional statements,
+and `while` loops with normal exhaustion, `else`, `break`, and `continue`.
 Floor-division cases pin quotient rounding, remainder signs, and zero-divisor
 errors. Shift cases cover signed values, booleans, negative counts, and huge
 counts that cannot fit a machine word. Python `NameError`, `TypeError`,

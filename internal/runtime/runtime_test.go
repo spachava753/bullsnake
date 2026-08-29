@@ -340,6 +340,49 @@ func TestBooleanAndConditionalControlFlow(t *testing.T) {
 	}
 }
 
+func TestWhileLoops(t *testing.T) {
+	code := compileSource(t, "count = 5\n"+
+		"total = 0\n"+
+		"while count:\n"+
+		"    total = total + count\n"+
+		"    count = count - 1\n"+
+		"else:\n"+
+		"    completed = 1\n"+
+		"break_count = 3\n"+
+		"while break_count:\n"+
+		"    break_count = break_count - 1\n"+
+		"    if break_count:\n"+
+		"        continue\n"+
+		"    break\n"+
+		"else:\n"+
+		"    skipped_else = missing\n"+
+		"after_break = break_count\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("while loops", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"count":       "0",
+		"total":       "15",
+		"completed":   "1",
+		"break_count": "0",
+		"after_break": "0",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+	if _, ok := module.Get("skipped_else"); ok {
+		t.Fatal("break executed the while else suite")
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
