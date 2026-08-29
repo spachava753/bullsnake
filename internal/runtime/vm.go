@@ -103,6 +103,37 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		return instructionOutcome{kind: advance}, nil
+	case bytecode.Jump:
+		frame.instruction = int(instruction.Operand)
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.PopJumpIfFalse, bytecode.PopJumpIfTrue:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		takeJump := truthValue(value)
+		if instruction.Opcode == bytecode.PopJumpIfFalse {
+			takeJump = !takeJump
+		}
+		if takeJump {
+			frame.instruction = int(instruction.Operand)
+		}
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.JumpIfFalseOrPop, bytecode.JumpIfTrueOrPop:
+		if len(frame.stack) == 0 {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		value := frame.stack[len(frame.stack)-1]
+		takeJump := truthValue(value)
+		if instruction.Opcode == bytecode.JumpIfFalseOrPop {
+			takeJump = !takeJump
+		}
+		if takeJump {
+			frame.instruction = int(instruction.Operand)
+		} else {
+			frame.pop()
+		}
+		return instructionOutcome{kind: advance}, nil
 	case bytecode.UnaryOp:
 		return executeUnary(frame, index, instruction.Operand)
 	case bytecode.BinaryOp:

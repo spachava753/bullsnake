@@ -299,6 +299,47 @@ func TestIntegerShifts(t *testing.T) {
 	}
 }
 
+func TestBooleanAndConditionalControlFlow(t *testing.T) {
+	code := compileSource(t, "false_and = 0 and missing\n"+
+		"true_and = 5 and 9\n"+
+		"true_or = 5 or missing\n"+
+		"false_or = 0 or 9\n"+
+		"true_conditional = 10 if 'x' else missing\n"+
+		"false_conditional = missing if '' else 20\n"+
+		"if None:\n"+
+		"    branch = missing\n"+
+		"else:\n"+
+		"    branch = 30\n"+
+		"if 1:\n"+
+		"    second_branch = 40\n"+
+		"else:\n"+
+		"    second_branch = missing\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("control flow", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"false_and":         "0",
+		"true_and":          "9",
+		"true_or":           "5",
+		"false_or":          "9",
+		"true_conditional":  "10",
+		"false_conditional": "20",
+		"branch":            "30",
+		"second_branch":     "40",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -412,6 +453,58 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "jump target",
+			code: testCode(
+				0,
+				[]bytecode.Instruction{{Opcode: bytecode.Jump, Operand: 1}},
+				nil,
+				nil,
+			),
+			wantFragment: "jump target 1 out of range",
+		},
+		{
+			name: "conditional stack underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.PopJumpIfFalse, Operand: 1},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "stack depth merge",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.PopJumpIfFalse, Operand: 4},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Jump, Operand: 5},
+					{Opcode: bytecode.Nop},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "stack depth mismatch at instruction 5",
+		},
+		{
+			name: "no reachable return",
+			code: testCode(
+				0,
+				[]bytecode.Instruction{{Opcode: bytecode.Jump}},
+				nil,
+				nil,
+			),
+			wantFragment: "code has no reachable RETURN_VALUE",
+		},
 		{
 			name: "unsupported opcode",
 			code: testCode(

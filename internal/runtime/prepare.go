@@ -83,41 +83,127 @@ func materializeConstant(constant bytecode.Constant) (Value, error) {
 	}
 }
 
-// validateInstructions checks the supported linear control flow and proves that
-// every reachable instruction respects the code object's declared stack size.
+type stackEdge struct {
+	target int
+	depth  int
+}
+
+// validateInstructions validates every operand before propagating stack depths
+// through reachable fallthrough and jump edges with a worklist.
 func (code *preparedCode) validateInstructions() error {
-	depth := 0
-	returned := false
 	for index, instruction := range code.instructions {
-		if returned {
-			return code.failure(index, "instruction follows RETURN_VALUE")
-		}
 		if err := code.validateOperand(index, instruction); err != nil {
 			return err
 		}
-		pops, pushes := instructionStackUse(instruction)
-		if depth < pops {
-			return code.failure(index, "operand stack underflow")
+	}
+	if len(code.instructions) == 0 {
+		return code.failure(0, "code has no reachable RETURN_VALUE")
+	}
+
+	depths := make([]int, len(code.instructions))
+	for index := range depths {
+		depths[index] = -1
+	}
+	depths[0] = 0
+	worklist := []int{0}
+	reachableReturn := false
+	for len(worklist) != 0 {
+		index := worklist[0]
+		worklist = worklist[1:]
+		edges, returns, err := code.instructionEdges(
+			index,
+			depths[index],
+			code.instructions[index],
+		)
+		if err != nil {
+			return err
 		}
-		depth += pushes - pops
-		if depth > code.stackSize {
-			return code.failure(
-				index,
-				"operand stack exceeds declared size %d",
-				code.stackSize,
-			)
+		if returns {
+			reachableReturn = true
 		}
-		if instruction.Opcode == bytecode.ReturnValue {
-			if depth != 0 {
-				return code.failure(index, "RETURN_VALUE leaves %d values on the operand stack", depth)
+		for _, edge := range edges {
+			if edge.target == len(code.instructions) {
+				return code.failure(index, "code falls through without RETURN_VALUE")
 			}
-			returned = true
+			if edge.depth > code.stackSize {
+				return code.failure(
+					index,
+					"operand stack exceeds declared size %d",
+					code.stackSize,
+				)
+			}
+			if depths[edge.target] < 0 {
+				depths[edge.target] = edge.depth
+				worklist = append(worklist, edge.target)
+			} else if depths[edge.target] != edge.depth {
+				return code.failure(
+					index,
+					"stack depth mismatch at instruction %d: %d and %d",
+					edge.target,
+					depths[edge.target],
+					edge.depth,
+				)
+			}
 		}
 	}
-	if !returned {
-		return code.failure(len(code.instructions), "code falls through without RETURN_VALUE")
+	if !reachableReturn {
+		return code.failure(len(code.instructions), "code has no reachable RETURN_VALUE")
 	}
 	return nil
+}
+
+// instructionEdges applies one instruction's stack contract and returns its
+// reachable successor depths without executing the operation.
+func (code *preparedCode) instructionEdges(
+	index, depth int,
+	instruction bytecode.Instruction,
+) ([]stackEdge, bool, error) {
+	require := func(values int) error {
+		if depth < values {
+			return code.failure(index, "operand stack underflow")
+		}
+		return nil
+	}
+	next := index + 1
+	target := int(instruction.Operand)
+	switch instruction.Opcode {
+	case bytecode.ReturnValue:
+		if err := require(1); err != nil {
+			return nil, false, err
+		}
+		if depth != 1 {
+			return nil, false, code.failure(
+				index,
+				"RETURN_VALUE leaves %d values on the operand stack",
+				depth-1,
+			)
+		}
+		return nil, true, nil
+	case bytecode.Jump:
+		return []stackEdge{{target: target, depth: depth}}, false, nil
+	case bytecode.PopJumpIfFalse, bytecode.PopJumpIfTrue:
+		if err := require(1); err != nil {
+			return nil, false, err
+		}
+		return []stackEdge{
+			{target: next, depth: depth - 1},
+			{target: target, depth: depth - 1},
+		}, false, nil
+	case bytecode.JumpIfFalseOrPop, bytecode.JumpIfTrueOrPop:
+		if err := require(1); err != nil {
+			return nil, false, err
+		}
+		return []stackEdge{
+			{target: next, depth: depth - 1},
+			{target: target, depth: depth},
+		}, false, nil
+	default:
+		pops, pushes := instructionStackUse(instruction)
+		if err := require(pops); err != nil {
+			return nil, false, err
+		}
+		return []stackEdge{{target: next, depth: depth + pushes - pops}}, false, nil
+	}
 }
 
 // validateOperand checks table bounds and limits opcode variants to the
@@ -125,6 +211,15 @@ func (code *preparedCode) validateInstructions() error {
 func (code *preparedCode) validateOperand(index int, instruction bytecode.Instruction) error {
 	switch instruction.Opcode {
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue:
+		return nil
+	case bytecode.Jump,
+		bytecode.PopJumpIfFalse,
+		bytecode.PopJumpIfTrue,
+		bytecode.JumpIfFalseOrPop,
+		bytecode.JumpIfTrueOrPop:
+		if uint64(instruction.Operand) >= uint64(len(code.instructions)) {
+			return code.failure(index, "jump target %d out of range", instruction.Operand)
+		}
 		return nil
 	case bytecode.LoadConst:
 		if uint64(instruction.Operand) >= uint64(len(code.constants)) {

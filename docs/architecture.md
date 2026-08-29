@@ -408,10 +408,11 @@ as the definition of a Python frame.
 
 Before execution, the runtime copies the code tables it consumes, materializes
 compiler constants as runtime values, and validates every instruction,
-operand, table index, and linear stack transition. Unsupported or malformed
-bytecode fails before the module body can produce side effects. Prepared code
-and its materialized constants are cached per runtime and immutable code-object
-identity.
+operand, table index, jump target, and reachable stack transition. A worklist
+requires all control-flow edges into an instruction to agree on stack depth.
+Unsupported or malformed bytecode fails before the module body can produce side
+effects. Prepared code and its materialized constants are cached per runtime
+and immutable code-object identity.
 
 The frame and dispatcher are intentionally shaped for later calls and
 suspension even though the first slice executes only modules. A Python call
