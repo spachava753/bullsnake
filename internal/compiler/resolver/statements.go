@@ -91,11 +91,8 @@ func (state *resolver) collectStatement(statement compilerast.Stmt) error {
 		}
 		return nil
 	case *compilerast.FromImportStmt:
-		if statement.Module == "__future__" && statement.Level == 0 {
-			if state.current.Kind != ModuleScope {
-				return state.syntaxError(statement.Span(), "future imports must occur at the beginning of the file")
-			}
-			return nil
+		if statement.Module == "__future__" && statement.Level == 0 && state.current.Kind != ModuleScope {
+			return state.syntaxError(statement.Span(), "future imports must occur at the beginning of the file")
 		}
 		if statement.Wildcard {
 			if state.current.Kind != ModuleScope {

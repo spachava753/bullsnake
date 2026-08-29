@@ -151,9 +151,9 @@
       "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[subject=GlobalImplicit[Used], x=Local[Used, Assigned], result=Local[Assigned]], children=[]))"
     },
     {
-      "name": "future annotations do not resolve annotation names",
+      "name": "future annotations bind feature without resolving annotation names",
       "source": "from __future__ import annotations\nvalue: Missing\n",
-      "want_table": "Table(features=[FutureAnnotations], root=Module(name=\"top\", private=\"\", flags=[UsesAnnotations], parameters=[], symbols=[value=Local[Assigned, Annotated]], children=[]))"
+      "want_table": "Table(features=[FutureAnnotations], root=Module(name=\"top\", private=\"\", flags=[UsesAnnotations], parameters=[], symbols=[annotations=Local[Imported], value=Local[Assigned, Annotated]], children=[]))"
     },
     {
       "name": "lambda closure and default",
