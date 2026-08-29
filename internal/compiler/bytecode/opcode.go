@@ -14,6 +14,12 @@ const (
 	ConversionASCII
 )
 
+// CALL_EX operands report whether a keyword map follows the positional tuple.
+const (
+	CallExNoKeywords uint32 = iota
+	CallExWithKeywords
+)
+
 // UNARY_OP operands identify Python unary operations.
 const (
 	UnaryPositive uint32 = iota
@@ -90,6 +96,9 @@ const (
 	LoadAttr
 	BinarySubscript
 	BuildSlice
+	MapMerge
+	Call
+	CallEx
 )
 
 var opcodeNames = [...]string{
@@ -126,6 +135,9 @@ var opcodeNames = [...]string{
 	"LOAD_ATTR",
 	"BINARY_SUBSCR",
 	"BUILD_SLICE",
+	"MAP_MERGE",
+	"CALL",
+	"CALL_EX",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -142,7 +154,7 @@ func (opcode Opcode) HasOperand() bool {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
 		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
-		LoadAttr, BuildSlice:
+		LoadAttr, BuildSlice, Call, CallEx:
 		return true
 	default:
 		return false
@@ -157,10 +169,14 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		return 1
 	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp, CompareOp,
 		PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript,
-		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate:
+		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge:
 		return -1
 	case MapSet:
 		return -2
+	case Call:
+		return -int(operand)
+	case CallEx:
+		return -1 - int(operand)
 	case BuildString, BuildTuple, BuildList, BuildSet, BuildSlice:
 		return 1 - int(operand)
 	case BuildMap:

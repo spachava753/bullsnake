@@ -94,6 +94,8 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		return compiler.compileSubscript(expression)
 	case *compilerast.SliceExpr:
 		return compiler.compileSlice(expression)
+	case *compilerast.CallExpr:
+		return compiler.compileCall(expression)
 	case *compilerast.NoneLiteral:
 		return compiler.emit(
 			bytecode.LoadConst,

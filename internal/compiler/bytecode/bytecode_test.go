@@ -100,6 +100,19 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := BuildSlice.StackEffect(3); got != -2 {
 		t.Fatalf("BUILD_SLICE 3 stack effect = %d, want -2", got)
 	}
+	call := Instruction{Opcode: Call, Operand: 3}
+	if got := call.String(); got != "CALL 3" {
+		t.Fatalf("call instruction = %q", got)
+	}
+	if got := Call.StackEffect(3); got != -3 {
+		t.Fatalf("CALL 3 stack effect = %d, want -3", got)
+	}
+	if got := CallEx.StackEffect(CallExWithKeywords); got != -2 {
+		t.Fatalf("CALL_EX with keywords stack effect = %d, want -2", got)
+	}
+	if got := MapMerge.StackEffect(0); got != -1 {
+		t.Fatalf("MAP_MERGE stack effect = %d, want -1", got)
+	}
 	jump := Instruction{Opcode: JumpIfFalseOrPop, Operand: 9}
 	if got := jump.String(); got != "JUMP_IF_FALSE_OR_POP 9" {
 		t.Fatalf("jump instruction = %q", got)
