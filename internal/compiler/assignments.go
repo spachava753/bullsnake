@@ -64,18 +64,45 @@ func (compiler *compilerState) compileStore(expression compilerast.Expr) error {
 	}
 }
 
-// compileSequenceStore unpacks one fixed-length value and recursively consumes
-// the resulting target values from left to right.
+// compileSequenceStore unpacks one fixed or starred value and recursively
+// consumes the resulting target values from left to right.
 func (compiler *compilerState) compileSequenceStore(elements []compilerast.Expr, span lexer.Span) error {
-	for _, element := range elements {
-		if _, starred := element.(*compilerast.StarredExpr); starred {
-			return compiler.error(element.Span(), "starred assignment targets are not compiled")
+	starIndex := -1
+	for index, element := range elements {
+		starred, ok := element.(*compilerast.StarredExpr)
+		if !ok {
+			continue
+		}
+		if starred.Context != compilerast.Store {
+			return compiler.error(starred.Span(), "starred target is not a store")
+		}
+		if starIndex >= 0 {
+			return compiler.error(starred.Span(), "multiple starred assignment targets")
+		}
+		starIndex = index
+	}
+
+	if starIndex < 0 {
+		if err := compiler.emit(bytecode.UnpackSequence, uint32(len(elements)), span); err != nil {
+			return err
+		}
+	} else {
+		operand, ok := bytecode.PackUnpackEx(
+			uint32(starIndex),
+			uint32(len(elements)-starIndex-1),
+		)
+		if !ok {
+			return compiler.error(span, "too many expressions in starred assignment")
+		}
+		if err := compiler.emit(bytecode.UnpackEx, operand, span); err != nil {
+			return err
 		}
 	}
-	if err := compiler.emit(bytecode.UnpackSequence, uint32(len(elements)), span); err != nil {
-		return err
-	}
-	for _, element := range elements {
+
+	for index, element := range elements {
+		if index == starIndex {
+			element = element.(*compilerast.StarredExpr).Value
+		}
 		if err := compiler.compileStore(element); err != nil {
 			return err
 		}

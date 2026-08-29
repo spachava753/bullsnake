@@ -272,9 +272,9 @@ expression statements, collection displays, unary and binary operations,
 short-circuit boolean expressions, comparisons, conditional expressions,
 load-side attributes and subscriptions, slice construction, direct and
 unpacked calls, named assignment expressions, `if`/`elif`/`else` statements,
-`while` loops, and synchronous `for` loops with fixed name, tuple, or list
-targets. Both loop forms support optional `else`, `break`, and `continue`.
-Modules end with a synthetic `None` return.
+`while` loops, and synchronous `for` loops with name, tuple, or list targets,
+including one starred target per sequence. Both loop forms support optional
+`else`, `break`, and `continue`. Modules end with a synthetic `None` return.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -300,7 +300,9 @@ semantics. Named assignment expressions copy their value before storing the
 target, so the same value remains as the expression result. Attribute and
 subscript stores evaluate their object and index after the right-hand value.
 Fixed tuple and list targets unpack once, then recursively consume targets from
-left to right. Conditional statements use the same checked labels as
+left to right. Starred targets use CPython's packed `UNPACK_EX` counts: the low
+byte records up to 255 targets before the star and the upper 24 bits record the
+targets after it. Conditional statements use the same checked labels as
 conditional expressions; every true, false, and `elif` edge merges with an
 empty operand stack. The compiler keeps a
 nearest-loop stack for `break` and `continue`. A `while` condition's normal
@@ -314,8 +316,8 @@ Constants and referenced names use deterministic indexed tables. Stable code
 dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, starred assignment targets, `async for`, functions, closures,
-imports, annotations, exceptions, and suspended execution are not yet compiled. Unsupported AST nodes fail with a
+Template strings, `async for`, functions, closures, imports, annotations,
+exceptions, and suspended execution are not yet compiled. Unsupported AST nodes fail with a
 source-located compiler error.
 
 ## Virtual machine and frames
@@ -395,7 +397,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains thirty-nine successful
+The compiler corpus currently contains forty-one successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

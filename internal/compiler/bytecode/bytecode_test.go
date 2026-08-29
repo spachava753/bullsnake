@@ -136,6 +136,27 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := UnpackSequence.StackEffect(3); got != 2 {
 		t.Fatalf("UNPACK_SEQUENCE 3 stack effect = %d, want 2", got)
 	}
+	unpackOperand, ok := PackUnpackEx(1, 2)
+	if !ok {
+		t.Fatal("PackUnpackEx(1, 2) rejected valid counts")
+	}
+	unpack := Instruction{Opcode: UnpackEx, Operand: unpackOperand}
+	if got := unpack.String(); got != "UNPACK_EX 1 2" {
+		t.Fatalf("starred unpack instruction = %q", got)
+	}
+	if got := UnpackEx.StackEffect(unpackOperand); got != 3 {
+		t.Fatalf("UNPACK_EX 1 2 stack effect = %d, want 3", got)
+	}
+	before, after := UnpackExCounts(unpackOperand)
+	if before != 1 || after != 2 {
+		t.Fatalf("UNPACK_EX counts = %d, %d", before, after)
+	}
+	if _, ok := PackUnpackEx(256, 0); ok {
+		t.Fatal("PackUnpackEx accepted 256 leading targets")
+	}
+	if _, ok := PackUnpackEx(0, 1<<24); ok {
+		t.Fatal("PackUnpackEx accepted overflowing trailing targets")
+	}
 	jump := Instruction{Opcode: JumpIfFalseOrPop, Operand: 9}
 	if got := jump.String(); got != "JUMP_IF_FALSE_OR_POP 9" {
 		t.Fatalf("jump instruction = %q", got)

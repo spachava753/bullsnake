@@ -20,6 +20,21 @@ const (
 	CallExWithKeywords
 )
 
+const unpackExBeforeBits = 8
+
+// PackUnpackEx encodes counts around one starred assignment target.
+func PackUnpackEx(before, after uint32) (uint32, bool) {
+	if before >= 1<<unpackExBeforeBits || after > ^uint32(0)>>unpackExBeforeBits {
+		return 0, false
+	}
+	return before | after<<unpackExBeforeBits, true
+}
+
+// UnpackExCounts decodes counts around one starred assignment target.
+func UnpackExCounts(operand uint32) (before, after uint32) {
+	return operand & (1<<unpackExBeforeBits - 1), operand >> unpackExBeforeBits
+}
+
 // UNARY_OP operands identify Python unary operations.
 const (
 	UnaryPositive uint32 = iota
@@ -104,6 +119,7 @@ const (
 	StoreAttr
 	StoreSubscript
 	UnpackSequence
+	UnpackEx
 )
 
 var opcodeNames = [...]string{
@@ -148,6 +164,7 @@ var opcodeNames = [...]string{
 	"STORE_ATTR",
 	"STORE_SUBSCR",
 	"UNPACK_SEQUENCE",
+	"UNPACK_EX",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -164,7 +181,8 @@ func (opcode Opcode) HasOperand() bool {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
 		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
-		LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr, UnpackSequence:
+		LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr, UnpackSequence,
+		UnpackEx:
 		return true
 	default:
 		return false
@@ -187,6 +205,9 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		return -3
 	case UnpackSequence:
 		return int(operand) - 1
+	case UnpackEx:
+		before, after := UnpackExCounts(operand)
+		return int(before + after)
 	case Call:
 		return -int(operand)
 	case CallEx:
@@ -208,6 +229,10 @@ type Instruction struct {
 
 // String returns the stable disassembly form of an instruction.
 func (instruction Instruction) String() string {
+	if instruction.Opcode == UnpackEx {
+		before, after := UnpackExCounts(instruction.Operand)
+		return fmt.Sprintf("%s %d %d", instruction.Opcode, before, after)
+	}
 	if instruction.Opcode.HasOperand() {
 		return fmt.Sprintf("%s %d", instruction.Opcode, instruction.Operand)
 	}
