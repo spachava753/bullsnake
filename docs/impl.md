@@ -271,8 +271,8 @@ constants, module name loads and stores, simple and chained assignments,
 expression statements, collection displays, unary and binary operations,
 short-circuit boolean expressions, comparisons, conditional expressions,
 load-side attributes and subscriptions, slice construction, direct and
-unpacked calls, named assignment expressions, and the synthetic `None` return
-at module completion.
+unpacked calls, named assignment expressions, `if`/`elif`/`else` statements,
+and the synthetic `None` return at module completion.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -295,12 +295,14 @@ unpacking or keywords use an inline argument count. Other calls build a
 positional tuple and optional keyword map; keyword mappings merge in source
 order and reject duplicate names rather than applying dictionary-update
 semantics. Named assignment expressions copy their value before storing the
-target, so the same value remains as the expression result. Constants and
+target, so the same value remains as the expression result. Conditional
+statements use the same checked labels as conditional expressions; every true,
+false, and `elif` edge merges with an empty operand stack. Constants and
 referenced names use deterministic indexed tables. Stable code dumps support
 compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, attribute and subscript stores, statement control flow,
+Template strings, attribute and subscript stores, loops, loop control,
 functions, closures, imports, annotations, exceptions, and suspended execution
 are not yet compiled. Unsupported AST nodes fail with a
 source-located compiler error.
@@ -382,7 +384,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains twenty-seven successful
+The compiler corpus currently contains twenty-nine successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

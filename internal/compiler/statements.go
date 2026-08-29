@@ -40,6 +40,8 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 			}
 		}
 		return nil
+	case *compilerast.IfStmt:
+		return compiler.compileIfStatement(statement)
 	default:
 		return compiler.unsupported(statement)
 	}

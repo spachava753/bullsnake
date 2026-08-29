@@ -138,6 +138,16 @@
       "name": "named assignment expressions",
       "source": "captured = (value := source)\nkept = (item := candidate) and item\nselected = (left := first) if condition else (right := second)\ncalled = function(argument := value)\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[None], names=[\"source\", \"value\", \"captured\", \"candidate\", \"item\", \"kept\", \"condition\", \"first\", \"left\", \"second\", \"right\", \"selected\", \"function\", \"argument\", \"called\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, COPY 1, STORE_NAME 1, STORE_NAME 2, LOAD_NAME 3, COPY 1, STORE_NAME 4, JUMP_IF_FALSE_OR_POP 9, LOAD_NAME 4, STORE_NAME 5, LOAD_NAME 6, POP_JUMP_IF_FALSE 16, LOAD_NAME 7, COPY 1, STORE_NAME 8, JUMP 19, LOAD_NAME 9, COPY 1, STORE_NAME 10, STORE_NAME 11, LOAD_NAME 12, LOAD_NAME 1, COPY 1, STORE_NAME 13, CALL 1, STORE_NAME 14, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "if statement without else",
+      "source": "if condition:\n    result = 1\nafter = result\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Int(1), None], names=[\"condition\", \"result\", \"after\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, POP_JUMP_IF_FALSE 4, LOAD_CONST 0, STORE_NAME 1, LOAD_NAME 1, STORE_NAME 2, LOAD_CONST 1, RETURN_VALUE])"
+    },
+    {
+      "name": "if elif else statement",
+      "source": "if first:\n    value = 1\nelif second:\n    value = 2\nelif third:\n    value = 3\nelse:\n    value = 4\nfinal = value\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Int(1), Int(2), Int(3), Int(4), None], names=[\"first\", \"value\", \"second\", \"third\", \"final\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, POP_JUMP_IF_FALSE 5, LOAD_CONST 0, STORE_NAME 1, JUMP 17, LOAD_NAME 2, POP_JUMP_IF_FALSE 10, LOAD_CONST 1, STORE_NAME 1, JUMP 17, LOAD_NAME 3, POP_JUMP_IF_FALSE 15, LOAD_CONST 2, STORE_NAME 1, JUMP 17, LOAD_CONST 3, STORE_NAME 1, LOAD_NAME 1, STORE_NAME 4, LOAD_CONST 4, RETURN_VALUE])"
     }
   ]
 }
