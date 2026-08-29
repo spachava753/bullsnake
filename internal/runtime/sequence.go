@@ -126,3 +126,100 @@ func executeUnpackSequence(
 	}
 	return instructionOutcome{kind: advance}, nil
 }
+
+type sequenceIterator struct {
+	sequence Value
+	index    int
+}
+
+func (iterator *sequenceIterator) TypeName() string {
+	switch iterator.sequence.(type) {
+	case *tupleValue:
+		return "tuple_iterator"
+	case *listValue:
+		return "list_iterator"
+	default:
+		return "iterator"
+	}
+}
+func (iterator *sequenceIterator) Repr() string {
+	return "<" + iterator.TypeName() + " object>"
+}
+func (*sequenceIterator) isValue() {}
+
+func newSequenceIterator(value Value) (*sequenceIterator, bool) {
+	switch value := value.(type) {
+	case *tupleValue, *listValue:
+		return &sequenceIterator{sequence: value}, true
+	case *sequenceIterator:
+		return value, true
+	default:
+		return nil, false
+	}
+}
+
+func (iterator *sequenceIterator) next() (Value, bool) {
+	var elements []Value
+	switch sequence := iterator.sequence.(type) {
+	case *tupleValue:
+		elements = sequence.elements
+	case *listValue:
+		elements = sequence.elements
+	default:
+		return nil, false
+	}
+	if iterator.index >= len(elements) {
+		return nil, false
+	}
+	value := elements[iterator.index]
+	iterator.index++
+	return value, true
+}
+
+func executeGetIter(frame *frame, index int) (instructionOutcome, error) {
+	iterable, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+	}
+	iterator, ok := newSequenceIterator(iterable)
+	if !ok {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+iterable.TypeName()+"' object is not iterable",
+			),
+		}, nil
+	}
+	return pushOutcome(frame, index, iterator)
+}
+
+// executeForIter retains the iterator while yielding and removes it before the
+// exhaustion jump, matching the compiler's two stack-depth edges.
+func executeForIter(
+	frame *frame,
+	index int,
+	target int,
+) (instructionOutcome, error) {
+	if len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+	}
+	value := frame.stack[len(frame.stack)-1]
+	iterator, ok := value.(*sequenceIterator)
+	if !ok {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+value.TypeName()+"' object is not an iterator",
+			),
+		}, nil
+	}
+	next, ok := iterator.next()
+	if !ok {
+		frame.pop()
+		frame.instruction = target
+		return instructionOutcome{kind: advance}, nil
+	}
+	return pushOutcome(frame, index, next)
+}

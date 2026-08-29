@@ -410,9 +410,11 @@ Before execution, the runtime copies the code tables it consumes, materializes
 compiler constants as runtime values, and validates every instruction,
 operand, table index, jump target, and reachable stack transition. A worklist
 requires all control-flow edges into an instruction to agree on stack depth.
-Unsupported or malformed bytecode fails before the module body can produce side
-effects. Prepared code and its materialized constants are cached per runtime
-and immutable code-object identity.
+`FOR_ITER` has separate yield and exhaustion depths because it retains the
+iterator and pushes an item only on the yield edge. Unsupported or malformed
+bytecode fails before the module body can produce side effects. Prepared code
+and its materialized constants are cached per runtime and immutable code-object
+identity.
 
 The frame and dispatcher are intentionally shaped for later calls and
 suspension even though the first slice executes only modules. A Python call
@@ -431,14 +433,15 @@ stack, but a Python-to-Python call will remain in the iterative dispatcher.
 The runtime has a sealed internal `Value` interface. Immutable singleton
 objects represent `None`, both booleans, and ellipsis. Heap-backed objects
 represent arbitrary-precision integers, binary64 floats, complex numbers,
-strings, bytes, fixed tuples and lists, and Python exceptions. Every live
-reference remains in a typed pointer or interface visible to Go's collector.
-Module bindings use a temporary string-keyed namespace rather than pretending
-that a Go map already implements Python dictionary semantics. The current
-object operations cover fixed scalar truth, numeric unary operators, selected
-arbitrary-precision integer binary operators, scalar equality and ordering, and
-object identity. Later user-defined protocols must reuse these VM outcome and
-exception paths.
+strings, bytes, fixed tuples and lists, sequence iterators, and Python
+exceptions. Every live reference remains in a typed pointer or interface
+visible to Go's collector. Module bindings use a temporary string-keyed
+namespace rather than pretending that a Go map already implements Python
+dictionary semantics. The current object operations cover fixed scalar truth,
+numeric unary operators, selected arbitrary-precision integer binary operators,
+scalar equality and ordering, object identity, fixed sequence construction and
+unpacking, and tuple/list iteration. Later user-defined protocols must reuse
+these VM outcome and exception paths.
 
 The object model can become the largest compatibility component, so it should
 remain feature-driven. It should be designed before a large instruction set

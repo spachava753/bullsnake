@@ -191,6 +191,14 @@ func (code *preparedCode) instructionEdges(
 		return nil, true, nil
 	case bytecode.Jump:
 		return []stackEdge{{target: target, depth: depth}}, false, nil
+	case bytecode.ForIter:
+		if err := require(1); err != nil {
+			return nil, false, err
+		}
+		return []stackEdge{
+			{target: next, depth: depth + 1},
+			{target: target, depth: depth - 1},
+		}, false, nil
 	case bytecode.PopJumpIfFalse, bytecode.PopJumpIfTrue:
 		if err := require(1); err != nil {
 			return nil, false, err
@@ -220,7 +228,7 @@ func (code *preparedCode) instructionEdges(
 // behavior implemented by the current runtime slice.
 func (code *preparedCode) validateOperand(index int, instruction bytecode.Instruction) error {
 	switch instruction.Opcode {
-	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue:
+	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -233,6 +241,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.Jump,
+		bytecode.ForIter,
 		bytecode.PopJumpIfFalse,
 		bytecode.PopJumpIfTrue,
 		bytecode.JumpIfFalseOrPop,
@@ -330,6 +339,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.StoreName, bytecode.PopTop, bytecode.ReturnValue:
 		return 1, 0
 	case bytecode.UnaryOp:
+		return 1, 1
+	case bytecode.GetIter:
 		return 1, 1
 	case bytecode.BinaryOp, bytecode.CompareOp:
 		return 2, 1

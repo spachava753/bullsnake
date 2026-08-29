@@ -383,6 +383,68 @@ func TestWhileLoops(t *testing.T) {
 	}
 }
 
+func TestForLoops(t *testing.T) {
+	code := compileSource(t, "total = 0\n"+
+		"for value in (1, 2, 3):\n"+
+		"    total = total + value\n"+
+		"else:\n"+
+		"    completed = total\n"+
+		"continued_total = 0\n"+
+		"for value in [4, 5, 6]:\n"+
+		"    if value == 5:\n"+
+		"        continue\n"+
+		"    continued_total = continued_total + value\n"+
+		"else:\n"+
+		"    continued = 1\n"+
+		"for stopped in (7, 8, 9):\n"+
+		"    if stopped == 8:\n"+
+		"        break\n"+
+		"else:\n"+
+		"    skipped_else = missing\n"+
+		"after_break = stopped\n"+
+		"for absent in ():\n"+
+		"    missing\n"+
+		"else:\n"+
+		"    empty_else = 11\n"+
+		"pair_total = 0\n"+
+		"for left, right in [(1, 2), (3, 4)]:\n"+
+		"    pair_total = pair_total + left + right\n"+
+		"nested_total = 0\n"+
+		"for outer in (1, 2):\n"+
+		"    for inner in [10, 20]:\n"+
+		"        nested_total = nested_total + outer + inner\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("for loops", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"total":           "6",
+		"completed":       "6",
+		"continued_total": "10",
+		"continued":       "1",
+		"after_break":     "8",
+		"empty_else":      "11",
+		"pair_total":      "10",
+		"nested_total":    "66",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+	if _, ok := module.Get("skipped_else"); ok {
+		t.Fatal("break executed the for else suite")
+	}
+	if _, ok := module.Get("absent"); ok {
+		t.Fatal("empty iteration assigned its target")
+	}
+}
+
 func TestComparisons(t *testing.T) {
 	code := compileSource(t, "equal = 2 == 2\n"+
 		"not_equal = 2 != 3\n"+
@@ -573,6 +635,12 @@ func TestPythonExceptions(t *testing.T) {
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
 		},
 		{
+			name:        "non-iterable for loop",
+			source:      "for value in 1:\n    pass\n",
+			wantType:    "TypeError",
+			wantMessage: "'int' object is not iterable",
+		},
+		{
 			name:        "not enough values to unpack",
 			source:      "first, second = (1,)\n",
 			wantType:    "ValueError",
@@ -641,6 +709,44 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "get iterator underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.GetIter},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "for iterator underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.ForIter, Operand: 1},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "for iterator jump target",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{{Opcode: bytecode.ForIter, Operand: 1}},
+				nil,
+				nil,
+			),
+			wantFragment: "jump target 1 out of range",
+		},
 		{
 			name: "sequence build underflow",
 			code: testCode(

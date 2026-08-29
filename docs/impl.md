@@ -395,25 +395,26 @@ callers and tests. There is not yet a public Go embedding API.
 Preparation copies the instruction and name tables, materializes code constants
 as runtime values, and validates the complete code object before execution.
 Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
-`POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`, and
-`UNPACK_SEQUENCE`, scalar `UNARY_OP`, selected integer `BINARY_OP`, and scalar
-`COMPARE_OP` variants, absolute `JUMP`, both pop-and-test jumps, both short-circuit-or-pop jumps, and
-`RETURN_VALUE`. It checks constant and name indexes, operation operands, jump
-targets, stack underflow, the declared maximum stack size, return stack balance,
-and reachable termination. Any unsupported constant, instruction, or operand
-fails with a source-located `BytecodeError` before a module can observe side
-effects.
+`POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`,
+`UNPACK_SEQUENCE`, `GET_ITER`, and `FOR_ITER`; scalar `UNARY_OP`; selected
+integer `BINARY_OP`; scalar `COMPARE_OP` variants; absolute `JUMP`; both
+pop-and-test jumps; both short-circuit-or-pop jumps; and `RETURN_VALUE`. It
+checks constant and name indexes, operation operands, jump targets, stack
+underflow, the declared maximum stack size, return stack balance, and reachable
+termination. Any unsupported constant, instruction, or operand fails with a
+source-located `BytecodeError` before a module can observe side effects.
 
 Stack validation uses a worklist over instruction indexes. Each reachable edge
 carries its operand-stack depth. Conditional jumps propagate their distinct
-fallthrough and taken-edge effects, loops terminate through already-seen
-instruction depths, and a merge with different depths is invalid. The
-validator allows well-formed unreachable instructions but still checks their
-opcodes, operands, and table indexes before execution. These instructions now
-execute boolean short-circuit expressions, conditional expressions, `if`
-statements, and `while` loops. Loop `else`, `break`, and `continue` require no
-separate runtime mechanism; their compiler-selected jump targets preserve the
-same frame and operand stack.
+fallthrough and taken-edge effects. `FOR_ITER` adds an item on its fallthrough
+edge and removes the iterator on its exhaustion edge. Loops terminate through
+already-seen instruction depths, and a merge with different depths is invalid.
+The validator allows well-formed unreachable instructions but still checks
+their opcodes, operands, and table indexes before execution. These instructions
+now execute boolean short-circuit expressions, conditional expressions, `if`
+statements, and `while` and synchronous `for` loops. Loop `else`, `break`, and
+`continue` require no separate runtime mechanism; their compiler-selected jump
+targets preserve the same frame and operand stack.
 
 A heap-allocated frame contains prepared code, the next instruction index, a
 preallocated operand stack, local, global, and builtin namespaces, and its
@@ -430,16 +431,19 @@ The initial sealed `Value` interface keeps every Python reference in a typed Go
 interface or pointer. Process-wide immutable singletons represent `None`,
 `False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
 precision integers, binary64 floats, complex values, strings, bytes, tuples,
-lists, and exceptions. Code preparation materializes each constant once per runtime and
-code object. String objects accept UTF-8 plus the compiler's deliberate WTF-8
-encoding for lone surrogates; bytes objects retain arbitrary payloads. Stable
-representations escape non-printable text and bytes without losing their
-contents. Fixed tuple and list displays consume their elements in source order
-and allocate heap-backed sequence values. Exact tuple and list unpacking pushes
-elements in reverse so nested assignment targets store left to right. Arity
-mismatches raise `ValueError`; other values raise `TypeError`. Tuple and list
-truth depends on length. Starred construction and unpacking, indexing,
-iteration, mutation, and cyclic representations are not implemented.
+lists, sequence iterators, and exceptions. Code preparation materializes each
+constant once per runtime and code object. String objects accept UTF-8 plus the
+compiler's deliberate WTF-8 encoding for lone surrogates; bytes objects retain
+arbitrary payloads. Stable representations escape non-printable text and bytes
+without losing their contents. Fixed tuple and list displays consume their
+elements in source order and allocate heap-backed sequence values. Exact tuple
+and list unpacking pushes elements in reverse so nested assignment targets
+store left to right. Arity mismatches raise `ValueError`; other values raise
+`TypeError`. Tuple and list truth depends on length. Their iterators retain the
+source sequence, yield its elements in order, and leave the operand stack on
+normal exhaustion. The current `for` implementation accepts only tuples and
+lists. Starred construction and unpacking, indexing, mutation, and cyclic
+representations are not implemented.
 
 Scalar truth testing follows Python for the current fixed types: `None`, false
 booleans, numeric zero, and empty strings or bytes are false; other scalar
@@ -552,10 +556,11 @@ compiler input errors.
 Runtime tests compile source through the complete front end before executing
 it. The initial cases cover module globals, discarded expressions, scalar and
 fixed-sequence values, nested destructuring assignment, singleton identity,
-scalar and sequence truth testing, numeric unary operations, selected arbitrary-
-precision integer binary operations, boolean short-circuiting, conditional expressions, conditional statements,
-chained scalar comparisons, and `while` loops with normal exhaustion, `else`,
-`break`, and `continue`.
+scalar and sequence truth testing, numeric unary operations, selected
+arbitrary-precision integer binary operations, boolean short-circuiting,
+conditional expressions and statements, chained scalar comparisons, `while`
+loops, and tuple/list `for` loops. Loop cases cover normal exhaustion, `else`,
+`break`, `continue`, empty inputs, destructuring targets, and nesting.
 Floor-division cases pin quotient rounding, remainder signs, and zero-divisor
 errors. Shift cases cover signed values, booleans, negative counts, and huge
 counts that cannot fit a machine word. Python `NameError`, `TypeError`,
