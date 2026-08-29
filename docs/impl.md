@@ -273,14 +273,16 @@ bytes escapes, normalizes physical newlines in literal values, folds adjacent
 plain literals, and retains lone Unicode surrogates as WTF-8-compatible bytes.
 Formatted strings preserve raw mode and debug-field spelling, apply `str`,
 `repr`, or `ascii` conversions, recursively build format specs, and join plain
-and formatted components with explicit stack effects. Constants and referenced
-names use deterministic indexed tables. Stable code dumps support compiler
-tests and future diagnostics.
+and formatted components with explicit stack effects. Tuple, list, set, and
+dictionary displays use count-based build instructions when they have no
+unpacking. Starred displays use typed append, extend, and update instructions
+against one accumulator while evaluating elements from left to right. Constants
+and referenced names use deterministic indexed tables. Stable code dumps
+support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, collection literals, operators, control flow, functions,
-closures, imports, annotations, exceptions, and suspended execution are not yet
-compiled. Unsupported AST nodes fail with a source-located compiler error.
+Template strings, operators, control flow, functions, closures, imports,
+annotations, exceptions, and suspended execution are not yet compiled. Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
 
@@ -359,7 +361,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains fourteen successful parse-resolve-compile
+The compiler corpus currently contains sixteen successful parse-resolve-compile
 cases for the initial module instruction set and literal evaluation. Cases
 record stable Bullsnake code-object dumps; focused tests cover instruction
 source positions, stack effects, code-object copying, opcode formatting,

@@ -73,6 +73,16 @@
       "name": "adjacent plain and formatted strings",
       "source": "value = 'middle'\njoined = 'left ' f'{value}' ' right'\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[String(\"middle\"), String(\"left \"), String(\" right\"), None], names=[\"value\", \"joined\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, LOAD_NAME 0, FORMAT_SIMPLE, LOAD_CONST 2, BUILD_STRING 3, STORE_NAME 1, LOAD_CONST 3, RETURN_VALUE])"
+    },
+    {
+      "name": "ordinary collection displays",
+      "source": "empty_tuple = ()\nempty_list = []\nempty_dict = {}\ntuple_value = (1, 'two', None)\nlist_value = [1, 'two', None]\nset_value = {1, 'two', None}\ndict_value = {'one': 1, 'two': 2}\nnested = [{'items': (1, 2)}]\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[Int(1), String(\"two\"), None, String(\"one\"), Int(2), String(\"items\")], names=[\"empty_tuple\", \"empty_list\", \"empty_dict\", \"tuple_value\", \"list_value\", \"set_value\", \"dict_value\", \"nested\"], locals=[], cells=[], free=[], instructions=[BUILD_TUPLE 0, STORE_NAME 0, BUILD_LIST 0, STORE_NAME 1, BUILD_MAP 0, STORE_NAME 2, LOAD_CONST 0, LOAD_CONST 1, LOAD_CONST 2, BUILD_TUPLE 3, STORE_NAME 3, LOAD_CONST 0, LOAD_CONST 1, LOAD_CONST 2, BUILD_LIST 3, STORE_NAME 4, LOAD_CONST 0, LOAD_CONST 1, LOAD_CONST 2, BUILD_SET 3, STORE_NAME 5, LOAD_CONST 3, LOAD_CONST 0, LOAD_CONST 1, LOAD_CONST 4, BUILD_MAP 2, STORE_NAME 6, LOAD_CONST 5, LOAD_CONST 0, LOAD_CONST 4, BUILD_TUPLE 2, BUILD_MAP 1, BUILD_LIST 1, STORE_NAME 7, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
+      "name": "collection display unpacking",
+      "source": "items = [1, 2]\nmapping = {'a': 1}\ntuple_unpack = (0, *items, 3)\nlist_unpack = [0, *items, 3]\nset_unpack = {0, *items, 3}\ndict_unpack = {'z': 0, **mapping, 'b': 2}\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(1), Int(2), String(\"a\"), Int(0), Int(3), String(\"z\"), String(\"b\"), None], names=[\"items\", \"mapping\", \"tuple_unpack\", \"list_unpack\", \"set_unpack\", \"dict_unpack\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, LOAD_CONST 1, BUILD_LIST 2, STORE_NAME 0, LOAD_CONST 2, LOAD_CONST 0, BUILD_MAP 1, STORE_NAME 1, BUILD_LIST 0, LOAD_CONST 3, LIST_APPEND, LOAD_NAME 0, LIST_EXTEND, LOAD_CONST 4, LIST_APPEND, LIST_TO_TUPLE, STORE_NAME 2, BUILD_LIST 0, LOAD_CONST 3, LIST_APPEND, LOAD_NAME 0, LIST_EXTEND, LOAD_CONST 4, LIST_APPEND, STORE_NAME 3, BUILD_SET 0, LOAD_CONST 3, SET_ADD, LOAD_NAME 0, SET_UPDATE, LOAD_CONST 4, SET_ADD, STORE_NAME 4, BUILD_MAP 0, LOAD_CONST 5, LOAD_CONST 3, MAP_SET, LOAD_NAME 1, MAP_UPDATE, LOAD_CONST 6, LOAD_CONST 1, MAP_SET, STORE_NAME 5, LOAD_CONST 7, RETURN_VALUE])"
     }
   ]
 }

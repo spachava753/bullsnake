@@ -77,6 +77,12 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := FormatWithSpec.StackEffect(0); got != -1 {
 		t.Fatalf("FORMAT_WITH_SPEC stack effect = %d, want -1", got)
 	}
+	if got := BuildMap.StackEffect(2); got != -3 {
+		t.Fatalf("BUILD_MAP 2 stack effect = %d, want -3", got)
+	}
+	if got := MapSet.StackEffect(0); got != -2 {
+		t.Fatalf("MAP_SET stack effect = %d, want -2", got)
+	}
 	if got := Dump(nil); got != "nil" {
 		t.Fatalf("Dump(nil) = %q", got)
 	}

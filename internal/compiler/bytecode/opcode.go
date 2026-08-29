@@ -29,6 +29,17 @@ const (
 	FormatSimple
 	FormatWithSpec
 	BuildString
+	BuildTuple
+	BuildList
+	BuildSet
+	BuildMap
+	ListAppend
+	ListExtend
+	ListToTuple
+	SetAdd
+	SetUpdate
+	MapSet
+	MapUpdate
 )
 
 var opcodeNames = [...]string{
@@ -43,6 +54,17 @@ var opcodeNames = [...]string{
 	"FORMAT_SIMPLE",
 	"FORMAT_WITH_SPEC",
 	"BUILD_STRING",
+	"BUILD_TUPLE",
+	"BUILD_LIST",
+	"BUILD_SET",
+	"BUILD_MAP",
+	"LIST_APPEND",
+	"LIST_EXTEND",
+	"LIST_TO_TUPLE",
+	"SET_ADD",
+	"SET_UPDATE",
+	"MAP_SET",
+	"MAP_UPDATE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -56,7 +78,8 @@ func (opcode Opcode) String() string {
 // HasOperand reports whether the instruction encodes an operand.
 func (opcode Opcode) HasOperand() bool {
 	switch opcode {
-	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString:
+	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
+		BuildTuple, BuildList, BuildSet, BuildMap:
 		return true
 	default:
 		return false
@@ -68,10 +91,15 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy:
 		return 1
-	case StoreName, PopTop, ReturnValue, FormatWithSpec:
+	case StoreName, PopTop, ReturnValue, FormatWithSpec,
+		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate:
 		return -1
-	case BuildString:
+	case MapSet:
+		return -2
+	case BuildString, BuildTuple, BuildList, BuildSet:
 		return 1 - int(operand)
+	case BuildMap:
+		return 1 - 2*int(operand)
 	default:
 		return 0
 	}

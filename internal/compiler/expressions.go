@@ -40,6 +40,44 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		return compiler.compileFormattedString(expression)
 	case *compilerast.StringConcatExpr:
 		return compiler.compileStringConcat(expression)
+	case *compilerast.TupleExpr:
+		if expression.Context != compilerast.Load {
+			return compiler.error(expression.Span(), "tuple expression is not a load")
+		}
+		return compiler.compileIterableDisplay(
+			expression.Elements,
+			bytecode.BuildTuple,
+			bytecode.BuildList,
+			bytecode.ListAppend,
+			bytecode.ListExtend,
+			true,
+			expression.Span(),
+		)
+	case *compilerast.ListExpr:
+		if expression.Context != compilerast.Load {
+			return compiler.error(expression.Span(), "list expression is not a load")
+		}
+		return compiler.compileIterableDisplay(
+			expression.Elements,
+			bytecode.BuildList,
+			bytecode.BuildList,
+			bytecode.ListAppend,
+			bytecode.ListExtend,
+			false,
+			expression.Span(),
+		)
+	case *compilerast.SetExpr:
+		return compiler.compileIterableDisplay(
+			expression.Elements,
+			bytecode.BuildSet,
+			bytecode.BuildSet,
+			bytecode.SetAdd,
+			bytecode.SetUpdate,
+			false,
+			expression.Span(),
+		)
+	case *compilerast.DictExpr:
+		return compiler.compileDictDisplay(expression)
 	case *compilerast.NoneLiteral:
 		return compiler.emit(
 			bytecode.LoadConst,
