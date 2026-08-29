@@ -13,29 +13,49 @@ func TestCodeCopiesMutableInputAndOutput(t *testing.T) {
 	}
 	instructions := []Instruction{{Opcode: LoadConst, Operand: 0}}
 	names := []string{"value"}
+	child := NewCode(CodeSpec{Name: "child", QualifiedName: "f.<locals>.child"})
+	children := []*Code{child}
 	code := NewCode(CodeSpec{
-		Name:          "f",
-		QualifiedName: "f",
-		FirstLine:     1,
-		StackSize:     1,
-		Instructions:  instructions,
-		Positions:     []lexer.Span{span},
-		Constants:     []Constant{None()},
-		Names:         names,
+		Name:                "f",
+		QualifiedName:       "f",
+		FirstLine:           1,
+		PositionalOnlyCount: 1,
+		PositionalCount:     2,
+		KeywordOnlyCount:    3,
+		StackSize:           1,
+		Instructions:        instructions,
+		Positions:           []lexer.Span{span},
+		Constants:           []Constant{None()},
+		Names:               names,
+		Children:            children,
 	})
 
 	instructions[0].Opcode = Nop
 	names[0] = "changed"
+	children[0] = nil
 	gotInstructions := code.Instructions()
 	gotNames := code.Names()
+	gotChildren := code.Children()
 	gotInstructions[0].Opcode = Nop
 	gotNames[0] = "changed again"
+	gotChildren[0] = nil
 
 	if got := code.Instructions()[0]; got != (Instruction{Opcode: LoadConst}) {
 		t.Fatalf("instruction = %+v", got)
 	}
 	if got := code.Names()[0]; got != "value" {
 		t.Fatalf("name = %q", got)
+	}
+	if got := code.Children()[0]; got != child {
+		t.Fatalf("child = %p, want %p", got, child)
+	}
+	if code.PositionalOnlyCount() != 1 || code.PositionalCount() != 2 || code.KeywordOnlyCount() != 3 {
+		t.Fatalf(
+			"argument counts = %d, %d, %d",
+			code.PositionalOnlyCount(),
+			code.PositionalCount(),
+			code.KeywordOnlyCount(),
+		)
 	}
 	if got, ok := code.Position(0); !ok || got != span {
 		t.Fatalf("position = (%+v, %t)", got, ok)
@@ -48,6 +68,26 @@ func TestCodeCopiesMutableInputAndOutput(t *testing.T) {
 func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := (Instruction{Opcode: LoadName, Operand: 3}).String(); got != "LOAD_NAME 3" {
 		t.Fatalf("instruction = %q", got)
+	}
+	flags := Optimized | NewLocals | VarArgs | Nested
+	if got := flags.String(); got != "Optimized, NewLocals, VarArgs, Nested" {
+		t.Fatalf("code flags = %q", got)
+	}
+	function := Instruction{Opcode: MakeFunction, Operand: 2}
+	if got := function.String(); got != "MAKE_FUNCTION 2" {
+		t.Fatalf("function instruction = %q", got)
+	}
+	if got := MakeFunction.StackEffect(2); got != 1 {
+		t.Fatalf("MAKE_FUNCTION stack effect = %d, want 1", got)
+	}
+	if got := LoadFast.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_FAST stack effect = %d, want 1", got)
+	}
+	if got := StoreFast.StackEffect(0); got != -1 {
+		t.Fatalf("STORE_FAST stack effect = %d, want -1", got)
+	}
+	if got := LoadGlobal.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_GLOBAL stack effect = %d, want 1", got)
 	}
 	if got := Opcode(255).String(); got != "Opcode(255)" {
 		t.Fatalf("unknown opcode = %q", got)

@@ -127,6 +127,13 @@ const (
 	PopJumpIfTrue
 	LoadAssertionError
 	RaiseVarargs
+	LoadFast
+	StoreFast
+	DeleteFast
+	LoadGlobal
+	StoreGlobal
+	DeleteGlobal
+	MakeFunction
 )
 
 var opcodeNames = [...]string{
@@ -179,6 +186,13 @@ var opcodeNames = [...]string{
 	"POP_JUMP_IF_TRUE",
 	"LOAD_ASSERTION_ERROR",
 	"RAISE_VARARGS",
+	"LOAD_FAST",
+	"STORE_FAST",
+	"DELETE_FAST",
+	"LOAD_GLOBAL",
+	"STORE_GLOBAL",
+	"DELETE_GLOBAL",
+	"MAKE_FUNCTION",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -197,7 +211,8 @@ func (opcode Opcode) HasOperand() bool {
 		CompareOp, Jump, PopJumpIfFalse, PopJumpIfTrue, JumpIfFalseOrPop,
 		JumpIfTrueOrPop, LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr,
 		UnpackSequence, UnpackEx, InplaceOp, DeleteName, DeleteAttr,
-		RaiseVarargs:
+		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
+		DeleteGlobal, MakeFunction:
 		return true
 	default:
 		return false
@@ -208,12 +223,13 @@ func (opcode Opcode) HasOperand() bool {
 // Jump edges with different effects are tracked by the compiler's labels.
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
-	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError:
+	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError, LoadFast,
+		LoadGlobal, MakeFunction:
 		return 1
-	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp, InplaceOp,
-		CompareOp, PopJumpIfFalse, PopJumpIfTrue, JumpIfFalseOrPop,
-		JumpIfTrueOrPop, BinarySubscript, DeleteAttr, ListAppend, ListExtend,
-		SetAdd, SetUpdate, MapUpdate, MapMerge:
+	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
+		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
+		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
+		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript:
 		return -2

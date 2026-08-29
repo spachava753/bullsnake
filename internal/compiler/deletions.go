@@ -22,10 +22,7 @@ func (compiler *compilerState) compileDeleteTarget(expression compilerast.Expr) 
 		if expression.Context != compilerast.Delete {
 			return compiler.error(expression.Span(), "name delete target has the wrong context")
 		}
-		if compiler.scope.Symbols[expression.ID] == nil {
-			return compiler.error(expression.Span(), "resolver has no symbol for %q", expression.ID)
-		}
-		return compiler.emit(bytecode.DeleteName, compiler.nameIndex(expression.ID), expression.Span())
+		return compiler.emitNameDelete(expression.ID, expression.Span())
 	case *compilerast.AttributeExpr:
 		if expression.Context != compilerast.Delete {
 			return compiler.error(expression.Span(), "attribute delete target has the wrong context")

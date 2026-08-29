@@ -12,10 +12,7 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		if expression.Context != compilerast.Load {
 			return compiler.error(expression.Span(), "name expression is not a load")
 		}
-		if compiler.scope.Symbols[expression.ID] == nil {
-			return compiler.error(expression.Span(), "resolver has no symbol for %q", expression.ID)
-		}
-		return compiler.emit(bytecode.LoadName, compiler.nameIndex(expression.ID), expression.Span())
+		return compiler.emitNameLoad(expression.ID, expression.Span())
 	case *compilerast.NumberLiteral:
 		constant, err := parseNumberLiteral(expression.Text)
 		if err != nil {

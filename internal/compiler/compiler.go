@@ -10,20 +10,31 @@ import (
 type compilerState struct {
 	filename string
 	module   *compilerast.Module
+	owner    compilerast.Node
 	table    *resolver.Table
 	scope    *resolver.Scope
 
-	instructions []bytecode.Instruction
-	positions    []lexer.Span
-	constants    []bytecode.Constant
-	constantIDs  map[bytecode.Constant]uint32
-	names        []string
-	nameIDs      map[string]uint32
-	stackDepth   int
-	maxStack     int
-	reachable    bool
-	labels       []*jumpLabel
-	loops        []loopContext
+	codeName            string
+	qualifiedName       string
+	firstLine           int
+	codeFlags           bytecode.CodeFlags
+	positionalOnlyCount int
+	positionalCount     int
+	keywordOnlyCount    int
+	locals              []string
+	localIDs            map[string]uint32
+	children            []*bytecode.Code
+	instructions        []bytecode.Instruction
+	positions           []lexer.Span
+	constants           []bytecode.Constant
+	constantIDs         map[bytecode.Constant]uint32
+	names               []string
+	nameIDs             map[string]uint32
+	stackDepth          int
+	maxStack            int
+	reachable           bool
+	labels              []*jumpLabel
+	loops               []loopContext
 }
 
 // emit appends a fallthrough instruction after validating reachability,
@@ -52,6 +63,16 @@ func (compiler *compilerState) emitTerminator(opcode bytecode.Opcode, operand ui
 	}
 	compiler.reachable = false
 	return nil
+}
+
+func (compiler *compilerState) emitImplicitReturn(span lexer.Span) error {
+	if !compiler.reachable {
+		return nil
+	}
+	if err := compiler.emit(bytecode.LoadConst, compiler.constantIndex(bytecode.None()), span); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.ReturnValue, 0, span)
 }
 
 func (compiler *compilerState) appendInstruction(opcode bytecode.Opcode, operand uint32, span lexer.Span) int {
@@ -89,29 +110,31 @@ func (compiler *compilerState) nameIndex(name string) uint32 {
 func (compiler *compilerState) finish() (*bytecode.Code, error) {
 	for _, label := range compiler.labels {
 		if !label.marked {
-			return nil, compiler.error(compiler.module.Span(), "unresolved jump label")
+			return nil, compiler.error(compiler.owner.Span(), "unresolved jump label")
 		}
 	}
 	if compiler.reachable && compiler.stackDepth != 0 {
 		return nil, compiler.error(
-			compiler.module.Span(),
-			"module leaves %d values on the operand stack",
+			compiler.owner.Span(),
+			"code object leaves %d values on the operand stack",
 			compiler.stackDepth,
 		)
 	}
-	firstLine := 1
-	if len(compiler.module.Body) != 0 {
-		firstLine = compiler.module.Body[0].Span().Start.Line
-	}
 	return bytecode.NewCode(bytecode.CodeSpec{
-		Filename:      compiler.filename,
-		Name:          "<module>",
-		QualifiedName: "<module>",
-		FirstLine:     firstLine,
-		StackSize:     compiler.maxStack,
-		Instructions:  compiler.instructions,
-		Positions:     compiler.positions,
-		Constants:     compiler.constants,
-		Names:         compiler.names,
+		Filename:            compiler.filename,
+		Name:                compiler.codeName,
+		QualifiedName:       compiler.qualifiedName,
+		FirstLine:           compiler.firstLine,
+		Flags:               compiler.codeFlags,
+		PositionalOnlyCount: compiler.positionalOnlyCount,
+		PositionalCount:     compiler.positionalCount,
+		KeywordOnlyCount:    compiler.keywordOnlyCount,
+		StackSize:           compiler.maxStack,
+		Instructions:        compiler.instructions,
+		Positions:           compiler.positions,
+		Constants:           compiler.constants,
+		Names:               compiler.names,
+		Locals:              compiler.locals,
+		Children:            compiler.children,
 	}), nil
 }

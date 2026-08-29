@@ -24,10 +24,7 @@ func (compiler *compilerState) compileStore(expression compilerast.Expr) error {
 		if expression.Context != compilerast.Store {
 			return compiler.error(expression.Span(), "name target is not a store")
 		}
-		if compiler.scope.Symbols[expression.ID] == nil {
-			return compiler.error(expression.Span(), "resolver has no symbol for %q", expression.ID)
-		}
-		return compiler.emit(bytecode.StoreName, compiler.nameIndex(expression.ID), expression.Span())
+		return compiler.emitNameStore(expression.ID, expression.Span())
 	case *compilerast.AttributeExpr:
 		if expression.Context != compilerast.Store {
 			return compiler.error(expression.Span(), "attribute target is not a store")

@@ -16,30 +16,33 @@ func Compile(filename string, module *compilerast.Module, table *resolver.Table)
 	if table == nil || table.Root == nil || table.Root.Kind != resolver.ModuleScope {
 		return nil, &Error{Message: "missing module symbol table", Filename: filename, Span: module.Span()}
 	}
+	firstLine := 1
+	if len(module.Body) != 0 {
+		firstLine = module.Body[0].Span().Start.Line
+	}
 	state := &compilerState{
-		filename:    filename,
-		module:      module,
-		table:       table,
-		scope:       table.Root,
-		constantIDs: make(map[bytecode.Constant]uint32),
-		nameIDs:     make(map[string]uint32),
-		reachable:   true,
+		filename:      filename,
+		module:        module,
+		owner:         module,
+		table:         table,
+		scope:         table.Root,
+		codeName:      "<module>",
+		qualifiedName: "<module>",
+		firstLine:     firstLine,
+		constantIDs:   make(map[bytecode.Constant]uint32),
+		nameIDs:       make(map[string]uint32),
+		localIDs:      make(map[string]uint32),
+		reachable:     true,
 	}
 	if err := state.compileStatements(module.Body); err != nil {
 		return nil, err
 	}
-	if state.reachable {
-		position := module.Span().End
-		if position.Line == 0 {
-			position.Line = 1
-		}
-		span := lexer.Span{Start: position, End: position}
-		if err := state.emit(bytecode.LoadConst, state.constantIndex(bytecode.None()), span); err != nil {
-			return nil, err
-		}
-		if err := state.emit(bytecode.ReturnValue, 0, span); err != nil {
-			return nil, err
-		}
+	position := module.Span().End
+	if position.Line == 0 {
+		position.Line = 1
+	}
+	if err := state.emitImplicitReturn(lexer.Span{Start: position, End: position}); err != nil {
+		return nil, err
 	}
 	return state.finish()
 }

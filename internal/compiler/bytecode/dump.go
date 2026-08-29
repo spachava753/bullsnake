@@ -21,7 +21,17 @@ func Dump(code *Code) string {
 	builder.WriteString(strconv.Itoa(code.firstLine))
 	builder.WriteString(", flags=[")
 	builder.WriteString(code.flags.String())
-	builder.WriteString("], stack=")
+	builder.WriteByte(']')
+	if code.name != "<module>" {
+		builder.WriteString(", args=(posonly=")
+		builder.WriteString(strconv.Itoa(code.positionalOnlyCount))
+		builder.WriteString(", positional=")
+		builder.WriteString(strconv.Itoa(code.positionalCount))
+		builder.WriteString(", kwonly=")
+		builder.WriteString(strconv.Itoa(code.keywordOnlyCount))
+		builder.WriteByte(')')
+	}
+	builder.WriteString(", stack=")
 	builder.WriteString(strconv.Itoa(code.stackSize))
 	builder.WriteString(", constants=[")
 	for index, constant := range code.constants {
@@ -38,6 +48,16 @@ func Dump(code *Code) string {
 	dumpStrings(&builder, code.cells)
 	builder.WriteString(", free=")
 	dumpStrings(&builder, code.freeVars)
+	if len(code.children) != 0 {
+		builder.WriteString(", children=[")
+		for index, child := range code.children {
+			if index != 0 {
+				builder.WriteString(", ")
+			}
+			builder.WriteString(Dump(child))
+		}
+		builder.WriteByte(']')
+	}
 	builder.WriteString(", instructions=[")
 	for index, instruction := range code.instructions {
 		if index != 0 {

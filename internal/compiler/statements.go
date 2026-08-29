@@ -51,6 +51,12 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return compiler.compileRaiseStatement(statement)
 	case *compilerast.AssertStmt:
 		return compiler.compileAssertStatement(statement)
+	case *compilerast.ReturnStmt:
+		return compiler.compileReturnStatement(statement)
+	case *compilerast.GlobalStmt, *compilerast.NonlocalStmt:
+		return nil
+	case *compilerast.FunctionDefStmt:
+		return compiler.compileFunctionDefinition(statement)
 	case *compilerast.IfStmt:
 		return compiler.compileIfStatement(statement)
 	case *compilerast.WhileStmt:

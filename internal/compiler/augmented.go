@@ -18,10 +18,7 @@ func (compiler *compilerState) compileAugmentedAssignment(statement *compilerast
 		if target.Context != compilerast.Store {
 			return compiler.error(target.Span(), "augmented name target is not a store")
 		}
-		if compiler.scope.Symbols[target.ID] == nil {
-			return compiler.error(target.Span(), "resolver has no symbol for %q", target.ID)
-		}
-		if err := compiler.emit(bytecode.LoadName, compiler.nameIndex(target.ID), target.Span()); err != nil {
+		if err := compiler.emitNameLoad(target.ID, target.Span()); err != nil {
 			return err
 		}
 	case *compilerast.AttributeExpr:
@@ -69,7 +66,7 @@ func (compiler *compilerState) compileAugmentedAssignment(statement *compilerast
 
 	switch target := statement.Target.(type) {
 	case *compilerast.Name:
-		return compiler.emit(bytecode.StoreName, compiler.nameIndex(target.ID), target.Span())
+		return compiler.emitNameStore(target.ID, target.Span())
 	case *compilerast.AttributeExpr:
 		if err := compiler.emit(bytecode.Swap, 2, target.Span()); err != nil {
 			return err

@@ -243,6 +243,26 @@
       "name": "conditional raise continuation",
       "source": "if failed:\n    raise error\nafter = 1\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Int(1), None], names=[\"failed\", \"error\", \"after\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, POP_JUMP_IF_FALSE 4, LOAD_NAME 1, RAISE_VARARGS 1, LOAD_CONST 0, STORE_NAME 2, LOAD_CONST 1, RETURN_VALUE])"
+    },
+    {
+      "name": "basic function definition",
+      "source": "def add(left, right):\n    total = left + right\n    return total\nresult = add(1, 2)\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(1), Int(2), None], names=[\"add\", \"result\"], locals=[], cells=[], free=[], children=[Code(name=\"add\", qualname=\"add\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=2, kwonly=0), stack=2, constants=[], names=[], locals=[\"left\", \"right\", \"total\"], cells=[], free=[], instructions=[LOAD_FAST 0, LOAD_FAST 1, BINARY_OP 0, STORE_FAST 2, LOAD_FAST 2, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, LOAD_CONST 0, LOAD_CONST 1, CALL 2, STORE_NAME 1, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
+      "name": "required function parameter kinds",
+      "source": "def collect(first, /, second, *items, flag, **options):\n    return first, second, items, flag, options\nfunction = collect\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"collect\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"collect\", qualname=\"collect\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals, VarArgs, VarKeywords], args=(posonly=1, positional=2, kwonly=1), stack=5, constants=[], names=[], locals=[\"first\", \"second\", \"items\", \"flag\", \"options\"], cells=[], free=[], instructions=[LOAD_FAST 0, LOAD_FAST 1, LOAD_FAST 2, LOAD_FAST 3, LOAD_FAST 4, BUILD_TUPLE 5, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "function globals and implicit return",
+      "source": "global shared\ndef update(value):\n    global shared\n    shared = value\n    observed = shared\nfunction = update\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"update\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"update\", qualname=\"update\", filename=\"<test>\", first_line=2, flags=[Optimized, NewLocals], args=(posonly=0, positional=1, kwonly=0), stack=1, constants=[None], names=[\"shared\"], locals=[\"value\", \"observed\"], cells=[], free=[], instructions=[LOAD_FAST 0, STORE_GLOBAL 0, LOAD_GLOBAL 0, STORE_FAST 1, LOAD_CONST 0, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "nested noncapturing functions",
+      "source": "def outer():\n    def inner(value):\n        return value\n    return inner\nfunction = outer\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"outer\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"outer\", qualname=\"outer\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=0, kwonly=0), stack=1, constants=[], names=[], locals=[\"inner\"], cells=[], free=[], children=[Code(name=\"inner\", qualname=\"outer.<locals>.inner\", filename=\"<test>\", first_line=2, flags=[Optimized, NewLocals, Nested], args=(posonly=0, positional=1, kwonly=0), stack=1, constants=[], names=[], locals=[\"value\"], cells=[], free=[], instructions=[LOAD_FAST 0, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_FAST 0, LOAD_FAST 0, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }
