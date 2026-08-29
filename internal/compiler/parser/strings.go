@@ -163,7 +163,7 @@ func (parser *parserState) parseFormattedValue(open lexer.Token, middleKind lexe
 // parseFormatSpec collects literal text and nested replacement fields until
 // the enclosing replacement's closing brace.
 func (parser *parserState) parseFormatSpec(middleKind lexer.Kind) ([]compilerast.Expr, error) {
-	var parts []compilerast.Expr
+	parts := make([]compilerast.Expr, 0)
 	for {
 		token, err := parser.peek(0)
 		if err != nil {

@@ -64,6 +64,27 @@ func TestParsePreservesSourceSpans(t *testing.T) {
 	}
 }
 
+func TestEmptyFormattedStringSpecIsPresent(t *testing.T) {
+	for _, test := range []struct {
+		source  string
+		present bool
+	}{
+		{source: `f"{value}"`},
+		{source: `f"{value:}"`, present: true},
+	} {
+		root, err := Parse("input.py", test.source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		statement := root.Body[0].(*compilerast.ExprStmt)
+		formatted := statement.Value.(*compilerast.FormattedStringExpr)
+		value := formatted.Parts[0].(*compilerast.FormattedValueExpr)
+		if got := value.Format != nil; got != test.present {
+			t.Errorf("Parse(%q) format present = %t, want %t", test.source, got, test.present)
+		}
+	}
+}
+
 // TestErrorFormatting protects the complete human-readable diagnostic,
 // including the one-based display column, which the corpus does not compare.
 func TestErrorFormatting(t *testing.T) {

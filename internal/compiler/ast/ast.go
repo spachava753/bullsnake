@@ -512,7 +512,7 @@ type FormattedValueExpr struct {
 	Range      lexer.Span
 	Value      Expr
 	Conversion string
-	Format     []Expr
+	Format     []Expr // nil means no format colon; an empty non-nil slice means ":".
 	Debug      bool
 	DebugText  string
 }
