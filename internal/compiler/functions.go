@@ -84,19 +84,12 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 		positionalCount:     len(statement.Parameters.PositionalOnly) + len(statement.Parameters.Positional),
 		keywordOnlyCount:    len(statement.Parameters.KeywordOnly),
 		localIDs:            make(map[string]uint32),
+		derefIDs:            make(map[string]uint32),
 		constantIDs:         make(map[bytecode.Constant]uint32),
 		nameIDs:             make(map[string]uint32),
 		reachable:           true,
 	}
-	for _, name := range scope.Parameters {
-		child.addLocal(name)
-	}
-	for _, name := range scope.SymbolOrder {
-		symbol := scope.Symbols[name]
-		if symbol != nil && symbol.Resolution == resolver.Local {
-			child.addLocal(name)
-		}
-	}
+	child.initializeScopeLayout(scope)
 
 	if err := child.compileStatements(statement.Body); err != nil {
 		return err
@@ -109,10 +102,34 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if err != nil {
 		return err
 	}
+	closure := len(child.freeVars) != 0
+	for _, name := range child.freeVars {
+		index, indexErr := compiler.derefIndex(name)
+		if indexErr != nil {
+			return compiler.error(statement.Span(), "%v", indexErr)
+		}
+		if err := compiler.emit(bytecode.LoadClosure, index, statement.Span()); err != nil {
+			return err
+		}
+	}
+	if closure {
+		if err := compiler.emit(bytecode.BuildTuple, uint32(len(child.freeVars)), statement.Span()); err != nil {
+			return err
+		}
+	}
 	childIndex := uint32(len(compiler.children))
 	compiler.children = append(compiler.children, code)
 	if err := compiler.emit(bytecode.MakeFunction, childIndex, statement.Span()); err != nil {
 		return err
+	}
+	if closure {
+		if err := compiler.emit(
+			bytecode.SetFunctionAttribute,
+			uint32(bytecode.FunctionClosure),
+			statement.Span(),
+		); err != nil {
+			return err
+		}
 	}
 	if keywordDefaults {
 		if err := compiler.emit(
@@ -218,4 +235,43 @@ func (compiler *compilerState) addLocal(name string) {
 	}
 	compiler.localIDs[name] = uint32(len(compiler.locals))
 	compiler.locals = append(compiler.locals, name)
+}
+
+// initializeScopeLayout assigns deterministic indexes in resolver order. Cells
+// precede frees so every dereference opcode uses one stable index space.
+func (compiler *compilerState) initializeScopeLayout(scope *resolver.Scope) {
+	for _, name := range scope.Parameters {
+		compiler.addLocal(name)
+	}
+	for _, name := range scope.SymbolOrder {
+		if symbol := scope.Symbols[name]; symbol != nil && symbol.Resolution == resolver.Local {
+			compiler.addLocal(name)
+		}
+	}
+	for _, name := range scope.SymbolOrder {
+		if symbol := scope.Symbols[name]; symbol != nil && symbol.Resolution == resolver.Cell {
+			compiler.addCell(name)
+		}
+	}
+	for _, name := range scope.SymbolOrder {
+		if symbol := scope.Symbols[name]; symbol != nil && symbol.Resolution == resolver.Free {
+			compiler.addFree(name)
+		}
+	}
+}
+
+func (compiler *compilerState) addCell(name string) {
+	if _, exists := compiler.derefIDs[name]; exists {
+		return
+	}
+	compiler.derefIDs[name] = uint32(len(compiler.cells))
+	compiler.cells = append(compiler.cells, name)
+}
+
+func (compiler *compilerState) addFree(name string) {
+	if _, exists := compiler.derefIDs[name]; exists {
+		return
+	}
+	compiler.derefIDs[name] = uint32(len(compiler.cells) + len(compiler.freeVars))
+	compiler.freeVars = append(compiler.freeVars, name)
 }

@@ -87,6 +87,18 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := SetFunctionAttribute.StackEffect(uint32(FunctionDefaults)); got != -1 {
 		t.Fatalf("SET_FUNCTION_ATTRIBUTE stack effect = %d, want -1", got)
 	}
+	if got := (Instruction{Opcode: LoadClosure, Operand: 3}).String(); got != "LOAD_CLOSURE 3" {
+		t.Fatalf("closure instruction = %q", got)
+	}
+	if got := LoadDeref.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_DEREF stack effect = %d, want 1", got)
+	}
+	if got := StoreDeref.StackEffect(0); got != -1 {
+		t.Fatalf("STORE_DEREF stack effect = %d, want -1", got)
+	}
+	if got := LoadClosure.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_CLOSURE stack effect = %d, want 1", got)
+	}
 	if got := LoadFast.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_FAST stack effect = %d, want 1", got)
 	}

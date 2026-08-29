@@ -8,8 +8,8 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
-// emitNameLoad selects namespace, fast-local, or global access from the current
-// resolver scope and rejects closure access until that slice is implemented.
+// emitNameLoad selects namespace, fast-local, closure, or global access from
+// the current resolver scope.
 func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error {
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
@@ -28,14 +28,18 @@ func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error 
 	case resolver.GlobalExplicit, resolver.GlobalImplicit:
 		return compiler.emit(bytecode.LoadGlobal, compiler.nameIndex(name), span)
 	case resolver.Cell, resolver.Free:
-		return compiler.error(span, "closure name %q is not compiled", name)
+		index, err := compiler.derefIndex(name)
+		if err != nil {
+			return compiler.error(span, "%v", err)
+		}
+		return compiler.emit(bytecode.LoadDeref, index, span)
 	default:
 		return compiler.error(span, "name %q has unresolved scope", name)
 	}
 }
 
-// emitNameStore selects namespace, fast-local, or global storage from the
-// resolver classification and rejects closure storage until it is supported.
+// emitNameStore selects namespace, fast-local, closure, or global storage from
+// the resolver classification.
 func (compiler *compilerState) emitNameStore(name string, span lexer.Span) error {
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
@@ -54,14 +58,18 @@ func (compiler *compilerState) emitNameStore(name string, span lexer.Span) error
 	case resolver.GlobalExplicit, resolver.GlobalImplicit:
 		return compiler.emit(bytecode.StoreGlobal, compiler.nameIndex(name), span)
 	case resolver.Cell, resolver.Free:
-		return compiler.error(span, "closure name %q is not compiled", name)
+		index, err := compiler.derefIndex(name)
+		if err != nil {
+			return compiler.error(span, "%v", err)
+		}
+		return compiler.emit(bytecode.StoreDeref, index, span)
 	default:
 		return compiler.error(span, "name %q has unresolved scope", name)
 	}
 }
 
-// emitNameDelete selects namespace, fast-local, or global deletion from the
-// resolver classification and rejects closure deletion until it is supported.
+// emitNameDelete selects namespace, fast-local, closure, or global deletion from
+// the resolver classification.
 func (compiler *compilerState) emitNameDelete(name string, span lexer.Span) error {
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
@@ -80,7 +88,11 @@ func (compiler *compilerState) emitNameDelete(name string, span lexer.Span) erro
 	case resolver.GlobalExplicit, resolver.GlobalImplicit:
 		return compiler.emit(bytecode.DeleteGlobal, compiler.nameIndex(name), span)
 	case resolver.Cell, resolver.Free:
-		return compiler.error(span, "closure name %q is not compiled", name)
+		index, err := compiler.derefIndex(name)
+		if err != nil {
+			return compiler.error(span, "%v", err)
+		}
+		return compiler.emit(bytecode.DeleteDeref, index, span)
 	default:
 		return compiler.error(span, "name %q has unresolved scope", name)
 	}
@@ -98,6 +110,14 @@ func (compiler *compilerState) localIndex(name string) (uint32, error) {
 	index, ok := compiler.localIDs[name]
 	if !ok {
 		return 0, fmt.Errorf("local table has no entry for %q", name)
+	}
+	return index, nil
+}
+
+func (compiler *compilerState) derefIndex(name string) (uint32, error) {
+	index, ok := compiler.derefIDs[name]
+	if !ok {
+		return 0, fmt.Errorf("closure table has no entry for %q", name)
 	}
 	return index, nil
 }

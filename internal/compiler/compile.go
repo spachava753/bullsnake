@@ -32,6 +32,7 @@ func Compile(filename string, module *compilerast.Module, table *resolver.Table)
 		constantIDs:   make(map[bytecode.Constant]uint32),
 		nameIDs:       make(map[string]uint32),
 		localIDs:      make(map[string]uint32),
+		derefIDs:      make(map[string]uint32),
 		reachable:     true,
 	}
 	if err := state.compileStatements(module.Body); err != nil {

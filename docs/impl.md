@@ -271,11 +271,11 @@ constants; module name loads and stores; simple, chained, destructuring, and
 augmented assignments; recursive deletion targets; expression statements;
 collection displays; unary, binary, boolean, comparison, conditional, named,
 attribute, subscription, slice, and call expressions; assertions; bare and
-explicit raises; synchronous function definitions with decorators, required and
-defaulted parameters, and returns; `if`/`elif`/`else` statements; `while` loops; and
-synchronous `for` loops with name, tuple, or list targets, including one starred
-target per
-sequence. Both loop forms support optional `else`, `break`, and `continue`.
+explicit raises; synchronous function definitions with decorators, required
+and defaulted parameters, closures, and returns; `if`/`elif`/`else` statements;
+`while` loops; and synchronous `for` loops with name, tuple, or list targets,
+including one starred target per sequence. Both loop forms support optional
+`else`, `break`, and `continue`.
 Reachable code-object fallthrough ends with a synthetic `None` return.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
@@ -298,8 +298,7 @@ depth. Attribute loads share the deterministic name table with ordinary names.
 Subscriptions evaluate the container before the index; slices represent omitted
 bounds with `None` and use one build instruction for two or three components.
 Calls without unpacking or keywords use an inline argument count. Other calls
-build a
-positional tuple and optional keyword map; keyword mappings merge in source
+build a positional tuple and optional keyword map; keyword mappings merge in source
 order and reject duplicate names rather than applying dictionary-update
 semantics. Named assignment expressions copy their value before storing the
 target, so the same value remains as the expression result. Attribute and
@@ -315,19 +314,25 @@ A fully terminating code object has no synthetic return. Synchronous function
 definitions store immutable child code objects by index. Child metadata records
 required parameter counts and variadic flags; resolver-local names use indexed
 fast operations, while explicit and implicit globals use the name table.
-Non-capturing nested functions receive Python-style qualified names. The parent
-code evaluates positional defaults into one tuple and sparse keyword-only
-defaults into one map before creating the function. Attribute instructions
-attach the map and tuple while retaining the function on the operand stack.
-Decorator expressions evaluate in source order before defaults. Calls apply
-them in reverse order after function creation and attribute attachment.
+Non-capturing nested functions receive Python-style qualified names. Function
+scopes index cells before free variables in one dereference table, following
+resolver order. Captured parameters remain in both the argument-local and cell
+tables so frame setup can seed their cells. Each child requests cell objects in
+its own free-variable order, which keeps transitive captures correct when parent
+and child indexes differ. The parent evaluates positional defaults into one
+tuple and sparse keyword-only defaults into one map before loading the closure
+tuple and creating the function. Attribute instructions attach the closure,
+keyword-only map, and positional tuple in reverse stack order while retaining
+the function. Decorator expressions evaluate in source order before defaults.
+Calls apply them in reverse order after function creation and attribute
+attachment.
 Conditional statements use the same checked labels as conditional expressions;
 every true, false, and `elif` edge merges with an empty operand stack. The
 compiler keeps a nearest-loop stack for `break` and `continue`. A `while`
 condition's normal false edge enters `else`, while `break` targets the loop end
 directly. A `for` loop keeps its iterator beneath the body stack; successful
-iteration pushes one
-item, normal exhaustion removes the iterator and enters `else`, and `break`
+iteration pushes one item, normal exhaustion removes the iterator and enters
+`else`, and `break`
 pops to the loop's recorded base depth before skipping `else`. This depth rule
 preserves outer iterators in nested loops. A suite stops emitting after an
 unconditional jump, and a join with no reachable input remains unreachable.
@@ -335,8 +340,8 @@ Constants and referenced names use deterministic indexed tables. Stable code
 dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, annotations, generic and async functions, closures, `async for`,
-imports, exception handling, and suspended execution are not yet compiled.
+Template strings, annotations, generic and async functions, `async for`, imports,
+exception handling, and suspended execution are not yet compiled.
 Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
@@ -416,7 +421,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains fifty-six successful
+The compiler corpus currently contains fifty-nine successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

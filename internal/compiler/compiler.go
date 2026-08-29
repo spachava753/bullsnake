@@ -23,6 +23,9 @@ type compilerState struct {
 	keywordOnlyCount    int
 	locals              []string
 	localIDs            map[string]uint32
+	cells               []string
+	freeVars            []string
+	derefIDs            map[string]uint32
 	children            []*bytecode.Code
 	instructions        []bytecode.Instruction
 	positions           []lexer.Span
@@ -105,8 +108,8 @@ func (compiler *compilerState) nameIndex(name string) uint32 {
 	return index
 }
 
-// finish validates control-flow and stack invariants before constructing the
-// immutable module code object.
+// finish validates control-flow and stack invariants before constructing an
+// immutable code object.
 func (compiler *compilerState) finish() (*bytecode.Code, error) {
 	for _, label := range compiler.labels {
 		if !label.marked {
@@ -135,6 +138,8 @@ func (compiler *compilerState) finish() (*bytecode.Code, error) {
 		Constants:           compiler.constants,
 		Names:               compiler.names,
 		Locals:              compiler.locals,
+		Cells:               compiler.cells,
+		FreeVars:            compiler.freeVars,
 		Children:            compiler.children,
 	}), nil
 }

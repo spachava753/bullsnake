@@ -78,8 +78,9 @@ const (
 type FunctionAttribute uint32
 
 const (
-	FunctionDefaults FunctionAttribute = 1 << iota
-	FunctionKeywordDefaults
+	FunctionDefaults        FunctionAttribute = 0x01
+	FunctionKeywordDefaults FunctionAttribute = 0x02
+	FunctionClosure         FunctionAttribute = 0x08
 )
 
 // Opcode identifies one virtual-machine instruction.
@@ -143,6 +144,10 @@ const (
 	DeleteGlobal
 	MakeFunction
 	SetFunctionAttribute
+	LoadDeref
+	StoreDeref
+	DeleteDeref
+	LoadClosure
 )
 
 var opcodeNames = [...]string{
@@ -203,6 +208,10 @@ var opcodeNames = [...]string{
 	"DELETE_GLOBAL",
 	"MAKE_FUNCTION",
 	"SET_FUNCTION_ATTRIBUTE",
+	"LOAD_DEREF",
+	"STORE_DEREF",
+	"DELETE_DEREF",
+	"LOAD_CLOSURE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -222,7 +231,8 @@ func (opcode Opcode) HasOperand() bool {
 		JumpIfTrueOrPop, LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr,
 		UnpackSequence, UnpackEx, InplaceOp, DeleteName, DeleteAttr,
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
-		DeleteGlobal, MakeFunction, SetFunctionAttribute:
+		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
+		DeleteDeref, LoadClosure:
 		return true
 	default:
 		return false
@@ -234,13 +244,13 @@ func (opcode Opcode) HasOperand() bool {
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError, LoadFast,
-		LoadGlobal, MakeFunction:
+		LoadGlobal, MakeFunction, LoadDeref, LoadClosure:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
-		SetFunctionAttribute:
+		SetFunctionAttribute, StoreDeref:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript:
 		return -2
