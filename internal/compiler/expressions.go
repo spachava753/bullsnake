@@ -87,6 +87,8 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		return compiler.compileConditional(expression)
 	case *compilerast.NamedExpr:
 		return compiler.compileNamedExpression(expression)
+	case *compilerast.LambdaExpr:
+		return compiler.compileLambdaExpression(expression)
 	case *compilerast.AttributeExpr:
 		return compiler.compileAttribute(expression)
 	case *compilerast.SubscriptExpr:

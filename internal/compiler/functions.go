@@ -56,9 +56,42 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if err != nil {
 		return err
 	}
-	qualifiedName := statement.Name
+	child := compiler.newFunctionCompiler(statement, scope, statement.Parameters, statement.Name)
+
+	if err := child.compileStatements(statement.Body); err != nil {
+		return err
+	}
+	position := statement.Span().End
+	if err := child.emitImplicitReturn(lexer.Span{Start: position, End: position}); err != nil {
+		return err
+	}
+	code, err := child.finish()
+	if err != nil {
+		return err
+	}
+	if err := compiler.emitFunction(code, defaults, keywordDefaults, statement.Span()); err != nil {
+		return err
+	}
+	for index := len(statement.Decorators) - 1; index >= 0; index-- {
+		decorator := statement.Decorators[index]
+		if err := compiler.emit(bytecode.Call, 1, decorator.Span()); err != nil {
+			return err
+		}
+	}
+	return compiler.emitNameStore(statement.Name, statement.Span())
+}
+
+// newFunctionCompiler creates one child with callable metadata and resolver-
+// ordered locals, cells, and free variables.
+func (compiler *compilerState) newFunctionCompiler(
+	owner compilerast.Node,
+	scope *resolver.Scope,
+	parameters compilerast.Parameters,
+	codeName string,
+) *compilerState {
+	qualifiedName := codeName
 	if compiler.codeName != "<module>" {
-		qualifiedName = compiler.qualifiedName + ".<locals>." + statement.Name
+		qualifiedName = compiler.qualifiedName + ".<locals>." + codeName
 	}
 	flags := bytecode.Optimized | bytecode.NewLocals
 	if scope.Flags&resolver.VarArgs != 0 {
@@ -73,16 +106,16 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	child := &compilerState{
 		filename:            compiler.filename,
 		module:              compiler.module,
-		owner:               statement,
+		owner:               owner,
 		table:               compiler.table,
 		scope:               scope,
-		codeName:            statement.Name,
+		codeName:            codeName,
 		qualifiedName:       qualifiedName,
-		firstLine:           statement.Span().Start.Line,
+		firstLine:           owner.Span().Start.Line,
 		codeFlags:           flags,
-		positionalOnlyCount: len(statement.Parameters.PositionalOnly),
-		positionalCount:     len(statement.Parameters.PositionalOnly) + len(statement.Parameters.Positional),
-		keywordOnlyCount:    len(statement.Parameters.KeywordOnly),
+		positionalOnlyCount: len(parameters.PositionalOnly),
+		positionalCount:     len(parameters.PositionalOnly) + len(parameters.Positional),
+		keywordOnlyCount:    len(parameters.KeywordOnly),
 		localIDs:            make(map[string]uint32),
 		derefIDs:            make(map[string]uint32),
 		constantIDs:         make(map[bytecode.Constant]uint32),
@@ -90,43 +123,43 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 		reachable:           true,
 	}
 	child.initializeScopeLayout(scope)
+	return child
+}
 
-	if err := child.compileStatements(statement.Body); err != nil {
-		return err
-	}
-	position := statement.Span().End
-	if err := child.emitImplicitReturn(lexer.Span{Start: position, End: position}); err != nil {
-		return err
-	}
-	code, err := child.finish()
-	if err != nil {
-		return err
-	}
-	closure := len(child.freeVars) != 0
-	for _, name := range child.freeVars {
-		index, indexErr := compiler.derefIndex(name)
-		if indexErr != nil {
-			return compiler.error(statement.Span(), "%v", indexErr)
+// emitFunction captures a child's free cells, creates the function, and
+// consumes closure and default payloads in reverse stack order.
+func (compiler *compilerState) emitFunction(
+	code *bytecode.Code,
+	defaults bool,
+	keywordDefaults bool,
+	span lexer.Span,
+) error {
+	freeVars := code.FreeVars()
+	for _, name := range freeVars {
+		index, err := compiler.derefIndex(name)
+		if err != nil {
+			return compiler.error(span, "%v", err)
 		}
-		if err := compiler.emit(bytecode.LoadClosure, index, statement.Span()); err != nil {
+		if err := compiler.emit(bytecode.LoadClosure, index, span); err != nil {
 			return err
 		}
 	}
+	closure := len(freeVars) != 0
 	if closure {
-		if err := compiler.emit(bytecode.BuildTuple, uint32(len(child.freeVars)), statement.Span()); err != nil {
+		if err := compiler.emit(bytecode.BuildTuple, uint32(len(freeVars)), span); err != nil {
 			return err
 		}
 	}
 	childIndex := uint32(len(compiler.children))
 	compiler.children = append(compiler.children, code)
-	if err := compiler.emit(bytecode.MakeFunction, childIndex, statement.Span()); err != nil {
+	if err := compiler.emit(bytecode.MakeFunction, childIndex, span); err != nil {
 		return err
 	}
 	if closure {
 		if err := compiler.emit(
 			bytecode.SetFunctionAttribute,
 			uint32(bytecode.FunctionClosure),
-			statement.Span(),
+			span,
 		); err != nil {
 			return err
 		}
@@ -135,7 +168,7 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 		if err := compiler.emit(
 			bytecode.SetFunctionAttribute,
 			uint32(bytecode.FunctionKeywordDefaults),
-			statement.Span(),
+			span,
 		); err != nil {
 			return err
 		}
@@ -144,18 +177,12 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 		if err := compiler.emit(
 			bytecode.SetFunctionAttribute,
 			uint32(bytecode.FunctionDefaults),
-			statement.Span(),
+			span,
 		); err != nil {
 			return err
 		}
 	}
-	for index := len(statement.Decorators) - 1; index >= 0; index-- {
-		decorator := statement.Decorators[index]
-		if err := compiler.emit(bytecode.Call, 1, decorator.Span()); err != nil {
-			return err
-		}
-	}
-	return compiler.emitNameStore(statement.Name, statement.Span())
+	return nil
 }
 
 // compileFunctionDefaults emits enclosing-scope defaults in Python evaluation

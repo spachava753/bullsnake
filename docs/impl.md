@@ -270,7 +270,7 @@ modules, `pass`, singleton, numeric, string, bytes, and formatted-string
 constants; module name loads and stores; simple, chained, destructuring, and
 augmented assignments; recursive deletion targets; expression statements;
 collection displays; unary, binary, boolean, comparison, conditional, named,
-attribute, subscription, slice, and call expressions; assertions; bare and
+lambda, attribute, subscription, slice, and call expressions; assertions; bare and
 explicit raises; synchronous function definitions with decorators, required
 and defaulted parameters, closures, and returns; `if`/`elif`/`else` statements;
 `while` loops; and synchronous `for` loops with name, tuple, or list targets,
@@ -314,9 +314,11 @@ A fully terminating code object has no synthetic return. Synchronous function
 definitions store immutable child code objects by index. Child metadata records
 required parameter counts and variadic flags; resolver-local names use indexed
 fast operations, while explicit and implicit globals use the name table.
-Non-capturing nested functions receive Python-style qualified names. Function
-scopes index cells before free variables in one dereference table, following
-resolver order. Captured parameters remain in both the argument-local and cell
+Non-capturing nested functions receive Python-style qualified names. Lambdas
+use `<lambda>` names, share the function creation path, and compile their body
+expression directly to `RETURN_VALUE`.
+Function scopes index cells before free variables in one dereference table,
+following resolver order. Captured parameters remain in both the argument-local and cell
 tables so frame setup can seed their cells. Each child requests cell objects in
 its own free-variable order, which keeps transitive captures correct when parent
 and child indexes differ. The parent evaluates positional defaults into one
@@ -421,7 +423,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains fifty-nine successful
+The compiler corpus currently contains sixty-one successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object
