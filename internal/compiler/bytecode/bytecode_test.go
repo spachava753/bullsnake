@@ -90,6 +90,13 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := BinaryOp.StackEffect(BinaryPower); got != -1 {
 		t.Fatalf("BINARY_OP stack effect = %d, want -1", got)
 	}
+	inplace := Instruction{Opcode: InplaceOp, Operand: BinaryOr}
+	if got := inplace.String(); got != "INPLACE_OP 10" {
+		t.Fatalf("in-place instruction = %q", got)
+	}
+	if got := InplaceOp.StackEffect(BinaryOr); got != -1 {
+		t.Fatalf("INPLACE_OP stack effect = %d, want -1", got)
+	}
 	attribute := Instruction{Opcode: LoadAttr, Operand: 4}
 	if got := attribute.String(); got != "LOAD_ATTR 4" {
 		t.Fatalf("attribute instruction = %q", got)

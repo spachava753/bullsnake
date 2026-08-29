@@ -120,6 +120,7 @@ const (
 	StoreSubscript
 	UnpackSequence
 	UnpackEx
+	InplaceOp
 )
 
 var opcodeNames = [...]string{
@@ -165,6 +166,7 @@ var opcodeNames = [...]string{
 	"STORE_SUBSCR",
 	"UNPACK_SEQUENCE",
 	"UNPACK_EX",
+	"INPLACE_OP",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -182,7 +184,7 @@ func (opcode Opcode) HasOperand() bool {
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
 		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
 		LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr, UnpackSequence,
-		UnpackEx:
+		UnpackEx, InplaceOp:
 		return true
 	default:
 		return false
@@ -195,9 +197,10 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy, ForIter:
 		return 1
-	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp, CompareOp,
-		PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript,
-		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge:
+	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp, InplaceOp,
+		CompareOp, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
+		BinarySubscript, ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate,
+		MapMerge:
 		return -1
 	case MapSet, StoreAttr:
 		return -2

@@ -208,6 +208,16 @@
       "name": "starred for targets",
       "source": "for first, *rest in rows:\n    consume(first, rest)\nfor head, *middle, last in rows:\n    consume(head, middle, last)\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=5, constants=[None], names=[\"rows\", \"first\", \"rest\", \"consume\", \"head\", \"middle\", \"last\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, GET_ITER, FOR_ITER 12, UNPACK_EX 1 0, STORE_NAME 1, STORE_NAME 2, LOAD_NAME 3, LOAD_NAME 1, LOAD_NAME 2, CALL 2, POP_TOP, JUMP 2, LOAD_NAME 0, GET_ITER, FOR_ITER 26, UNPACK_EX 1 1, STORE_NAME 4, STORE_NAME 5, STORE_NAME 6, LOAD_NAME 3, LOAD_NAME 4, LOAD_NAME 5, LOAD_NAME 6, CALL 3, POP_TOP, JUMP 14, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "augmented assignment operators",
+      "source": "add += right\nsubtract -= right\nmultiply *= right\nmatrix @= right\ndivide /= right\nfloor //= right\nmodulo %= right\npower **= right\nleft_shift <<= right\nright_shift >>= right\nbit_or |= right\nbit_xor ^= right\nbit_and &= right\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[None], names=[\"add\", \"right\", \"subtract\", \"multiply\", \"matrix\", \"divide\", \"floor\", \"modulo\", \"power\", \"left_shift\", \"right_shift\", \"bit_or\", \"bit_xor\", \"bit_and\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, LOAD_NAME 1, INPLACE_OP 0, STORE_NAME 0, LOAD_NAME 2, LOAD_NAME 1, INPLACE_OP 1, STORE_NAME 2, LOAD_NAME 3, LOAD_NAME 1, INPLACE_OP 2, STORE_NAME 3, LOAD_NAME 4, LOAD_NAME 1, INPLACE_OP 3, STORE_NAME 4, LOAD_NAME 5, LOAD_NAME 1, INPLACE_OP 4, STORE_NAME 5, LOAD_NAME 6, LOAD_NAME 1, INPLACE_OP 5, STORE_NAME 6, LOAD_NAME 7, LOAD_NAME 1, INPLACE_OP 6, STORE_NAME 7, LOAD_NAME 8, LOAD_NAME 1, INPLACE_OP 7, STORE_NAME 8, LOAD_NAME 9, LOAD_NAME 1, INPLACE_OP 8, STORE_NAME 9, LOAD_NAME 10, LOAD_NAME 1, INPLACE_OP 9, STORE_NAME 10, LOAD_NAME 11, LOAD_NAME 1, INPLACE_OP 10, STORE_NAME 11, LOAD_NAME 12, LOAD_NAME 1, INPLACE_OP 11, STORE_NAME 12, LOAD_NAME 13, LOAD_NAME 1, INPLACE_OP 12, STORE_NAME 13, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "complex augmented assignment targets",
+      "source": "object.attribute *= factor\nmapping[key] |= flags\nsequence[lower:upper] += values\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[None], names=[\"object\", \"attribute\", \"factor\", \"mapping\", \"key\", \"flags\", \"sequence\", \"lower\", \"upper\", \"values\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, COPY 1, LOAD_ATTR 1, LOAD_NAME 2, INPLACE_OP 2, SWAP 2, STORE_ATTR 1, LOAD_NAME 3, LOAD_NAME 4, COPY 2, COPY 2, BINARY_SUBSCR, LOAD_NAME 5, INPLACE_OP 10, SWAP 3, SWAP 2, STORE_SUBSCR, LOAD_NAME 6, LOAD_NAME 7, LOAD_NAME 8, BUILD_SLICE 2, COPY 2, COPY 2, BINARY_SUBSCR, LOAD_NAME 9, INPLACE_OP 0, SWAP 3, SWAP 2, STORE_SUBSCR, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }

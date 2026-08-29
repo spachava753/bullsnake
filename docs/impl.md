@@ -267,9 +267,9 @@ require every incoming edge to have the same stack depth.
 
 Bytecode version 1 implements the initial file-input module slices: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
-constants, module name loads and stores, simple and chained assignments,
-expression statements, collection displays, unary and binary operations,
-short-circuit boolean expressions, comparisons, conditional expressions,
+constants, module name loads and stores, simple, chained, destructuring, and
+augmented assignments, expression statements, collection displays, unary and
+binary operations, short-circuit boolean expressions, comparisons, conditional
 load-side attributes and subscriptions, slice construction, direct and
 unpacked calls, named assignment expressions, `if`/`elif`/`else` statements,
 `while` loops, and synchronous `for` loops with name, tuple, or list targets,
@@ -284,10 +284,12 @@ Formatted strings preserve raw mode and debug-field spelling, apply `str`,
 and formatted components with explicit stack effects. Tuple, list, set, and
 dictionary displays use count-based build instructions when they have no
 unpacking. Starred displays use typed append, extend, and update instructions
-against one accumulator while evaluating elements from left to right. Unary and
-binary expressions use explicit operand IDs shared with future augmented
-assignment emission. Boolean operators retain the selected operand across
-short-circuit jumps. Comparison chains evaluate each operand once, retain only
+against one accumulator while evaluating elements from left to right. Unary,
+binary, and in-place operations use the same explicit operand IDs. Augmented
+attribute and subscript assignments retain their evaluated address beneath the
+current value, then rotate the result into the ordinary store order without
+reevaluating the object or index. Boolean operators retain the selected operand
+across short-circuit jumps. Comparison chains evaluate each operand once, retain only
 the next left operand, and clean it up on a false edge. Conditional expressions
 merge their two value-producing branches at one checked stack depth. Attribute
 loads share the deterministic name table with ordinary names. Subscriptions
@@ -317,8 +319,8 @@ dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
 Template strings, `async for`, functions, closures, imports, annotations,
-exceptions, and suspended execution are not yet compiled. Unsupported AST nodes fail with a
-source-located compiler error.
+exceptions, and suspended execution are not yet compiled. Unsupported AST
+nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
 
@@ -397,7 +399,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains forty-one successful
+The compiler corpus currently contains forty-three successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object
