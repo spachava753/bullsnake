@@ -128,6 +128,63 @@ func TestScalarConstants(t *testing.T) {
 	}
 }
 
+func TestUnaryOperators(t *testing.T) {
+	code := compileSource(t, "positive_integer = +7\n"+
+		"positive_bool = +True\n"+
+		"negative_integer = -7\n"+
+		"negative_bool = -True\n"+
+		"inverted_integer = ~7\n"+
+		"inverted_bool = ~False\n"+
+		"negative_float = -1.25\n"+
+		"positive_imaginary = +2j\n"+
+		"negative_imaginary = -2j\n"+
+		"not_none = not None\n"+
+		"not_false = not False\n"+
+		"not_zero = not 0\n"+
+		"not_zero_float = not 0.0\n"+
+		"not_zero_complex = not 0j\n"+
+		"not_empty_text = not ''\n"+
+		"not_empty_bytes = not b''\n"+
+		"not_ellipsis = not ...\n"+
+		"not_nonzero = not 1\n"+
+		"not_text = not 'x'\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("unary", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"positive_integer":   "7",
+		"positive_bool":      "1",
+		"negative_integer":   "-7",
+		"negative_bool":      "-1",
+		"inverted_integer":   "-8",
+		"inverted_bool":      "-1",
+		"negative_float":     "-1.25",
+		"positive_imaginary": "2j",
+		"negative_imaginary": "(-0-2j)",
+		"not_none":           "True",
+		"not_false":          "True",
+		"not_zero":           "True",
+		"not_zero_float":     "True",
+		"not_zero_complex":   "True",
+		"not_empty_text":     "True",
+		"not_empty_bytes":    "True",
+		"not_ellipsis":       "False",
+		"not_nonzero":        "False",
+		"not_text":           "False",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -146,6 +203,18 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = None + 1\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for +: 'NoneType' and 'int'",
+		},
+		{
+			name:        "unsupported unary positive",
+			source:      "answer = +'text'\n",
+			wantType:    "TypeError",
+			wantMessage: "bad operand type for unary +: 'str'",
+		},
+		{
+			name:        "unsupported unary invert",
+			source:      "answer = ~1.5\n",
+			wantType:    "TypeError",
+			wantMessage: "bad operand type for unary ~: 'float'",
 		},
 	}
 
@@ -209,6 +278,20 @@ func TestBytecodeValidation(t *testing.T) {
 				nil,
 			),
 			wantFragment: "unsupported BINARY_OP operand 1",
+		},
+		{
+			name: "unsupported unary operation",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.UnaryOp, Operand: 99},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.Integer("1")},
+				nil,
+			),
+			wantFragment: "unsupported UNARY_OP operand 99",
 		},
 		{
 			name: "unsupported constant",

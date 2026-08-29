@@ -136,6 +136,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "name index %d out of range", instruction.Operand)
 		}
 		return nil
+	case bytecode.UnaryOp:
+		if instruction.Operand > bytecode.UnaryNot {
+			return code.failure(
+				index,
+				"unsupported UNARY_OP operand %d",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.BinaryOp:
 		if instruction.Operand != bytecode.BinaryAdd {
 			return code.failure(
@@ -156,6 +165,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 0, 1
 	case bytecode.StoreName, bytecode.PopTop, bytecode.ReturnValue:
 		return 1, 0
+	case bytecode.UnaryOp:
+		return 1, 1
 	case bytecode.BinaryOp:
 		return 2, 1
 	default:

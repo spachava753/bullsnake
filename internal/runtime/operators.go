@@ -1,0 +1,132 @@
+package runtime
+
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+)
+
+// executeUnary applies numeric unary slots or scalar truth testing and returns
+// a Python TypeError when the operand type has no selected numeric behavior.
+func executeUnary(frame *frame, index int, operand uint32) (instructionOutcome, error) {
+	value, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+	}
+	if operand == bytecode.UnaryNot {
+		result := falseSingleton
+		if !truthValue(value) {
+			result = trueSingleton
+		}
+		return pushOutcome(frame, index, result)
+	}
+
+	var result Value
+	switch value := value.(type) {
+	case *intValue:
+		result = integerUnary(&value.value, operand)
+	case *boolValue:
+		var integer big.Int
+		if value.value {
+			integer.SetInt64(1)
+		}
+		result = integerUnary(&integer, operand)
+	case *floatValue:
+		switch operand {
+		case bytecode.UnaryPositive:
+			result = &floatValue{value: value.value}
+		case bytecode.UnaryNegative:
+			result = &floatValue{value: -value.value}
+		}
+	case *complexValue:
+		switch operand {
+		case bytecode.UnaryPositive:
+			result = &complexValue{real: value.real, imaginary: value.imaginary}
+		case bytecode.UnaryNegative:
+			result = &complexValue{real: -value.real, imaginary: -value.imaginary}
+		}
+	}
+	if result != nil {
+		return pushOutcome(frame, index, result)
+	}
+
+	operator := "+"
+	if operand == bytecode.UnaryNegative {
+		operator = "-"
+	} else if operand == bytecode.UnaryInvert {
+		operator = "~"
+	}
+	return instructionOutcome{
+		kind: raised,
+		exception: newException(
+			"TypeError",
+			fmt.Sprintf("bad operand type for unary %s: '%s'", operator, value.TypeName()),
+		),
+	}, nil
+}
+
+func integerUnary(value *big.Int, operand uint32) *intValue {
+	var result big.Int
+	switch operand {
+	case bytecode.UnaryPositive:
+		result.Set(value)
+	case bytecode.UnaryNegative:
+		result.Neg(value)
+	case bytecode.UnaryInvert:
+		result.Not(value)
+	}
+	return &intValue{value: result}
+}
+
+// truthValue implements the fixed truth behavior of every scalar value in the
+// current runtime. User-defined truth protocols enter in a later object slice.
+func truthValue(value Value) bool {
+	switch value := value.(type) {
+	case *noneValue:
+		return false
+	case *boolValue:
+		return value.value
+	case *intValue:
+		return value.value.Sign() != 0
+	case *floatValue:
+		return value.value != 0
+	case *complexValue:
+		return value.real != 0 || value.imaginary != 0
+	case *stringValue:
+		return len(value.value) != 0
+	case *bytesValue:
+		return len(value.value) != 0
+	default:
+		return true
+	}
+}
+
+func executeBinaryAdd(frame *frame, index int) (instructionOutcome, error) {
+	right, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+	}
+	left, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+	}
+	leftInt, leftOK := left.(*intValue)
+	rightInt, rightOK := right.(*intValue)
+	if !leftOK || !rightOK {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				fmt.Sprintf(
+					"unsupported operand type(s) for +: '%s' and '%s'",
+					left.TypeName(),
+					right.TypeName(),
+				),
+			),
+		}, nil
+	}
+	var sum big.Int
+	sum.Add(&leftInt.value, &rightInt.value)
+	return pushOutcome(frame, index, &intValue{value: sum})
+}

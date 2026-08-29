@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 )
@@ -104,6 +103,8 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		return instructionOutcome{kind: advance}, nil
+	case bytecode.UnaryOp:
+		return executeUnary(frame, index, instruction.Operand)
 	case bytecode.BinaryOp:
 		return executeBinaryAdd(frame, index)
 	case bytecode.ReturnValue:
@@ -118,35 +119,6 @@ func executeInstruction(
 			"unsupported opcode reached dispatch: "+instruction.Opcode.String(),
 		)
 	}
-}
-
-func executeBinaryAdd(frame *frame, index int) (instructionOutcome, error) {
-	right, ok := frame.pop()
-	if !ok {
-		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
-	}
-	left, ok := frame.pop()
-	if !ok {
-		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
-	}
-	leftInt, leftOK := left.(*intValue)
-	rightInt, rightOK := right.(*intValue)
-	if !leftOK || !rightOK {
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				fmt.Sprintf(
-					"unsupported operand type(s) for +: '%s' and '%s'",
-					left.TypeName(),
-					right.TypeName(),
-				),
-			),
-		}, nil
-	}
-	var sum big.Int
-	sum.Add(&leftInt.value, &rightInt.value)
-	return pushOutcome(frame, index, &intValue{value: sum})
 }
 
 func pushOutcome(frame *frame, index int, value Value) (instructionOutcome, error) {
