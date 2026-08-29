@@ -451,7 +451,8 @@ returns the existing element and normalizes negative indexes. Slice
 subscription clips arbitrary-size integer or boolean bounds, supports positive
 and negative steps, reuses a tuple for a complete unit-step slice, and always
 allocates a list result. Starred displays append ordinary values and extend from
-current tuple/list iterables in source order.
+current tuple/list iterables in source order. Membership scans tuple and list
+elements with current identity-or-equality semantics.
 
 Dictionary values keep an insertion-ordered entry slice and currently find keys
 with a linear identity-or-equality scan. `BUILD_MAP` consumes fixed pairs in
@@ -459,10 +460,11 @@ source order. Mixed displays apply ordinary pairs and unpacked dictionaries to
 one accumulator. Replacing an equal key retains its original object and
 position; new unpacked keys append in their source mapping's order. A non-mapping
 `**` operand raises `TypeError`. Current scalar values and recursively hashable
-tuples may be keys; construction and subscription report the contextual Python
-3.14 `TypeError` for unhashable keys.
+tuples may be keys; construction, subscription, and membership report the
+contextual Python 3.14 `TypeError` for unhashable keys.
 Subscription returns the stored object and raises `KeyError` with the missing
-key's representation. Item assignment uses the same key matching as display
+key's representation; membership returns a boolean for present or missing keys.
+Item assignment uses the same key matching as display
 construction. Deletion removes the entry without disturbing later entries;
 reinsertion appends it. Missing deletion keys raise `KeyError`. Dictionary truth
 depends on entry count. A later object-model slice can replace the linear
@@ -475,6 +477,7 @@ identity, equality, and recursive hashability rules as dictionary keys. Fixed
 and starred displays support current tuple, list, and set iterables. Empty sets
 render as `set()`. Nonempty set representations use first-seen order as a stable
 Bullsnake testing contract; Python does not guarantee set representation order.
+Membership uses the same element validation and identity-or-equality matching.
 Set truth depends on element count.
 
 Scalar truth testing follows Python for the current fixed types: `None`, false
@@ -594,6 +597,8 @@ unpack replacement, subscription, assignment, deletion, missing keys,
 contextual unhashable-key errors, and non-mapping unpack failures. Set cases
 cover first-seen order, numeric and tuple deduplication, starred expansion,
 truth, contextual unhashable-element errors, and non-iterable expansion.
+Collection membership cases cover all current collection types, `not in`,
+unhashable keys or elements, and non-container failures.
 Fixed and starred destructuring cases include nested targets.
 Other cases cover singleton identity, scalar and sequence truth testing, numeric
 unary operations, selected arbitrary-precision integer binary

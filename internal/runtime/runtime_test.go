@@ -818,6 +818,43 @@ func TestSetDisplays(t *testing.T) {
 	}
 }
 
+func TestMembershipOperations(t *testing.T) {
+	code := compileSource(t, "tuple_hit = 2 in (1, 2, 3)\n"+
+		"tuple_miss = 4 in (1, 2, 3)\n"+
+		"list_not_in = 4 not in [1, 2, 3]\n"+
+		"dict_key = 'key' in {'key': 1}\n"+
+		"dict_value = 1 in {'key': 1}\n"+
+		"dict_tuple = (1, 2) in {(1, 2): 'pair'}\n"+
+		"set_numeric = 1 in {True}\n"+
+		"set_miss = 3 in {1, 2}\n"+
+		"set_not_in = 3 not in {1, 2}\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("collection membership", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"tuple_hit":   "True",
+		"tuple_miss":  "False",
+		"list_not_in": "True",
+		"dict_key":    "True",
+		"dict_value":  "False",
+		"dict_tuple":  "True",
+		"set_numeric": "True",
+		"set_miss":    "False",
+		"set_not_in":  "True",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -954,6 +991,24 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "unhashable set membership",
+			source:      "answer = [] in {1}\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'list' as a set element (unhashable type: 'list')",
+		},
+		{
+			name:        "unhashable dictionary membership",
+			source:      "answer = [] in {}\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'list' as a dict key (unhashable type: 'list')",
+		},
+		{
+			name:        "membership in non-container",
+			source:      "answer = 1 in 2\n",
+			wantType:    "TypeError",
+			wantMessage: "argument of type 'int' is not a container or iterable",
 		},
 		{
 			name:        "unhashable set element",
@@ -1509,13 +1564,13 @@ func TestBytecodeValidation(t *testing.T) {
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.LoadConst},
-					{Opcode: bytecode.CompareOp, Operand: bytecode.CompareIn},
+					{Opcode: bytecode.CompareOp, Operand: 99},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
 				nil,
 			),
-			wantFragment: "unsupported COMPARE_OP operand 6",
+			wantFragment: "unsupported COMPARE_OP operand 99",
 		},
 		{
 			name: "jump target",

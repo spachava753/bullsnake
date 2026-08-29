@@ -9,8 +9,8 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 )
 
-// executeComparison evaluates selected scalar equality, ordering, and identity
-// operations while retaining Python exceptions as VM outcomes.
+// executeComparison evaluates current equality, ordering, identity, and
+// membership operations while retaining Python exceptions as VM outcomes.
 func executeComparison(
 	frame *frame,
 	index int,
@@ -35,6 +35,15 @@ func executeComparison(
 		result = left == right
 	case bytecode.CompareIsNot:
 		result = left != right
+	case bytecode.CompareIn, bytecode.CompareNotIn:
+		contained, exception := containsValue(right, left)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		result = contained
+		if operand == bytecode.CompareNotIn {
+			result = !result
+		}
 	default:
 		comparison, ordered, supported := orderedValues(left, right)
 		if !supported {

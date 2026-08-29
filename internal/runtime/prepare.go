@@ -356,6 +356,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			bytecode.CompareLessEqual,
 			bytecode.CompareGreater,
 			bytecode.CompareGreaterEqual,
+			bytecode.CompareIn,
+			bytecode.CompareNotIn,
 			bytecode.CompareIs,
 			bytecode.CompareIsNot:
 			return nil

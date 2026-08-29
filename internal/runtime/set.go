@@ -25,12 +25,8 @@ func (set *setValue) Repr() string {
 func (*setValue) isValue() {}
 
 func (set *setValue) add(value Value) *Exception {
-	if unhashable, found := unhashableComponent(value); found {
-		return newException(
-			"TypeError",
-			"cannot use '"+value.TypeName()+"' as a set element (unhashable type: '"+
-				unhashable+"')",
-		)
+	if exception := validateSetElement(value); exception != nil {
+		return exception
 	}
 	for _, entry := range set.entries {
 		if entry == value || valuesEqual(entry, value) {
@@ -38,6 +34,29 @@ func (set *setValue) add(value Value) *Exception {
 		}
 	}
 	set.entries = append(set.entries, value)
+	return nil
+}
+
+func (set *setValue) contains(value Value) (bool, *Exception) {
+	if exception := validateSetElement(value); exception != nil {
+		return false, exception
+	}
+	for _, entry := range set.entries {
+		if entry == value || valuesEqual(entry, value) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func validateSetElement(value Value) *Exception {
+	if unhashable, found := unhashableComponent(value); found {
+		return newException(
+			"TypeError",
+			"cannot use '"+value.TypeName()+"' as a set element (unhashable type: '"+
+				unhashable+"')",
+		)
+	}
 	return nil
 }
 
