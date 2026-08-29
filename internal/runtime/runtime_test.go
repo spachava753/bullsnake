@@ -185,7 +185,7 @@ func TestUnaryOperators(t *testing.T) {
 	}
 }
 
-func TestIntegerBinaryOperators(t *testing.T) {
+func TestBasicIntegerOperations(t *testing.T) {
 	code := compileSource(t, "addition = 40 + 2\n"+
 		"bool_addition = True + 2\n"+
 		"subtraction = 1000000000000000000000000000000 - 1\n"+
@@ -220,6 +220,47 @@ func TestIntegerBinaryOperators(t *testing.T) {
 	}
 }
 
+func TestFloorDivisionAndModulo(t *testing.T) {
+	code := compileSource(t, "positive_floor = 5 // 2\n"+
+		"left_negative_floor = -5 // 2\n"+
+		"right_negative_floor = 5 // -2\n"+
+		"both_negative_floor = -5 // -2\n"+
+		"left_negative_modulo = -5 % 2\n"+
+		"right_negative_modulo = 5 % -2\n"+
+		"both_negative_modulo = -5 % -2\n"+
+		"large_floor = 1000000000000000000000000000000 // 3\n"+
+		"large_modulo = 1000000000000000000000000000000 % 3\n"+
+		"bool_floor = True // True\n"+
+		"bool_modulo = False % True\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("integer floor division", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"positive_floor":        "2",
+		"left_negative_floor":   "-3",
+		"right_negative_floor":  "-3",
+		"both_negative_floor":   "2",
+		"left_negative_modulo":  "1",
+		"right_negative_modulo": "-1",
+		"both_negative_modulo":  "-1",
+		"large_floor":           "333333333333333333333333333333",
+		"large_modulo":          "1",
+		"bool_floor":            "1",
+		"bool_modulo":           "0",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -238,6 +279,18 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = None + 1\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for +: 'NoneType' and 'int'",
+		},
+		{
+			name:        "floor division by zero",
+			source:      "answer = 1 // 0\n",
+			wantType:    "ZeroDivisionError",
+			wantMessage: "integer division or modulo by zero",
+		},
+		{
+			name:        "modulo by zero",
+			source:      "answer = 1 % 0\n",
+			wantType:    "ZeroDivisionError",
+			wantMessage: "integer division or modulo by zero",
 		},
 		{
 			name:        "unsupported subtraction",

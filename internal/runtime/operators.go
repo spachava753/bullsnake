@@ -126,6 +126,10 @@ func executeBinary(
 			operator = "-"
 		case bytecode.BinaryMultiply:
 			operator = "*"
+		case bytecode.BinaryFloorDivide:
+			operator = "//"
+		case bytecode.BinaryModulo:
+			operator = "%"
 		case bytecode.BinaryOr:
 			operator = "|"
 		case bytecode.BinaryXor:
@@ -147,6 +151,17 @@ func executeBinary(
 		}, nil
 	}
 
+	if (operand == bytecode.BinaryFloorDivide || operand == bytecode.BinaryModulo) &&
+		rightInteger.Sign() == 0 {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"ZeroDivisionError",
+				"integer division or modulo by zero",
+			),
+		}, nil
+	}
+
 	var result big.Int
 	switch operand {
 	case bytecode.BinaryAdd:
@@ -155,6 +170,18 @@ func executeBinary(
 		result.Sub(&leftInteger, &rightInteger)
 	case bytecode.BinaryMultiply:
 		result.Mul(&leftInteger, &rightInteger)
+	case bytecode.BinaryFloorDivide, bytecode.BinaryModulo:
+		var remainder big.Int
+		result.QuoRem(&leftInteger, &rightInteger, &remainder)
+		if remainder.Sign() != 0 && remainder.Sign() != rightInteger.Sign() {
+			var one big.Int
+			one.SetInt64(1)
+			result.Sub(&result, &one)
+			remainder.Add(&remainder, &rightInteger)
+		}
+		if operand == bytecode.BinaryModulo {
+			result.Set(&remainder)
+		}
 	case bytecode.BinaryOr:
 		result.Or(&leftInteger, &rightInteger)
 	case bytecode.BinaryXor:
