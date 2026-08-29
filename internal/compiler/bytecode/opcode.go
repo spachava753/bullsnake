@@ -154,6 +154,9 @@ const (
 	ImportFrom
 	ImportStar
 	LoadBuildClass
+	LoadLocals
+	LoadFromDictOrGlobals
+	LoadFromDictOrDeref
 )
 
 var opcodeNames = [...]string{
@@ -223,6 +226,9 @@ var opcodeNames = [...]string{
 	"IMPORT_FROM",
 	"IMPORT_STAR",
 	"LOAD_BUILD_CLASS",
+	"LOAD_LOCALS",
+	"LOAD_FROM_DICT_OR_GLOBALS",
+	"LOAD_FROM_DICT_OR_DEREF",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -243,7 +249,8 @@ func (opcode Opcode) HasOperand() bool {
 		UnpackSequence, UnpackEx, InplaceOp, DeleteName, DeleteAttr,
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
-		DeleteDeref, LoadClosure, ImportName, ImportFrom:
+		DeleteDeref, LoadClosure, ImportName, ImportFrom, LoadFromDictOrGlobals,
+		LoadFromDictOrDeref:
 		return true
 	default:
 		return false
@@ -256,7 +263,7 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError,
 		LoadNotImplementedError, LoadFast, LoadGlobal, MakeFunction, LoadDeref,
-		LoadClosure, ImportFrom, LoadBuildClass:
+		LoadClosure, ImportFrom, LoadBuildClass, LoadLocals:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,

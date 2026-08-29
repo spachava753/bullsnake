@@ -82,6 +82,9 @@ func (compiler *compilerState) newAnnotationCompiler(
 	// CPython hides the synthetic ".format" binding from source expressions but
 	// exposes it as "format" in callable metadata.
 	child.addLocal("format")
+	if scope.Flags&resolver.CanSeeClassScope != 0 {
+		child.addFree("__classdict__")
+	}
 	child.initializeScopeLayout(scope)
 	return child
 }

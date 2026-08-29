@@ -15,6 +15,16 @@ func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error 
 	if err != nil {
 		return err
 	}
+	if compiler.scope.Kind == resolver.AnnotationScope &&
+		compiler.scope.Flags&resolver.CanSeeClassScope != 0 {
+		handled, classErr := compiler.emitClassVisibleNameLoad(name, symbol, span)
+		if classErr != nil {
+			return classErr
+		}
+		if handled {
+			return nil
+		}
+	}
 	switch compiler.scope.Kind {
 	case resolver.ModuleScope:
 		return compiler.emit(bytecode.LoadName, compiler.nameIndex(name), span)
@@ -50,6 +60,39 @@ func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error 
 	default:
 		return compiler.error(span, "name %q has unresolved scope", name)
 	}
+}
+
+// emitClassVisibleNameLoad checks a captured class namespace before the normal
+// global or enclosing-cell fallback used by a method annotation.
+func (compiler *compilerState) emitClassVisibleNameLoad(
+	name string,
+	symbol *resolver.Symbol,
+	span lexer.Span,
+) (bool, error) {
+	var opcode bytecode.Opcode
+	var operand uint32
+	switch symbol.Resolution {
+	case resolver.GlobalImplicit:
+		opcode = bytecode.LoadFromDictOrGlobals
+		operand = compiler.nameIndex(name)
+	case resolver.Cell, resolver.Free:
+		opcode = bytecode.LoadFromDictOrDeref
+		index, err := compiler.derefIndex(name)
+		if err != nil {
+			return false, compiler.error(span, "%v", err)
+		}
+		operand = index
+	default:
+		return false, nil
+	}
+	classDict, err := compiler.derefIndex("__classdict__")
+	if err != nil {
+		return false, compiler.error(span, "%v", err)
+	}
+	if err := compiler.emit(bytecode.LoadDeref, classDict, span); err != nil {
+		return false, err
+	}
+	return true, compiler.emit(opcode, operand, span)
 }
 
 // emitNameStore selects namespace, fast-local, closure, or global storage from

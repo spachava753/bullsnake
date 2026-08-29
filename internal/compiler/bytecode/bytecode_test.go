@@ -117,6 +117,19 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := LoadBuildClass.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_BUILD_CLASS stack effect = %d, want 1", got)
 	}
+	if got := LoadLocals.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_LOCALS stack effect = %d, want 1", got)
+	}
+	classGlobal := Instruction{Opcode: LoadFromDictOrGlobals, Operand: 2}
+	if got := classGlobal.String(); got != "LOAD_FROM_DICT_OR_GLOBALS 2" {
+		t.Fatalf("class-global instruction = %q", got)
+	}
+	if got := LoadFromDictOrGlobals.StackEffect(2); got != 0 {
+		t.Fatalf("LOAD_FROM_DICT_OR_GLOBALS stack effect = %d, want 0", got)
+	}
+	if got := LoadFromDictOrDeref.StackEffect(2); got != 0 {
+		t.Fatalf("LOAD_FROM_DICT_OR_DEREF stack effect = %d, want 0", got)
+	}
 	if got := LoadFast.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_FAST stack effect = %d, want 1", got)
 	}

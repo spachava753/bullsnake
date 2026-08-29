@@ -273,8 +273,8 @@ collection displays; unary, binary, boolean, comparison, conditional, named,
 lambda, attribute, subscription, slice, and call expressions; ordinary,
 relative, aliased, and wildcard imports; assertions; bare and explicit raises;
 synchronous function definitions with decorators, required and defaulted
-parameters, lazy parameter and return annotations outside class-visible scopes,
-closures, and returns; class definitions with decorators, ordinary
+parameters, lazy parameter and return annotations, closures, and returns;
+class definitions with decorators, ordinary
 and starred bases, class keywords, methods, zero-argument `super()`, and
 enclosing closure reads;
 `if`/`elif`/`else`
@@ -342,16 +342,20 @@ attachment. Parameter and return annotations compile into a sibling
 format guard matches CPython 3.14's VALUE and internal fake-globals boundary,
 and the body returns an insertion-ordered map of annotation names to values.
 The annotation callable may capture enclosing cells and attaches with function
-attribute `0x10` before defaults and decorators are consumed. Class definitions
-evaluate decorators before class construction.
+attribute `0x10` before defaults and decorators are consumed. Class-visible
+annotation loads check a captured `__classdict__` before their global or
+free-variable fallback. Class definitions evaluate decorators before class
+construction.
 `LOAD_BUILD_CLASS` calls a namespace body function with the class name and
 bases. Ordinary arguments use inline `CALL`; starred bases and keyword maps use
 a seeded positional list, `MAP_MERGE`, and `CALL_EX`. The body initializes
 `__module__`, `__qualname__`, and `__firstlineno__`, uses namespace name
 operations, may capture an enclosing function cell, and gives methods
-class-qualified names. When the resolver requests `__class__`, the class body
-allocates that cell before free variables, passes it to methods, stores a copy
-as `__classcell__`, and returns the cell to the class builder.
+class-qualified names. When the resolver requests `__classdict__`, the class body
+captures its live namespace, publishes the cell as `__classdictcell__`, and
+passes it to annotation callables. When the resolver requests `__class__`, the
+class body allocates that cell before free variables, passes it to methods,
+stores a copy as `__classcell__`, and returns the cell to the class builder.
 Conditional statements use the same checked labels as conditional expressions;
 every true, false, and `elif` edge merges with an empty operand stack. The
 compiler keeps a nearest-loop stack for `break` and `continue`. A `while`
@@ -366,9 +370,8 @@ Constants and referenced names use deterministic indexed tables. Stable code
 dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, annotated assignments, future annotations, class-visible
-annotation scopes, generic and async functions, class docstrings,
-static-attribute metadata, `__classdict__` cells, `async for`, exception
+Template strings, annotated assignments, future annotations, generic and async
+functions, class docstrings, static-attribute metadata, `async for`, exception
 handling, and suspended execution are not yet compiled.
 Unsupported AST nodes fail with a source-located compiler error.
 
@@ -449,7 +452,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains seventy-four successful
+The compiler corpus currently contains seventy-six successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

@@ -19,9 +19,6 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 	if scope == nil || scope.Kind != resolver.ClassScope {
 		return compiler.error(statement.Span(), "resolver has no class scope for %q", statement.Name)
 	}
-	if scope.Flags&resolver.NeedsClassDict != 0 {
-		return compiler.error(statement.Span(), "class dictionary closure is not compiled")
-	}
 	for _, decorator := range statement.Decorators {
 		if err := compiler.compileExpr(decorator); err != nil {
 			return err
@@ -43,17 +40,34 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 		nameIDs:       make(map[string]uint32),
 		reachable:     true,
 	}
-	if scope.Flags&resolver.NeedsClassClosure != 0 {
+	needsClassClosure := scope.Flags&resolver.NeedsClassClosure != 0
+	needsClassDict := scope.Flags&resolver.NeedsClassDict != 0
+	if needsClassClosure {
 		child.addCell("__class__")
+	}
+	if needsClassDict {
+		child.addCell("__classdict__")
 	}
 	child.initializeDerefLayout(scope)
 	if err := child.emitClassNamespace(statement.Span()); err != nil {
 		return err
 	}
+	if needsClassDict {
+		index, indexErr := child.derefIndex("__classdict__")
+		if indexErr != nil {
+			return compiler.error(statement.Span(), "%v", indexErr)
+		}
+		if err := child.emit(bytecode.LoadLocals, 0, statement.Span()); err != nil {
+			return err
+		}
+		if err := child.emit(bytecode.StoreDeref, index, statement.Span()); err != nil {
+			return err
+		}
+	}
 	if err := child.compileStatements(statement.Body); err != nil {
 		return err
 	}
-	if err := child.emitClassReturn(scope.Flags&resolver.NeedsClassClosure != 0, statement.Span()); err != nil {
+	if err := child.emitClassReturn(needsClassClosure, needsClassDict, statement.Span()); err != nil {
 		return err
 	}
 	code, err := child.finish()
@@ -165,10 +179,33 @@ func (compiler *compilerState) emitClassNamespace(span lexer.Span) error {
 	return compiler.emit(bytecode.StoreName, compiler.nameIndex("__firstlineno__"), span)
 }
 
-// emitClassReturn publishes and returns the synthetic class cell when methods
-// need it; other reachable class bodies return None.
-func (compiler *compilerState) emitClassReturn(needsClassCell bool, span lexer.Span) error {
-	if !compiler.reachable || !needsClassCell {
+// emitClassReturn publishes synthetic class cells and returns the `__class__`
+// cell when methods need it; other reachable class bodies return None.
+func (compiler *compilerState) emitClassReturn(
+	needsClassCell bool,
+	needsClassDict bool,
+	span lexer.Span,
+) error {
+	if !compiler.reachable {
+		return nil
+	}
+	if needsClassDict {
+		index, err := compiler.derefIndex("__classdict__")
+		if err != nil {
+			return compiler.error(span, "%v", err)
+		}
+		if err := compiler.emit(bytecode.LoadClosure, index, span); err != nil {
+			return err
+		}
+		if err := compiler.emit(
+			bytecode.StoreName,
+			compiler.nameIndex("__classdictcell__"),
+			span,
+		); err != nil {
+			return err
+		}
+	}
+	if !needsClassCell {
 		return compiler.emitImplicitReturn(span)
 	}
 	index, err := compiler.derefIndex("__class__")
