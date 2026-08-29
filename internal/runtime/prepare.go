@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
@@ -47,16 +48,36 @@ func prepareCode(code *bytecode.Code) (*preparedCode, error) {
 	return prepared, nil
 }
 
+// materializeConstant converts every compiler literal descriptor into its
+// runtime object while rejecting malformed strings and integer descriptors.
 func materializeConstant(constant bytecode.Constant) (Value, error) {
 	switch constant.Kind {
 	case bytecode.NoneConstant:
 		return None, nil
+	case bytecode.BoolConstant:
+		if constant.Bool {
+			return trueSingleton, nil
+		}
+		return falseSingleton, nil
+	case bytecode.EllipsisConstant:
+		return ellipsisSingleton, nil
 	case bytecode.IntegerConstant:
 		value, ok := new(big.Int).SetString(constant.Text, 10)
 		if !ok {
 			return nil, fmt.Errorf("invalid integer %q", constant.Text)
 		}
 		return &intValue{value: *value}, nil
+	case bytecode.FloatConstant:
+		return &floatValue{value: math.Float64frombits(constant.Bits)}, nil
+	case bytecode.ImaginaryConstant:
+		return &complexValue{imaginary: math.Float64frombits(constant.Bits)}, nil
+	case bytecode.StringConstant:
+		if !validStringEncoding(constant.Text) {
+			return nil, fmt.Errorf("invalid string constant encoding")
+		}
+		return &stringValue{value: constant.Text}, nil
+	case bytecode.BytesConstant:
+		return &bytesValue{value: constant.Text}, nil
 	default:
 		return nil, fmt.Errorf("unsupported constant %s", constant)
 	}

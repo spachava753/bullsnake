@@ -413,12 +413,19 @@ implemented.
 ## Object model and runtime
 
 The initial sealed `Value` interface keeps every Python reference in a typed Go
-interface or pointer. It has a process-wide immutable `None` singleton,
-heap-backed arbitrary-precision integers, and exception values. Integer
-constants are materialized once for each runtime and code object; integer
-addition creates a new value. Missing names raise a `NameError` value and
-invalid integer addition raises a `TypeError` value. `UncaughtException` carries
-the exception across the current Go host boundary.
+interface or pointer. Process-wide immutable singletons represent `None`,
+`False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
+precision integers, binary64 floats, complex values, strings, bytes, and
+exceptions. Code preparation materializes each constant once per runtime and
+code object. String objects accept UTF-8 plus the compiler's deliberate WTF-8
+encoding for lone surrogates; bytes objects retain arbitrary payloads. Stable
+representations escape non-printable text and bytes without losing their
+contents.
+
+Integer addition is the only implemented object operation. It creates a new
+value for two exact integer operands. Missing names raise a `NameError` value
+and any other integer-add operand pairing raises a `TypeError` value.
+`UncaughtException` carries the exception across the current Go host boundary.
 
 A runtime owns its prepared-code cache, builtin namespace, and successful
 modules. A module owns one string-keyed namespace used as both locals and
@@ -505,10 +512,12 @@ copying, opcode formatting, literal decoding, formatted-string errors, and
 compiler input errors.
 
 Runtime tests compile source through the complete front end before executing
-it. The initial cases cover module globals, discarded expressions,
-arbitrary-precision integer addition, and Python `NameError` and `TypeError`
-values. Focused malformed-code cases cover unsupported instructions, operands,
-and constants; table bounds; stack underflow and overflow; and missing returns.
+it. The initial cases cover module globals, discarded expressions, every
+compiler scalar constant, singleton identity, arbitrary-precision integer
+addition, and Python `NameError` and `TypeError` values. Focused malformed-code
+cases cover unsupported instructions, operands, and constant kinds; invalid
+integer and string descriptors; table bounds; stack underflow and overflow;
+and missing returns.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.

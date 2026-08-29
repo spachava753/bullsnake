@@ -72,6 +72,62 @@ func TestModuleExecution(t *testing.T) {
 	}
 }
 
+func TestScalarConstants(t *testing.T) {
+	code := compileSource(t, "none_value = None\n"+
+		"false_value = False\n"+
+		"true_value = True\n"+
+		"ellipsis_value = ...\n"+
+		"float_value = 1.25\n"+
+		"imaginary_value = 2j\n"+
+		"text_value = 'line\\nsnowman: \\N{SNOWMAN}'\n"+
+		"surrogate_value = '\\ud800'\n"+
+		"bytes_value = b'\\x00A\\xff'\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("scalars", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string]struct {
+		typeName string
+		repr     string
+	}{
+		"none_value":      {typeName: "NoneType", repr: "None"},
+		"false_value":     {typeName: "bool", repr: "False"},
+		"true_value":      {typeName: "bool", repr: "True"},
+		"ellipsis_value":  {typeName: "ellipsis", repr: "Ellipsis"},
+		"float_value":     {typeName: "float", repr: "1.25"},
+		"imaginary_value": {typeName: "complex", repr: "2j"},
+		"text_value":      {typeName: "str", repr: "'line\\nsnowman: \u2603'"},
+		"surrogate_value": {typeName: "str", repr: "'\\ud800'"},
+		"bytes_value":     {typeName: "bytes", repr: "b'\\x00A\\xff'"},
+	}
+
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.TypeName(); got != expected.typeName {
+			t.Errorf("%s type = %q, want %q", name, got, expected.typeName)
+		}
+		if got := value.Repr(); got != expected.repr {
+			t.Errorf("%s repr = %q, want %q", name, got, expected.repr)
+		}
+	}
+
+	first, _ := module.Get("true_value")
+	secondCode := compileSource(t, "other = True\n")
+	secondModule, err := runtime.ExecuteModule("other", secondCode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, _ := secondModule.Get("other")
+	if first != second {
+		t.Fatal("True did not retain singleton identity across code objects")
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -162,10 +218,36 @@ func TestBytecodeValidation(t *testing.T) {
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.ReturnValue},
 				},
-				[]bytecode.Constant{bytecode.Bool(true)},
+				[]bytecode.Constant{{Kind: bytecode.ConstantKind(255)}},
 				nil,
 			),
-			wantFragment: "unsupported constant True",
+			wantFragment: "unsupported constant Constant(kind=255)",
+		},
+		{
+			name: "invalid integer constant",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.Integer("not-an-integer")},
+				nil,
+			),
+			wantFragment: "invalid integer",
+		},
+		{
+			name: "invalid string encoding",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("\xff")},
+				nil,
+			),
+			wantFragment: "invalid string constant encoding",
 		},
 		{
 			name: "constant index",

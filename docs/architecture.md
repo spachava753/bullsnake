@@ -427,12 +427,13 @@ stack, but a Python-to-Python call will remain in the iterative dispatcher.
 
 ## Object model
 
-The first runtime slice has a sealed internal `Value` interface, an immutable
-`None` singleton, heap-backed arbitrary-precision integers, and Python
-exception values. Every live reference remains in a typed pointer or interface
-visible to Go's collector. Module bindings use a temporary string-keyed
-namespace rather than pretending that a Go map already implements Python
-dictionary semantics.
+The runtime has a sealed internal `Value` interface. Immutable singleton
+objects represent `None`, both booleans, and ellipsis. Heap-backed objects
+represent arbitrary-precision integers, binary64 floats, complex numbers,
+strings, bytes, and Python exceptions. Every live reference remains in a typed
+pointer or interface visible to Go's collector. Module bindings use a temporary
+string-keyed namespace rather than pretending that a Go map already implements
+Python dictionary semantics.
 
 The object model can become the largest compatibility component, so it should
 remain feature-driven. It should be designed before a large instruction set
