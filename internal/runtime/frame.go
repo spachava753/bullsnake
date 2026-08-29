@@ -6,6 +6,7 @@ type frame struct {
 	code        *preparedCode
 	instruction int
 	stack       []Value
+	fastLocals  []Value
 	locals      *Namespace
 	globals     *Namespace
 	builtins    *Namespace

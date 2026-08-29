@@ -72,6 +72,74 @@ func TestModuleExecution(t *testing.T) {
 	}
 }
 
+func TestFunctionFrames(t *testing.T) {
+	code := compileSource(t, "module_value = 10\n"+
+		"def add(left, right):\n"+
+		"    total = left + right\n"+
+		"    return total\n"+
+		"first = add(40, 2)\n"+
+		"second = add(1, 2)\n"+
+		"def add_module(value):\n"+
+		"    return value + module_value\n"+
+		"with_global = add_module(5)\n"+
+		"def set_shared(value):\n"+
+		"    global shared\n"+
+		"    shared = value\n"+
+		"implicit = set_shared(7)\n"+
+		"def outer():\n"+
+		"    def inner(value):\n"+
+		"        local = value + 1\n"+
+		"        return local\n"+
+		"    return inner\n"+
+		"first_inner = outer()\n"+
+		"second_inner = outer()\n"+
+		"fresh_inner = first_inner is not second_inner\n"+
+		"nested = first_inner(8)\n"+
+		"def countdown(value):\n"+
+		"    if value:\n"+
+		"        return countdown(value - 1)\n"+
+		"    return value\n"+
+		"recursive = countdown(50)\n"+
+		"def identity(value, /):\n"+
+		"    return value\n"+
+		"positional_only = identity(9)\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("functions", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"first":           "42",
+		"second":          "3",
+		"with_global":     "15",
+		"shared":          "7",
+		"implicit":        "None",
+		"fresh_inner":     "True",
+		"nested":          "9",
+		"recursive":       "0",
+		"positional_only": "9",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+	function, ok := module.Get("add")
+	if !ok {
+		t.Fatal("module has no add binding")
+	}
+	if got := function.TypeName(); got != "function" {
+		t.Errorf("add type = %q, want function", got)
+	}
+	if got := function.Repr(); got != "<function add>" {
+		t.Errorf("add repr = %q, want <function add>", got)
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1125,6 +1193,38 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name:        "non-callable value",
+			source:      "answer = 1()\n",
+			wantType:    "TypeError",
+			wantMessage: "'int' object is not callable",
+		},
+		{
+			name: "missing positional argument",
+			source: "def add(left, right):\n" +
+				"    return left + right\n" +
+				"answer = add(1)\n",
+			wantType:    "TypeError",
+			wantMessage: "add() missing 1 required positional argument: 'right'",
+		},
+		{
+			name: "too many positional arguments",
+			source: "def add(left, right):\n" +
+				"    return left + right\n" +
+				"answer = add(1, 2, 3)\n",
+			wantType:    "TypeError",
+			wantMessage: "add() takes 2 positional arguments but 3 were given",
+		},
+		{
+			name: "unbound fast local",
+			source: "def read():\n" +
+				"    observed = value\n" +
+				"    value = 1\n" +
+				"    return observed\n" +
+				"answer = read()\n",
+			wantType:    "UnboundLocalError",
+			wantMessage: "cannot access local variable 'value' where it is not associated with a value",
+		},
+		{
 			name:        "missing name",
 			source:      "answer = missing\n",
 			wantType:    "NameError",
@@ -1495,6 +1595,99 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "function child index",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "child code index 0 out of range",
+		},
+		{
+			name: "fast local index",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadFast, Operand: 1},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Locals: []string{"value"},
+			}),
+			wantFragment: "local index 1 out of range",
+		},
+		{
+			name: "global name index",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadGlobal},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "name index 0 out of range",
+		},
+		{
+			name: "call underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Call, Operand: 1},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "invalid nested child",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.StoreName},
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.Integer("1")},
+				Names:     []string{"visible"},
+				Children: []*bytecode.Code{
+					testCode(
+						1,
+						[]bytecode.Instruction{
+							{Opcode: bytecode.LoadConst},
+							{Opcode: bytecode.LoadAttr},
+							{Opcode: bytecode.ReturnValue},
+						},
+						[]bytecode.Constant{bytecode.None()},
+						[]string{"attribute"},
+					),
+				},
+			}),
+			wantFragment: "unsupported opcode LOAD_ATTR",
+		},
+		{
+			name: "function parameters exceed locals",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants:       []bytecode.Constant{bytecode.None()},
+				Flags:           bytecode.Optimized | bytecode.NewLocals,
+				PositionalCount: 1,
+			}),
+			wantFragment: "positional parameter count 1 exceeds local table length 0",
+		},
 		{
 			name: "set build underflow",
 			code: testCode(
@@ -2083,22 +2276,34 @@ func testCode(
 	constants []bytecode.Constant,
 	names []string,
 ) *bytecode.Code {
-	positions := make([]lexer.Span, len(instructions))
+	return testCodeSpec(bytecode.CodeSpec{
+		StackSize:    stackSize,
+		Instructions: instructions,
+		Constants:    constants,
+		Names:        names,
+	})
+}
+
+func testCodeSpec(spec bytecode.CodeSpec) *bytecode.Code {
+	positions := make([]lexer.Span, len(spec.Instructions))
 	for index := range positions {
 		positions[index] = lexer.Span{
 			Start: lexer.Position{Line: 1, Column: index},
 			End:   lexer.Position{Line: 1, Column: index + 1},
 		}
 	}
-	return bytecode.NewCode(bytecode.CodeSpec{
-		Filename:      "<broken>",
-		Name:          "<module>",
-		QualifiedName: "<module>",
-		FirstLine:     1,
-		StackSize:     stackSize,
-		Instructions:  instructions,
-		Positions:     positions,
-		Constants:     constants,
-		Names:         names,
-	})
+	if spec.Filename == "" {
+		spec.Filename = "<broken>"
+	}
+	if spec.Name == "" {
+		spec.Name = "<module>"
+	}
+	if spec.QualifiedName == "" {
+		spec.QualifiedName = spec.Name
+	}
+	if spec.FirstLine == 0 {
+		spec.FirstLine = 1
+	}
+	spec.Positions = positions
+	return bytecode.NewCode(spec)
 }

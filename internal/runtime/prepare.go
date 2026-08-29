@@ -14,6 +14,9 @@ type preparedCode struct {
 	instructions []bytecode.Instruction
 	constants    []Value
 	names        []string
+	locals       []string
+	childCodes   []*bytecode.Code
+	children     []*preparedCode
 	stackSize    int
 }
 
@@ -27,10 +30,15 @@ func prepareCode(code *bytecode.Code) (*preparedCode, error) {
 		code:         code,
 		instructions: code.Instructions(),
 		names:        code.Names(),
+		locals:       code.Locals(),
+		childCodes:   code.Children(),
 		stackSize:    code.StackSize(),
 	}
 	if prepared.stackSize < 0 {
 		return nil, prepared.failure(-1, "negative operand stack size %d", prepared.stackSize)
+	}
+	if err := prepared.validateMetadata(); err != nil {
+		return nil, err
 	}
 
 	constants := code.Constants()
@@ -46,6 +54,48 @@ func prepareCode(code *bytecode.Code) (*preparedCode, error) {
 		return nil, err
 	}
 	return prepared, nil
+}
+
+// validateMetadata limits prepared function signatures and closure layout to
+// the basic-call slice before any instruction in the code tree can execute.
+func (code *preparedCode) validateMetadata() error {
+	positionalOnly := code.code.PositionalOnlyCount()
+	positional := code.code.PositionalCount()
+	keywordOnly := code.code.KeywordOnlyCount()
+	if positionalOnly < 0 || positional < 0 || keywordOnly < 0 {
+		return code.failure(-1, "negative function parameter count")
+	}
+	if positionalOnly > positional {
+		return code.failure(
+			-1,
+			"positional-only parameter count %d exceeds positional count %d",
+			positionalOnly,
+			positional,
+		)
+	}
+	if positional > len(code.locals) {
+		return code.failure(
+			-1,
+			"positional parameter count %d exceeds local table length %d",
+			positional,
+			len(code.locals),
+		)
+	}
+	if keywordOnly != 0 {
+		return code.failure(-1, "keyword-only parameters are not supported")
+	}
+	flags := code.code.Flags()
+	if flags&(bytecode.VarArgs|bytecode.VarKeywords) != 0 {
+		return code.failure(-1, "variadic function parameters are not supported")
+	}
+	supportedFlags := bytecode.Optimized | bytecode.NewLocals | bytecode.Nested
+	if unsupported := flags &^ supportedFlags; unsupported != 0 {
+		return code.failure(-1, "unsupported code flags %s", unsupported)
+	}
+	if len(code.code.Cells()) != 0 || len(code.code.FreeVars()) != 0 {
+		return code.failure(-1, "closure variables are not supported")
+	}
+	return nil
 }
 
 // materializeConstant converts every compiler literal descriptor into its
@@ -258,9 +308,28 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "constant index %d out of range", instruction.Operand)
 		}
 		return nil
-	case bytecode.LoadName, bytecode.StoreName:
+	case bytecode.LoadName, bytecode.StoreName, bytecode.LoadGlobal, bytecode.StoreGlobal:
 		if uint64(instruction.Operand) >= uint64(len(code.names)) {
 			return code.failure(index, "name index %d out of range", instruction.Operand)
+		}
+		return nil
+	case bytecode.LoadFast, bytecode.StoreFast:
+		if uint64(instruction.Operand) >= uint64(len(code.locals)) {
+			return code.failure(index, "local index %d out of range", instruction.Operand)
+		}
+		return nil
+	case bytecode.MakeFunction:
+		if uint64(instruction.Operand) >= uint64(len(code.childCodes)) {
+			return code.failure(
+				index,
+				"child code index %d out of range",
+				instruction.Operand,
+			)
+		}
+		return nil
+	case bytecode.Call:
+		if uint64(instruction.Operand) >= uint64(code.stackSize) {
+			return code.failure(index, "operand stack underflow")
 		}
 		return nil
 	case bytecode.BuildTuple, bytecode.BuildList:
@@ -377,9 +446,11 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 // production for opcodes whose effects do not split across control-flow edges.
 func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	switch instruction.Opcode {
-	case bytecode.LoadConst, bytecode.LoadName:
+	case bytecode.LoadConst, bytecode.LoadName, bytecode.LoadFast,
+		bytecode.LoadGlobal, bytecode.MakeFunction:
 		return 0, 1
-	case bytecode.StoreName, bytecode.PopTop, bytecode.ReturnValue:
+	case bytecode.StoreName, bytecode.StoreFast, bytecode.StoreGlobal,
+		bytecode.PopTop, bytecode.ReturnValue:
 		return 1, 0
 	case bytecode.DeleteSubscript:
 		return 2, 0
@@ -391,6 +462,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 2, 1
 	case bytecode.MapSet:
 		return 3, 1
+	case bytecode.Call:
+		return int(instruction.Operand) + 1, 1
 	case bytecode.UnaryOp, bytecode.GetIter, bytecode.ListToTuple:
 		return 1, 1
 	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSet,

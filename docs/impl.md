@@ -392,20 +392,23 @@ new module namespace, and caches the module by name only after normal return.
 `Runtime.Module` and `Module.Get` expose successful executions to internal
 callers and tests. There is not yet a public Go embedding API.
 
-Preparation copies the instruction and name tables, materializes code constants
-as runtime values, and validates the complete code object before execution.
-Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
-`POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`, `BUILD_SET`,
-`BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`, `LIST_TO_TUPLE`,
-`SET_ADD`, `SET_UPDATE`, `MAP_SET`, `MAP_UPDATE`, `UNPACK_SEQUENCE`,
-`UNPACK_EX`, `GET_ITER`, `FOR_ITER`, integer or slice `BINARY_SUBSCR`, and
-mapping `STORE_SUBSCR` and `DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer
-`BINARY_OP`; scalar `COMPARE_OP` variants; absolute `JUMP`; both pop-and-test
-jumps; both short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks constant
-and name indexes, operation operands, jump targets, stack underflow, the
-declared maximum stack size, return stack balance, and reachable termination.
-Any unsupported constant, instruction, or operand fails with a source-located
-`BytecodeError` before a module can observe side effects.
+Preparation copies the instruction, name, local, and child-code tables,
+materializes code constants as runtime values, and validates the complete code
+tree before execution. Validation currently accepts `NOP`, `LOAD_CONST`,
+`LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`, `LOAD_GLOBAL`,
+`STORE_GLOBAL`, `MAKE_FUNCTION`, `CALL`, `POP_TOP`, `COPY`, `SWAP`, fixed
+`BUILD_TUPLE`, `BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`;
+`LIST_APPEND`, `LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
+`MAP_SET`, `MAP_UPDATE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
+`FOR_ITER`, integer or slice `BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and
+`DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP`; scalar
+`COMPARE_OP` variants; absolute `JUMP`; both pop-and-test jumps; both
+short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks constant, name, local,
+and child indexes, code metadata, operation operands, jump targets, stack
+underflow, the declared maximum stack size, return stack balance, and reachable
+termination. Any unsupported constant, instruction, operand, or nested code
+object fails with a source-located `BytecodeError` before a module can observe
+side effects.
 
 Stack validation uses a worklist over instruction indexes. Each reachable edge
 carries its operand-stack depth. Conditional jumps propagate their distinct
@@ -420,13 +423,20 @@ statements, and `while` and synchronous `for` loops. Loop `else`, `break`, and
 targets preserve the same frame and operand stack.
 
 A heap-allocated frame contains prepared code, the next instruction index, a
-preallocated operand stack, local, global, and builtin namespaces, and its
-logical predecessor. A thread state points at the active frame. The dispatch
-loop handles explicit advance, return, and raise outcomes. Returning replaces
-the active frame with its predecessor and will let a later Python call use the
-same iterative loop without Go recursion. Calls, suspension, exception
-handlers, traceback chains, cancellation, and execution budgets are not yet
-implemented.
+preallocated operand stack, indexed fast locals, local, global, and builtin
+namespaces, and its logical predecessor. A thread state points at the active
+frame. `MAKE_FUNCTION` captures prepared child code and the defining globals.
+`CALL` binds required positional arguments into a fresh fast-local array and
+returns a child-frame outcome. The dispatch loop switches to that frame without
+a Go call; `RETURN_VALUE` restores the predecessor and pushes the result.
+Repeated, nested, and recursive Python calls therefore remain in one iterative
+loop.
+
+The current call binder supports required positional-only and ordinary
+positional parameters. Defaults, keyword arguments, variadic parameters,
+closures, decorators at execution time, callable native values, suspension,
+exception handlers, traceback chains, cancellation, recursion limits, and
+execution budgets are not yet implemented.
 
 ## Object model and runtime
 
@@ -434,11 +444,12 @@ The initial sealed `Value` interface keeps every Python reference in a typed Go
 interface or pointer. Process-wide immutable singletons represent `None`,
 `False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
 precision integers, binary64 floats, complex values, strings, bytes, tuples,
-lists, dictionaries, sets, slices, collection iterators, and exceptions. Code
-preparation materializes each constant once per runtime and code object. String
-objects accept UTF-8 plus the compiler's deliberate WTF-8 encoding for lone
-surrogates; bytes objects retain arbitrary payloads. Stable representations
-escape non-printable text and bytes without losing their contents.
+lists, dictionaries, sets, slices, collection iterators, functions, and
+exceptions. Code preparation materializes each constant once per runtime and
+code object. String objects accept UTF-8 plus the compiler's deliberate WTF-8
+encoding for lone surrogates; bytes objects retain arbitrary payloads. Stable
+representations escape non-printable text and bytes without losing their
+contents.
 
 Fixed tuple and list displays consume their elements in source order and
 allocate heap-backed sequence values. Exact and starred unpacking arrange stack

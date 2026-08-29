@@ -399,34 +399,35 @@ added after semantic conformance and profiling.
 
 ## Virtual machine and frames
 
-The first VM slice executes module code with a heap-allocated frame. A frame
-contains prepared immutable code, the next instruction index, an operand
-stack, local, global, and builtin namespaces, and a link to its logical caller.
-A thread state points to the active frame. The iterative dispatcher handles
-normal progress, return, and Python exception outcomes without using a Go call
-as the definition of a Python frame.
+The current VM executes module and basic function code with heap-allocated
+frames. A frame contains prepared immutable code, the next instruction index,
+an operand stack, indexed fast locals, local, global, and builtin namespaces,
+and a link to its logical caller. A thread state points to the active frame. The
+iterative dispatcher handles normal progress, Python calls, return, and Python
+exception outcomes without using a Go call as the definition of a Python frame.
 
 Before execution, the runtime copies the code tables it consumes, materializes
-compiler constants as runtime values, and validates every instruction,
-operand, table index, jump target, and reachable stack transition. A worklist
-requires all control-flow edges into an instruction to agree on stack depth.
-`FOR_ITER` has separate yield and exhaustion depths because it retains the
-iterator and pushes an item only on the yield edge. Unsupported or malformed
-bytecode fails before the module body can produce side effects. Prepared code
-and its materialized constants are cached per runtime and immutable code-object
-identity.
+compiler constants as runtime values, and recursively prepares every child code
+object. It validates each instruction, operand, table index, code-metadata
+constraint, jump target, and reachable stack transition. A worklist requires all
+control-flow edges into an instruction to agree on stack depth. `FOR_ITER` has
+separate yield and exhaustion depths because it retains the iterator and pushes
+an item only on the yield edge. Unsupported or malformed bytecode anywhere in
+the code tree fails before the module body can produce side effects. Prepared
+code and its materialized constants are cached per runtime and immutable
+code-object identity.
 
-The frame and dispatcher are intentionally shaped for later calls and
-suspension even though the first slice executes only modules. A Python call
-will replace the active frame with a child whose `previous` link names the
-caller. Return will restore that caller and push the result. A suspended async
-task or generator will own the same frame state needed to resume it.
+`MAKE_FUNCTION` captures one prepared child and its defining global namespace.
+A positional `CALL` binds required arguments into a fresh fast-local array and
+replaces the active frame with a child whose `previous` link names the caller.
+Return restores that caller and pushes the result. Nested and recursive Python
+calls therefore remain in the iterative dispatcher. A suspended async task or
+generator will eventually own the same frame state needed to resume it.
 
 As more execution forms enter the supported subset, the VM must add outcomes
-for calls, yield, await suspension, exception propagation through handlers,
-scheduler safe points, host cancellation, and execution-budget stops. A call
-into a synchronous Go extension will run on the Python thread's current Go
-stack, but a Python-to-Python call will remain in the iterative dispatcher.
+for yield, await suspension, exception propagation through handlers, scheduler
+safe points, host cancellation, and execution-budget stops. A call into a
+synchronous Go extension will run on the Python thread's current Go stack.
 
 ## Object model
 
@@ -434,8 +435,8 @@ The runtime has a sealed internal `Value` interface. Immutable singleton
 objects represent `None`, both booleans, and ellipsis. Heap-backed objects
 represent arbitrary-precision integers, binary64 floats, complex numbers,
 strings, bytes, fixed tuples and lists, dictionaries, sets, slices, collection
-iterators, and Python exceptions. Every live reference remains in a typed
-pointer or interface visible to Go's collector. Module bindings use a temporary
+iterators, Python functions, and Python exceptions. Every live reference remains
+in a typed pointer or interface visible to Go's collector. Module bindings use a
 string-keyed namespace; Python dictionaries use their own value type and
 insertion-ordered entries.
 
@@ -444,8 +445,8 @@ operators, selected arbitrary-precision integer binary operators, scalar and
 tuple equality, object identity, fixed and starred tuple/list construction and
 unpacking, tuple/list/dictionary/set/text/bytes iteration, tuple/list/text/bytes
 subscription, fixed and unpacked dictionary displays, fixed and starred set
-displays, dictionary subscription and item mutation, and tuple/list/dict/set/text/bytes
-membership. Dictionary key and set element matching are linear until
+displays, dictionary subscription and item mutation, and
+tuple/list/dict/set/text/bytes membership. Dictionary key and set element matching are linear until
 user-defined hash and equality protocols justify hash tables. Dictionary
 iterators detect key insertion and deletion while allowing value replacement.
 Text indexes count decoded Python code points over UTF-8/WTF-8 storage; bytes

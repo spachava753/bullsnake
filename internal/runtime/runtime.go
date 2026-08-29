@@ -29,11 +29,12 @@ func (runtime *Runtime) ExecuteModule(name string, code *bytecode.Code) (*Module
 	globals := newNamespace()
 	module := &Module{name: name, globals: globals}
 	frame := &frame{
-		code:     prepared,
-		stack:    make([]Value, 0, prepared.stackSize),
-		locals:   globals,
-		globals:  globals,
-		builtins: runtime.builtins,
+		code:       prepared,
+		stack:      make([]Value, 0, prepared.stackSize),
+		fastLocals: make([]Value, len(prepared.locals)),
+		locals:     globals,
+		globals:    globals,
+		builtins:   runtime.builtins,
 	}
 	thread := &threadState{current: frame}
 
@@ -65,6 +66,14 @@ func (runtime *Runtime) prepare(code *bytecode.Code) (*preparedCode, error) {
 	prepared, err := prepareCode(code)
 	if err != nil {
 		return nil, err
+	}
+	prepared.children = make([]*preparedCode, len(prepared.childCodes))
+	for index, child := range prepared.childCodes {
+		preparedChild, childErr := runtime.prepare(child)
+		if childErr != nil {
+			return nil, childErr
+		}
+		prepared.children[index] = preparedChild
 	}
 	runtime.prepared[code] = prepared
 	return prepared, nil

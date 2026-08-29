@@ -10,6 +10,7 @@ type outcomeKind uint8
 
 const (
 	advance outcomeKind = iota
+	called
 	returned
 	raised
 )
@@ -18,6 +19,7 @@ type instructionOutcome struct {
 	kind      outcomeKind
 	value     Value
 	exception *Exception
+	frame     *frame
 }
 
 type raisedOutcome struct {
@@ -44,6 +46,11 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 		switch outcome.kind {
 		case advance:
 			continue
+		case called:
+			if outcome.frame == nil || outcome.frame.previous != active {
+				return nil, nil, active.failure(index, "invalid call frame transition")
+			}
+			thread.current = outcome.frame
 		case returned:
 			thread.current = active.previous
 			if thread.current == nil {
@@ -91,12 +98,54 @@ func executeInstruction(
 			}, nil
 		}
 		return pushOutcome(frame, index, value)
+	case bytecode.LoadFast:
+		localIndex := int(instruction.Operand)
+		value := frame.fastLocals[localIndex]
+		if value == nil {
+			name := frame.code.locals[localIndex]
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"UnboundLocalError",
+					"cannot access local variable '"+name+
+						"' where it is not associated with a value",
+				),
+			}, nil
+		}
+		return pushOutcome(frame, index, value)
+	case bytecode.LoadGlobal:
+		name := frame.code.names[instruction.Operand]
+		value, ok := frame.globals.get(name)
+		if !ok {
+			value, ok = frame.builtins.get(name)
+		}
+		if !ok {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("NameError", fmt.Sprintf("name '%s' is not defined", name)),
+			}, nil
+		}
+		return pushOutcome(frame, index, value)
 	case bytecode.StoreName:
 		value, ok := frame.pop()
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		frame.locals.values[frame.code.names[instruction.Operand]] = value
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.StoreFast:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		frame.fastLocals[instruction.Operand] = value
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.StoreGlobal:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		frame.globals.values[frame.code.names[instruction.Operand]] = value
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.Copy:
 		depth := int(instruction.Operand)
@@ -161,6 +210,14 @@ func executeInstruction(
 		return executeMapSet(frame, index)
 	case bytecode.MapUpdate:
 		return executeMapUpdate(frame, index)
+	case bytecode.MakeFunction:
+		function := &functionValue{
+			code:    frame.code.children[instruction.Operand],
+			globals: frame.globals,
+		}
+		return pushOutcome(frame, index, function)
+	case bytecode.Call:
+		return executeCall(frame, index, int(instruction.Operand))
 	case bytecode.SetAdd:
 		return executeSetAdd(frame, index)
 	case bytecode.SetUpdate:
