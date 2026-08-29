@@ -26,7 +26,7 @@ describes the code that exists.
 | Source loading | Initial PEP 263 behavior implemented for supported codecs |
 | Lexer | Initial Python 3.14 behavior implemented |
 | Parser and resolver | Initial Python 3.14 parser and name resolution implemented |
-| Compiler and bytecode | Not implemented |
+| Compiler and bytecode | Initial module bytecode foundation implemented |
 | Virtual machine and frames | Not implemented |
 | Object model and runtime | Not implemented |
 | Import system and standard library | Not implemented |
@@ -255,8 +255,24 @@ resolver tests start only from ASTs the parser accepts.
 
 ## Compiler and bytecode
 
-Not implemented. This section will record instruction encoding, constants,
-exception regions, cache compatibility, and compiler invariants.
+`internal/compiler.Compile` accepts a parsed module and its resolver table and
+produces an `internal/compiler/bytecode.Code`. Code objects copy their
+instruction, position, constant, and name tables at construction and expose
+copies through accessors. Each instruction has an explicit opcode and operand;
+a parallel table retains its lexer span. The compiler tracks operand-stack
+depth while emitting and records the maximum on the code object.
+
+Bytecode version 1 implements the initial file-input module slice: empty
+modules, `pass`, `None`, boolean, and ellipsis constants, module name loads and
+stores, simple and chained assignments, expression statements, and the
+synthetic `None` return at module completion. Constants and referenced names
+use deterministic indexed tables. Stable code dumps support compiler tests and
+future diagnostics.
+
+The instruction representation remains decoded rather than serialized. Number
+and string conversion, collection literals, operators, control flow, functions,
+closures, imports, annotations, exceptions, and suspended execution are not yet
+compiled. Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
 
@@ -334,6 +350,11 @@ Successful cases record complete stable scope dumps. Failures record the
 exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
+
+The compiler corpus currently contains five successful parse-resolve-compile
+cases for the initial module instruction set. Cases record stable Bullsnake
+code-object dumps; focused tests cover instruction source positions, stack
+effects, code-object copying, opcode formatting, and compiler input errors.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.

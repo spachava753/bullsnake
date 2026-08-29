@@ -1,0 +1,33 @@
+{
+  "reference": {
+    "language": "Python 3.14.7",
+    "implementation": "Bullsnake bytecode v1"
+  },
+  "cases": [
+    {
+      "name": "empty module",
+      "source": "",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "pass statement",
+      "source": "pass\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[], locals=[], cells=[], free=[], instructions=[NOP, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "singleton expression statements",
+      "source": "None\nFalse\nTrue\n...\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None, False, True, Ellipsis], names=[], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, POP_TOP, LOAD_CONST 1, POP_TOP, LOAD_CONST 2, POP_TOP, LOAD_CONST 3, POP_TOP, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "module name assignment and load",
+      "source": "value = None\nresult = value\nresult\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"value\", \"result\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_NAME 1, POP_TOP, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "chained assignment copies value",
+      "source": "left = right = True\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[True, None], names=[\"left\", \"right\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, COPY 1, STORE_NAME 0, STORE_NAME 1, LOAD_CONST 1, RETURN_VALUE])"
+    }
+  ]
+}
