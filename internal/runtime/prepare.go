@@ -167,6 +167,16 @@ func (code *preparedCode) instructionEdges(
 	next := index + 1
 	target := int(instruction.Operand)
 	switch instruction.Opcode {
+	case bytecode.Copy:
+		if uint64(instruction.Operand) > uint64(depth) {
+			return nil, false, code.failure(index, "operand stack underflow")
+		}
+		return []stackEdge{{target: next, depth: depth + 1}}, false, nil
+	case bytecode.Swap:
+		if uint64(instruction.Operand) > uint64(depth) {
+			return nil, false, code.failure(index, "operand stack underflow")
+		}
+		return []stackEdge{{target: next, depth: depth}}, false, nil
 	case bytecode.ReturnValue:
 		if err := require(1); err != nil {
 			return nil, false, err
@@ -211,6 +221,16 @@ func (code *preparedCode) instructionEdges(
 func (code *preparedCode) validateOperand(index int, instruction bytecode.Instruction) error {
 	switch instruction.Opcode {
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue:
+		return nil
+	case bytecode.Copy:
+		if instruction.Operand < 1 {
+			return code.failure(index, "COPY depth must be at least 1")
+		}
+		return nil
+	case bytecode.Swap:
+		if instruction.Operand < 2 {
+			return code.failure(index, "SWAP depth must be at least 2")
+		}
 		return nil
 	case bytecode.Jump,
 		bytecode.PopJumpIfFalse,
@@ -260,6 +280,24 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 				instruction.Operand,
 			)
 		}
+	case bytecode.CompareOp:
+		switch instruction.Operand {
+		case bytecode.CompareEqual,
+			bytecode.CompareNotEqual,
+			bytecode.CompareLess,
+			bytecode.CompareLessEqual,
+			bytecode.CompareGreater,
+			bytecode.CompareGreaterEqual,
+			bytecode.CompareIs,
+			bytecode.CompareIsNot:
+			return nil
+		default:
+			return code.failure(
+				index,
+				"unsupported COMPARE_OP operand %d",
+				instruction.Operand,
+			)
+		}
 	default:
 		return code.failure(index, "unsupported opcode %s", instruction.Opcode)
 	}
@@ -273,7 +311,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 1, 0
 	case bytecode.UnaryOp:
 		return 1, 1
-	case bytecode.BinaryOp:
+	case bytecode.BinaryOp, bytecode.CompareOp:
 		return 2, 1
 	default:
 		return 0, 0

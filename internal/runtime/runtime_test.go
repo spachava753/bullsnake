@@ -383,6 +383,63 @@ func TestWhileLoops(t *testing.T) {
 	}
 }
 
+func TestComparisons(t *testing.T) {
+	code := compileSource(t, "equal = 2 == 2\n"+
+		"not_equal = 2 != 3\n"+
+		"less = 2 < 3\n"+
+		"less_equal = 2 <= 2\n"+
+		"greater = 3 > 2\n"+
+		"greater_equal = 3 >= 3\n"+
+		"bool_integer_equal = True == 1\n"+
+		"mixed_numeric_equal = 1 == 1.0\n"+
+		"mixed_numeric_order = 1 < 1.5\n"+
+		"complex_zero_equal = 0j == 0\n"+
+		"text_order = 'alpha' < 'beta'\n"+
+		"bytes_order = b'beta' > b'alpha'\n"+
+		"none_equal = None == None\n"+
+		"different_types = None != 1\n"+
+		"same_identity = None is None\n"+
+		"different_identity = None is not ...\n"+
+		"true_chain = 1 < 2 < 3\n"+
+		"false_chain = 1 < 3 < 2\n"+
+		"short_chain = 3 < 2 < missing\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("comparisons", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"equal":               "True",
+		"not_equal":           "True",
+		"less":                "True",
+		"less_equal":          "True",
+		"greater":             "True",
+		"greater_equal":       "True",
+		"bool_integer_equal":  "True",
+		"mixed_numeric_equal": "True",
+		"mixed_numeric_order": "True",
+		"complex_zero_equal":  "True",
+		"text_order":          "True",
+		"bytes_order":         "True",
+		"none_equal":          "True",
+		"different_types":     "True",
+		"same_identity":       "True",
+		"different_identity":  "True",
+		"true_chain":          "True",
+		"false_chain":         "False",
+		"short_chain":         "False",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -452,6 +509,12 @@ func TestPythonExceptions(t *testing.T) {
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
 		},
 		{
+			name:        "unsupported ordering",
+			source:      "answer = 1 < 'text'\n",
+			wantType:    "TypeError",
+			wantMessage: "'<' not supported between instances of 'int' and 'str'",
+		},
+		{
 			name:        "unsupported unary positive",
 			source:      "answer = +'text'\n",
 			wantType:    "TypeError",
@@ -496,6 +559,49 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "copy depth",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Copy},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "COPY depth must be at least 1",
+		},
+		{
+			name: "swap depth",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Swap, Operand: 1},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "SWAP depth must be at least 2",
+		},
+		{
+			name: "unsupported comparison",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.CompareOp, Operand: bytecode.CompareIn},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.Integer("1")},
+				nil,
+			),
+			wantFragment: "unsupported COMPARE_OP operand 6",
+		},
 		{
 			name: "jump target",
 			code: testCode(

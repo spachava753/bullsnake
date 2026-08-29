@@ -98,6 +98,21 @@ func executeInstruction(
 		}
 		frame.locals.values[frame.code.names[instruction.Operand]] = value
 		return instructionOutcome{kind: advance}, nil
+	case bytecode.Copy:
+		depth := int(instruction.Operand)
+		if depth < 1 || depth > len(frame.stack) {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		return pushOutcome(frame, index, frame.stack[len(frame.stack)-depth])
+	case bytecode.Swap:
+		depth := int(instruction.Operand)
+		if depth < 2 || depth > len(frame.stack) {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		top := len(frame.stack) - 1
+		other := len(frame.stack) - depth
+		frame.stack[top], frame.stack[other] = frame.stack[other], frame.stack[top]
+		return instructionOutcome{kind: advance}, nil
 	case bytecode.PopTop:
 		if _, ok := frame.pop(); !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
@@ -138,6 +153,8 @@ func executeInstruction(
 		return executeUnary(frame, index, instruction.Operand)
 	case bytecode.BinaryOp:
 		return executeBinary(frame, index, instruction.Operand)
+	case bytecode.CompareOp:
+		return executeComparison(frame, index, instruction.Operand)
 	case bytecode.ReturnValue:
 		value, ok := frame.pop()
 		if !ok {

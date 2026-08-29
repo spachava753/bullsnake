@@ -395,11 +395,11 @@ callers and tests. There is not yet a public Go embedding API.
 Preparation copies the instruction and name tables, materializes code constants
 as runtime values, and validates the complete code object before execution.
 Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
-`POP_TOP`, scalar `UNARY_OP`, selected integer `BINARY_OP` variants, absolute
-`JUMP`, both pop-and-test jumps, both short-circuit-or-pop jumps, and
-`RETURN_VALUE`. It checks constant and name indexes, operation operands, jump
-targets, stack underflow, the declared maximum stack size, return stack balance,
-and reachable termination. Any unsupported constant, instruction, or operand
+`POP_TOP`, `COPY`, `SWAP`, scalar `UNARY_OP`, selected integer `BINARY_OP` and
+scalar `COMPARE_OP` variants, absolute `JUMP`, both pop-and-test jumps, both
+short-circuit-or-pop jumps, and `RETURN_VALUE`. It checks constant and name
+indexes, operation operands, jump targets, stack underflow, the declared
+maximum stack size, return stack balance, and reachable termination. Any unsupported constant, instruction, or operand
 fails with a source-located `BytecodeError` before a module can observe side
 effects.
 
@@ -446,8 +446,17 @@ precision integer results. Floor division rounds toward negative infinity, and
 modulo produces a remainder with the divisor's sign. Shifts reject negative
 counts; huge right shifts collapse by the left operand's sign, while a huge
 left shift of a nonzero value raises `OverflowError`. A zero divisor raises
-`ZeroDivisionError`. Unsupported operand pairings, missing names, and invalid
-unary types raise Python `TypeError` or `NameError` values.
+`ZeroDivisionError`.
+
+Equality covers all current scalar values, including boolean/integer,
+integer/float, and real-valued complex numeric pairs. Ordering supports
+integers, booleans, floats, strings, and bytes; incompatible pairs raise
+`TypeError`. Identity compares runtime object identity. Chained comparisons use
+validated `COPY`, `SWAP`, and short-circuit jumps so each middle operand is
+evaluated once and later operands are skipped after a false result.
+
+Unsupported operand pairings, missing names, and invalid unary types raise
+Python `TypeError` or `NameError` values.
 `UncaughtException` carries the exception across the current Go host boundary.
 
 A runtime owns its prepared-code cache, builtin namespace, and successful
@@ -539,7 +548,8 @@ it. The initial cases cover module globals, discarded expressions, every
 compiler scalar constant, singleton identity, scalar truth testing, numeric
 unary operations, selected arbitrary-precision integer binary operations,
 boolean short-circuiting, conditional expressions, conditional statements,
-and `while` loops with normal exhaustion, `else`, `break`, and `continue`.
+chained scalar comparisons, and `while` loops with normal exhaustion, `else`,
+`break`, and `continue`.
 Floor-division cases pin quotient rounding, remainder signs, and zero-divisor
 errors. Shift cases cover signed values, booleans, negative counts, and huge
 counts that cannot fit a machine word. Python `NameError`, `TypeError`,
