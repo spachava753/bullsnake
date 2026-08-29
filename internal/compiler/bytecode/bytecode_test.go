@@ -83,6 +83,13 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := MapSet.StackEffect(0); got != -2 {
 		t.Fatalf("MAP_SET stack effect = %d, want -2", got)
 	}
+	binary := Instruction{Opcode: BinaryOp, Operand: BinaryPower}
+	if got := binary.String(); got != "BINARY_OP 7" {
+		t.Fatalf("binary instruction = %q", got)
+	}
+	if got := BinaryOp.StackEffect(BinaryPower); got != -1 {
+		t.Fatalf("BINARY_OP stack effect = %d, want -1", got)
+	}
 	if got := Dump(nil); got != "nil" {
 		t.Fatalf("Dump(nil) = %q", got)
 	}

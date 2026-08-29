@@ -14,6 +14,31 @@ const (
 	ConversionASCII
 )
 
+// UNARY_OP operands identify Python unary operations.
+const (
+	UnaryPositive uint32 = iota
+	UnaryNegative
+	UnaryInvert
+	UnaryNot
+)
+
+// BINARY_OP operands identify Python binary and future in-place operations.
+const (
+	BinaryAdd uint32 = iota
+	BinarySubtract
+	BinaryMultiply
+	BinaryMatrixMultiply
+	BinaryDivide
+	BinaryFloorDivide
+	BinaryModulo
+	BinaryPower
+	BinaryLeftShift
+	BinaryRightShift
+	BinaryOr
+	BinaryXor
+	BinaryAnd
+)
+
 // Opcode identifies one virtual-machine instruction.
 type Opcode uint8
 
@@ -40,6 +65,8 @@ const (
 	SetUpdate
 	MapSet
 	MapUpdate
+	UnaryOp
+	BinaryOp
 )
 
 var opcodeNames = [...]string{
@@ -65,6 +92,8 @@ var opcodeNames = [...]string{
 	"SET_UPDATE",
 	"MAP_SET",
 	"MAP_UPDATE",
+	"UNARY_OP",
+	"BINARY_OP",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -79,7 +108,7 @@ func (opcode Opcode) String() string {
 func (opcode Opcode) HasOperand() bool {
 	switch opcode {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
-		BuildTuple, BuildList, BuildSet, BuildMap:
+		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp:
 		return true
 	default:
 		return false
@@ -91,7 +120,7 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy:
 		return 1
-	case StoreName, PopTop, ReturnValue, FormatWithSpec,
+	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate:
 		return -1
 	case MapSet:

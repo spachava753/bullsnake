@@ -78,6 +78,10 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		)
 	case *compilerast.DictExpr:
 		return compiler.compileDictDisplay(expression)
+	case *compilerast.UnaryExpr:
+		return compiler.compileUnary(expression)
+	case *compilerast.BinaryExpr:
+		return compiler.compileBinary(expression)
 	case *compilerast.NoneLiteral:
 		return compiler.emit(
 			bytecode.LoadConst,

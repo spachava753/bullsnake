@@ -276,12 +276,14 @@ Formatted strings preserve raw mode and debug-field spelling, apply `str`,
 and formatted components with explicit stack effects. Tuple, list, set, and
 dictionary displays use count-based build instructions when they have no
 unpacking. Starred displays use typed append, extend, and update instructions
-against one accumulator while evaluating elements from left to right. Constants
-and referenced names use deterministic indexed tables. Stable code dumps
-support compiler tests and future diagnostics.
+against one accumulator while evaluating elements from left to right. Unary and
+binary expressions use explicit operand IDs shared with future augmented
+assignment emission. Constants and referenced names use deterministic indexed
+tables. Stable code dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, operators, control flow, functions, closures, imports,
+Template strings, boolean and comparison chains, conditional expressions,
+attributes, subscripts, calls, control flow, functions, closures, imports,
 annotations, exceptions, and suspended execution are not yet compiled. Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
@@ -361,8 +363,8 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains sixteen successful parse-resolve-compile
-cases for the initial module instruction set and literal evaluation. Cases
+The compiler corpus currently contains eighteen successful parse-resolve-compile
+cases for the initial module instruction set and expression evaluation. Cases
 record stable Bullsnake code-object dumps; focused tests cover instruction
 source positions, stack effects, code-object copying, opcode formatting,
 literal decoding, formatted-string errors, and compiler input errors.
