@@ -754,6 +754,35 @@ func TestItemAssignmentAndDeletion(t *testing.T) {
 	}
 }
 
+func TestUnpackedDictionaryDisplays(t *testing.T) {
+	code := compileSource(t, "base = {'first': 1, 'second': 2}\n"+
+		"copied = {**base}\n"+
+		"mixed = {'first': 0, **base, 'third': 3}\n"+
+		"replaced = {**{'a': 1, 'b': 2}, **{'b': 20, 'c': 3}, 'a': 10}\n"+
+		"empty = {**{}}\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("unpacked dictionaries", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"base":     "{'first': 1, 'second': 2}",
+		"copied":   "{'first': 1, 'second': 2}",
+		"mixed":    "{'first': 1, 'second': 2, 'third': 3}",
+		"replaced": "{'a': 10, 'b': 20, 'c': 3}",
+		"empty":    "{}",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -890,6 +919,12 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "non-mapping dictionary unpack",
+			source:      "answer = {**1}\n",
+			wantType:    "TypeError",
+			wantMessage: "'int' object is not a mapping",
 		},
 		{
 			name:        "delete missing dictionary key",
@@ -1080,6 +1115,35 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "map set underflow",
+			code: testCode(
+				3,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildMap},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MapSet},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "map update underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildMap},
+					{Opcode: bytecode.MapUpdate},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
 		{
 			name: "store subscript underflow",
 			code: testCode(

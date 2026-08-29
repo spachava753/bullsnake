@@ -100,6 +100,62 @@ func unhashableComponent(value Value) (string, bool) {
 	}
 }
 
+// executeMapSet consumes a key and value above the dictionary accumulator,
+// leaving that accumulator in place for later display entries.
+func executeMapSet(frame *frame, instruction int) (instructionOutcome, error) {
+	value, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	key, ok := frame.pop()
+	if !ok || len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	dictionary, ok := frame.stack[len(frame.stack)-1].(*dictValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"MAP_SET accumulator is not a dictionary",
+		)
+	}
+	if exception := dictionary.set(key, value); exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	return instructionOutcome{kind: advance}, nil
+}
+
+// executeMapUpdate keeps the target dictionary on the stack while replaying an
+// unpacked dictionary's entries in insertion order.
+func executeMapUpdate(frame *frame, instruction int) (instructionOutcome, error) {
+	update, ok := frame.pop()
+	if !ok || len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	dictionary, ok := frame.stack[len(frame.stack)-1].(*dictValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"MAP_UPDATE accumulator is not a dictionary",
+		)
+	}
+	source, ok := update.(*dictValue)
+	if !ok {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+update.TypeName()+"' object is not a mapping",
+			),
+		}, nil
+	}
+	for _, entry := range source.entries {
+		if exception := dictionary.set(entry.key, entry.value); exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+	}
+	return instructionOutcome{kind: advance}, nil
+}
+
 // executeStoreSubscript consumes value, container, and key in compiler stack
 // order, then applies mapping key validation and insertion semantics.
 func executeStoreSubscript(frame *frame, instruction int) (instructionOutcome, error) {

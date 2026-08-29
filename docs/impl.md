@@ -396,16 +396,16 @@ Preparation copies the instruction and name tables, materializes code constants
 as runtime values, and validates the complete code object before execution.
 Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
 `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`, `BUILD_MAP`, and
-`BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`, `LIST_TO_TUPLE`,
-`UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`, `FOR_ITER`, integer or slice
-`BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and `DELETE_SUBSCR`; scalar
-`UNARY_OP`; selected integer `BINARY_OP`; scalar
-`COMPARE_OP` variants; absolute `JUMP`; both pop-and-test jumps; both
-short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks constant and name
-indexes, operation operands, jump targets, stack underflow, the declared maximum
-stack size, return stack balance, and reachable termination. Any unsupported
-constant, instruction, or operand fails with a source-located `BytecodeError`
-before a module can observe side effects.
+`BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`, `LIST_TO_TUPLE`, `MAP_SET`,
+`MAP_UPDATE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`, `FOR_ITER`, integer or
+slice `BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and `DELETE_SUBSCR`; scalar
+`UNARY_OP`; selected integer `BINARY_OP`; scalar `COMPARE_OP` variants;
+absolute `JUMP`; both pop-and-test jumps; both short-circuit-or-pop jumps; and
+`RETURN_VALUE`. It checks constant and name indexes, operation operands, jump
+targets, stack underflow, the declared maximum stack size, return stack balance,
+and reachable termination. Any unsupported constant, instruction, or operand
+fails with a source-located `BytecodeError` before a module can observe side
+effects.
 
 Stack validation uses a worklist over instruction indexes. Each reachable edge
 carries its operand-stack depth. Conditional jumps propagate their distinct
@@ -454,10 +454,13 @@ allocates a list result. Starred displays append ordinary values and extend from
 current tuple/list iterables in source order.
 
 Dictionary values keep an insertion-ordered entry slice and currently find keys
-with a linear identity-or-equality scan. `BUILD_MAP` consumes pairs in source
-order. Updating an equal key retains its original object and position. Current
-scalar values and recursively hashable tuples may be keys; construction and
-subscription report the contextual Python 3.14 `TypeError` for unhashable keys.
+with a linear identity-or-equality scan. `BUILD_MAP` consumes fixed pairs in
+source order. Mixed displays apply ordinary pairs and unpacked dictionaries to
+one accumulator. Replacing an equal key retains its original object and
+position; new unpacked keys append in their source mapping's order. A non-mapping
+`**` operand raises `TypeError`. Current scalar values and recursively hashable
+tuples may be keys; construction and subscription report the contextual Python
+3.14 `TypeError` for unhashable keys.
 Subscription returns the stored object and raises `KeyError` with the missing
 key's representation. Item assignment uses the same key matching as display
 construction. Deletion removes the entry without disturbing later entries;
@@ -577,10 +580,12 @@ compiler input errors.
 
 Runtime tests compile source through the complete front end before executing
 it. The initial cases cover module globals, discarded expressions, scalar
-values, fixed and starred tuple/list displays, fixed dictionary displays, and
-integer and slice tuple/list subscription. Dictionary cases cover insertion
-order, duplicate scalar and tuple keys, nesting, truth, subscription, assignment,
-deletion, missing keys, and contextual unhashable-key errors.
+values, fixed and starred tuple/list displays, fixed and unpacked dictionary
+displays, and integer and slice tuple/list subscription. Dictionary cases cover
+insertion order, duplicate scalar and tuple keys, nesting, truth, unpack
+replacement,
+subscription, assignment, deletion, missing keys, contextual unhashable-key
+errors, and non-mapping unpack failures.
 Fixed and starred destructuring cases include nested targets.
 Other cases cover singleton identity, scalar and sequence truth testing, numeric
 unary operations, selected arbitrary-precision integer binary
