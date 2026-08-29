@@ -73,14 +73,3 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return compiler.unsupported(statement)
 	}
 }
-
-func (compiler *compilerState) compileStore(expression compilerast.Expr) error {
-	name, ok := expression.(*compilerast.Name)
-	if !ok {
-		return compiler.unsupported(expression)
-	}
-	if compiler.scope.Symbols[name.ID] == nil {
-		return compiler.error(name.Span(), "resolver has no symbol for %q", name.ID)
-	}
-	return compiler.emit(bytecode.StoreName, compiler.nameIndex(name.ID), name.Span())
-}

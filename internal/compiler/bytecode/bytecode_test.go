@@ -123,6 +123,19 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := GetIter.StackEffect(0); got != 0 {
 		t.Fatalf("GET_ITER stack effect = %d, want 0", got)
 	}
+	store := Instruction{Opcode: StoreAttr, Operand: 5}
+	if got := store.String(); got != "STORE_ATTR 5" {
+		t.Fatalf("attribute store instruction = %q", got)
+	}
+	if got := StoreAttr.StackEffect(5); got != -2 {
+		t.Fatalf("STORE_ATTR stack effect = %d, want -2", got)
+	}
+	if got := StoreSubscript.StackEffect(0); got != -3 {
+		t.Fatalf("STORE_SUBSCR stack effect = %d, want -3", got)
+	}
+	if got := UnpackSequence.StackEffect(3); got != 2 {
+		t.Fatalf("UNPACK_SEQUENCE 3 stack effect = %d, want 2", got)
+	}
 	jump := Instruction{Opcode: JumpIfFalseOrPop, Operand: 9}
 	if got := jump.String(); got != "JUMP_IF_FALSE_OR_POP 9" {
 		t.Fatalf("jump instruction = %q", got)

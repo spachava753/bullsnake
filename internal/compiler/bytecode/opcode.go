@@ -101,6 +101,9 @@ const (
 	CallEx
 	GetIter
 	ForIter
+	StoreAttr
+	StoreSubscript
+	UnpackSequence
 )
 
 var opcodeNames = [...]string{
@@ -142,6 +145,9 @@ var opcodeNames = [...]string{
 	"CALL_EX",
 	"GET_ITER",
 	"FOR_ITER",
+	"STORE_ATTR",
+	"STORE_SUBSCR",
+	"UNPACK_SEQUENCE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -158,7 +164,7 @@ func (opcode Opcode) HasOperand() bool {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
 		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
-		LoadAttr, BuildSlice, Call, CallEx, ForIter:
+		LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr, UnpackSequence:
 		return true
 	default:
 		return false
@@ -175,8 +181,12 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge:
 		return -1
-	case MapSet:
+	case MapSet, StoreAttr:
 		return -2
+	case StoreSubscript:
+		return -3
+	case UnpackSequence:
+		return int(operand) - 1
 	case Call:
 		return -int(operand)
 	case CallEx:

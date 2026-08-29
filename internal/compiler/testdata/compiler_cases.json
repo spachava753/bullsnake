@@ -178,6 +178,26 @@
       "name": "nested for and while loop cleanup",
       "source": "for outer in outers:\n    while condition:\n        break\n    for inner in inners:\n        break\n    break\nafter = 1\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(1), None], names=[\"outers\", \"outer\", \"condition\", \"inners\", \"inner\", \"after\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, GET_ITER, FOR_ITER 15, STORE_NAME 1, LOAD_NAME 2, POP_JUMP_IF_FALSE 7, JUMP 7, LOAD_NAME 3, GET_ITER, FOR_ITER 13, STORE_NAME 4, POP_TOP, JUMP 13, POP_TOP, JUMP 15, LOAD_CONST 0, STORE_NAME 5, LOAD_CONST 1, RETURN_VALUE])"
+    },
+    {
+      "name": "attribute and subscript stores",
+      "source": "object.attribute = value\nmapping[key] = value\nobject.items[index].name = value\nmatrix[row, column] = value\nsequence[lower:upper] = value\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[None], names=[\"value\", \"object\", \"attribute\", \"mapping\", \"key\", \"items\", \"index\", \"name\", \"matrix\", \"row\", \"column\", \"sequence\", \"lower\", \"upper\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, LOAD_NAME 1, STORE_ATTR 2, LOAD_NAME 0, LOAD_NAME 3, LOAD_NAME 4, STORE_SUBSCR, LOAD_NAME 0, LOAD_NAME 1, LOAD_ATTR 5, LOAD_NAME 6, BINARY_SUBSCR, STORE_ATTR 7, LOAD_NAME 0, LOAD_NAME 8, LOAD_NAME 9, LOAD_NAME 10, BUILD_TUPLE 2, STORE_SUBSCR, LOAD_NAME 0, LOAD_NAME 11, LOAD_NAME 12, LOAD_NAME 13, BUILD_SLICE 2, STORE_SUBSCR, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "fixed destructuring assignments",
+      "source": "first, second = pair\n[left, (middle, right)] = nested\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[None], names=[\"pair\", \"first\", \"second\", \"nested\", \"left\", \"middle\", \"right\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, UNPACK_SEQUENCE 2, STORE_NAME 1, STORE_NAME 2, LOAD_NAME 3, UNPACK_SEQUENCE 2, STORE_NAME 4, UNPACK_SEQUENCE 2, STORE_NAME 5, STORE_NAME 6, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "chained mixed stores",
+      "source": "name = object.attribute = mapping[key] = value\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[None], names=[\"value\", \"name\", \"object\", \"attribute\", \"mapping\", \"key\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, COPY 1, STORE_NAME 1, COPY 1, LOAD_NAME 2, STORE_ATTR 3, LOAD_NAME 4, LOAD_NAME 5, STORE_SUBSCR, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "destructuring for targets",
+      "source": "for key, value in items:\n    consume(key, value)\nfor [left, (middle, right)] in nested:\n    consume(left, middle, right)\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=5, constants=[None], names=[\"items\", \"key\", \"value\", \"consume\", \"nested\", \"left\", \"middle\", \"right\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, GET_ITER, FOR_ITER 12, UNPACK_SEQUENCE 2, STORE_NAME 1, STORE_NAME 2, LOAD_NAME 3, LOAD_NAME 1, LOAD_NAME 2, CALL 2, POP_TOP, JUMP 2, LOAD_NAME 4, GET_ITER, FOR_ITER 27, UNPACK_SEQUENCE 2, STORE_NAME 5, UNPACK_SEQUENCE 2, STORE_NAME 6, STORE_NAME 7, LOAD_NAME 3, LOAD_NAME 5, LOAD_NAME 6, LOAD_NAME 7, CALL 3, POP_TOP, JUMP 14, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }
