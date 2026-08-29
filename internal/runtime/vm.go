@@ -149,6 +149,10 @@ func executeInstruction(
 			frame.pop()
 		}
 		return instructionOutcome{kind: advance}, nil
+	case bytecode.BuildTuple:
+		return executeBuildSequence(frame, index, int(instruction.Operand), true)
+	case bytecode.BuildList:
+		return executeBuildSequence(frame, index, int(instruction.Operand), false)
 	case bytecode.UnaryOp:
 		return executeUnary(frame, index, instruction.Operand)
 	case bytecode.BinaryOp:

@@ -97,6 +97,10 @@ func truthValue(value Value) bool {
 		return len(value.value) != 0
 	case *bytesValue:
 		return len(value.value) != 0
+	case *tupleValue:
+		return len(value.elements) != 0
+	case *listValue:
+		return len(value.elements) != 0
 	default:
 		return true
 	}

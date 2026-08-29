@@ -251,6 +251,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "name index %d out of range", instruction.Operand)
 		}
 		return nil
+	case bytecode.BuildTuple, bytecode.BuildList:
+		if uint64(instruction.Operand) > uint64(code.stackSize) {
+			return code.failure(
+				index,
+				"sequence element count %d exceeds stack size",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.UnaryOp:
 		if instruction.Operand > bytecode.UnaryNot {
 			return code.failure(
@@ -303,6 +312,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 	}
 }
 
+// instructionStackUse returns the ordinary fallthrough consumption and
+// production for opcodes whose effects do not split across control-flow edges.
 func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	switch instruction.Opcode {
 	case bytecode.LoadConst, bytecode.LoadName:
@@ -313,6 +324,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 1, 1
 	case bytecode.BinaryOp, bytecode.CompareOp:
 		return 2, 1
+	case bytecode.BuildTuple, bytecode.BuildList:
+		return int(instruction.Operand), 1
 	default:
 		return 0, 0
 	}

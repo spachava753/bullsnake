@@ -431,13 +431,14 @@ stack, but a Python-to-Python call will remain in the iterative dispatcher.
 The runtime has a sealed internal `Value` interface. Immutable singleton
 objects represent `None`, both booleans, and ellipsis. Heap-backed objects
 represent arbitrary-precision integers, binary64 floats, complex numbers,
-strings, bytes, and Python exceptions. Every live reference remains in a typed
-pointer or interface visible to Go's collector. Module bindings use a temporary
-string-keyed namespace rather than pretending that a Go map already implements
-Python dictionary semantics. The current object operations cover fixed scalar
-truth, numeric unary operators, selected arbitrary-precision integer binary
-operators, scalar equality and ordering, and object identity. Later user-defined
-protocols must reuse these VM outcome and exception paths.
+strings, bytes, fixed tuples and lists, and Python exceptions. Every live
+reference remains in a typed pointer or interface visible to Go's collector.
+Module bindings use a temporary string-keyed namespace rather than pretending
+that a Go map already implements Python dictionary semantics. The current
+object operations cover fixed scalar truth, numeric unary operators, selected
+arbitrary-precision integer binary operators, scalar equality and ordering, and
+object identity. Later user-defined protocols must reuse these VM outcome and
+exception paths.
 
 The object model can become the largest compatibility component, so it should
 remain feature-driven. It should be designed before a large instruction set

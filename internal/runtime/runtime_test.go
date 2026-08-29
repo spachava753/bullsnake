@@ -440,6 +440,41 @@ func TestComparisons(t *testing.T) {
 	}
 }
 
+func TestSequenceDisplays(t *testing.T) {
+	code := compileSource(t, "empty_tuple = ()\n"+
+		"tuple_value = (1, True, 'text')\n"+
+		"single_tuple = (1,)\n"+
+		"empty_list = []\n"+
+		"list_value = [1, None, [2, 3]]\n"+
+		"tuple_is_false = not empty_tuple\n"+
+		"list_is_false = not empty_list\n"+
+		"list_is_true = not list_value\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("sequence displays", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"empty_tuple":    "()",
+		"tuple_value":    "(1, True, 'text')",
+		"single_tuple":   "(1,)",
+		"empty_list":     "[]",
+		"list_value":     "[1, None, [2, 3]]",
+		"tuple_is_false": "True",
+		"list_is_false":  "True",
+		"list_is_true":   "False",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -559,6 +594,20 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "sequence build underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildTuple, Operand: 2},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
 		{
 			name: "copy depth",
 			code: testCode(
