@@ -783,6 +783,41 @@ func TestUnpackedDictionaryDisplays(t *testing.T) {
 	}
 }
 
+func TestSetDisplays(t *testing.T) {
+	code := compileSource(t, "values = {3, 1, 2, 1}\n"+
+		"numeric = {True, 1, 1.0, False, 0}\n"+
+		"tuples = {(1, 2), (1, 2), (3, 4)}\n"+
+		"starred = {0, *[1, 2], *(2, 3)}\n"+
+		"from_set = {*{1, 2}, 3}\n"+
+		"empty = {*()}\n"+
+		"empty_false = not empty\n"+
+		"values_false = not values\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("set displays", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"values":       "{3, 1, 2}",
+		"numeric":      "{True, False}",
+		"tuples":       "{(1, 2), (3, 4)}",
+		"starred":      "{0, 1, 2, 3}",
+		"from_set":     "{1, 2, 3}",
+		"empty":        "set()",
+		"empty_false":  "True",
+		"values_false": "False",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -919,6 +954,24 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "unhashable set element",
+			source:      "answer = {[1]}\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'list' as a set element (unhashable type: 'list')",
+		},
+		{
+			name:        "nested unhashable set element",
+			source:      "answer = {([1],)}\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'tuple' as a set element (unhashable type: 'list')",
+		},
+		{
+			name:        "non-iterable starred set",
+			source:      "answer = {*1}\n",
+			wantType:    "TypeError",
+			wantMessage: "'int' object is not iterable",
 		},
 		{
 			name:        "non-mapping dictionary unpack",
@@ -1115,6 +1168,58 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "set build underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildSet, Operand: 1},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "set element count",
+			code: testCode(
+				0,
+				[]bytecode.Instruction{{Opcode: bytecode.BuildSet, Operand: 1}},
+				nil,
+				nil,
+			),
+			wantFragment: "set element count 1 exceeds stack size",
+		},
+		{
+			name: "set add underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildSet},
+					{Opcode: bytecode.SetAdd},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "set update underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildSet},
+					{Opcode: bytecode.SetUpdate},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
 		{
 			name: "map set underflow",
 			code: testCode(

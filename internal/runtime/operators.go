@@ -103,6 +103,8 @@ func truthValue(value Value) bool {
 		return len(value.elements) != 0
 	case *dictValue:
 		return len(value.entries) != 0
+	case *setValue:
+		return len(value.entries) != 0
 	default:
 		return true
 	}

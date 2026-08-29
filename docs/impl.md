@@ -395,17 +395,17 @@ callers and tests. There is not yet a public Go embedding API.
 Preparation copies the instruction and name tables, materializes code constants
 as runtime values, and validates the complete code object before execution.
 Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
-`POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`, `BUILD_MAP`, and
-`BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`, `LIST_TO_TUPLE`, `MAP_SET`,
-`MAP_UPDATE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`, `FOR_ITER`, integer or
-slice `BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and `DELETE_SUBSCR`; scalar
-`UNARY_OP`; selected integer `BINARY_OP`; scalar `COMPARE_OP` variants;
-absolute `JUMP`; both pop-and-test jumps; both short-circuit-or-pop jumps; and
-`RETURN_VALUE`. It checks constant and name indexes, operation operands, jump
-targets, stack underflow, the declared maximum stack size, return stack balance,
-and reachable termination. Any unsupported constant, instruction, or operand
-fails with a source-located `BytecodeError` before a module can observe side
-effects.
+`POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`, `BUILD_SET`,
+`BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`, `LIST_TO_TUPLE`,
+`SET_ADD`, `SET_UPDATE`, `MAP_SET`, `MAP_UPDATE`, `UNPACK_SEQUENCE`,
+`UNPACK_EX`, `GET_ITER`, `FOR_ITER`, integer or slice `BINARY_SUBSCR`, and
+mapping `STORE_SUBSCR` and `DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer
+`BINARY_OP`; scalar `COMPARE_OP` variants; absolute `JUMP`; both pop-and-test
+jumps; both short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks constant
+and name indexes, operation operands, jump targets, stack underflow, the
+declared maximum stack size, return stack balance, and reachable termination.
+Any unsupported constant, instruction, or operand fails with a source-located
+`BytecodeError` before a module can observe side effects.
 
 Stack validation uses a worklist over instruction indexes. Each reachable edge
 carries its operand-stack depth. Conditional jumps propagate their distinct
@@ -434,7 +434,7 @@ The initial sealed `Value` interface keeps every Python reference in a typed Go
 interface or pointer. Process-wide immutable singletons represent `None`,
 `False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
 precision integers, binary64 floats, complex values, strings, bytes, tuples,
-lists, dictionaries, slices, sequence iterators, and exceptions. Code
+lists, dictionaries, sets, slices, sequence iterators, and exceptions. Code
 preparation materializes each constant once per runtime and code object. String
 objects accept UTF-8 plus the compiler's deliberate WTF-8 encoding for lone
 surrogates; bytes objects retain arbitrary payloads. Stable representations
@@ -467,8 +467,15 @@ construction. Deletion removes the entry without disturbing later entries;
 reinsertion appends it. Missing deletion keys raise `KeyError`. Dictionary truth
 depends on entry count. A later object-model slice can replace the linear
 storage after user-defined hash and equality protocols exist. Sequence item
-mutation, string and bytes subscription, and cyclic representations are not
-implemented.
+mutation, string and bytes subscription, general set iteration and mutation,
+and cyclic representations are not implemented.
+
+Set values keep first-seen elements in an ordered slice and use the same
+identity, equality, and recursive hashability rules as dictionary keys. Fixed
+and starred displays support current tuple, list, and set iterables. Empty sets
+render as `set()`. Nonempty set representations use first-seen order as a stable
+Bullsnake testing contract; Python does not guarantee set representation order.
+Set truth depends on element count.
 
 Scalar truth testing follows Python for the current fixed types: `None`, false
 booleans, numeric zero, and empty strings or bytes are false; other scalar
@@ -580,12 +587,13 @@ compiler input errors.
 
 Runtime tests compile source through the complete front end before executing
 it. The initial cases cover module globals, discarded expressions, scalar
-values, fixed and starred tuple/list displays, fixed and unpacked dictionary
-displays, and integer and slice tuple/list subscription. Dictionary cases cover
-insertion order, duplicate scalar and tuple keys, nesting, truth, unpack
-replacement,
-subscription, assignment, deletion, missing keys, contextual unhashable-key
-errors, and non-mapping unpack failures.
+values, fixed and starred tuple/list and set displays, fixed and unpacked
+dictionary displays, and integer and slice tuple/list subscription. Dictionary
+cases cover insertion order, duplicate scalar and tuple keys, nesting, truth,
+unpack replacement, subscription, assignment, deletion, missing keys,
+contextual unhashable-key errors, and non-mapping unpack failures. Set cases
+cover first-seen order, numeric and tuple deduplication, starred expansion,
+truth, contextual unhashable-element errors, and non-iterable expansion.
 Fixed and starred destructuring cases include nested targets.
 Other cases cover singleton identity, scalar and sequence truth testing, numeric
 unary operations, selected arbitrary-precision integer binary

@@ -231,7 +231,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
 		bytecode.BinarySubscript, bytecode.StoreSubscript, bytecode.DeleteSubscript,
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
-		bytecode.MapSet, bytecode.MapUpdate:
+		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -268,6 +268,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(
 				index,
 				"sequence element count %d exceeds stack size",
+				instruction.Operand,
+			)
+		}
+		return nil
+	case bytecode.BuildSet:
+		if uint64(instruction.Operand) > uint64(code.stackSize) {
+			return code.failure(
+				index,
+				"set element count %d exceeds stack size",
 				instruction.Operand,
 			)
 		}
@@ -375,13 +384,15 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.StoreSubscript:
 		return 3, 0
 	case bytecode.BinaryOp, bytecode.CompareOp, bytecode.BinarySubscript,
-		bytecode.ListAppend, bytecode.ListExtend, bytecode.MapUpdate:
+		bytecode.ListAppend, bytecode.ListExtend, bytecode.SetAdd,
+		bytecode.SetUpdate, bytecode.MapUpdate:
 		return 2, 1
 	case bytecode.MapSet:
 		return 3, 1
 	case bytecode.UnaryOp, bytecode.GetIter, bytecode.ListToTuple:
 		return 1, 1
-	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSlice:
+	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSet,
+		bytecode.BuildSlice:
 		return int(instruction.Operand), 1
 	case bytecode.BuildMap:
 		return 2 * int(instruction.Operand), 1
