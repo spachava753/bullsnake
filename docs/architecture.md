@@ -434,8 +434,9 @@ strings, bytes, and Python exceptions. Every live reference remains in a typed
 pointer or interface visible to Go's collector. Module bindings use a temporary
 string-keyed namespace rather than pretending that a Go map already implements
 Python dictionary semantics. The current object operations cover fixed scalar
-truth, numeric unary operators, and exact integer addition; later user-defined
-protocols must reuse these VM outcome and exception paths.
+truth, numeric unary operators, and selected arbitrary-precision integer binary
+operators; later user-defined protocols must reuse these VM outcome and
+exception paths.
 
 The object model can become the largest compatibility component, so it should
 remain feature-driven. It should be designed before a large instruction set

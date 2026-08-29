@@ -102,7 +102,13 @@ func truthValue(value Value) bool {
 	}
 }
 
-func executeBinaryAdd(frame *frame, index int) (instructionOutcome, error) {
+// executeBinary applies the selected arbitrary-precision integer operations.
+// Booleans enter this path as the integer values zero and one.
+func executeBinary(
+	frame *frame,
+	index int,
+	operand uint32,
+) (instructionOutcome, error) {
 	right, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
@@ -111,22 +117,66 @@ func executeBinaryAdd(frame *frame, index int) (instructionOutcome, error) {
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
-	leftInt, leftOK := left.(*intValue)
-	rightInt, rightOK := right.(*intValue)
+	leftInteger, leftOK := integerOperand(left)
+	rightInteger, rightOK := integerOperand(right)
 	if !leftOK || !rightOK {
+		operator := "+"
+		switch operand {
+		case bytecode.BinarySubtract:
+			operator = "-"
+		case bytecode.BinaryMultiply:
+			operator = "*"
+		case bytecode.BinaryOr:
+			operator = "|"
+		case bytecode.BinaryXor:
+			operator = "^"
+		case bytecode.BinaryAnd:
+			operator = "&"
+		}
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(
 				"TypeError",
 				fmt.Sprintf(
-					"unsupported operand type(s) for +: '%s' and '%s'",
+					"unsupported operand type(s) for %s: '%s' and '%s'",
+					operator,
 					left.TypeName(),
 					right.TypeName(),
 				),
 			),
 		}, nil
 	}
-	var sum big.Int
-	sum.Add(&leftInt.value, &rightInt.value)
-	return pushOutcome(frame, index, &intValue{value: sum})
+
+	var result big.Int
+	switch operand {
+	case bytecode.BinaryAdd:
+		result.Add(&leftInteger, &rightInteger)
+	case bytecode.BinarySubtract:
+		result.Sub(&leftInteger, &rightInteger)
+	case bytecode.BinaryMultiply:
+		result.Mul(&leftInteger, &rightInteger)
+	case bytecode.BinaryOr:
+		result.Or(&leftInteger, &rightInteger)
+	case bytecode.BinaryXor:
+		result.Xor(&leftInteger, &rightInteger)
+	case bytecode.BinaryAnd:
+		result.And(&leftInteger, &rightInteger)
+	}
+	return pushOutcome(frame, index, &intValue{value: result})
+}
+
+func integerOperand(value Value) (big.Int, bool) {
+	var integer big.Int
+	switch value := value.(type) {
+	case *intValue:
+		integer.Set(&value.value)
+		return integer, true
+	case *boolValue:
+		if value.value {
+			integer.SetInt64(1)
+		}
+		return integer, true
+	default:
+		return integer, false
+	}
 }

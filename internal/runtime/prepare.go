@@ -146,14 +146,21 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.BinaryOp:
-		if instruction.Operand != bytecode.BinaryAdd {
+		switch instruction.Operand {
+		case bytecode.BinaryAdd,
+			bytecode.BinarySubtract,
+			bytecode.BinaryMultiply,
+			bytecode.BinaryOr,
+			bytecode.BinaryXor,
+			bytecode.BinaryAnd:
+			return nil
+		default:
 			return code.failure(
 				index,
 				"unsupported BINARY_OP operand %d",
 				instruction.Operand,
 			)
 		}
-		return nil
 	default:
 		return code.failure(index, "unsupported opcode %s", instruction.Opcode)
 	}

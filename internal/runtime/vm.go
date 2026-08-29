@@ -106,7 +106,7 @@ func executeInstruction(
 	case bytecode.UnaryOp:
 		return executeUnary(frame, index, instruction.Operand)
 	case bytecode.BinaryOp:
-		return executeBinaryAdd(frame, index)
+		return executeBinary(frame, index, instruction.Operand)
 	case bytecode.ReturnValue:
 		value, ok := frame.pop()
 		if !ok {

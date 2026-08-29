@@ -395,11 +395,11 @@ callers and tests. There is not yet a public Go embedding API.
 Preparation copies the instruction and name tables, materializes code constants
 as runtime values, and validates the complete code object before execution.
 Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
-`POP_TOP`, scalar `UNARY_OP`, integer-add `BINARY_OP`, and `RETURN_VALUE`. It
-checks constant and name indexes, unary and binary operands, stack underflow,
-the declared maximum stack size, return stack balance, and terminating return.
-Any unsupported constant, instruction, or operand fails with a source-located
-`BytecodeError` before a module can observe side effects.
+`POP_TOP`, scalar `UNARY_OP`, selected integer `BINARY_OP` variants, and
+`RETURN_VALUE`. It checks constant and name indexes, unary and binary operands,
+stack underflow, the declared maximum stack size, return stack balance, and
+terminating return. Any unsupported constant, instruction, or operand fails
+with a source-located `BytecodeError` before a module can observe side effects.
 
 A heap-allocated frame contains prepared code, the next instruction index, a
 preallocated operand stack, local, global, and builtin namespaces, and its
@@ -427,8 +427,9 @@ booleans, numeric zero, and empty strings or bytes are false; other scalar
 values are true. Unary `not` returns a boolean singleton. Unary plus and minus
 support integers, booleans, floats, and complex values; invert supports
 integers and booleans. Booleans produce ordinary integer results for numeric
-unary operations. Integer addition creates a new value for two exact integer
-operands. Unsupported unary types, missing names, and invalid addition operands
+unary and binary operations. Binary add, subtract, multiply, or, xor, and and
+currently accept integers and booleans and produce arbitrary-precision integer
+results. Unsupported operand pairings, missing names, and invalid unary types
 raise Python `TypeError` or `NameError` values. `UncaughtException` carries the
 exception across the current Go host boundary.
 
@@ -519,9 +520,9 @@ compiler input errors.
 Runtime tests compile source through the complete front end before executing
 it. The initial cases cover module globals, discarded expressions, every
 compiler scalar constant, singleton identity, scalar truth testing, numeric
-unary operations, arbitrary-precision integer addition, and Python `NameError`
-and `TypeError` values. Focused malformed-code cases cover unsupported
-instructions, operands, and constant kinds; invalid integer and string
+unary operations, selected arbitrary-precision integer binary operations, and
+Python `NameError` and `TypeError` values. Focused malformed-code cases cover
+unsupported instructions, operands, and constant kinds; invalid integer and string
 descriptors; table bounds; stack underflow and overflow; and missing returns.
 
 Future baseline changes must update the conformance tables, pinned revision,

@@ -185,6 +185,41 @@ func TestUnaryOperators(t *testing.T) {
 	}
 }
 
+func TestIntegerBinaryOperators(t *testing.T) {
+	code := compileSource(t, "addition = 40 + 2\n"+
+		"bool_addition = True + 2\n"+
+		"subtraction = 1000000000000000000000000000000 - 1\n"+
+		"multiplication = -12 * 11\n"+
+		"bool_multiplication = False * 99\n"+
+		"bitwise_or = 10 | 5\n"+
+		"bitwise_xor = 10 ^ 3\n"+
+		"bitwise_and = 10 & 6\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("integer binary", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"addition":            "42",
+		"bool_addition":       "3",
+		"subtraction":         "999999999999999999999999999999",
+		"multiplication":      "-132",
+		"bool_multiplication": "0",
+		"bitwise_or":          "15",
+		"bitwise_xor":         "9",
+		"bitwise_and":         "2",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -203,6 +238,18 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = None + 1\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for +: 'NoneType' and 'int'",
+		},
+		{
+			name:        "unsupported subtraction",
+			source:      "answer = 1 - None\n",
+			wantType:    "TypeError",
+			wantMessage: "unsupported operand type(s) for -: 'int' and 'NoneType'",
+		},
+		{
+			name:        "unsupported bitwise and",
+			source:      "answer = 1 & 1.0\n",
+			wantType:    "TypeError",
+			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
 		},
 		{
 			name:        "unsupported unary positive",
@@ -271,13 +318,13 @@ func TestBytecodeValidation(t *testing.T) {
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.LoadConst},
-					{Opcode: bytecode.BinaryOp, Operand: bytecode.BinarySubtract},
+					{Opcode: bytecode.BinaryOp, Operand: bytecode.BinaryPower},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
 				nil,
 			),
-			wantFragment: "unsupported BINARY_OP operand 1",
+			wantFragment: "unsupported BINARY_OP operand 7",
 		},
 		{
 			name: "unsupported unary operation",
