@@ -229,8 +229,8 @@ func (code *preparedCode) instructionEdges(
 func (code *preparedCode) validateOperand(index int, instruction bytecode.Instruction) error {
 	switch instruction.Opcode {
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
-		bytecode.BinarySubscript, bytecode.ListAppend, bytecode.ListExtend,
-		bytecode.ListToTuple:
+		bytecode.BinarySubscript, bytecode.StoreSubscript, bytecode.DeleteSubscript,
+		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -369,6 +369,10 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 0, 1
 	case bytecode.StoreName, bytecode.PopTop, bytecode.ReturnValue:
 		return 1, 0
+	case bytecode.DeleteSubscript:
+		return 2, 0
+	case bytecode.StoreSubscript:
+		return 3, 0
 	case bytecode.BinaryOp, bytecode.CompareOp, bytecode.BinarySubscript,
 		bytecode.ListAppend, bytecode.ListExtend:
 		return 2, 1

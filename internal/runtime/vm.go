@@ -169,6 +169,10 @@ func executeInstruction(
 		return executeForIter(frame, index, int(instruction.Operand))
 	case bytecode.BinarySubscript:
 		return executeBinarySubscript(frame, index)
+	case bytecode.StoreSubscript:
+		return executeStoreSubscript(frame, index)
+	case bytecode.DeleteSubscript:
+		return executeDeleteSubscript(frame, index)
 	case bytecode.UnpackSequence:
 		return executeUnpackSequence(frame, index, int(instruction.Operand))
 	case bytecode.UnpackEx:

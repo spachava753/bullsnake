@@ -55,6 +55,23 @@ func (dictionary *dictValue) get(key Value) (Value, bool, *Exception) {
 	return nil, false, nil
 }
 
+func (dictionary *dictValue) delete(key Value) (bool, *Exception) {
+	if exception := validateDictKey(key); exception != nil {
+		return false, exception
+	}
+	for index, entry := range dictionary.entries {
+		if entry.key != key && !valuesEqual(entry.key, key) {
+			continue
+		}
+		copy(dictionary.entries[index:], dictionary.entries[index+1:])
+		last := len(dictionary.entries) - 1
+		dictionary.entries[last] = dictEntry{}
+		dictionary.entries = dictionary.entries[:last]
+		return true, nil
+	}
+	return false, nil
+}
+
 func validateDictKey(key Value) *Exception {
 	if unhashable, found := unhashableComponent(key); found {
 		return newException(
@@ -81,6 +98,71 @@ func unhashableComponent(value Value) (string, bool) {
 	default:
 		return value.TypeName(), true
 	}
+}
+
+// executeStoreSubscript consumes value, container, and key in compiler stack
+// order, then applies mapping key validation and insertion semantics.
+func executeStoreSubscript(frame *frame, instruction int) (instructionOutcome, error) {
+	key, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	container, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	value, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	dictionary, ok := container.(*dictValue)
+	if !ok {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+container.TypeName()+"' object does not support item assignment",
+			),
+		}, nil
+	}
+	if exception := dictionary.set(key, value); exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	return instructionOutcome{kind: advance}, nil
+}
+
+// executeDeleteSubscript consumes a mapping and key, validates hashability, and
+// raises KeyError without changing entry order when no key matches.
+func executeDeleteSubscript(frame *frame, instruction int) (instructionOutcome, error) {
+	key, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	container, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	dictionary, ok := container.(*dictValue)
+	if !ok {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+container.TypeName()+"' object does not support item deletion",
+			),
+		}, nil
+	}
+	deleted, exception := dictionary.delete(key)
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	if !deleted {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("KeyError", key.Repr()),
+		}, nil
+	}
+	return instructionOutcome{kind: advance}, nil
 }
 
 // executeBuildMap consumes key/value pairs in source order so replacement

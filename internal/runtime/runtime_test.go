@@ -719,6 +719,41 @@ func TestMappingSubscription(t *testing.T) {
 	}
 }
 
+func TestItemAssignmentAndDeletion(t *testing.T) {
+	code := compileSource(t, "mapping = {'first': 1, 'second': 2}\n"+
+		"mapping['first'] = 10\n"+
+		"mapping['third'] = 3\n"+
+		"mapping[True] = 'bool'\n"+
+		"mapping[1] = 'integer'\n"+
+		"mapping[(1, 2)] = 'pair'\n"+
+		"del mapping['second']\n"+
+		"mapping['second'] = 20\n"+
+		"nested = {'inner': {}}\n"+
+		"nested['inner']['value'] = 7\n"+
+		"del nested['inner']['value']\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("dictionary mutation", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mapping, ok := module.Get("mapping")
+	if !ok {
+		t.Fatal("module has no mapping binding")
+	}
+	wantMapping := "{'first': 10, 'third': 3, True: 'integer', " +
+		"(1, 2): 'pair', 'second': 20}"
+	if got := mapping.Repr(); got != wantMapping {
+		t.Errorf("mapping = %s, want %s", got, wantMapping)
+	}
+	nested, ok := module.Get("nested")
+	if !ok {
+		t.Fatal("module has no nested binding")
+	}
+	if got := nested.Repr(); got != "{'inner': {}}" {
+		t.Errorf("nested = %s, want {'inner': {}}", got)
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -855,6 +890,24 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "delete missing dictionary key",
+			source:      "mapping = {}\ndel mapping['missing']\n",
+			wantType:    "KeyError",
+			wantMessage: "'missing'",
+		},
+		{
+			name:        "unhashable dictionary assignment",
+			source:      "mapping = {}\nmapping[[1]] = 2\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'list' as a dict key (unhashable type: 'list')",
+		},
+		{
+			name:        "unhashable dictionary deletion",
+			source:      "mapping = {}\ndel mapping[[1]]\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'list' as a dict key (unhashable type: 'list')",
 		},
 		{
 			name:        "missing dictionary key",
@@ -1027,6 +1080,37 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "store subscript underflow",
+			code: testCode(
+				3,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.StoreSubscript},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "delete subscript underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.DeleteSubscript},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
 		{
 			name: "map build underflow",
 			code: testCode(

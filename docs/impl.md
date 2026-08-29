@@ -397,8 +397,9 @@ as runtime values, and validates the complete code object before execution.
 Validation currently accepts `NOP`, `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`,
 `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`, `BUILD_MAP`, and
 `BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`, `LIST_TO_TUPLE`,
-`UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`, `FOR_ITER`, and integer or slice
-`BINARY_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP`; scalar
+`UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`, `FOR_ITER`, integer or slice
+`BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and `DELETE_SUBSCR`; scalar
+`UNARY_OP`; selected integer `BINARY_OP`; scalar
 `COMPARE_OP` variants; absolute `JUMP`; both pop-and-test jumps; both
 short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks constant and name
 indexes, operation operands, jump targets, stack underflow, the declared maximum
@@ -458,10 +459,13 @@ order. Updating an equal key retains its original object and position. Current
 scalar values and recursively hashable tuples may be keys; construction and
 subscription report the contextual Python 3.14 `TypeError` for unhashable keys.
 Subscription returns the stored object and raises `KeyError` with the missing
-key's representation. Dictionary truth depends on entry count. A later
-object-model slice can replace the linear storage after user-defined hash and
-equality protocols exist. Mutation, string and bytes subscription, and cyclic
-representations are not implemented.
+key's representation. Item assignment uses the same key matching as display
+construction. Deletion removes the entry without disturbing later entries;
+reinsertion appends it. Missing deletion keys raise `KeyError`. Dictionary truth
+depends on entry count. A later object-model slice can replace the linear
+storage after user-defined hash and equality protocols exist. Sequence item
+mutation, string and bytes subscription, and cyclic representations are not
+implemented.
 
 Scalar truth testing follows Python for the current fixed types: `None`, false
 booleans, numeric zero, and empty strings or bytes are false; other scalar
@@ -575,8 +579,8 @@ Runtime tests compile source through the complete front end before executing
 it. The initial cases cover module globals, discarded expressions, scalar
 values, fixed and starred tuple/list displays, fixed dictionary displays, and
 integer and slice tuple/list subscription. Dictionary cases cover insertion
-order, duplicate scalar and tuple keys, nesting, truth, subscription, missing
-keys, and contextual unhashable-key errors.
+order, duplicate scalar and tuple keys, nesting, truth, subscription, assignment,
+deletion, missing keys, and contextual unhashable-key errors.
 Fixed and starred destructuring cases include nested targets.
 Other cases cover singleton identity, scalar and sequence truth testing, numeric
 unary operations, selected arbitrary-precision integer binary
