@@ -683,6 +683,46 @@ func TestDestructuringAssignment(t *testing.T) {
 	}
 }
 
+func TestExtendedDestructuringAssignment(t *testing.T) {
+	code := compileSource(t, "first, *middle, last = (1, 2, 3, 4)\n"+
+		"head, *tail = [5, 6, 7]\n"+
+		"*prefix, end = (8, 9)\n"+
+		"only, *empty = [10]\n"+
+		"(left, *center), right = [(11, 12, 13), 14]\n"+
+		"[list_left, *list_middle, list_right] = [15, 16, 17, 18]\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("starred unpacking", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"first":       "1",
+		"middle":      "[2, 3]",
+		"last":        "4",
+		"head":        "5",
+		"tail":        "[6, 7]",
+		"prefix":      "[8]",
+		"end":         "9",
+		"only":        "10",
+		"empty":       "[]",
+		"left":        "11",
+		"center":      "[12, 13]",
+		"right":       "14",
+		"list_left":   "15",
+		"list_middle": "[16, 17]",
+		"list_right":  "18",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -812,6 +852,18 @@ func TestPythonExceptions(t *testing.T) {
 			wantMessage: "'int' object is not iterable",
 		},
 		{
+			name:        "not enough values for starred unpack",
+			source:      "first, *middle, last = [1]\n",
+			wantType:    "ValueError",
+			wantMessage: "not enough values to unpack (expected at least 2, got 1)",
+		},
+		{
+			name:        "non-iterable starred unpack",
+			source:      "first, *middle = 1\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot unpack non-iterable int object",
+		},
+		{
 			name:        "not enough values to unpack",
 			source:      "first, second = (1,)\n",
 			wantType:    "ValueError",
@@ -880,6 +932,34 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "starred unpack underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.UnpackEx},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "starred unpack count",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.UnpackEx, Operand: 1 | 1<<8},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "unpack count 3 exceeds stack size",
+		},
 		{
 			name: "list append underflow",
 			code: testCode(

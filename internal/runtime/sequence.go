@@ -278,6 +278,67 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 	return pushOutcome(frame, instruction, elements[normalized])
 }
 
+// executeUnpackEx splits a tuple/list around one starred target and pushes
+// trailing, middle, and leading values so stores consume targets left to right.
+func executeUnpackEx(
+	frame *frame,
+	index int,
+	before int,
+	after int,
+) (instructionOutcome, error) {
+	sequence, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+	}
+	var elements []Value
+	switch sequence := sequence.(type) {
+	case *tupleValue:
+		elements = sequence.elements
+	case *listValue:
+		elements = sequence.elements
+	default:
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"cannot unpack non-iterable "+sequence.TypeName()+" object",
+			),
+		}, nil
+	}
+	minimum := before + after
+	if len(elements) < minimum {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"ValueError",
+				fmt.Sprintf(
+					"not enough values to unpack (expected at least %d, got %d)",
+					minimum,
+					len(elements),
+				),
+			),
+		}, nil
+	}
+
+	middleEnd := len(elements) - after
+	middle := make([]Value, middleEnd-before)
+	copy(middle, elements[before:middleEnd])
+	for element := len(elements) - 1; element >= middleEnd; element-- {
+		if !frame.push(elements[element]) {
+			return instructionOutcome{}, frame.failure(index, "operand stack overflow")
+		}
+	}
+	if !frame.push(&listValue{elements: middle}) {
+		return instructionOutcome{}, frame.failure(index, "operand stack overflow")
+	}
+	for element := before - 1; element >= 0; element-- {
+		if !frame.push(elements[element]) {
+			return instructionOutcome{}, frame.failure(index, "operand stack overflow")
+		}
+	}
+	return instructionOutcome{kind: advance}, nil
+}
+
 type sequenceIterator struct {
 	sequence Value
 	index    int

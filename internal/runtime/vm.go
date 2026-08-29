@@ -169,6 +169,9 @@ func executeInstruction(
 		return executeBinarySubscript(frame, index)
 	case bytecode.UnpackSequence:
 		return executeUnpackSequence(frame, index, int(instruction.Operand))
+	case bytecode.UnpackEx:
+		before, after := bytecode.UnpackExCounts(instruction.Operand)
+		return executeUnpackEx(frame, index, int(before), int(after))
 	case bytecode.UnaryOp:
 		return executeUnary(frame, index, instruction.Operand)
 	case bytecode.BinaryOp:

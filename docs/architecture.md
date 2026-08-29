@@ -440,7 +440,7 @@ namespace rather than pretending that a Go map already implements Python
 dictionary semantics. The current object operations cover fixed scalar truth,
 numeric unary operators, selected arbitrary-precision integer binary operators,
 scalar equality and ordering, object identity, fixed and starred tuple/list
-construction, unpacking, tuple/list iteration, and integer and slice tuple/list
+construction and unpacking, tuple/list iteration, and integer and slice tuple/list
 subscription. Later user-defined protocols must reuse these VM outcome and
 exception paths.
 
