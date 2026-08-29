@@ -36,6 +36,8 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 			compiler.constantIndex(constant),
 			expression.Span(),
 		)
+	case *compilerast.FormattedStringExpr:
+		return compiler.compileFormattedString(expression)
 	case *compilerast.StringConcatExpr:
 		return compiler.compileStringConcat(expression)
 	case *compilerast.NoneLiteral:

@@ -21,26 +21,31 @@ func parseStringLiteral(text string) (bytecode.Constant, error) {
 	if err != nil {
 		return bytecode.Constant{}, err
 	}
-	body = strings.ReplaceAll(body, "\r\n", "\n")
-	body = strings.ReplaceAll(body, "\r", "\n")
-	if bytesLiteral {
-		for _, value := range []byte(body) {
-			if value >= utf8.RuneSelf {
-				return bytecode.Constant{}, fmt.Errorf("bytes can only contain ASCII literal characters")
-			}
-		}
-	}
-	if !raw {
-		decoder := stringDecoder{source: body, bytesLiteral: bytesLiteral}
-		body, err = decoder.decode()
-		if err != nil {
-			return bytecode.Constant{}, err
-		}
+	body, err = decodeStringText(body, raw, bytesLiteral)
+	if err != nil {
+		return bytecode.Constant{}, err
 	}
 	if bytesLiteral {
 		return bytecode.Bytes(body), nil
 	}
 	return bytecode.TextString(body), nil
+}
+
+func decodeStringText(text string, raw, bytesLiteral bool) (string, error) {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	if bytesLiteral {
+		for _, value := range []byte(text) {
+			if value >= utf8.RuneSelf {
+				return "", fmt.Errorf("bytes can only contain ASCII literal characters")
+			}
+		}
+	}
+	if raw {
+		return text, nil
+	}
+	decoder := stringDecoder{source: text, bytesLiteral: bytesLiteral}
+	return decoder.decode()
 }
 
 // splitStringLiteral separates a lexer token into its prefix and body, records
@@ -244,30 +249,71 @@ func lookupUnicodeName(name string) (rune, bool) {
 	return 0, false
 }
 
-// compileStringConcat evaluates and combines adjacent plain literals while
-// rejecting formatted parts and Python's forbidden bytes/text mixture.
+// compileStringConcat folds adjacent plain literals or joins plain and
+// formatted components while rejecting Python's bytes/text mixture.
 func (compiler *compilerState) compileStringConcat(expression *compilerast.StringConcatExpr) error {
-	var output strings.Builder
-	kind := bytecode.NoneConstant
+	allPlain := true
 	for _, part := range expression.Parts {
-		literal, ok := part.(*compilerast.StringLiteral)
-		if !ok {
-			return compiler.error(part.Span(), "formatted string compilation is not implemented")
+		if _, ok := part.(*compilerast.StringLiteral); !ok {
+			allPlain = false
+			break
 		}
-		constant, err := parseStringLiteral(literal.Text)
-		if err != nil {
-			return compiler.error(literal.Span(), "%v", err)
-		}
-		if kind == bytecode.NoneConstant {
-			kind = constant.Kind
-		} else if constant.Kind != kind {
-			return compiler.error(literal.Span(), "cannot mix bytes and nonbytes literals")
-		}
-		output.WriteString(constant.Text)
 	}
-	constant := bytecode.TextString(output.String())
-	if kind == bytecode.BytesConstant {
-		constant = bytecode.Bytes(output.String())
+	if allPlain {
+		var output strings.Builder
+		kind := bytecode.NoneConstant
+		for _, part := range expression.Parts {
+			literal := part.(*compilerast.StringLiteral)
+			constant, err := parseStringLiteral(literal.Text)
+			if err != nil {
+				return compiler.error(literal.Span(), "%v", err)
+			}
+			if kind == bytecode.NoneConstant {
+				kind = constant.Kind
+			} else if constant.Kind != kind {
+				return compiler.error(literal.Span(), "cannot mix bytes and nonbytes literals")
+			}
+			output.WriteString(constant.Text)
+		}
+		constant := bytecode.TextString(output.String())
+		if kind == bytecode.BytesConstant {
+			constant = bytecode.Bytes(output.String())
+		}
+		return compiler.emit(bytecode.LoadConst, compiler.constantIndex(constant), expression.Span())
 	}
-	return compiler.emit(bytecode.LoadConst, compiler.constantIndex(constant), expression.Span())
+
+	componentCount := 0
+	for _, part := range expression.Parts {
+		switch part := part.(type) {
+		case *compilerast.StringLiteral:
+			constant, err := parseStringLiteral(part.Text)
+			if err != nil {
+				return compiler.error(part.Span(), "%v", err)
+			}
+			if constant.Kind == bytecode.BytesConstant {
+				return compiler.error(part.Span(), "cannot mix bytes and nonbytes literals")
+			}
+			if constant.Text == "" {
+				continue
+			}
+			if err := compiler.emit(bytecode.LoadConst, compiler.constantIndex(constant), part.Span()); err != nil {
+				return err
+			}
+			componentCount++
+		case *compilerast.FormattedStringExpr:
+			if err := compiler.compileFormattedString(part); err != nil {
+				return err
+			}
+			componentCount++
+		default:
+			return compiler.unsupported(part)
+		}
+	}
+	if componentCount == 0 {
+		return compiler.emit(bytecode.LoadConst, compiler.constantIndex(bytecode.TextString("")), expression.Span())
+	}
+	if componentCount == 1 {
+		return nil
+	}
+	return compiler.emit(bytecode.BuildString, uint32(componentCount), expression.Span())
 }

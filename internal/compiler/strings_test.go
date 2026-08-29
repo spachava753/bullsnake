@@ -69,12 +69,13 @@ func TestRejectMalformedStringLiterals(t *testing.T) {
 	}
 }
 
-func TestCompileStringLiteralErrors(t *testing.T) {
+func TestCompileStringErrors(t *testing.T) {
 	tests := []struct {
 		name, source, message string
 	}{
 		{name: "non-ASCII bytes", source: "value = b'caf\xc3\xa9'\n", message: "ASCII"},
 		{name: "mixed adjacent literals", source: "value = b'a' 'b'\n", message: "cannot mix bytes and nonbytes"},
+		{name: "template string", source: "value = t'hello {name}'\n", message: "template string compilation"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

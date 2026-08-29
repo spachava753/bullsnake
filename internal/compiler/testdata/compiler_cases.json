@@ -58,6 +58,21 @@
       "name": "adjacent plain literal folding",
       "source": "text = 'hello' \" \" r'world'\ndata = b'\\x41' b'B'\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[String(\"hello world\"), Bytes(\"AB\"), None], names=[\"text\", \"data\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
+      "name": "formatted string conversions and debug",
+      "source": "name = 'Ada'\nsimple = f'hello {name}'\nconverted = f'{name!s} {name!r} {name!a}'\ndebug = f'{ name = }'\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=5, constants=[String(\"Ada\"), String(\"hello \"), String(\" \"), String(\" name = \"), None], names=[\"name\", \"simple\", \"converted\", \"debug\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, LOAD_NAME 0, FORMAT_SIMPLE, BUILD_STRING 2, STORE_NAME 1, LOAD_NAME 0, CONVERT_VALUE 1, FORMAT_SIMPLE, LOAD_CONST 2, LOAD_NAME 0, CONVERT_VALUE 2, FORMAT_SIMPLE, LOAD_CONST 2, LOAD_NAME 0, CONVERT_VALUE 3, FORMAT_SIMPLE, BUILD_STRING 5, STORE_NAME 2, LOAD_CONST 3, LOAD_NAME 0, CONVERT_VALUE 2, FORMAT_SIMPLE, BUILD_STRING 2, STORE_NAME 3, LOAD_CONST 4, RETURN_VALUE])"
+    },
+    {
+      "name": "formatted string nested specs and raw text",
+      "source": "value = 12\nwidth = 4\nnested = f'{value:0>{width}}'\nempty = f'{value:}'\ndebug_spec = f'{value=:>{width}}'\nescaped = f'line\\n{name}'\nraw = rf'\\n{name}'\nbraces = f'{{{value}}}'\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[Int(12), Int(4), String(\"0>\"), String(\"\"), String(\"value=\"), String(\">\"), String(\"line\\n\"), String(\"\\\\n\"), String(\"{\"), String(\"}\"), None], names=[\"value\", \"width\", \"nested\", \"empty\", \"debug_spec\", \"name\", \"escaped\", \"raw\", \"braces\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_NAME 0, LOAD_CONST 2, LOAD_NAME 1, FORMAT_SIMPLE, BUILD_STRING 2, FORMAT_WITH_SPEC, STORE_NAME 2, LOAD_NAME 0, LOAD_CONST 3, FORMAT_WITH_SPEC, STORE_NAME 3, LOAD_CONST 4, LOAD_NAME 0, LOAD_CONST 5, LOAD_NAME 1, FORMAT_SIMPLE, BUILD_STRING 2, FORMAT_WITH_SPEC, BUILD_STRING 2, STORE_NAME 4, LOAD_CONST 6, LOAD_NAME 5, FORMAT_SIMPLE, BUILD_STRING 2, STORE_NAME 6, LOAD_CONST 7, LOAD_NAME 5, FORMAT_SIMPLE, BUILD_STRING 2, STORE_NAME 7, LOAD_CONST 8, LOAD_NAME 0, FORMAT_SIMPLE, LOAD_CONST 9, BUILD_STRING 3, STORE_NAME 8, LOAD_CONST 10, RETURN_VALUE])"
+    },
+    {
+      "name": "adjacent plain and formatted strings",
+      "source": "value = 'middle'\njoined = 'left ' f'{value}' ' right'\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[String(\"middle\"), String(\"left \"), String(\" right\"), None], names=[\"value\", \"joined\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, LOAD_NAME 0, FORMAT_SIMPLE, LOAD_CONST 2, BUILD_STRING 3, STORE_NAME 1, LOAD_CONST 3, RETURN_VALUE])"
     }
   ]
 }

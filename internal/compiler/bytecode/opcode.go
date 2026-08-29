@@ -7,6 +7,13 @@ import "fmt"
 // Version identifies the current private Bullsnake bytecode format.
 const Version = 1
 
+// CONVERT_VALUE operands select the Python conversion applied before format.
+const (
+	ConversionString uint32 = iota + 1
+	ConversionRepr
+	ConversionASCII
+)
+
 // Opcode identifies one virtual-machine instruction.
 type Opcode uint8
 
@@ -18,6 +25,10 @@ const (
 	Copy
 	PopTop
 	ReturnValue
+	ConvertValue
+	FormatSimple
+	FormatWithSpec
+	BuildString
 )
 
 var opcodeNames = [...]string{
@@ -28,6 +39,10 @@ var opcodeNames = [...]string{
 	"COPY",
 	"POP_TOP",
 	"RETURN_VALUE",
+	"CONVERT_VALUE",
+	"FORMAT_SIMPLE",
+	"FORMAT_WITH_SPEC",
+	"BUILD_STRING",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -41,7 +56,7 @@ func (opcode Opcode) String() string {
 // HasOperand reports whether the instruction encodes an operand.
 func (opcode Opcode) HasOperand() bool {
 	switch opcode {
-	case LoadConst, LoadName, StoreName, Copy:
+	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString:
 		return true
 	default:
 		return false
@@ -49,12 +64,14 @@ func (opcode Opcode) HasOperand() bool {
 }
 
 // StackEffect returns the instruction's change to operand-stack depth.
-func (opcode Opcode) StackEffect(_ uint32) int {
+func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy:
 		return 1
-	case StoreName, PopTop, ReturnValue:
+	case StoreName, PopTop, ReturnValue, FormatWithSpec:
 		return -1
+	case BuildString:
+		return 1 - int(operand)
 	default:
 		return 0
 	}

@@ -68,6 +68,15 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if depth != 0 || maximum != 2 {
 		t.Fatalf("stack depth = %d, maximum = %d", depth, maximum)
 	}
+	if got := (Instruction{Opcode: ConvertValue, Operand: ConversionRepr}).String(); got != "CONVERT_VALUE 2" {
+		t.Fatalf("format conversion = %q", got)
+	}
+	if got := BuildString.StackEffect(3); got != -2 {
+		t.Fatalf("BUILD_STRING 3 stack effect = %d, want -2", got)
+	}
+	if got := FormatWithSpec.StackEffect(0); got != -1 {
+		t.Fatalf("FORMAT_WITH_SPEC stack effect = %d, want -1", got)
+	}
 	if got := Dump(nil); got != "nil" {
 		t.Fatalf("Dump(nil) = %q", got)
 	}

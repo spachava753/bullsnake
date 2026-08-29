@@ -264,18 +264,21 @@ a parallel table retains its lexer span. The compiler tracks operand-stack
 depth while emitting and records the maximum on the code object.
 
 Bytecode version 1 implements the initial file-input module slices: empty
-modules, `pass`, singleton, numeric, string, and bytes constants, module name
-loads and stores, simple and chained assignments, expression statements, and
-the synthetic `None` return at module completion. Integer literals are
-canonicalized at arbitrary precision; float and imaginary literals are
-converted to binary64. The compiler decodes Python string and bytes escapes,
-normalizes physical newlines in literal values, folds adjacent plain literals,
-and retains lone Unicode surrogates as WTF-8-compatible bytes. Constants and
-referenced names use deterministic indexed tables. Stable code dumps support
-compiler tests and future diagnostics.
+modules, `pass`, singleton, numeric, string, bytes, and formatted-string
+constants, module name loads and stores, simple and chained assignments,
+expression statements, and the synthetic `None` return at module completion.
+Integer literals are canonicalized at arbitrary precision; float and imaginary
+literals are converted to binary64. The compiler decodes Python string and
+bytes escapes, normalizes physical newlines in literal values, folds adjacent
+plain literals, and retains lone Unicode surrogates as WTF-8-compatible bytes.
+Formatted strings preserve raw mode and debug-field spelling, apply `str`,
+`repr`, or `ascii` conversions, recursively build format specs, and join plain
+and formatted components with explicit stack effects. Constants and referenced
+names use deterministic indexed tables. Stable code dumps support compiler
+tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Formatted strings, collection literals, operators, control flow, functions,
+Template strings, collection literals, operators, control flow, functions,
 closures, imports, annotations, exceptions, and suspended execution are not yet
 compiled. Unsupported AST nodes fail with a source-located compiler error.
 
@@ -345,9 +348,9 @@ failing case. Individual fixture fields are checked by the parser assertions
 that consume them rather than a separate schema validator.
 
 The single parser corpus test runs every successful and failing case. Focused
-tests cover successful AST spans, source validation, error formatting,
-token-cursor laziness and rewinds, terminal-error caching, and parser fuzz
-seeds.
+tests cover successful AST spans, formatted-string format presence, source
+validation, error formatting, token-cursor laziness and rewinds, terminal-error
+caching, and parser fuzz seeds.
 
 The resolver corpus is pinned to the same CPython revision. It contains
 thirty-six successful symbol-table cases and fifty resolver-owned failures.
@@ -356,11 +359,11 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains eleven successful parse-resolve-compile
+The compiler corpus currently contains fourteen successful parse-resolve-compile
 cases for the initial module instruction set and literal evaluation. Cases
 record stable Bullsnake code-object dumps; focused tests cover instruction
 source positions, stack effects, code-object copying, opcode formatting,
-literal decoding, located literal errors, and compiler input errors.
+literal decoding, formatted-string errors, and compiler input errors.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.
