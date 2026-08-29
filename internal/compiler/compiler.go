@@ -23,6 +23,7 @@ type compilerState struct {
 	maxStack     int
 	reachable    bool
 	labels       []*jumpLabel
+	loops        []loopContext
 }
 
 // emit appends a fallthrough instruction after validating reachability,

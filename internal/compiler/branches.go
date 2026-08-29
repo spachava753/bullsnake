@@ -27,8 +27,10 @@ func (compiler *compilerState) compileIfStatement(statement *compilerast.IfStmt)
 		return compiler.markLabel(end, statement.Span())
 	}
 
-	if err := compiler.emitJump(bytecode.Jump, end, statement.Span()); err != nil {
-		return err
+	if compiler.reachable {
+		if err := compiler.emitJump(bytecode.Jump, end, statement.Span()); err != nil {
+			return err
+		}
 	}
 	if err := compiler.markLabel(otherwise, statement.Span()); err != nil {
 		return err

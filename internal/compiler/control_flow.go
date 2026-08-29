@@ -73,7 +73,7 @@ func (compiler *compilerState) mergeLabelDepth(label *jumpLabel, depth int, span
 }
 
 // markLabel resolves pending jumps and starts the label's merged fallthrough
-// path at its previously checked stack depth.
+// path. A label with no reachable incoming edge remains a marked dead join.
 func (compiler *compilerState) markLabel(label *jumpLabel, span lexer.Span) error {
 	if label == nil {
 		return compiler.error(span, "cannot mark a nil jump label")
@@ -86,13 +86,14 @@ func (compiler *compilerState) markLabel(label *jumpLabel, span lexer.Span) erro
 			return err
 		}
 	}
-	if !label.depthSet {
-		return compiler.error(span, "jump label has no reachable incoming path")
-	}
 	label.position = uint32(len(compiler.instructions))
 	label.marked = true
 	for _, instruction := range label.references {
 		compiler.instructions[instruction].Operand = label.position
+	}
+	if !label.depthSet {
+		compiler.reachable = false
+		return nil
 	}
 	compiler.reachable = true
 	compiler.stackDepth = label.depth

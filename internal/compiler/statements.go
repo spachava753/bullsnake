@@ -7,6 +7,9 @@ import (
 
 func (compiler *compilerState) compileStatements(statements []compilerast.Stmt) error {
 	for _, statement := range statements {
+		if !compiler.reachable {
+			break
+		}
 		if err := compiler.compileStatement(statement); err != nil {
 			return err
 		}
@@ -42,6 +45,20 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return nil
 	case *compilerast.IfStmt:
 		return compiler.compileIfStatement(statement)
+	case *compilerast.WhileStmt:
+		return compiler.compileWhileStatement(statement)
+	case *compilerast.BreakStmt:
+		if len(compiler.loops) == 0 {
+			return compiler.error(statement.Span(), "break has no enclosing loop")
+		}
+		loop := compiler.loops[len(compiler.loops)-1]
+		return compiler.emitJump(bytecode.Jump, loop.breakLabel, statement.Span())
+	case *compilerast.ContinueStmt:
+		if len(compiler.loops) == 0 {
+			return compiler.error(statement.Span(), "continue has no enclosing loop")
+		}
+		loop := compiler.loops[len(compiler.loops)-1]
+		return compiler.emitJump(bytecode.Jump, loop.continueLabel, statement.Span())
 	default:
 		return compiler.unsupported(statement)
 	}
