@@ -46,32 +46,7 @@ func sliceSequence(
 	elements []Value,
 	descriptor *sliceValue,
 ) (Value, *Exception) {
-	step, exception := evaluateSliceStep(descriptor.step)
-	if exception != nil {
-		return nil, exception
-	}
-	negative := step.Sign() < 0
-	startDefault := 0
-	stopDefault := len(elements)
-	if negative {
-		startDefault = len(elements) - 1
-		stopDefault = -1
-	}
-	start, exception := normalizeSliceBound(
-		descriptor.start,
-		len(elements),
-		negative,
-		startDefault,
-	)
-	if exception != nil {
-		return nil, exception
-	}
-	stop, exception := normalizeSliceBound(
-		descriptor.stop,
-		len(elements),
-		negative,
-		stopDefault,
-	)
+	start, stop, step, exception := normalizeSlice(descriptor, len(elements))
 	if exception != nil {
 		return nil, exception
 	}
@@ -86,6 +61,7 @@ func sliceSequence(
 	current.SetInt64(int64(start))
 	var boundary big.Int
 	boundary.SetInt64(int64(stop))
+	negative := step.Sign() < 0
 	for (negative && current.Cmp(&boundary) > 0) ||
 		(!negative && current.Cmp(&boundary) < 0) {
 		selected = append(selected, elements[int(current.Int64())])
@@ -95,6 +71,39 @@ func sliceSequence(
 		return &tupleValue{elements: selected}, nil
 	}
 	return &listValue{elements: selected}, nil
+}
+
+func normalizeSlice(
+	descriptor *sliceValue,
+	length int,
+) (start int, stop int, step big.Int, exception *Exception) {
+	step, exception = evaluateSliceStep(descriptor.step)
+	if exception != nil {
+		return 0, 0, step, exception
+	}
+	negative := step.Sign() < 0
+	startDefault := 0
+	stopDefault := length
+	if negative {
+		startDefault = length - 1
+		stopDefault = -1
+	}
+	start, exception = normalizeSliceBound(
+		descriptor.start,
+		length,
+		negative,
+		startDefault,
+	)
+	if exception != nil {
+		return 0, 0, step, exception
+	}
+	stop, exception = normalizeSliceBound(
+		descriptor.stop,
+		length,
+		negative,
+		stopDefault,
+	)
+	return start, stop, step, exception
 }
 
 func evaluateSliceStep(value Value) (big.Int, *Exception) {

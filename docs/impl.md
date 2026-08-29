@@ -451,9 +451,14 @@ loop body stack and is removed on normal exhaustion. Integer and boolean
 subscription returns the existing element and normalizes negative indexes. Slice
 subscription clips arbitrary-size integer or boolean bounds, supports positive
 and negative steps, reuses a tuple for a complete unit-step slice, and always
-allocates a list result. Starred displays append ordinary values and extend from
-current tuple/list iterables in source order. Membership scans tuple and list
-elements with current identity-or-equality semantics.
+allocates a list result. String subscription counts decoded Unicode code points,
+including preserved lone surrogates, rather than UTF-8 storage bytes. Bytes
+subscription counts raw bytes and returns an integer for an ordinary index.
+String and bytes slices share the sequence bound rules, preserve their type, and
+reuse the original immutable object for a complete unit-step slice. Starred
+displays append ordinary values and extend from current tuple/list iterables in
+source order. Membership scans tuple and list elements with current
+identity-or-equality semantics.
 
 Dictionary values keep an insertion-ordered entry slice and currently find keys
 with a linear identity-or-equality scan. `BUILD_MAP` consumes fixed pairs in
@@ -472,8 +477,9 @@ depends on entry count. Iterators snapshot the entry count and key version.
 Replacing values during iteration is valid. Inserting or deleting keys raises
 `RuntimeError` on the next iteration step, including same-size key replacement.
 A later object-model slice can replace the linear storage after user-defined
-hash and equality protocols exist. Sequence item mutation, string and bytes
-subscription, set mutation, and cyclic representations are not implemented.
+hash and equality protocols exist. Sequence item mutation, text and bytes
+iteration or membership, set mutation, and cyclic representations are not
+implemented.
 
 Set values keep first-seen elements in an ordered slice and use the same
 identity, equality, and recursive hashability rules as dictionary keys. Fixed

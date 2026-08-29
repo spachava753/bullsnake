@@ -630,6 +630,69 @@ func TestSequenceIndexing(t *testing.T) {
 	}
 }
 
+func TestTextAndBytesSubscription(t *testing.T) {
+	code := compileSource(t, "text = 'A\\u00e9\\u2603\\ud800Z'\n"+
+		"text_first = text[0]\n"+
+		"text_accent = text[1]\n"+
+		"text_snowman = text[2]\n"+
+		"text_surrogate = text[3]\n"+
+		"text_last = text[-1]\n"+
+		"text_bool = text[True]\n"+
+		"text_middle = text[1:4]\n"+
+		"text_reverse = text[::-1]\n"+
+		"text_stride = text[4:0:-2]\n"+
+		"text_empty = text[10:]\n"+
+		"text_same = text[:] is text\n"+
+		"text_snake = '\\U0001f40d'[0]\n"+
+		"data = b'\\x00A\\xff'\n"+
+		"byte_first = data[0]\n"+
+		"byte_middle = data[1]\n"+
+		"byte_last = data[-1]\n"+
+		"byte_bool = data[True]\n"+
+		"bytes_tail = data[1:]\n"+
+		"bytes_reverse = data[::-1]\n"+
+		"bytes_stride = data[::2]\n"+
+		"bytes_empty = data[3:1]\n"+
+		"bytes_same = data[:] is data\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("text subscription", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"text_first":     "'A'",
+		"text_accent":    "'é'",
+		"text_snowman":   "'☃'",
+		"text_surrogate": "'\\ud800'",
+		"text_last":      "'Z'",
+		"text_bool":      "'é'",
+		"text_middle":    "'é☃\\ud800'",
+		"text_reverse":   "'Z\\ud800☃éA'",
+		"text_stride":    "'Z☃'",
+		"text_empty":     "''",
+		"text_same":      "True",
+		"text_snake":     "'🐍'",
+		"byte_first":     "0",
+		"byte_middle":    "65",
+		"byte_last":      "255",
+		"byte_bool":      "65",
+		"bytes_tail":     "b'A\\xff'",
+		"bytes_reverse":  "b'\\xffA\\x00'",
+		"bytes_stride":   "b'\\x00\\xff'",
+		"bytes_empty":    "b''",
+		"bytes_same":     "True",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestTupleAndListSlicing(t *testing.T) {
 	code := compileSource(t, "tuple_value = (0, 1, 2, 3, 4)\n"+
 		"tuple_middle = tuple_value[1:4]\n"+
@@ -1163,6 +1226,36 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = None[:]\n",
 			wantType:    "TypeError",
 			wantMessage: "'NoneType' object is not subscriptable",
+		},
+		{
+			name:        "huge string index",
+			source:      "answer = 'x'[1000000000000000000000000000000]\n",
+			wantType:    "IndexError",
+			wantMessage: "cannot fit 'int' into an index-sized integer",
+		},
+		{
+			name:        "string index out of range",
+			source:      "answer = 'x'[1]\n",
+			wantType:    "IndexError",
+			wantMessage: "string index out of range",
+		},
+		{
+			name:        "bytes index out of range",
+			source:      "answer = b'x'[-2]\n",
+			wantType:    "IndexError",
+			wantMessage: "index out of range",
+		},
+		{
+			name:        "non-integer string index",
+			source:      "answer = 'x'[1.5]\n",
+			wantType:    "TypeError",
+			wantMessage: "string indices must be integers, not 'float'",
+		},
+		{
+			name:        "non-integer bytes index",
+			source:      "answer = b'x'[1.5]\n",
+			wantType:    "TypeError",
+			wantMessage: "byte indices must be integers or slices, not float",
 		},
 		{
 			name:        "tuple index out of range",

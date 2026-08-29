@@ -218,6 +218,20 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 		}
 		return pushOutcome(frame, instruction, value)
 	}
+	if _, ok := container.(*stringValue); ok {
+		value, exception := executeTextSubscript(container, indexValue)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		return pushOutcome(frame, instruction, value)
+	}
+	if _, ok := container.(*bytesValue); ok {
+		value, exception := executeTextSubscript(container, indexValue)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		return pushOutcome(frame, instruction, value)
+	}
 
 	var elements []Value
 	var sequenceName string
