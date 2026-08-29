@@ -273,8 +273,9 @@ collection displays; unary, binary, boolean, comparison, conditional, named,
 lambda, attribute, subscription, slice, and call expressions; ordinary,
 relative, aliased, and wildcard imports; assertions; bare and explicit raises;
 synchronous function definitions with decorators, required and defaulted
-parameters, closures, and returns; basic class definitions with decorators,
-ordinary bases, methods, and enclosing closure reads; `if`/`elif`/`else`
+parameters, closures, and returns; class definitions with decorators, ordinary
+and starred bases, class keywords, methods, and enclosing closure reads;
+`if`/`elif`/`else`
 statements;
 `while` loops; and synchronous `for` loops with name, tuple, or list targets,
 including one starred target per sequence. Both loop forms support optional
@@ -336,9 +337,11 @@ the function. Decorator expressions evaluate in source order before defaults.
 Calls apply them in reverse order after function creation and attribute
 attachment. Class definitions evaluate decorators before class construction.
 `LOAD_BUILD_CLASS` calls a namespace body function with the class name and
-ordinary bases. The body initializes `__module__`, `__qualname__`, and
-`__firstlineno__`, uses namespace name operations, may capture an enclosing
-function cell, and gives methods class-qualified names.
+bases. Ordinary arguments use inline `CALL`; starred bases and keyword maps use
+a seeded positional list, `MAP_MERGE`, and `CALL_EX`. The body initializes
+`__module__`, `__qualname__`, and `__firstlineno__`, uses namespace name
+operations, may capture an enclosing function cell, and gives methods
+class-qualified names.
 Conditional statements use the same checked labels as conditional expressions;
 every true, false, and `elif` edge merges with an empty operand stack. The
 compiler keeps a nearest-loop stack for `break` and `continue`. A `while`
@@ -353,10 +356,9 @@ Constants and referenced names use deterministic indexed tables. Stable code
 dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, annotations, generic and async functions, class keywords,
-starred class bases, class docstrings, static-attribute metadata, `__class__`
-and `__classdict__` cells, `async for`, exception handling, and suspended
-execution are not yet compiled.
+Template strings, annotations, generic and async functions, class docstrings,
+static-attribute metadata, `__class__` and `__classdict__` cells, `async for`,
+exception handling, and suspended execution are not yet compiled.
 Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
@@ -436,7 +438,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains sixty-nine successful
+The compiler corpus currently contains seventy successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

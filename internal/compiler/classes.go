@@ -15,14 +15,6 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 	if len(statement.TypeParameters) != 0 {
 		return compiler.error(statement.Span(), "generic classes are not compiled")
 	}
-	if len(statement.Keywords) != 0 {
-		return compiler.error(statement.Span(), "class keywords are not compiled")
-	}
-	for _, base := range statement.Bases {
-		if _, starred := base.(*compilerast.StarredExpr); starred {
-			return compiler.error(base.Span(), "starred class bases are not compiled")
-		}
-	}
 	scope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
 	if scope == nil || scope.Kind != resolver.ClassScope {
 		return compiler.error(statement.Span(), "resolver has no class scope for %q", statement.Name)
@@ -82,13 +74,58 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 	); err != nil {
 		return err
 	}
+	expanded := len(statement.Keywords) != 0
 	for _, base := range statement.Bases {
-		if err := compiler.compileExpr(base); err != nil {
-			return err
+		if _, starred := base.(*compilerast.StarredExpr); starred {
+			expanded = true
+			break
 		}
 	}
-	if err := compiler.emit(bytecode.Call, uint32(2+len(statement.Bases)), statement.Span()); err != nil {
-		return err
+	if !expanded {
+		for _, base := range statement.Bases {
+			if err := compiler.compileExpr(base); err != nil {
+				return err
+			}
+		}
+		if err := compiler.emit(bytecode.Call, uint32(2+len(statement.Bases)), statement.Span()); err != nil {
+			return err
+		}
+	} else {
+		if err := compiler.emit(bytecode.BuildList, 2, statement.Span()); err != nil {
+			return err
+		}
+		for _, base := range statement.Bases {
+			if starred, ok := base.(*compilerast.StarredExpr); ok {
+				if err := compiler.compileExpr(starred.Value); err != nil {
+					return err
+				}
+				if err := compiler.emit(bytecode.ListExtend, 0, base.Span()); err != nil {
+					return err
+				}
+			} else {
+				if err := compiler.compileExpr(base); err != nil {
+					return err
+				}
+				if err := compiler.emit(bytecode.ListAppend, 0, base.Span()); err != nil {
+					return err
+				}
+			}
+		}
+		if err := compiler.emit(bytecode.ListToTuple, 0, statement.Span()); err != nil {
+			return err
+		}
+		if len(statement.Keywords) == 0 {
+			if err := compiler.emit(bytecode.CallEx, bytecode.CallExNoKeywords, statement.Span()); err != nil {
+				return err
+			}
+		} else {
+			if err := compiler.compileKeywordArguments(statement.Keywords, statement.Span()); err != nil {
+				return err
+			}
+			if err := compiler.emit(bytecode.CallEx, bytecode.CallExWithKeywords, statement.Span()); err != nil {
+				return err
+			}
+		}
 	}
 	for index := len(statement.Decorators) - 1; index >= 0; index-- {
 		decorator := statement.Decorators[index]

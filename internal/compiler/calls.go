@@ -3,6 +3,7 @@ package compiler
 import (
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
 
 // compileCall uses inline positional operands for the common case and builds
@@ -43,10 +44,22 @@ func (compiler *compilerState) compileCall(expression *compilerast.CallExpr) err
 		return compiler.emit(bytecode.CallEx, bytecode.CallExNoKeywords, expression.Span())
 	}
 
-	if err := compiler.emit(bytecode.BuildMap, 0, expression.Span()); err != nil {
+	if err := compiler.compileKeywordArguments(expression.Keywords, expression.Span()); err != nil {
 		return err
 	}
-	for _, keyword := range expression.Keywords {
+	return compiler.emit(bytecode.CallEx, bytecode.CallExWithKeywords, expression.Span())
+}
+
+// compileKeywordArguments builds one map in source order. MAP_MERGE preserves
+// Python's duplicate-name failure for both named and dictionary-unpacked items.
+func (compiler *compilerState) compileKeywordArguments(
+	keywords []compilerast.KeywordArgument,
+	span lexer.Span,
+) error {
+	if err := compiler.emit(bytecode.BuildMap, 0, span); err != nil {
+		return err
+	}
+	for _, keyword := range keywords {
 		if keyword.Name == "" {
 			if err := compiler.compileExpr(keyword.Value); err != nil {
 				return err
@@ -70,5 +83,5 @@ func (compiler *compilerState) compileCall(expression *compilerast.CallExpr) err
 			return err
 		}
 	}
-	return compiler.emit(bytecode.CallEx, bytecode.CallExWithKeywords, expression.Span())
+	return nil
 }
