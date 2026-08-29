@@ -270,9 +270,10 @@ modules, `pass`, singleton, numeric, string, bytes, and formatted-string
 constants; module name loads and stores; simple, chained, destructuring, and
 augmented assignments; recursive deletion targets; expression statements;
 collection displays; unary, binary, boolean, comparison, conditional, named,
-lambda, attribute, subscription, slice, and call expressions; assertions; bare and
-explicit raises; synchronous function definitions with decorators, required
-and defaulted parameters, closures, and returns; `if`/`elif`/`else` statements;
+lambda, attribute, subscription, slice, and call expressions; ordinary,
+relative, aliased, and wildcard imports; assertions; bare and explicit raises;
+synchronous function definitions with decorators, required and defaulted
+parameters, closures, and returns; `if`/`elif`/`else` statements;
 `while` loops; and synchronous `for` loops with name, tuple, or list targets,
 including one starred target per sequence. Both loop forms support optional
 `else`, `break`, and `continue`.
@@ -300,7 +301,11 @@ bounds with `None` and use one build instruction for two or three components.
 Calls without unpacking or keywords use an inline argument count. Other calls
 build a positional tuple and optional keyword map; keyword mappings merge in source
 order and reject duplicate names rather than applying dictionary-update
-semantics. Named assignment expressions copy their value before storing the
+semantics. Imports carry an explicit relative level and from-name tuple.
+Dotted `as` imports traverse components while removing intermediate modules;
+imported values use ordinary resolver-selected stores. Wildcard imports consume
+the module after updating the current namespace.
+Named assignment expressions copy their value before storing the
 target, so the same value remains as the expression result. Attribute and
 subscript stores evaluate their object and index after the right-hand value.
 Fixed tuple and list targets unpack once, then recursively consume targets from
@@ -342,7 +347,7 @@ Constants and referenced names use deterministic indexed tables. Stable code
 dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, annotations, generic and async functions, `async for`, imports,
+Template strings, annotations, generic and async functions, `async for`,
 exception handling, and suspended execution are not yet compiled.
 Unsupported AST nodes fail with a source-located compiler error.
 
@@ -423,7 +428,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains sixty-one successful
+The compiler corpus currently contains sixty-six successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

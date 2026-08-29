@@ -308,6 +308,31 @@
       "name": "lambda closure with enclosing default",
       "source": "def make(offset, default):\n    return lambda value=default: offset + value\nfactory = make\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"make\", \"factory\"], locals=[], cells=[], free=[], children=[Code(name=\"make\", qualname=\"make\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=2, kwonly=0), stack=3, constants=[], names=[], locals=[\"offset\", \"default\"], cells=[\"offset\"], free=[], children=[Code(name=\"<lambda>\", qualname=\"make.<locals>.<lambda>\", filename=\"<test>\", first_line=2, flags=[Optimized, NewLocals, Nested], args=(posonly=0, positional=1, kwonly=0), stack=2, constants=[], names=[], locals=[\"value\"], cells=[], free=[\"offset\"], instructions=[LOAD_DEREF 0, LOAD_FAST 0, BINARY_OP 0, RETURN_VALUE])], instructions=[LOAD_FAST 1, BUILD_TUPLE 1, LOAD_CLOSURE 0, BUILD_TUPLE 1, MAKE_FUNCTION 0, SET_FUNCTION_ATTRIBUTE 8, SET_FUNCTION_ATTRIBUTE 1, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "plain and dotted imports",
+      "source": "import os\nimport package.submodule\nimport package.deep.module as selected\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(0), None], names=[\"os\", \"package.submodule\", \"package\", \"package.deep.module\", \"deep\", \"module\", \"selected\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, LOAD_CONST 1, IMPORT_NAME 0, STORE_NAME 0, LOAD_CONST 0, LOAD_CONST 1, IMPORT_NAME 1, STORE_NAME 2, LOAD_CONST 0, LOAD_CONST 1, IMPORT_NAME 3, IMPORT_FROM 4, SWAP 2, POP_TOP, IMPORT_FROM 5, STORE_NAME 6, POP_TOP, LOAD_CONST 1, RETURN_VALUE])"
+    },
+    {
+      "name": "relative from import aliases",
+      "source": "from ..package import first, second as renamed\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(2), String(\"first\"), String(\"second\"), None], names=[\"package\", \"first\", \"second\", \"renamed\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, LOAD_CONST 1, LOAD_CONST 2, BUILD_TUPLE 2, IMPORT_NAME 0, IMPORT_FROM 1, STORE_NAME 1, IMPORT_FROM 2, STORE_NAME 3, POP_TOP, LOAD_CONST 3, RETURN_VALUE])"
+    },
+    {
+      "name": "wildcard import",
+      "source": "from package import *\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(0), String(\"*\"), None], names=[\"package\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, LOAD_CONST 1, BUILD_TUPLE 1, IMPORT_NAME 0, IMPORT_STAR, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
+      "name": "function local imports",
+      "source": "def load():\n    import package as local\n    from tools import helper\n    return local, helper\nfunction = load\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"load\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"load\", qualname=\"load\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=0, kwonly=0), stack=2, constants=[Int(0), None, String(\"helper\")], names=[\"package\", \"tools\", \"helper\"], locals=[\"local\", \"helper\"], cells=[], free=[], instructions=[LOAD_CONST 0, LOAD_CONST 1, IMPORT_NAME 0, STORE_FAST 0, LOAD_CONST 0, LOAD_CONST 2, BUILD_TUPLE 1, IMPORT_NAME 1, IMPORT_FROM 2, STORE_FAST 1, POP_TOP, LOAD_FAST 0, LOAD_FAST 1, BUILD_TUPLE 2, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "future import binds feature name",
+      "source": "from __future__ import annotations\nfeature = annotations\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(0), String(\"annotations\"), None], names=[\"__future__\", \"annotations\", \"feature\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, LOAD_CONST 1, BUILD_TUPLE 1, IMPORT_NAME 0, IMPORT_FROM 1, STORE_NAME 1, POP_TOP, LOAD_NAME 1, STORE_NAME 2, LOAD_CONST 2, RETURN_VALUE])"
     }
   ]
 }

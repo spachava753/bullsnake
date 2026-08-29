@@ -148,6 +148,9 @@ const (
 	StoreDeref
 	DeleteDeref
 	LoadClosure
+	ImportName
+	ImportFrom
+	ImportStar
 )
 
 var opcodeNames = [...]string{
@@ -212,6 +215,9 @@ var opcodeNames = [...]string{
 	"STORE_DEREF",
 	"DELETE_DEREF",
 	"LOAD_CLOSURE",
+	"IMPORT_NAME",
+	"IMPORT_FROM",
+	"IMPORT_STAR",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -232,7 +238,7 @@ func (opcode Opcode) HasOperand() bool {
 		UnpackSequence, UnpackEx, InplaceOp, DeleteName, DeleteAttr,
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
-		DeleteDeref, LoadClosure:
+		DeleteDeref, LoadClosure, ImportName, ImportFrom:
 		return true
 	default:
 		return false
@@ -244,13 +250,13 @@ func (opcode Opcode) HasOperand() bool {
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError, LoadFast,
-		LoadGlobal, MakeFunction, LoadDeref, LoadClosure:
+		LoadGlobal, MakeFunction, LoadDeref, LoadClosure, ImportFrom:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
-		SetFunctionAttribute, StoreDeref:
+		SetFunctionAttribute, StoreDeref, ImportName, ImportStar:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript:
 		return -2

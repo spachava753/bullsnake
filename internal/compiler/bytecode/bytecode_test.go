@@ -99,6 +99,18 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := LoadClosure.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_CLOSURE stack effect = %d, want 1", got)
 	}
+	if got := (Instruction{Opcode: ImportName, Operand: 4}).String(); got != "IMPORT_NAME 4" {
+		t.Fatalf("import instruction = %q", got)
+	}
+	if got := ImportName.StackEffect(0); got != -1 {
+		t.Fatalf("IMPORT_NAME stack effect = %d, want -1", got)
+	}
+	if got := ImportFrom.StackEffect(0); got != 1 {
+		t.Fatalf("IMPORT_FROM stack effect = %d, want 1", got)
+	}
+	if got := ImportStar.StackEffect(0); got != -1 {
+		t.Fatalf("IMPORT_STAR stack effect = %d, want -1", got)
+	}
 	if got := LoadFast.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_FAST stack effect = %d, want 1", got)
 	}
