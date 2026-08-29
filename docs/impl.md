@@ -446,9 +446,11 @@ values so nested assignment targets store left to right. Arity mismatches raise
 `ValueError`; other values raise `TypeError`. Tuple and list truth depends on
 length. Their iterators retain the source sequence and yield its elements in
 order. Dictionary iterators yield keys in insertion order, while set iterators
-yield the runtime's stable first-seen order. Every iterator remains beneath the
-loop body stack and is removed on normal exhaustion. Integer and boolean
-subscription returns the existing element and normalizes negative indexes. Slice
+yield the runtime's stable first-seen order. String iterators yield one decoded
+code point at a time, including lone surrogates, while bytes iterators yield
+unsigned integer values. Every iterator remains beneath the loop body stack and
+is removed on normal exhaustion. Integer and boolean subscription returns the
+existing element and normalizes negative indexes. Slice
 subscription clips arbitrary-size integer or boolean bounds, supports positive
 and negative steps, reuses a tuple for a complete unit-step slice, and always
 allocates a list result. String subscription counts decoded Unicode code points,
@@ -478,8 +480,7 @@ Replacing values during iteration is valid. Inserting or deleting keys raises
 `RuntimeError` on the next iteration step, including same-size key replacement.
 A later object-model slice can replace the linear storage after user-defined
 hash and equality protocols exist. Sequence item mutation, text and bytes
-iteration or membership, set mutation, and cyclic representations are not
-implemented.
+membership, set mutation, and cyclic representations are not implemented.
 
 Set values keep first-seen elements in an ordered slice and use the same
 identity, equality, and recursive hashability rules as dictionary keys. Fixed

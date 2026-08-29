@@ -503,6 +503,58 @@ func TestHashContainerLoops(t *testing.T) {
 	}
 }
 
+func TestUnicodeAndByteLoops(t *testing.T) {
+	code := compileSource(t, "text_seen = {}\n"+
+		"text_count = 0\n"+
+		"for character in 'A\\u00e9\\U0001f40d\\ud800':\n"+
+		"    text_seen[text_count] = character\n"+
+		"    text_count = text_count + 1\n"+
+		"byte_seen = {}\n"+
+		"byte_count = 0\n"+
+		"byte_total = 0\n"+
+		"for octet in b'\\x00A\\xff':\n"+
+		"    byte_seen[byte_count] = octet\n"+
+		"    byte_count = byte_count + 1\n"+
+		"    byte_total = byte_total + octet\n"+
+		"for absent_text in '':\n"+
+		"    missing\n"+
+		"else:\n"+
+		"    empty_text_complete = True\n"+
+		"for absent_byte in b'':\n"+
+		"    missing\n"+
+		"else:\n"+
+		"    empty_bytes_complete = True\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("text iteration", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"text_seen":            "{0: 'A', 1: 'é', 2: '🐍', 3: '\\ud800'}",
+		"text_count":           "4",
+		"byte_seen":            "{0: 0, 1: 65, 2: 255}",
+		"byte_count":           "3",
+		"byte_total":           "320",
+		"empty_text_complete":  "True",
+		"empty_bytes_complete": "True",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+	if _, ok := module.Get("absent_text"); ok {
+		t.Fatal("empty string iteration assigned its target")
+	}
+	if _, ok := module.Get("absent_byte"); ok {
+		t.Fatal("empty bytes iteration assigned its target")
+	}
+}
+
 func TestComparisons(t *testing.T) {
 	code := compileSource(t, "equal = 2 == 2\n"+
 		"not_equal = 2 != 3\n"+

@@ -50,9 +50,13 @@ func subscriptBytes(value *bytesValue, index Value) (Value, *Exception) {
 	if exception != nil {
 		return nil, exception
 	}
+	return newByteInteger(value.value[position]), nil
+}
+
+func newByteInteger(value byte) *intValue {
 	var integer big.Int
-	integer.SetUint64(uint64(value.value[position]))
-	return &intValue{value: integer}, nil
+	integer.SetUint64(uint64(value))
+	return &intValue{value: integer}
 }
 
 // normalizeTextIndex accepts bool or integer indexes, applies negative indexing,

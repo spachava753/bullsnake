@@ -43,6 +43,44 @@ func (iterator *sequenceIterator) next() (Value, bool, *Exception) {
 	return value, true, nil
 }
 
+type textIterator struct {
+	text   Value
+	offset int
+}
+
+func (iterator *textIterator) TypeName() string {
+	if _, ok := iterator.text.(*stringValue); ok {
+		return "str_iterator"
+	}
+	return "bytes_iterator"
+}
+func (iterator *textIterator) Repr() string {
+	return "<" + iterator.TypeName() + " object>"
+}
+func (*textIterator) isValue() {}
+
+func (iterator *textIterator) next() (Value, bool, *Exception) {
+	switch text := iterator.text.(type) {
+	case *stringValue:
+		if iterator.offset >= len(text.value) {
+			return nil, false, nil
+		}
+		_, size, _ := decodeStringRune(text.value[iterator.offset:])
+		start := iterator.offset
+		iterator.offset += size
+		return &stringValue{value: text.value[start:iterator.offset]}, true, nil
+	case *bytesValue:
+		if iterator.offset >= len(text.value) {
+			return nil, false, nil
+		}
+		value := newByteInteger(text.value[iterator.offset])
+		iterator.offset++
+		return value, true, nil
+	default:
+		return nil, false, nil
+	}
+}
+
 type collectionIterator struct {
 	collection Value
 	index      int
@@ -113,12 +151,16 @@ func (iterator *collectionIterator) next() (Value, bool, *Exception) {
 	}
 }
 
+// newIterator returns self-iterators unchanged and selects the concrete iterator
+// whose element contract matches each currently iterable built-in value.
 func newIterator(value Value) (valueIterator, bool) {
 	switch value := value.(type) {
 	case valueIterator:
 		return value, true
 	case *tupleValue, *listValue:
 		return &sequenceIterator{sequence: value}, true
+	case *stringValue, *bytesValue:
+		return &textIterator{text: value}, true
 	case *dictValue:
 		return &collectionIterator{
 			collection: value,
