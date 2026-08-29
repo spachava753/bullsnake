@@ -268,8 +268,9 @@ require every incoming edge to have the same stack depth.
 Bytecode version 1 implements the initial file-input module slices: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
 constants, module name loads and stores, simple, chained, destructuring, and
-augmented assignments, expression statements, collection displays, unary and
-binary operations, short-circuit boolean expressions, comparisons, conditional
+augmented assignments, recursive deletion targets, expression statements,
+collection displays, unary and binary operations, short-circuit boolean
+expressions, comparisons, conditional
 load-side attributes and subscriptions, slice construction, direct and
 unpacked calls, named assignment expressions, `if`/`elif`/`else` statements,
 `while` loops, and synchronous `for` loops with name, tuple, or list targets,
@@ -304,9 +305,10 @@ subscript stores evaluate their object and index after the right-hand value.
 Fixed tuple and list targets unpack once, then recursively consume targets from
 left to right. Starred targets use CPython's packed `UNPACK_EX` counts: the low
 byte records up to 255 targets before the star and the upper 24 bits record the
-targets after it. Conditional statements use the same checked labels as
-conditional expressions; every true, false, and `elif` edge merges with an
-empty operand stack. The compiler keeps a
+targets after it. Delete statements recursively visit grouped targets without
+building or unpacking a runtime collection. Conditional statements use the
+same checked labels as conditional expressions; every true, false, and `elif`
+edge merges with an empty operand stack. The compiler keeps a
 nearest-loop stack for `break` and `continue`. A `while` condition's normal
 false edge enters `else`, while `break` targets the loop end directly. `for`
 keeps its iterator beneath the body stack; successful iteration pushes one
@@ -399,7 +401,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains forty-three successful
+The compiler corpus currently contains forty-five successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

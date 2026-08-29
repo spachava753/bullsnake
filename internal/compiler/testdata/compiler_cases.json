@@ -218,6 +218,16 @@
       "name": "complex augmented assignment targets",
       "source": "object.attribute *= factor\nmapping[key] |= flags\nsequence[lower:upper] += values\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[None], names=[\"object\", \"attribute\", \"factor\", \"mapping\", \"key\", \"flags\", \"sequence\", \"lower\", \"upper\", \"values\"], locals=[], cells=[], free=[], instructions=[LOAD_NAME 0, COPY 1, LOAD_ATTR 1, LOAD_NAME 2, INPLACE_OP 2, SWAP 2, STORE_ATTR 1, LOAD_NAME 3, LOAD_NAME 4, COPY 2, COPY 2, BINARY_SUBSCR, LOAD_NAME 5, INPLACE_OP 10, SWAP 3, SWAP 2, STORE_SUBSCR, LOAD_NAME 6, LOAD_NAME 7, LOAD_NAME 8, BUILD_SLICE 2, COPY 2, COPY 2, BINARY_SUBSCR, LOAD_NAME 9, INPLACE_OP 0, SWAP 3, SWAP 2, STORE_SUBSCR, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "delete targets",
+      "source": "del name\ndel object.attribute, mapping[key]\ndel sequence[lower:upper]\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[None], names=[\"name\", \"object\", \"attribute\", \"mapping\", \"key\", \"sequence\", \"lower\", \"upper\"], locals=[], cells=[], free=[], instructions=[DELETE_NAME 0, LOAD_NAME 1, DELETE_ATTR 2, LOAD_NAME 3, LOAD_NAME 4, DELETE_SUBSCR, LOAD_NAME 5, LOAD_NAME 6, LOAD_NAME 7, BUILD_SLICE 2, DELETE_SUBSCR, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "nested delete targets",
+      "source": "del (first, [second, object.other], mapping[index])\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[None], names=[\"first\", \"second\", \"object\", \"other\", \"mapping\", \"index\"], locals=[], cells=[], free=[], instructions=[DELETE_NAME 0, DELETE_NAME 1, LOAD_NAME 2, DELETE_ATTR 3, LOAD_NAME 4, LOAD_NAME 5, DELETE_SUBSCR, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }

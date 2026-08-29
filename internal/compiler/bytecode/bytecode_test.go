@@ -140,6 +140,19 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := StoreSubscript.StackEffect(0); got != -3 {
 		t.Fatalf("STORE_SUBSCR stack effect = %d, want -3", got)
 	}
+	deletion := Instruction{Opcode: DeleteAttr, Operand: 6}
+	if got := deletion.String(); got != "DELETE_ATTR 6" {
+		t.Fatalf("attribute delete instruction = %q", got)
+	}
+	if got := DeleteAttr.StackEffect(6); got != -1 {
+		t.Fatalf("DELETE_ATTR stack effect = %d, want -1", got)
+	}
+	if got := DeleteSubscript.StackEffect(0); got != -2 {
+		t.Fatalf("DELETE_SUBSCR stack effect = %d, want -2", got)
+	}
+	if got := DeleteName.StackEffect(6); got != 0 {
+		t.Fatalf("DELETE_NAME stack effect = %d, want 0", got)
+	}
 	if got := UnpackSequence.StackEffect(3); got != 2 {
 		t.Fatalf("UNPACK_SEQUENCE 3 stack effect = %d, want 2", got)
 	}
