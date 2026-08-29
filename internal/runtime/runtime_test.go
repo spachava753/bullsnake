@@ -654,6 +654,43 @@ func TestStarredTupleAndListDisplays(t *testing.T) {
 	}
 }
 
+func TestDictionaryDisplays(t *testing.T) {
+	code := compileSource(t, "empty = {}\n"+
+		"ordered = {'first': 1, 'second': 2}\n"+
+		"duplicate = {'key': 1, 'other': 0, 'key': 2}\n"+
+		"numeric = {True: 'bool', 1: 'int', 1.0: 'float'}\n"+
+		"tuple_key = {(1, 2): 'pair'}\n"+
+		"tuple_duplicate = {(1, 2): 'first', (1, 2): 'second'}\n"+
+		"nested = {'list': [1, 2], 'dict': {'x': 3}}\n"+
+		"empty_false = not empty\n"+
+		"ordered_false = not ordered\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("dictionary displays", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"empty":           "{}",
+		"ordered":         "{'first': 1, 'second': 2}",
+		"duplicate":       "{'key': 2, 'other': 0}",
+		"numeric":         "{True: 'float'}",
+		"tuple_key":       "{(1, 2): 'pair'}",
+		"tuple_duplicate": "{(1, 2): 'second'}",
+		"nested":          "{'list': [1, 2], 'dict': {'x': 3}}",
+		"empty_false":     "True",
+		"ordered_false":   "False",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -790,6 +827,18 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "unhashable dictionary key",
+			source:      "answer = {[1]: 2}\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'list' as a dict key (unhashable type: 'list')",
+		},
+		{
+			name:        "nested unhashable dictionary key",
+			source:      "answer = {([1],): 2}\n",
+			wantType:    "TypeError",
+			wantMessage: "cannot use 'tuple' as a dict key (unhashable type: 'list')",
 		},
 		{
 			name:        "non-iterable starred display",
@@ -932,6 +981,34 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "map build underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildMap, Operand: 1},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "map item count",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildMap, Operand: 1},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "map item count 1 exceeds stack size",
+		},
 		{
 			name: "starred unpack underflow",
 			code: testCode(

@@ -271,6 +271,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			)
 		}
 		return nil
+	case bytecode.BuildMap:
+		if 2*uint64(instruction.Operand) > uint64(code.stackSize) {
+			return code.failure(
+				index,
+				"map item count %d exceeds stack size",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.UnpackSequence:
 		if uint64(instruction.Operand) > uint64(code.stackSize) {
 			return code.failure(
@@ -367,6 +376,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 1, 1
 	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSlice:
 		return int(instruction.Operand), 1
+	case bytecode.BuildMap:
+		return 2 * int(instruction.Operand), 1
 	case bytecode.UnpackSequence:
 		return 1, int(instruction.Operand)
 	case bytecode.UnpackEx:
