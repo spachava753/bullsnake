@@ -35,7 +35,23 @@ func Compile(filename string, module *compilerast.Module, table *resolver.Table)
 		derefIDs:      make(map[string]uint32),
 		reachable:     true,
 	}
+	if table.Features&resolver.FutureAnnotations == 0 &&
+		table.Root.Flags&resolver.UsesAnnotations != 0 {
+		if err := state.emit(bytecode.BuildSet, 0, module.Span()); err != nil {
+			return nil, err
+		}
+		if err := state.emit(
+			bytecode.StoreName,
+			state.nameIndex(conditionalAnnotationsName),
+			module.Span(),
+		); err != nil {
+			return nil, err
+		}
+	}
 	if err := state.compileStatements(module.Body); err != nil {
+		return nil, err
+	}
+	if err := state.compileDeferredAnnotations(); err != nil {
 		return nil, err
 	}
 	position := module.Span().End

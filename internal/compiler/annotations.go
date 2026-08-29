@@ -1,11 +1,21 @@
 package compiler
 
 import (
+	"strconv"
+
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
+
+const conditionalAnnotationsName = "__conditional_annotations__"
+
+type deferredAnnotation struct {
+	statement *compilerast.AnnAssignStmt
+	name      string
+	index     int
+}
 
 // compileFunctionAnnotations creates the lazy PEP 649 annotation callable and
 // leaves it below the function body payload for later attribute attachment.
@@ -23,7 +33,11 @@ func (compiler *compilerState) compileFunctionAnnotations(
 		return false, compiler.error(statement.Span(), "future function annotations are not compiled")
 	}
 
-	child := compiler.newAnnotationCompiler(statement, scope)
+	child := compiler.newAnnotationCompiler(
+		statement,
+		scope,
+		compiler.childQualifiedName(statement.Name)+".__annotate__",
+	)
 	if err := child.emitAnnotationFormatGuard(statement.Span()); err != nil {
 		return false, err
 	}
@@ -53,9 +67,124 @@ func (compiler *compilerState) compileFunctionAnnotations(
 	return true, nil
 }
 
+func (compiler *compilerState) deferModuleAnnotation(
+	statement *compilerast.AnnAssignStmt,
+	name string,
+) error {
+	index := len(compiler.deferredAnnotations)
+	compiler.deferredAnnotations = append(compiler.deferredAnnotations, deferredAnnotation{
+		statement: statement,
+		name:      name,
+		index:     index,
+	})
+	if err := compiler.emit(
+		bytecode.LoadName,
+		compiler.nameIndex(conditionalAnnotationsName),
+		statement.Span(),
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.Integer(strconv.Itoa(index))),
+		statement.Span(),
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.SetAdd, 0, statement.Span()); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.PopTop, 0, statement.Span())
+}
+
+// compileDeferredAnnotations emits the module's lazy annotation callable after
+// all reachable statements have recorded their executed annotation indexes.
+func (compiler *compilerState) compileDeferredAnnotations() error {
+	if len(compiler.deferredAnnotations) == 0 || !compiler.reachable {
+		return nil
+	}
+	first := compiler.deferredAnnotations[0].statement
+	scope := compiler.table.ScopeFor(first, resolver.Annotations, 0)
+	if scope == nil || scope.Kind != resolver.AnnotationScope {
+		return compiler.error(first.Span(), "resolver has no module annotation scope")
+	}
+	child := compiler.newAnnotationCompiler(first, scope, "__annotate__")
+	if err := child.emitAnnotationFormatGuard(first.Span()); err != nil {
+		return err
+	}
+	if err := child.emit(bytecode.BuildMap, 0, first.Span()); err != nil {
+		return err
+	}
+	for _, annotation := range compiler.deferredAnnotations {
+		if err := child.compileDeferredAnnotation(annotation); err != nil {
+			return err
+		}
+	}
+	if err := child.emitTerminator(bytecode.ReturnValue, 0, first.Span()); err != nil {
+		return err
+	}
+	code, err := child.finish()
+	if err != nil {
+		return err
+	}
+	if err := compiler.emitFunction(code, false, false, false, first.Span()); err != nil {
+		return err
+	}
+	return compiler.emit(
+		bytecode.StoreName,
+		compiler.nameIndex("__annotate__"),
+		first.Span(),
+	)
+}
+
+// compileDeferredAnnotation checks whether one module annotation executed, then
+// conditionally inserts its evaluated value into the shared result map.
+func (compiler *compilerState) compileDeferredAnnotation(annotation deferredAnnotation) error {
+	span := annotation.statement.Span()
+	skip := compiler.newLabel()
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.Integer(strconv.Itoa(annotation.index))),
+		span,
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadGlobal,
+		compiler.nameIndex(conditionalAnnotationsName),
+		span,
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.CompareOp, bytecode.CompareIn, span); err != nil {
+		return err
+	}
+	if err := compiler.emitJump(bytecode.PopJumpIfFalse, skip, span); err != nil {
+		return err
+	}
+	if err := compiler.compileExpr(annotation.statement.Annotation); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.Copy, 2, span); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.TextString(annotation.name)),
+		span,
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.StoreSubscript, 0, span); err != nil {
+		return err
+	}
+	return compiler.markLabel(skip, span)
+}
+
 func (compiler *compilerState) newAnnotationCompiler(
-	statement *compilerast.FunctionDefStmt,
+	owner compilerast.Node,
 	scope *resolver.Scope,
+	qualifiedName string,
 ) *compilerState {
 	flags := bytecode.Optimized | bytecode.NewLocals
 	if scope.Flags&resolver.Nested != 0 {
@@ -64,12 +193,12 @@ func (compiler *compilerState) newAnnotationCompiler(
 	child := &compilerState{
 		filename:            compiler.filename,
 		module:              compiler.module,
-		owner:               statement,
+		owner:               owner,
 		table:               compiler.table,
 		scope:               scope,
 		codeName:            "__annotate__",
-		qualifiedName:       compiler.childQualifiedName(statement.Name) + ".__annotate__",
-		firstLine:           statement.Span().Start.Line,
+		qualifiedName:       qualifiedName,
+		firstLine:           owner.Span().Start.Line,
 		codeFlags:           flags,
 		positionalOnlyCount: 1,
 		positionalCount:     1,

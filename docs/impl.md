@@ -270,8 +270,8 @@ require every incoming edge to have the same stack depth.
 Bytecode version 1 implements the initial file-input module slices: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
 constants; module name loads and stores; simple, chained, destructuring,
-augmented, and function-local annotated assignments; recursive deletion targets;
-expression statements;
+augmented, module-deferred, and function-local annotated assignments;
+recursive deletion targets; expression statements;
 collection displays; unary, binary, boolean, comparison, conditional, named,
 lambda, attribute, subscription, slice, and call expressions; ordinary,
 relative, aliased, and wildcard imports; assertions; bare and explicit raises;
@@ -317,14 +317,17 @@ Named assignment expressions copy their value before storing the
 target, so the same value remains as the expression result. Attribute and
 subscript stores evaluate their object and index after the right-hand value.
 Function-local annotated assignments never execute their annotation expression.
-An optional value uses the ordinary store path; an annotation-only attribute or
-subscript evaluates and discards its address components without reading or
-writing the target. Fixed tuple and list targets unpack once, then consume their
-targets from left to right. Starred targets use CPython's packed `UNPACK_EX`.
-The low byte records up to 255 targets before the star; the upper 24 bits record
-targets after it. Delete statements recursively visit grouped targets without
-building or unpacking a runtime collection. Assertions evaluate their message
-only on the failing edge, construct `AssertionError`, and terminate that edge
+Simple module annotations record their source-order index when execution reaches
+them; a module-end `__annotate__` child checks those indexes before adding lazy
+values to its result map. An optional value uses the ordinary store path. An
+annotation-only attribute or subscript evaluates and discards its address
+components without reading or writing the target. Fixed tuple and list targets
+unpack once, then consume their targets from left to right.
+Starred targets use CPython's packed `UNPACK_EX`. Its low byte records up to 255
+targets before the star, and its upper 24 bits record targets after it.
+Delete statements recursively visit grouped targets without building or
+unpacking a runtime collection. Assertions evaluate their message only on the
+failing edge, construct `AssertionError`, and terminate that edge
 with the same zero-, one-, or two-argument raise instruction used by `raise`.
 A fully terminating code object has no synthetic return. Synchronous function
 definitions store immutable child code objects by index. Child metadata records
@@ -376,9 +379,9 @@ Constants and referenced names use deterministic indexed tables. Stable code
 dumps support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, module and class annotated assignments, future annotations,
-generic and async functions, class docstrings, static-attribute metadata,
-`async for`, exception handling, and suspended execution are not yet compiled.
+Template strings, class annotated assignments, future annotations, generic and
+async functions, class docstrings, static-attribute metadata, `async for`,
+exception handling, and suspended execution are not yet compiled.
 Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
@@ -458,7 +461,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains seventy-nine successful
+The compiler corpus currently contains eighty-two successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object

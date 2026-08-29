@@ -27,6 +27,7 @@ type compilerState struct {
 	freeVars            []string
 	derefIDs            map[string]uint32
 	children            []*bytecode.Code
+	deferredAnnotations []deferredAnnotation
 	instructions        []bytecode.Instruction
 	positions           []lexer.Span
 	constants           []bytecode.Constant

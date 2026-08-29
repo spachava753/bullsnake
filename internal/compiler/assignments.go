@@ -17,21 +17,60 @@ func (compiler *compilerState) compileNamedExpression(expression *compilerast.Na
 	return compiler.compileStore(expression.Target)
 }
 
-// compileAnnotatedAssignment handles function-local annotations, whose
-// annotation expressions are validated by the resolver but never executed.
+// compileAnnotatedAssignment selects local unevaluated behavior or module
+// deferred behavior from the resolved execution scope.
 func (compiler *compilerState) compileAnnotatedAssignment(
 	statement *compilerast.AnnAssignStmt,
 ) error {
-	if compiler.scope.Kind != resolver.FunctionScope {
-		return compiler.error(statement.Span(), "module and class annotated assignments are not compiled")
+	switch compiler.scope.Kind {
+	case resolver.FunctionScope:
+		return compiler.compileLocalAnnotatedAssignment(statement)
+	case resolver.ModuleScope:
+		return compiler.compileModuleAnnotatedAssignment(statement)
+	default:
+		return compiler.error(statement.Span(), "class annotated assignments are not compiled")
 	}
+}
+
+func (compiler *compilerState) compileLocalAnnotatedAssignment(
+	statement *compilerast.AnnAssignStmt,
+) error {
 	if statement.Value != nil {
 		if err := compiler.compileExpr(statement.Value); err != nil {
 			return err
 		}
 		return compiler.compileStore(statement.Target)
 	}
-	switch target := statement.Target.(type) {
+	return compiler.compileAnnotationOnlyTarget(statement.Target)
+}
+
+// compileModuleAnnotatedAssignment performs an optional store immediately and
+// records only simple names for lazy module annotation evaluation.
+func (compiler *compilerState) compileModuleAnnotatedAssignment(
+	statement *compilerast.AnnAssignStmt,
+) error {
+	if compiler.table.Features&resolver.FutureAnnotations != 0 {
+		return compiler.error(statement.Span(), "future annotated assignments are not compiled")
+	}
+	if statement.Value != nil {
+		if err := compiler.compileExpr(statement.Value); err != nil {
+			return err
+		}
+		if err := compiler.compileStore(statement.Target); err != nil {
+			return err
+		}
+	}
+	if name, ok := statement.Target.(*compilerast.Name); ok && statement.Simple {
+		return compiler.deferModuleAnnotation(statement, name.ID)
+	}
+	if statement.Value != nil {
+		return nil
+	}
+	return compiler.compileAnnotationOnlyTarget(statement.Target)
+}
+
+func (compiler *compilerState) compileAnnotationOnlyTarget(target compilerast.Expr) error {
+	switch target := target.(type) {
 	case *compilerast.Name:
 		return nil
 	case *compilerast.AttributeExpr:
@@ -42,7 +81,7 @@ func (compiler *compilerState) compileAnnotatedAssignment(
 		}
 		return compiler.compileAnnotationSubscript(target.Index)
 	default:
-		return compiler.error(statement.Target.Span(), "invalid annotated assignment target")
+		return compiler.error(target.Span(), "invalid annotated assignment target")
 	}
 }
 
