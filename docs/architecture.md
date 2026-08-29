@@ -444,7 +444,7 @@ operators, selected arbitrary-precision integer binary operators, scalar and
 tuple equality, object identity, fixed and starred tuple/list construction and
 unpacking, tuple/list/dictionary/set/text/bytes iteration, tuple/list/text/bytes
 subscription, fixed and unpacked dictionary displays, fixed and starred set
-displays, dictionary subscription and item mutation, and tuple/list/dict/set
+displays, dictionary subscription and item mutation, and tuple/list/dict/set/text/bytes
 membership. Dictionary key and set element matching are linear until
 user-defined hash and equality protocols justify hash tables. Dictionary
 iterators detect key insertion and deletion while allowing value replacement.

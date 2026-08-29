@@ -460,7 +460,10 @@ String and bytes slices share the sequence bound rules, preserve their type, and
 reuse the original immutable object for a complete unit-step slice. Starred
 displays append ordinary values and extend from current tuple/list iterables in
 source order. Membership scans tuple and list elements with current
-identity-or-equality semantics.
+identity-or-equality semantics. String membership performs a code-point-safe
+substring search and requires a string needle. Bytes membership accepts a bytes
+subsequence or an integer in `0..255`; oversized host integers and other types
+follow CPython's bytes-like `TypeError` path.
 
 Dictionary values keep an insertion-ordered entry slice and currently find keys
 with a linear identity-or-equality scan. `BUILD_MAP` consumes fixed pairs in
@@ -479,8 +482,8 @@ depends on entry count. Iterators snapshot the entry count and key version.
 Replacing values during iteration is valid. Inserting or deleting keys raises
 `RuntimeError` on the next iteration step, including same-size key replacement.
 A later object-model slice can replace the linear storage after user-defined
-hash and equality protocols exist. Sequence item mutation, text and bytes
-membership, set mutation, and cyclic representations are not implemented.
+hash and equality protocols exist. Sequence item mutation, set mutation, and
+cyclic representations are not implemented.
 
 Set values keep first-seen elements in an ordered slice and use the same
 identity, equality, and recursive hashability rules as dictionary keys. Fixed

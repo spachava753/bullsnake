@@ -1000,22 +1000,42 @@ func TestMembershipOperations(t *testing.T) {
 		"dict_tuple = (1, 2) in {(1, 2): 'pair'}\n"+
 		"set_numeric = 1 in {True}\n"+
 		"set_miss = 3 in {1, 2}\n"+
-		"set_not_in = 3 not in {1, 2}\n")
+		"set_not_in = 3 not in {1, 2}\n"+
+		"text_character = '\\u00e9' in 'caf\\u00e9'\n"+
+		"text_substring = 'af\\u00e9' in 'caf\\u00e9'\n"+
+		"text_surrogate = '\\ud800' in 'a\\ud800b'\n"+
+		"text_empty = '' in 'bullsnake'\n"+
+		"text_not_in = 'python' not in 'bullsnake'\n"+
+		"bytes_integer = 65 in b'\\x00A\\xff'\n"+
+		"bytes_bool = False in b'\\x00A\\xff'\n"+
+		"bytes_subsequence = b'A\\xff' in b'\\x00A\\xff'\n"+
+		"bytes_empty = b'' in b'bullsnake'\n"+
+		"bytes_not_in = b'python' not in b'bullsnake'\n")
 	runtime := bullruntime.New()
 	module, err := runtime.ExecuteModule("collection membership", code)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"tuple_hit":   "True",
-		"tuple_miss":  "False",
-		"list_not_in": "True",
-		"dict_key":    "True",
-		"dict_value":  "False",
-		"dict_tuple":  "True",
-		"set_numeric": "True",
-		"set_miss":    "False",
-		"set_not_in":  "True",
+		"tuple_hit":         "True",
+		"tuple_miss":        "False",
+		"list_not_in":       "True",
+		"dict_key":          "True",
+		"dict_value":        "False",
+		"dict_tuple":        "True",
+		"set_numeric":       "True",
+		"set_miss":          "False",
+		"set_not_in":        "True",
+		"text_character":    "True",
+		"text_substring":    "True",
+		"text_surrogate":    "True",
+		"text_empty":        "True",
+		"text_not_in":       "True",
+		"bytes_integer":     "True",
+		"bytes_bool":        "True",
+		"bytes_subsequence": "True",
+		"bytes_empty":       "True",
+		"bytes_not_in":      "True",
 	}
 	for name, expected := range want {
 		value, ok := module.Get(name)
@@ -1164,6 +1184,30 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 & 1.0\n",
 			wantType:    "TypeError",
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
+		},
+		{
+			name:        "non-string text membership",
+			source:      "answer = 1 in 'abc'\n",
+			wantType:    "TypeError",
+			wantMessage: "'in <string>' requires string as left operand, not int",
+		},
+		{
+			name:        "string in bytes membership",
+			source:      "answer = 'A' in b'ABC'\n",
+			wantType:    "TypeError",
+			wantMessage: "a bytes-like object is required, not 'str'",
+		},
+		{
+			name:        "out-of-range byte membership",
+			source:      "answer = 256 in b'ABC'\n",
+			wantType:    "ValueError",
+			wantMessage: "byte must be in range(0, 256)",
+		},
+		{
+			name:        "huge integer byte membership",
+			source:      "answer = 1000000000000000000000000000000 in b'ABC'\n",
+			wantType:    "TypeError",
+			wantMessage: "a bytes-like object is required, not 'int'",
 		},
 		{
 			name:        "unhashable set membership",
