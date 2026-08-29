@@ -262,15 +262,16 @@ copies through accessors. Each instruction has an explicit opcode and operand;
 a parallel table retains its lexer span. The compiler tracks operand-stack
 depth while emitting and records the maximum on the code object.
 
-Bytecode version 1 implements the initial file-input module slice: empty
-modules, `pass`, `None`, boolean, and ellipsis constants, module name loads and
-stores, simple and chained assignments, expression statements, and the
-synthetic `None` return at module completion. Constants and referenced names
-use deterministic indexed tables. Stable code dumps support compiler tests and
-future diagnostics.
+Bytecode version 1 implements the initial file-input module slices: empty
+modules, `pass`, singleton and numeric constants, module name loads and stores,
+simple and chained assignments, expression statements, and the synthetic
+`None` return at module completion. Integer literals are canonicalized at
+arbitrary precision; float and imaginary literals are converted to binary64.
+Constants and referenced names use deterministic indexed tables. Stable code
+dumps support compiler tests and future diagnostics.
 
-The instruction representation remains decoded rather than serialized. Number
-and string conversion, collection literals, operators, control flow, functions,
+The instruction representation remains decoded rather than serialized. String
+and bytes conversion, collection literals, operators, control flow, functions,
 closures, imports, annotations, exceptions, and suspended execution are not yet
 compiled. Unsupported AST nodes fail with a source-located compiler error.
 
@@ -351,7 +352,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains five successful parse-resolve-compile
+The compiler corpus currently contains seven successful parse-resolve-compile
 cases for the initial module instruction set. Cases record stable Bullsnake
 code-object dumps; focused tests cover instruction source positions, stack
 effects, code-object copying, opcode formatting, and compiler input errors.

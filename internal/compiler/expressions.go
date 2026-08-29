@@ -16,6 +16,16 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 			return compiler.error(expression.Span(), "resolver has no symbol for %q", expression.ID)
 		}
 		return compiler.emit(bytecode.LoadName, compiler.nameIndex(expression.ID), expression.Span())
+	case *compilerast.NumberLiteral:
+		constant, err := parseNumberLiteral(expression.Text)
+		if err != nil {
+			return compiler.error(expression.Span(), "%v", err)
+		}
+		return compiler.emit(
+			bytecode.LoadConst,
+			compiler.constantIndex(constant),
+			expression.Span(),
+		)
 	case *compilerast.NoneLiteral:
 		return compiler.emit(
 			bytecode.LoadConst,
