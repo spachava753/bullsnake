@@ -427,13 +427,15 @@ booleans, numeric zero, and empty strings or bytes are false; other scalar
 values are true. Unary `not` returns a boolean singleton. Unary plus and minus
 support integers, booleans, floats, and complex values; invert supports
 integers and booleans. Booleans produce ordinary integer results for numeric
-unary and binary operations. Binary `+`, `-`, `*`, `|`, `^`, `&`, `//`, and `%`
-currently accept integers and booleans and produce arbitrary-precision integer
-results. Floor division rounds toward negative infinity, and modulo produces a
-remainder with the divisor's sign. A zero divisor raises `ZeroDivisionError`.
-Unsupported operand pairings, missing names, and invalid unary types raise
-Python `TypeError` or `NameError` values. `UncaughtException` carries the
-exception across the current Go host boundary.
+unary and binary operations. Binary `+`, `-`, `*`, `|`, `^`, `&`, `//`, `%`,
+`<<`, and `>>` currently accept integers and booleans and produce arbitrary-
+precision integer results. Floor division rounds toward negative infinity, and
+modulo produces a remainder with the divisor's sign. Shifts reject negative
+counts; huge right shifts collapse by the left operand's sign, while a huge
+left shift of a nonzero value raises `OverflowError`. A zero divisor raises
+`ZeroDivisionError`. Unsupported operand pairings, missing names, and invalid
+unary types raise Python `TypeError` or `NameError` values.
+`UncaughtException` carries the exception across the current Go host boundary.
 
 A runtime owns its prepared-code cache, builtin namespace, and successful
 modules. A module owns one string-keyed namespace used as both locals and
@@ -524,10 +526,12 @@ it. The initial cases cover module globals, discarded expressions, every
 compiler scalar constant, singleton identity, scalar truth testing, numeric
 unary operations, and selected arbitrary-precision integer binary operations.
 Floor-division cases pin quotient rounding, remainder signs, and zero-divisor
-errors. Python `NameError` and `TypeError` cases cover language failures.
-Focused malformed-code cases cover unsupported instructions, operands, and
-constant kinds; invalid integer and string descriptors; table bounds; stack
-underflow and overflow; and missing returns.
+errors. Shift cases cover signed values, booleans, negative counts, and huge
+counts that cannot fit a machine word. Python `NameError`, `TypeError`,
+`ValueError`, `OverflowError`, and `ZeroDivisionError` cases cover language
+failures. Focused malformed-code cases cover unsupported instructions,
+operands, and constant kinds; invalid integer and string descriptors; table
+bounds; stack underflow and overflow; and missing returns.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.

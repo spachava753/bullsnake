@@ -261,6 +261,44 @@ func TestFloorDivisionAndModulo(t *testing.T) {
 	}
 }
 
+func TestIntegerShifts(t *testing.T) {
+	hugeShift := "1" + strings.Repeat("0", 100)
+	code := compileSource(t, "left_shift = 5 << 3\n"+
+		"right_shift = 40 >> 3\n"+
+		"negative_left = -5 << 2\n"+
+		"negative_right = -5 >> 1\n"+
+		"bool_left = True << 4\n"+
+		"bool_right = 8 >> True\n"+
+		"huge_right = 1 >> "+hugeShift+"\n"+
+		"huge_negative_right = -1 >> "+hugeShift+"\n"+
+		"huge_zero_left = 0 << "+hugeShift+"\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("integer shifts", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"left_shift":          "40",
+		"right_shift":         "5",
+		"negative_left":       "-20",
+		"negative_right":      "-3",
+		"bool_left":           "16",
+		"bool_right":          "4",
+		"huge_right":          "0",
+		"huge_negative_right": "-1",
+		"huge_zero_left":      "0",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestPythonExceptions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -291,6 +329,31 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = 1 % 0\n",
 			wantType:    "ZeroDivisionError",
 			wantMessage: "integer division or modulo by zero",
+		},
+		{
+			name:        "negative left shift",
+			source:      "answer = 1 << -1\n",
+			wantType:    "ValueError",
+			wantMessage: "negative shift count",
+		},
+		{
+			name:        "negative right shift",
+			source:      "answer = 1 >> -1\n",
+			wantType:    "ValueError",
+			wantMessage: "negative shift count",
+		},
+		{
+			name: "oversized left shift",
+			source: "answer = 1 << 1" + strings.Repeat("0", 100) +
+				"\n",
+			wantType:    "OverflowError",
+			wantMessage: "too many digits in integer",
+		},
+		{
+			name:        "unsupported shift count",
+			source:      "answer = 1 << 1.0\n",
+			wantType:    "TypeError",
+			wantMessage: "unsupported operand type(s) for <<: 'int' and 'float'",
 		},
 		{
 			name:        "unsupported subtraction",

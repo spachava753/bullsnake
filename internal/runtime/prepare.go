@@ -152,6 +152,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			bytecode.BinaryMultiply,
 			bytecode.BinaryFloorDivide,
 			bytecode.BinaryModulo,
+			bytecode.BinaryLeftShift,
+			bytecode.BinaryRightShift,
 			bytecode.BinaryOr,
 			bytecode.BinaryXor,
 			bytecode.BinaryAnd:

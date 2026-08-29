@@ -130,6 +130,10 @@ func executeBinary(
 			operator = "//"
 		case bytecode.BinaryModulo:
 			operator = "%"
+		case bytecode.BinaryLeftShift:
+			operator = "<<"
+		case bytecode.BinaryRightShift:
+			operator = ">>"
 		case bytecode.BinaryOr:
 			operator = "|"
 		case bytecode.BinaryXor:
@@ -149,6 +153,48 @@ func executeBinary(
 				),
 			),
 		}, nil
+	}
+
+	if operand == bytecode.BinaryLeftShift || operand == bytecode.BinaryRightShift {
+		if rightInteger.Sign() < 0 {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("ValueError", "negative shift count"),
+			}, nil
+		}
+		if operand == bytecode.BinaryLeftShift && leftInteger.Sign() == 0 {
+			return pushOutcome(frame, index, &intValue{})
+		}
+		countFits := rightInteger.IsUint64()
+		var count uint64
+		if countFits {
+			count = rightInteger.Uint64()
+		}
+		if operand == bytecode.BinaryRightShift &&
+			(!countFits || count >= uint64(leftInteger.BitLen())) {
+			var result big.Int
+			if leftInteger.Sign() < 0 {
+				result.SetInt64(-1)
+			}
+			return pushOutcome(frame, index, &intValue{value: result})
+		}
+		maxInt := uint64(^uint(0) >> 1)
+		if !countFits || count > maxInt {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"OverflowError",
+					"too many digits in integer",
+				),
+			}, nil
+		}
+		var result big.Int
+		if operand == bytecode.BinaryLeftShift {
+			result.Lsh(&leftInteger, uint(count))
+		} else {
+			result.Rsh(&leftInteger, uint(count))
+		}
+		return pushOutcome(frame, index, &intValue{value: result})
 	}
 
 	if (operand == bytecode.BinaryFloorDivide || operand == bytecode.BinaryModulo) &&
