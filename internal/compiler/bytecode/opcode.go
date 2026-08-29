@@ -74,6 +74,14 @@ const (
 	CompareIsNot
 )
 
+// FunctionAttribute identifies one payload attached while creating a function.
+type FunctionAttribute uint32
+
+const (
+	FunctionDefaults FunctionAttribute = 1 << iota
+	FunctionKeywordDefaults
+)
+
 // Opcode identifies one virtual-machine instruction.
 type Opcode uint8
 
@@ -134,6 +142,7 @@ const (
 	StoreGlobal
 	DeleteGlobal
 	MakeFunction
+	SetFunctionAttribute
 )
 
 var opcodeNames = [...]string{
@@ -193,6 +202,7 @@ var opcodeNames = [...]string{
 	"STORE_GLOBAL",
 	"DELETE_GLOBAL",
 	"MAKE_FUNCTION",
+	"SET_FUNCTION_ATTRIBUTE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -212,7 +222,7 @@ func (opcode Opcode) HasOperand() bool {
 		JumpIfTrueOrPop, LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr,
 		UnpackSequence, UnpackEx, InplaceOp, DeleteName, DeleteAttr,
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
-		DeleteGlobal, MakeFunction:
+		DeleteGlobal, MakeFunction, SetFunctionAttribute:
 		return true
 	default:
 		return false
@@ -229,7 +239,8 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
-		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge:
+		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
+		SetFunctionAttribute:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript:
 		return -2

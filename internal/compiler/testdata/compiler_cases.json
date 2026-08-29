@@ -263,6 +263,16 @@
       "name": "nested noncapturing functions",
       "source": "def outer():\n    def inner(value):\n        return value\n    return inner\nfunction = outer\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"outer\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"outer\", qualname=\"outer\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=0, kwonly=0), stack=1, constants=[], names=[], locals=[\"inner\"], cells=[], free=[], children=[Code(name=\"inner\", qualname=\"outer.<locals>.inner\", filename=\"<test>\", first_line=2, flags=[Optimized, NewLocals, Nested], args=(posonly=0, positional=1, kwonly=0), stack=1, constants=[], names=[], locals=[\"value\"], cells=[], free=[], instructions=[LOAD_FAST 0, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_FAST 0, LOAD_FAST 0, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "combined function defaults",
+      "source": "seed = 10\ndef choose(first=seed, /, second=seed + 1, *, mode=\"safe\"):\n    return first, second, mode\nfunction = choose\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(10), Int(1), String(\"mode\"), String(\"safe\"), None], names=[\"seed\", \"choose\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"choose\", qualname=\"choose\", filename=\"<test>\", first_line=2, flags=[Optimized, NewLocals], args=(posonly=1, positional=2, kwonly=1), stack=3, constants=[], names=[], locals=[\"first\", \"second\", \"mode\"], cells=[], free=[], instructions=[LOAD_FAST 0, LOAD_FAST 1, LOAD_FAST 2, BUILD_TUPLE 3, RETURN_VALUE])], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_NAME 0, LOAD_NAME 0, LOAD_CONST 1, BINARY_OP 0, BUILD_TUPLE 2, LOAD_CONST 2, LOAD_CONST 3, BUILD_MAP 1, MAKE_FUNCTION 0, SET_FUNCTION_ATTRIBUTE 2, SET_FUNCTION_ATTRIBUTE 1, STORE_NAME 1, LOAD_NAME 1, STORE_NAME 2, LOAD_CONST 4, RETURN_VALUE])"
+    },
+    {
+      "name": "keyword-only function defaults",
+      "source": "def configure(*, required, mode=\"safe\", retries=3, verbose):\n    return required, mode, retries, verbose\nfunction = configure\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=4, constants=[String(\"mode\"), String(\"safe\"), String(\"retries\"), Int(3), None], names=[\"configure\", \"function\"], locals=[], cells=[], free=[], children=[Code(name=\"configure\", qualname=\"configure\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=0, kwonly=4), stack=4, constants=[], names=[], locals=[\"required\", \"mode\", \"retries\", \"verbose\"], cells=[], free=[], instructions=[LOAD_FAST 0, LOAD_FAST 1, LOAD_FAST 2, LOAD_FAST 3, BUILD_TUPLE 4, RETURN_VALUE])], instructions=[LOAD_CONST 0, LOAD_CONST 1, LOAD_CONST 2, LOAD_CONST 3, BUILD_MAP 2, MAKE_FUNCTION 0, SET_FUNCTION_ATTRIBUTE 2, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 4, RETURN_VALUE])"
     }
   ]
 }

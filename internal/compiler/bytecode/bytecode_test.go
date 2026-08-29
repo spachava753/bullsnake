@@ -80,6 +80,13 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := MakeFunction.StackEffect(2); got != 1 {
 		t.Fatalf("MAKE_FUNCTION stack effect = %d, want 1", got)
 	}
+	functionAttribute := Instruction{Opcode: SetFunctionAttribute, Operand: uint32(FunctionDefaults)}
+	if got := functionAttribute.String(); got != "SET_FUNCTION_ATTRIBUTE 1" {
+		t.Fatalf("function attribute instruction = %q", got)
+	}
+	if got := SetFunctionAttribute.StackEffect(uint32(FunctionDefaults)); got != -1 {
+		t.Fatalf("SET_FUNCTION_ATTRIBUTE stack effect = %d, want -1", got)
+	}
 	if got := LoadFast.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_FAST stack effect = %d, want 1", got)
 	}

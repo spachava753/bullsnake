@@ -29,9 +29,6 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	}
 	for _, group := range parameterGroups {
 		for _, parameter := range group {
-			if parameter.Default != nil {
-				return compiler.error(parameter.Range, "parameter defaults are not compiled")
-			}
 			if parameter.Annotation != nil {
 				return compiler.error(parameter.Range, "parameter annotations are not compiled")
 			}
@@ -103,12 +100,90 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if err != nil {
 		return err
 	}
+	defaults, keywordDefaults, err := compiler.compileFunctionDefaults(
+		statement.Parameters,
+		statement.Span(),
+	)
+	if err != nil {
+		return err
+	}
 	childIndex := uint32(len(compiler.children))
 	compiler.children = append(compiler.children, code)
 	if err := compiler.emit(bytecode.MakeFunction, childIndex, statement.Span()); err != nil {
 		return err
 	}
+	if keywordDefaults {
+		if err := compiler.emit(
+			bytecode.SetFunctionAttribute,
+			uint32(bytecode.FunctionKeywordDefaults),
+			statement.Span(),
+		); err != nil {
+			return err
+		}
+	}
+	if defaults {
+		if err := compiler.emit(
+			bytecode.SetFunctionAttribute,
+			uint32(bytecode.FunctionDefaults),
+			statement.Span(),
+		); err != nil {
+			return err
+		}
+	}
 	return compiler.emitNameStore(statement.Name, statement.Span())
+}
+
+// compileFunctionDefaults emits enclosing-scope defaults in Python evaluation
+// order. Positional values become one tuple, followed by one sparse keyword map;
+// callers must attach the map before the tuple to consume the stack in reverse.
+func (compiler *compilerState) compileFunctionDefaults(
+	parameters compilerast.Parameters,
+	span lexer.Span,
+) (bool, bool, error) {
+	positionalCount := 0
+	for _, group := range [][]compilerast.Parameter{
+		parameters.PositionalOnly,
+		parameters.Positional,
+	} {
+		for _, parameter := range group {
+			if parameter.Default == nil {
+				continue
+			}
+			if err := compiler.compileExpr(parameter.Default); err != nil {
+				return false, false, err
+			}
+			positionalCount++
+		}
+	}
+	if positionalCount != 0 {
+		if err := compiler.emit(bytecode.BuildTuple, uint32(positionalCount), span); err != nil {
+			return false, false, err
+		}
+	}
+
+	keywordCount := 0
+	for _, parameter := range parameters.KeywordOnly {
+		if parameter.Default == nil {
+			continue
+		}
+		if err := compiler.emit(
+			bytecode.LoadConst,
+			compiler.constantIndex(bytecode.TextString(parameter.Name)),
+			parameter.Range,
+		); err != nil {
+			return false, false, err
+		}
+		if err := compiler.compileExpr(parameter.Default); err != nil {
+			return false, false, err
+		}
+		keywordCount++
+	}
+	if keywordCount != 0 {
+		if err := compiler.emit(bytecode.BuildMap, uint32(keywordCount), span); err != nil {
+			return false, false, err
+		}
+	}
+	return positionalCount != 0, keywordCount != 0, nil
 }
 
 func (compiler *compilerState) compileReturnStatement(statement *compilerast.ReturnStmt) error {
