@@ -228,7 +228,8 @@ func (code *preparedCode) instructionEdges(
 // behavior implemented by the current runtime slice.
 func (code *preparedCode) validateOperand(index int, instruction bytecode.Instruction) error {
 	switch instruction.Opcode {
-	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter:
+	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
+		bytecode.BinarySubscript:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -342,7 +343,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 1, 1
 	case bytecode.GetIter:
 		return 1, 1
-	case bytecode.BinaryOp, bytecode.CompareOp:
+	case bytecode.BinaryOp, bytecode.CompareOp, bytecode.BinarySubscript:
 		return 2, 1
 	case bytecode.BuildTuple, bytecode.BuildList:
 		return int(instruction.Operand), 1

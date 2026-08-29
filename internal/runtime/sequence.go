@@ -127,6 +127,83 @@ func executeUnpackSequence(
 	return instructionOutcome{kind: advance}, nil
 }
 
+// executeBinarySubscript implements integer indexing for the fixed sequence
+// types while retaining Python's conversion, normalization, and error order.
+func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, error) {
+	indexValue, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	container, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+
+	var elements []Value
+	var sequenceName string
+	switch container := container.(type) {
+	case *tupleValue:
+		elements = container.elements
+		sequenceName = "tuple"
+	case *listValue:
+		elements = container.elements
+		sequenceName = "list"
+	default:
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+container.TypeName()+"' object is not subscriptable",
+			),
+		}, nil
+	}
+
+	index, ok := integerOperand(indexValue)
+	if !ok {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				fmt.Sprintf(
+					"%s indices must be integers or slices, not %s",
+					sequenceName,
+					indexValue.TypeName(),
+				),
+			),
+		}, nil
+	}
+	if !index.IsInt64() {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"IndexError",
+				"cannot fit '"+indexValue.TypeName()+"' into an index-sized integer",
+			),
+		}, nil
+	}
+	rawIndex := index.Int64()
+	normalized := int(rawIndex)
+	if int64(normalized) != rawIndex {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"IndexError",
+				"cannot fit '"+indexValue.TypeName()+"' into an index-sized integer",
+			),
+		}, nil
+	}
+	if normalized < 0 {
+		normalized += len(elements)
+	}
+	if normalized < 0 || normalized >= len(elements) {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("IndexError", sequenceName+" index out of range"),
+		}, nil
+	}
+	return pushOutcome(frame, instruction, elements[normalized])
+}
+
 type sequenceIterator struct {
 	sequence Value
 	index    int

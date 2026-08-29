@@ -157,6 +157,8 @@ func executeInstruction(
 		return executeGetIter(frame, index)
 	case bytecode.ForIter:
 		return executeForIter(frame, index, int(instruction.Operand))
+	case bytecode.BinarySubscript:
+		return executeBinarySubscript(frame, index)
 	case bytecode.UnpackSequence:
 		return executeUnpackSequence(frame, index, int(instruction.Operand))
 	case bytecode.UnaryOp:

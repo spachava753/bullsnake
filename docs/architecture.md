@@ -440,8 +440,8 @@ namespace rather than pretending that a Go map already implements Python
 dictionary semantics. The current object operations cover fixed scalar truth,
 numeric unary operators, selected arbitrary-precision integer binary operators,
 scalar equality and ordering, object identity, fixed sequence construction and
-unpacking, and tuple/list iteration. Later user-defined protocols must reuse
-these VM outcome and exception paths.
+unpacking, tuple/list iteration, and integer tuple/list subscription. Later
+user-defined protocols must reuse these VM outcome and exception paths.
 
 The object model can become the largest compatibility component, so it should
 remain feature-driven. It should be designed before a large instruction set

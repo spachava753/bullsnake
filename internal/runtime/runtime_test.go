@@ -537,6 +537,41 @@ func TestCollectionDisplays(t *testing.T) {
 	}
 }
 
+func TestSequenceIndexing(t *testing.T) {
+	code := compileSource(t, "tuple_value = (10, 20, 30)\n"+
+		"tuple_first = tuple_value[0]\n"+
+		"tuple_last = tuple_value[-1]\n"+
+		"tuple_bool = tuple_value[True]\n"+
+		"list_value = [40, 50, 60]\n"+
+		"list_first = list_value[0]\n"+
+		"list_last = list_value[-1]\n"+
+		"list_bool = list_value[False]\n"+
+		"nested = [(1, 2), [3, 4]][1][0]\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("sequence indexing", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"tuple_first": "10",
+		"tuple_last":  "30",
+		"tuple_bool":  "20",
+		"list_first":  "40",
+		"list_last":   "60",
+		"list_bool":   "40",
+		"nested":      "3",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestDestructuringAssignment(t *testing.T) {
 	code := compileSource(t, "first, second = (1, 2)\n"+
 		"[third, fourth] = [3, 4]\n"+
@@ -635,6 +670,36 @@ func TestPythonExceptions(t *testing.T) {
 			wantMessage: "unsupported operand type(s) for &: 'int' and 'float'",
 		},
 		{
+			name:        "tuple index out of range",
+			source:      "answer = (1, 2)[2]\n",
+			wantType:    "IndexError",
+			wantMessage: "tuple index out of range",
+		},
+		{
+			name:        "list index out of range",
+			source:      "answer = [1, 2][-3]\n",
+			wantType:    "IndexError",
+			wantMessage: "list index out of range",
+		},
+		{
+			name:        "huge sequence index",
+			source:      "answer = [1][1000000000000000000000000000000]\n",
+			wantType:    "IndexError",
+			wantMessage: "cannot fit 'int' into an index-sized integer",
+		},
+		{
+			name:        "non-integer sequence index",
+			source:      "answer = [1][1.5]\n",
+			wantType:    "TypeError",
+			wantMessage: "list indices must be integers or slices, not float",
+		},
+		{
+			name:        "non-subscriptable value",
+			source:      "answer = None[0]\n",
+			wantType:    "TypeError",
+			wantMessage: "'NoneType' object is not subscriptable",
+		},
+		{
 			name:        "non-iterable for loop",
 			source:      "for value in 1:\n    pass\n",
 			wantType:    "TypeError",
@@ -709,6 +774,20 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "binary subscript underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BinarySubscript},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
 		{
 			name: "get iterator underflow",
 			code: testCode(
