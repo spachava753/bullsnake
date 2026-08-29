@@ -43,6 +43,8 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 			}
 		}
 		return nil
+	case *compilerast.AnnAssignStmt:
+		return compiler.compileAnnotatedAssignment(statement)
 	case *compilerast.AugAssignStmt:
 		return compiler.compileAugmentedAssignment(statement)
 	case *compilerast.DeleteStmt:

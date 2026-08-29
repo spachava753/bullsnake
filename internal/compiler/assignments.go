@@ -4,6 +4,7 @@ import (
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
+	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
 func (compiler *compilerState) compileNamedExpression(expression *compilerast.NamedExpr) error {
@@ -14,6 +15,72 @@ func (compiler *compilerState) compileNamedExpression(expression *compilerast.Na
 		return err
 	}
 	return compiler.compileStore(expression.Target)
+}
+
+// compileAnnotatedAssignment handles function-local annotations, whose
+// annotation expressions are validated by the resolver but never executed.
+func (compiler *compilerState) compileAnnotatedAssignment(
+	statement *compilerast.AnnAssignStmt,
+) error {
+	if compiler.scope.Kind != resolver.FunctionScope {
+		return compiler.error(statement.Span(), "module and class annotated assignments are not compiled")
+	}
+	if statement.Value != nil {
+		if err := compiler.compileExpr(statement.Value); err != nil {
+			return err
+		}
+		return compiler.compileStore(statement.Target)
+	}
+	switch target := statement.Target.(type) {
+	case *compilerast.Name:
+		return nil
+	case *compilerast.AttributeExpr:
+		return compiler.compileAnnotationAddress(target.Value)
+	case *compilerast.SubscriptExpr:
+		if err := compiler.compileAnnotationAddress(target.Value); err != nil {
+			return err
+		}
+		return compiler.compileAnnotationSubscript(target.Index)
+	default:
+		return compiler.error(statement.Target.Span(), "invalid annotated assignment target")
+	}
+}
+
+func (compiler *compilerState) compileAnnotationAddress(expression compilerast.Expr) error {
+	if err := compiler.compileExpr(expression); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.PopTop, 0, expression.Span())
+}
+
+// compileAnnotationSubscript evaluates slice and extended-slice components
+// separately because an annotation-only target never performs subscription.
+func (compiler *compilerState) compileAnnotationSubscript(expression compilerast.Expr) error {
+	switch expression := expression.(type) {
+	case *compilerast.SliceExpr:
+		for _, component := range []compilerast.Expr{
+			expression.Lower,
+			expression.Upper,
+			expression.Step,
+		} {
+			if component == nil {
+				continue
+			}
+			if err := compiler.compileAnnotationAddress(component); err != nil {
+				return err
+			}
+		}
+		return nil
+	case *compilerast.TupleExpr:
+		for _, element := range expression.Elements {
+			if err := compiler.compileAnnotationSubscript(element); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return compiler.compileAnnotationAddress(expression)
+	}
 }
 
 // compileStore consumes one assigned value and evaluates any address
