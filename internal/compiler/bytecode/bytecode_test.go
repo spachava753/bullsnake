@@ -90,6 +90,13 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := BinaryOp.StackEffect(BinaryPower); got != -1 {
 		t.Fatalf("BINARY_OP stack effect = %d, want -1", got)
 	}
+	jump := Instruction{Opcode: JumpIfFalseOrPop, Operand: 9}
+	if got := jump.String(); got != "JUMP_IF_FALSE_OR_POP 9" {
+		t.Fatalf("jump instruction = %q", got)
+	}
+	if got := JumpIfFalseOrPop.StackEffect(9); got != -1 {
+		t.Fatalf("conditional jump fallthrough effect = %d, want -1", got)
+	}
 	if got := Dump(nil); got != "nil" {
 		t.Fatalf("Dump(nil) = %q", got)
 	}

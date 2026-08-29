@@ -261,12 +261,16 @@ produces an `internal/compiler/bytecode.Code`. Code objects copy their
 instruction, position, constant, and name tables at construction and expose
 copies through accessors. Each instruction has an explicit opcode and operand;
 a parallel table retains its lexer span. The compiler tracks operand-stack
-depth while emitting and records the maximum on the code object.
+depth while emitting and records the maximum on the code object. Control-flow
+instructions use absolute instruction indexes. Labels patch forward jumps and
+require every incoming edge to have the same stack depth.
 
 Bytecode version 1 implements the initial file-input module slices: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
 constants, module name loads and stores, simple and chained assignments,
-expression statements, and the synthetic `None` return at module completion.
+expression statements, collection displays, unary and binary operations,
+short-circuit boolean expressions, comparisons, conditional expressions, and
+the synthetic `None` return at module completion.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -278,13 +282,18 @@ dictionary displays use count-based build instructions when they have no
 unpacking. Starred displays use typed append, extend, and update instructions
 against one accumulator while evaluating elements from left to right. Unary and
 binary expressions use explicit operand IDs shared with future augmented
-assignment emission. Constants and referenced names use deterministic indexed
-tables. Stable code dumps support compiler tests and future diagnostics.
+assignment emission. Boolean operators retain the selected operand across
+short-circuit jumps. Comparison chains evaluate each operand once, retain only
+the next left operand, and clean it up on a false edge. Conditional expressions
+merge their two value-producing branches at one checked stack depth. Constants
+and referenced names use deterministic indexed tables. Stable code dumps
+support compiler tests and future diagnostics.
 
 The instruction representation remains decoded rather than serialized.
-Template strings, boolean and comparison chains, conditional expressions,
-attributes, subscripts, calls, control flow, functions, closures, imports,
-annotations, exceptions, and suspended execution are not yet compiled. Unsupported AST nodes fail with a source-located compiler error.
+Template strings, attributes, subscripts, calls, statement control flow,
+functions, closures, imports, annotations, exceptions, and suspended execution
+are not yet compiled. Unsupported AST nodes fail with a source-located compiler
+error.
 
 ## Virtual machine and frames
 
@@ -363,11 +372,12 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains eighteen successful parse-resolve-compile
-cases for the initial module instruction set and expression evaluation. Cases
-record stable Bullsnake code-object dumps; focused tests cover instruction
-source positions, stack effects, code-object copying, opcode formatting,
-literal decoding, formatted-string errors, and compiler input errors.
+The compiler corpus currently contains twenty-one successful
+parse-resolve-compile cases for the initial module instruction set and
+expression evaluation. Cases record stable Bullsnake code-object dumps;
+focused tests cover instruction source positions, stack effects, code-object
+copying, opcode formatting, literal decoding, formatted-string errors, and
+compiler input errors.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.

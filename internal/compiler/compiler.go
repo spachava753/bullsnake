@@ -21,14 +21,20 @@ type compilerState struct {
 	nameIDs      map[string]uint32
 	stackDepth   int
 	maxStack     int
+	reachable    bool
+	labels       []*jumpLabel
 }
 
+// emit appends a fallthrough instruction after validating reachability,
+// stack addressing, and the resulting operand-stack depth.
 func (compiler *compilerState) emit(opcode bytecode.Opcode, operand uint32, span lexer.Span) error {
-	compiler.instructions = append(compiler.instructions, bytecode.Instruction{
-		Opcode:  opcode,
-		Operand: operand,
-	})
-	compiler.positions = append(compiler.positions, span)
+	if !compiler.reachable {
+		return compiler.error(span, "cannot emit %s on an unreachable path", opcode)
+	}
+	if (opcode == bytecode.Copy || opcode == bytecode.Swap) && (operand == 0 || int(operand) > compiler.stackDepth) {
+		return compiler.error(span, "instruction %s %d exceeds stack depth %d", opcode, operand, compiler.stackDepth)
+	}
+	compiler.appendInstruction(opcode, operand, span)
 	compiler.stackDepth += opcode.StackEffect(operand)
 	if compiler.stackDepth < 0 {
 		return compiler.error(span, "instruction %s underflows the operand stack", opcode)
@@ -37,6 +43,16 @@ func (compiler *compilerState) emit(opcode bytecode.Opcode, operand uint32, span
 		compiler.maxStack = compiler.stackDepth
 	}
 	return nil
+}
+
+func (compiler *compilerState) appendInstruction(opcode bytecode.Opcode, operand uint32, span lexer.Span) int {
+	index := len(compiler.instructions)
+	compiler.instructions = append(compiler.instructions, bytecode.Instruction{
+		Opcode:  opcode,
+		Operand: operand,
+	})
+	compiler.positions = append(compiler.positions, span)
+	return index
 }
 
 func (compiler *compilerState) constantIndex(constant bytecode.Constant) uint32 {
@@ -59,7 +75,17 @@ func (compiler *compilerState) nameIndex(name string) uint32 {
 	return index
 }
 
+// finish validates control-flow and stack invariants before constructing the
+// immutable module code object.
 func (compiler *compilerState) finish() (*bytecode.Code, error) {
+	for _, label := range compiler.labels {
+		if !label.marked {
+			return nil, compiler.error(compiler.module.Span(), "unresolved jump label")
+		}
+	}
+	if !compiler.reachable {
+		return nil, compiler.error(compiler.module.Span(), "module ends on an unreachable path")
+	}
 	if compiler.stackDepth != 0 {
 		return nil, compiler.error(
 			compiler.module.Span(),

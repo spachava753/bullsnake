@@ -82,6 +82,12 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		return compiler.compileUnary(expression)
 	case *compilerast.BinaryExpr:
 		return compiler.compileBinary(expression)
+	case *compilerast.BooleanExpr:
+		return compiler.compileBoolean(expression)
+	case *compilerast.CompareExpr:
+		return compiler.compileComparison(expression)
+	case *compilerast.ConditionalExpr:
+		return compiler.compileConditional(expression)
 	case *compilerast.NoneLiteral:
 		return compiler.emit(
 			bytecode.LoadConst,

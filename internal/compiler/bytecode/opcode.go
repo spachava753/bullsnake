@@ -39,6 +39,20 @@ const (
 	BinaryAnd
 )
 
+// COMPARE_OP operands identify Python comparison operations.
+const (
+	CompareEqual uint32 = iota
+	CompareNotEqual
+	CompareLess
+	CompareLessEqual
+	CompareGreater
+	CompareGreaterEqual
+	CompareIn
+	CompareNotIn
+	CompareIs
+	CompareIsNot
+)
+
 // Opcode identifies one virtual-machine instruction.
 type Opcode uint8
 
@@ -67,6 +81,12 @@ const (
 	MapUpdate
 	UnaryOp
 	BinaryOp
+	Swap
+	CompareOp
+	Jump
+	PopJumpIfFalse
+	JumpIfFalseOrPop
+	JumpIfTrueOrPop
 )
 
 var opcodeNames = [...]string{
@@ -94,6 +114,12 @@ var opcodeNames = [...]string{
 	"MAP_UPDATE",
 	"UNARY_OP",
 	"BINARY_OP",
+	"SWAP",
+	"COMPARE_OP",
+	"JUMP",
+	"POP_JUMP_IF_FALSE",
+	"JUMP_IF_FALSE_OR_POP",
+	"JUMP_IF_TRUE_OR_POP",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -108,19 +134,22 @@ func (opcode Opcode) String() string {
 func (opcode Opcode) HasOperand() bool {
 	switch opcode {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
-		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp:
+		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
+		CompareOp, Jump, PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop:
 		return true
 	default:
 		return false
 	}
 }
 
-// StackEffect returns the instruction's change to operand-stack depth.
+// StackEffect returns the instruction's fallthrough operand-stack change.
+// Jump edges with different effects are tracked by the compiler's labels.
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy:
 		return 1
-	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp,
+	case StoreName, PopTop, ReturnValue, FormatWithSpec, BinaryOp, CompareOp,
+		PopJumpIfFalse, JumpIfFalseOrPop, JumpIfTrueOrPop,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate:
 		return -1
 	case MapSet:

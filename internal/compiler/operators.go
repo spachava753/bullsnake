@@ -78,3 +78,31 @@ func binaryOperand(operator compilerast.BinaryOperator) (uint32, bool) {
 		return 0, false
 	}
 }
+
+// comparisonOperand keeps AST and bytecode comparison IDs independent.
+func comparisonOperand(operator compilerast.ComparisonOperator) (uint32, bool) {
+	switch operator {
+	case compilerast.Equal:
+		return bytecode.CompareEqual, true
+	case compilerast.NotEqual:
+		return bytecode.CompareNotEqual, true
+	case compilerast.Less:
+		return bytecode.CompareLess, true
+	case compilerast.LessEqual:
+		return bytecode.CompareLessEqual, true
+	case compilerast.Greater:
+		return bytecode.CompareGreater, true
+	case compilerast.GreaterEqual:
+		return bytecode.CompareGreaterEqual, true
+	case compilerast.In:
+		return bytecode.CompareIn, true
+	case compilerast.NotIn:
+		return bytecode.CompareNotIn, true
+	case compilerast.Is:
+		return bytecode.CompareIs, true
+	case compilerast.IsNot:
+		return bytecode.CompareIsNot, true
+	default:
+		return 0, false
+	}
+}

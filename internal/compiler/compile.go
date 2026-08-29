@@ -23,6 +23,7 @@ func Compile(filename string, module *compilerast.Module, table *resolver.Table)
 		scope:       table.Root,
 		constantIDs: make(map[bytecode.Constant]uint32),
 		nameIDs:     make(map[string]uint32),
+		reachable:   true,
 	}
 	if err := state.compileStatements(module.Body); err != nil {
 		return nil, err
