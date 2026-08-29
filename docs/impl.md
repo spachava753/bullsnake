@@ -25,7 +25,7 @@ describes the code that exists.
 | --- | --- |
 | Source loading | Initial PEP 263 behavior implemented for supported codecs |
 | Lexer | Initial Python 3.14 behavior implemented |
-| Parser and resolver | Not implemented |
+| Parser and resolver | Initial Python 3.14 parser and name resolution implemented |
 | Compiler and bytecode | Not implemented |
 | Virtual machine and frames | Not implemented |
 | Object model and runtime | Not implemented |
@@ -165,9 +165,9 @@ reports malformed literals directly.
 
 ## Parser and resolver
 
-The checked-in parser grammar is implemented for the Python 3.14 syntax forms
-emitted by the lexer. Name resolution and context-sensitive validation remain a
-separate future phase.
+The checked-in parser grammar and resolver are implemented for the Python 3.14
+syntax forms emitted by the lexer. The parser constructs the AST; the resolver
+classifies names and rejects rules that depend on surrounding scopes.
 
 `internal/compiler/ast` defines the internal AST. The initial node set covers
 the module root; expression, chained, annotated, and augmented assignments;
@@ -224,9 +224,34 @@ decorators. Adjacent plain and formatted strings, nested format specifications,
 debug fields, and template strings are parsed directly from the lexer's string
 tokens.
 
-The resolver will handle bindings, scopes, and contextual placement rules.
-Parser tests identify whether an invalid program belongs to the lexer or parser
-so that later phases do not accidentally absorb grammar errors.
+`internal/compiler/resolver.Resolve` accepts a filename and parsed module. Its
+first walk follows source order, creates the scope tree, records every use and
+binding, applies private-name mangling, reads future imports, and performs
+context-sensitive checks. Its second walk classifies each symbol as local,
+cell, free, explicit global, or implicit global and propagates closure requests
+back through enclosing scopes. The result is a separate `resolver.Table`; the
+AST remains unchanged.
+
+The scope tree represents modules, functions and lambdas, classes,
+comprehensions, annotations, type-parameter lists, type-variable bounds and
+defaults, and type-alias values. `Table.ScopeFor` distinguishes the several
+scopes that one AST node can create. Symbols retain source-order flags and
+locations, while stable resolver dumps expose the complete tree for tests and
+diagnostics.
+
+The resolver implements ordinary and declaration bindings, closure cells,
+class-local skipping and `__class__` closure creation, private names,
+comprehension iterator scopes and assignment-expression targets, deferred
+annotations, PEP 695 generic scopes, pattern capture validation, generator and
+coroutine flags, and placement checks for `return`, loop control, `yield`,
+`await`, asynchronous statements, `except*`, wildcard imports, and
+`__debug__`. Unknown names remain implicit globals for runtime lookup rather
+than becoming compile-time errors.
+
+The resolver does not assign local, cell, or free-variable array positions and
+does not choose bytecode instructions. Those remain compiler responsibilities.
+Parser tests identify whether invalid syntax belongs to the lexer or parser;
+resolver tests start only from ASTs the parser accepts.
 
 ## Compiler and bytecode
 
@@ -298,9 +323,17 @@ and optional span. The corpus test requires at least one successful and one
 failing case. Individual fixture fields are checked by the parser assertions
 that consume them rather than a separate schema validator.
 
-The single corpus test runs every successful and failing case. Focused tests
-cover successful AST spans, source validation, error formatting, token-cursor
-laziness and rewinds, terminal-error caching, and parser fuzz seeds.
+The single parser corpus test runs every successful and failing case. Focused
+tests cover successful AST spans, source validation, error formatting,
+token-cursor laziness and rewinds, terminal-error caching, and parser fuzz
+seeds.
+
+The resolver corpus is pinned to the same CPython revision. It contains
+thirty-six successful symbol-table cases and fifty resolver-owned failures.
+Successful cases record complete stable scope dumps. Failures record the
+exception family, message fragment, and selected exact spans. Focused tests
+cover table lookup, private-name rewriting, dump and diagnostic formatting,
+and resolver fuzz seeds.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.

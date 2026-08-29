@@ -1,0 +1,503 @@
+{
+  "reference": {
+    "implementation": "CPython",
+    "version": "3.14.7",
+    "commit": "823f0323ee6ec1402088b73bce1a38473cac36dc"
+  },
+  "cases": [
+    {
+      "name": "empty module",
+      "source": "",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[], children=[]))"
+    },
+    {
+      "name": "module bindings and implicit globals",
+      "source": "result = input_value\nprint(result)\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[result=Local[Used, Assigned], input_value=GlobalImplicit[Used], print=GlobalImplicit[Used]], children=[]))"
+    },
+    {
+      "name": "assignment anywhere makes a function local",
+      "source": "value = 1\ndef f():\n    print(value)\n    value = 2\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[value=Local[Assigned], f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[], parameters=[], symbols=[print=GlobalImplicit[Used], value=Local[Used, Assigned]], children=[])]))"
+    },
+    {
+      "name": "function parameter forms defaults and annotations",
+      "source": "def f(a, /, b=default, *args, c: Kind=other, **kwargs):\n    return a, b, args, c, kwargs\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[f=Local[Assigned], default=GlobalImplicit[Used], other=GlobalImplicit[Used]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[UsesAnnotations], parameters=[], symbols=[Kind=GlobalImplicit[Used]], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue, VarArgs, VarKeywords], parameters=[\"a\", \"b\", \"args\", \"c\", \"kwargs\"], symbols=[a=Local[Used, Parameter], b=Local[Used, Parameter], args=Local[Used, Parameter], c=Local[Used, Parameter], kwargs=Local[Used, Parameter]], children=[])]))"
+    },
+    {
+      "name": "import bindings",
+      "source": "import package.module\nimport other as alias\nfrom source import value as renamed\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[package=Local[Imported], alias=Local[Imported], renamed=Local[Imported]], children=[]))"
+    },
+    {
+      "name": "loop with and exception bindings",
+      "source": "for item in source:\n    pass\nwith manager as entered:\n    pass\ntry:\n    pass\nexcept Error as caught:\n    result = caught\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[item=Local[Assigned], source=GlobalImplicit[Used], manager=GlobalImplicit[Used], entered=Local[Assigned], Error=GlobalImplicit[Used], caught=Local[Used, Assigned], result=Local[Assigned]], children=[]))"
+    },
+    {
+      "name": "one level closure",
+      "source": "def outer(value):\n    def inner():\n        return value\n    return inner\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[outer=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"outer\", private=\"\", flags=[ReturnsValue], parameters=[\"value\"], symbols=[value=Cell[Parameter], inner=Local[Used, Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"inner\", private=\"\", flags=[Nested, ReturnsValue], parameters=[], symbols=[value=Free[Used]], children=[])])]))"
+    },
+    {
+      "name": "closure through middle function",
+      "source": "def outer():\n    x = 1\n    def middle():\n        def inner():\n            return x\n        return inner\n    return middle\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[outer=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"outer\", private=\"\", flags=[ReturnsValue], parameters=[], symbols=[x=Cell[Assigned], middle=Local[Used, Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"middle\", private=\"\", flags=[Nested, ReturnsValue], parameters=[], symbols=[inner=Local[Used, Assigned], x=Free[]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"inner\", private=\"\", flags=[Nested, ReturnsValue], parameters=[], symbols=[x=Free[Used]], children=[])])])]))"
+    },
+    {
+      "name": "explicit global",
+      "source": "def f():\n    global target\n    target = 1\n    return target\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue], parameters=[], symbols=[target=GlobalExplicit[Used, Assigned, GlobalDeclaration]], children=[])]))"
+    },
+    {
+      "name": "nonlocal closure update",
+      "source": "def outer():\n    count = 0\n    def increment():\n        nonlocal count\n        count += 1\n        return count\n    return increment\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[outer=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"outer\", private=\"\", flags=[ReturnsValue], parameters=[], symbols=[count=Cell[Assigned], increment=Local[Used, Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"increment\", private=\"\", flags=[Nested, ReturnsValue], parameters=[], symbols=[count=Free[Used, Assigned, NonlocalDeclaration]], children=[])])]))"
+    },
+    {
+      "name": "method skips class local",
+      "source": "def outer(x):\n    class C:\n        x = \"class\"\n        def method(self):\n            return x\n    return C\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[outer=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"outer\", private=\"\", flags=[ReturnsValue], parameters=[\"x\"], symbols=[x=Cell[Parameter], C=Local[Used, Assigned]], children=[Class(name=\"C\", private=\"C\", flags=[Nested], parameters=[], symbols=[x=Local[Assigned, FreeThroughClass], method=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"C\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"method\", private=\"C\", flags=[Nested, Method, ReturnsValue], parameters=[\"self\"], symbols=[self=Local[Parameter], x=Free[Used]], children=[])])])]))"
+    },
+    {
+      "name": "zero argument super creates class closure",
+      "source": "class Child(Base):\n    def method(self):\n        return super()\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[Child=Local[Assigned], Base=GlobalImplicit[Used]], children=[Class(name=\"Child\", private=\"Child\", flags=[NeedsClassClosure], parameters=[], symbols=[method=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"Child\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"method\", private=\"Child\", flags=[Method, ReturnsValue], parameters=[\"self\"], symbols=[self=Local[Parameter], super=GlobalImplicit[Used], __class__=Free[Used]], children=[])])]))"
+    },
+    {
+      "name": "class annotation can see class namespace",
+      "source": "class C:\n    Kind = type\n    value: Kind\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[C=Local[Assigned]], children=[Class(name=\"C\", private=\"C\", flags=[NeedsClassDict, UsesAnnotations], parameters=[], symbols=[Kind=Local[Assigned], type=GlobalImplicit[Used], value=Local[Assigned, Annotated]], children=[Annotation(name=\"__annotate__\", private=\"C\", flags=[CanSeeClassScope, UsesAnnotations], parameters=[], symbols=[Kind=GlobalImplicit[Used]], children=[])])]))"
+    },
+    {
+      "name": "private names are rewritten",
+      "source": "class Account:\n    __balance = 0\n    def read(self):\n        return __balance\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[Account=Local[Assigned]], children=[Class(name=\"Account\", private=\"Account\", flags=[], parameters=[], symbols=[_Account__balance=Local[Assigned], read=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"Account\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"read\", private=\"Account\", flags=[Method, ReturnsValue], parameters=[\"self\"], symbols=[self=Local[Parameter], _Account__balance=GlobalImplicit[Used]], children=[])])]))"
+    },
+    {
+      "name": "list comprehension has its own scope",
+      "source": "x = \"outer\"\nvalues = [x for x in source]\nresult = x\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[x=Local[Used, Assigned], values=Local[Assigned], source=GlobalImplicit[Used], result=Local[Assigned]], children=[Function(name=\"listcomp\", private=\"\", flags=[ListComprehension], parameters=[], symbols=[x=Local[Used, Assigned, ComprehensionIterator]], children=[])]))"
+    },
+    {
+      "name": "set dict and generator comprehensions",
+      "source": "unique = {x for x in set_source}\nmapping = {x: y for x, y in pairs}\nstream = (x for x in gen_source)\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[unique=Local[Assigned], set_source=GlobalImplicit[Used], mapping=Local[Assigned], pairs=GlobalImplicit[Used], stream=Local[Assigned], gen_source=GlobalImplicit[Used]], children=[Function(name=\"setcomp\", private=\"\", flags=[SetComprehension], parameters=[], symbols=[x=Local[Used, Assigned, ComprehensionIterator]], children=[]), Function(name=\"dictcomp\", private=\"\", flags=[DictComprehension], parameters=[], symbols=[x=Local[Used, Assigned, ComprehensionIterator], y=Local[Used, Assigned, ComprehensionIterator]], children=[]), Function(name=\"genexpr\", private=\"\", flags=[Generator, GeneratorExpression], parameters=[], symbols=[x=Local[Used, Assigned, ComprehensionIterator]], children=[])]))"
+    },
+    {
+      "name": "comprehension captures function local",
+      "source": "def f(prefix, items):\n    return [prefix + item for item in items]\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue], parameters=[\"prefix\", \"items\"], symbols=[prefix=Cell[Parameter], items=Local[Used, Parameter]], children=[Function(name=\"listcomp\", private=\"\", flags=[Nested, ListComprehension], parameters=[], symbols=[item=Local[Used, Assigned, ComprehensionIterator], prefix=Free[Used]], children=[])])]))"
+    },
+    {
+      "name": "comprehension assignment expression binds outside",
+      "source": "def f(items):\n    values = [last := item for item in items]\n    return last\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue], parameters=[\"items\"], symbols=[items=Local[Used, Parameter], values=Local[Assigned], last=Cell[Used, Assigned]], children=[Function(name=\"listcomp\", private=\"\", flags=[Nested, ListComprehension], parameters=[], symbols=[item=Local[Used, Assigned, ComprehensionIterator], last=Free[Assigned]], children=[])])]))"
+    },
+    {
+      "name": "generator function",
+      "source": "def generate():\n    yield source\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[generate=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"generate\", private=\"\", flags=[Generator], parameters=[], symbols=[source=GlobalImplicit[Used]], children=[])]))"
+    },
+    {
+      "name": "coroutine function",
+      "source": "async def fetch():\n    return await source\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[fetch=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"fetch\", private=\"\", flags=[AsyncFunction, Coroutine, ReturnsValue], parameters=[], symbols=[source=GlobalImplicit[Used]], children=[])]))"
+    },
+    {
+      "name": "asynchronous generator function",
+      "source": "async def generate():\n    yield item\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[generate=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"generate\", private=\"\", flags=[AsyncFunction, Generator, Coroutine], parameters=[], symbols=[item=GlobalImplicit[Used]], children=[])]))"
+    },
+    {
+      "name": "asynchronous generator expression in synchronous function",
+      "source": "def make(source):\n    return (item async for item in source)\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[make=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"make\", private=\"\", flags=[ReturnsValue], parameters=[\"source\"], symbols=[source=Local[Used, Parameter]], children=[Function(name=\"genexpr\", private=\"\", flags=[Nested, Generator, Coroutine, GeneratorExpression], parameters=[], symbols=[item=Local[Used, Assigned, ComprehensionIterator]], children=[])])]))"
+    },
+    {
+      "name": "pattern captures and guard uses",
+      "source": "match subject:\n    case {\"x\": value, **rest} if guard(value):\n        result = value\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[subject=GlobalImplicit[Used], value=Local[Used, Assigned], rest=Local[Assigned], guard=GlobalImplicit[Used], result=Local[Assigned]], children=[]))"
+    },
+    {
+      "name": "type variable bound and default scopes",
+      "source": "def f[T: Bound = Default]():\n    pass\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[f=Local[Assigned]], children=[TypeParameters(name=\"f\", private=\"\", flags=[], parameters=[], symbols=[T=Local[TypeParameter]], children=[TypeVariable(name=\"T\", private=\"\", flags=[Nested], parameters=[], symbols=[Bound=GlobalImplicit[Used]], children=[]), TypeVariable(name=\"T\", private=\"\", flags=[Nested], parameters=[], symbols=[Default=GlobalImplicit[Used]], children=[]), Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[])])]))"
+    },
+    {
+      "name": "generic function annotation captures type parameter",
+      "source": "def identity[T](value: T) -> T:\n    return value\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[identity=Local[Assigned]], children=[TypeParameters(name=\"identity\", private=\"\", flags=[], parameters=[], symbols=[T=Cell[TypeParameter]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested, UsesAnnotations], parameters=[], symbols=[T=Free[Used]], children=[]), Function(name=\"identity\", private=\"\", flags=[Nested, ReturnsValue], parameters=[\"value\"], symbols=[value=Local[Used, Parameter]], children=[])])]))"
+    },
+    {
+      "name": "generic class annotation captures type parameter",
+      "source": "class Box[T](Base[T]):\n    value: T\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[Box=Local[Assigned]], children=[TypeParameters(name=\"Box\", private=\"Box\", flags=[], parameters=[], symbols=[T=Cell[Used, TypeParameter], Base=GlobalImplicit[Used]], children=[Class(name=\"Box\", private=\"Box\", flags=[Nested, NeedsClassDict, UsesAnnotations], parameters=[], symbols=[value=Local[Assigned, Annotated]], children=[Annotation(name=\"__annotate__\", private=\"Box\", flags=[Nested, CanSeeClassScope, UsesAnnotations], parameters=[], symbols=[T=Free[Used]], children=[])])])]))"
+    },
+    {
+      "name": "generic type alias captures type parameter",
+      "source": "type Alias[T] = list[T]\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[Alias=Local[Assigned]], children=[TypeParameters(name=\"Alias\", private=\"\", flags=[], parameters=[], symbols=[T=Cell[TypeParameter]], children=[TypeAlias(name=\"Alias\", private=\"\", flags=[Nested], parameters=[], symbols=[list=GlobalImplicit[Used], T=Free[Used]], children=[])])]))"
+    },
+    {
+      "name": "module annotations share one scope",
+      "source": "value: Kind = initial\nother: Other\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[UsesAnnotations], parameters=[], symbols=[value=Local[Assigned, Annotated], initial=GlobalImplicit[Used], other=Local[Assigned, Annotated]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[UsesAnnotations], parameters=[], symbols=[Kind=GlobalImplicit[Used], Other=GlobalImplicit[Used]], children=[])]))"
+    },
+    {
+      "name": "or pattern alternatives bind the same name",
+      "source": "match subject:\n    case [x] | (x,):\n        result = x\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[subject=GlobalImplicit[Used], x=Local[Used, Assigned], result=Local[Assigned]], children=[]))"
+    },
+    {
+      "name": "future annotations do not resolve annotation names",
+      "source": "from __future__ import annotations\nvalue: Missing\n",
+      "want_table": "Table(features=[FutureAnnotations], root=Module(name=\"top\", private=\"\", flags=[UsesAnnotations], parameters=[], symbols=[value=Local[Assigned, Annotated]], children=[]))"
+    },
+    {
+      "name": "lambda closure and default",
+      "source": "def f(value):\n    return lambda item=default: value + item\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue], parameters=[\"value\"], symbols=[value=Cell[Parameter], default=GlobalImplicit[Used]], children=[Function(name=\"lambda\", private=\"\", flags=[Nested], parameters=[\"item\"], symbols=[item=Local[Used, Parameter], value=Free[Used]], children=[])])]))"
+    },
+    {
+      "name": "ordinary expression traversal",
+      "source": "result = -operand if left < right and enabled else func(obj.attr[lower:upper:step], *items, key=named)\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[result=Local[Assigned], left=GlobalImplicit[Used], right=GlobalImplicit[Used], enabled=GlobalImplicit[Used], operand=GlobalImplicit[Used], func=GlobalImplicit[Used], obj=GlobalImplicit[Used], lower=GlobalImplicit[Used], upper=GlobalImplicit[Used], step=GlobalImplicit[Used], items=GlobalImplicit[Used], named=GlobalImplicit[Used]], children=[]))"
+    },
+    {
+      "name": "display and formatted string traversal",
+      "source": "result = [first, {second}, {\"key\": third, **mapping}, f\"{formatted:{width}}\" \"tail\", (tuple_item,)]\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[result=Local[Assigned], first=GlobalImplicit[Used], second=GlobalImplicit[Used], third=GlobalImplicit[Used], mapping=GlobalImplicit[Used], formatted=GlobalImplicit[Used], width=GlobalImplicit[Used], tuple_item=GlobalImplicit[Used]], children=[]))"
+    },
+    {
+      "name": "recursive targets and simple statements",
+      "source": "left, [right, *rest] = source\ndel removed\nassert condition, message\nraise problem from cause\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[left=Local[Assigned], right=Local[Assigned], rest=Local[Assigned], source=GlobalImplicit[Used], removed=Local[Assigned], condition=GlobalImplicit[Used], message=GlobalImplicit[Used], problem=GlobalImplicit[Used], cause=GlobalImplicit[Used]], children=[]))"
+    },
+    {
+      "name": "module wildcard import",
+      "source": "from module import *\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[], children=[]))"
+    },
+    {
+      "name": "multiple free variables carried in stable order",
+      "source": "def outer():\n    a = 1\n    z = 2\n    def middle():\n        def inner():\n            return z, a\n        return inner\n    return middle\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[outer=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"outer\", private=\"\", flags=[ReturnsValue], parameters=[], symbols=[a=Cell[Assigned], z=Cell[Assigned], middle=Local[Used, Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"middle\", private=\"\", flags=[Nested, ReturnsValue], parameters=[], symbols=[inner=Local[Used, Assigned], a=Free[], z=Free[]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested], parameters=[], symbols=[], children=[]), Function(name=\"inner\", private=\"\", flags=[Nested, ReturnsValue], parameters=[], symbols=[z=Free[Used], a=Free[Used]], children=[])])])]))"
+    }
+  ],
+  "errors": [
+    {
+      "name": "global after use",
+      "source": "def f():\n    print(x)\n    global x\n",
+      "kind": "SyntaxError",
+      "message_contains": "used prior to global declaration"
+    },
+    {
+      "name": "global after assignment",
+      "source": "def f():\n    x = 1\n    global x\n",
+      "kind": "SyntaxError",
+      "message_contains": "assigned before global declaration"
+    },
+    {
+      "name": "parameter declared global",
+      "source": "def f(x):\n    global x\n",
+      "kind": "SyntaxError",
+      "message_contains": "parameter and global"
+    },
+    {
+      "name": "annotated name declared global",
+      "source": "def f():\n    x: int\n    global x\n",
+      "kind": "SyntaxError",
+      "message_contains": "annotated name"
+    },
+    {
+      "name": "nonlocal at module level",
+      "source": "nonlocal value\n",
+      "kind": "SyntaxError",
+      "message_contains": "nonlocal declaration not allowed at module level",
+      "span": {
+        "start": {"line": 1, "column": 0},
+        "end": {"line": 1, "column": 14}
+      }
+    },
+    {
+      "name": "nonlocal without enclosing binding",
+      "source": "def f():\n    nonlocal missing\n",
+      "kind": "SyntaxError",
+      "message_contains": "no binding for nonlocal"
+    },
+    {
+      "name": "nonlocal after use",
+      "source": "def outer():\n    x = 1\n    def inner():\n        print(x)\n        nonlocal x\n",
+      "kind": "SyntaxError",
+      "message_contains": "used prior to nonlocal declaration"
+    },
+    {
+      "name": "nonlocal after assignment",
+      "source": "def outer():\n    x = 1\n    def inner():\n        x = 2\n        nonlocal x\n",
+      "kind": "SyntaxError",
+      "message_contains": "assigned before nonlocal declaration"
+    },
+    {
+      "name": "parameter declared nonlocal",
+      "source": "def outer():\n    x = 1\n    def inner(x):\n        nonlocal x\n",
+      "kind": "SyntaxError",
+      "message_contains": "parameter and nonlocal"
+    },
+    {
+      "name": "annotated name declared nonlocal",
+      "source": "def outer():\n    x = 1\n    def inner():\n        x: int\n        nonlocal x\n",
+      "kind": "SyntaxError",
+      "message_contains": "annotated name"
+    },
+    {
+      "name": "name declared global and nonlocal",
+      "source": "def outer():\n    x = 1\n    def inner():\n        global x\n        nonlocal x\n",
+      "kind": "SyntaxError",
+      "message_contains": "nonlocal and global"
+    },
+    {
+      "name": "nonlocal type parameter",
+      "source": "def outer[T]():\n    def inner():\n        nonlocal T\n",
+      "kind": "SyntaxError",
+      "message_contains": "nonlocal binding not allowed for type parameter"
+    },
+    {
+      "name": "import star inside function",
+      "source": "def f():\n    from module import *\n",
+      "kind": "SyntaxError",
+      "message_contains": "import * only allowed at module level"
+    },
+    {
+      "name": "assign debug constant",
+      "source": "__debug__ = 1\n",
+      "kind": "SyntaxError",
+      "message_contains": "cannot assign to __debug__",
+      "span": {
+        "start": {"line": 1, "column": 0},
+        "end": {"line": 1, "column": 9}
+      }
+    },
+    {
+      "name": "delete debug constant",
+      "source": "del __debug__\n",
+      "kind": "SyntaxError",
+      "message_contains": "cannot delete __debug__"
+    },
+    {
+      "name": "return at module level",
+      "source": "return 1\n",
+      "kind": "SyntaxError",
+      "message_contains": "return outside function",
+      "span": {
+        "start": {"line": 1, "column": 0},
+        "end": {"line": 1, "column": 8}
+      }
+    },
+    {
+      "name": "return inside class",
+      "source": "class C:\n    return 1\n",
+      "kind": "SyntaxError",
+      "message_contains": "return outside function"
+    },
+    {
+      "name": "break at module level",
+      "source": "break\n",
+      "kind": "SyntaxError",
+      "message_contains": "break outside loop"
+    },
+    {
+      "name": "continue at module level",
+      "source": "continue\n",
+      "kind": "SyntaxError",
+      "message_contains": "continue not properly in loop"
+    },
+    {
+      "name": "break in function nested in loop",
+      "source": "while True:\n    def f():\n        break\n",
+      "kind": "SyntaxError",
+      "message_contains": "break outside loop"
+    },
+    {
+      "name": "continue in function nested in loop",
+      "source": "while True:\n    def f():\n        continue\n",
+      "kind": "SyntaxError",
+      "message_contains": "continue not properly in loop"
+    },
+    {
+      "name": "return inside exception group handler",
+      "source": "def f():\n    try:\n        pass\n    except* Error:\n        return\n",
+      "kind": "SyntaxError",
+      "message_contains": "cannot appear in an except* block"
+    },
+    {
+      "name": "break inside exception group handler",
+      "source": "def f():\n    while True:\n        try:\n            pass\n        except* Error:\n            break\n",
+      "kind": "SyntaxError",
+      "message_contains": "cannot appear in an except* block"
+    },
+    {
+      "name": "continue inside exception group handler",
+      "source": "def f():\n    while True:\n        try:\n            pass\n        except* Error:\n            continue\n",
+      "kind": "SyntaxError",
+      "message_contains": "cannot appear in an except* block"
+    },
+    {
+      "name": "yield at module level",
+      "source": "yield 1\n",
+      "kind": "SyntaxError",
+      "message_contains": "yield outside function"
+    },
+    {
+      "name": "yield inside class",
+      "source": "class C:\n    yield 1\n",
+      "kind": "SyntaxError",
+      "message_contains": "yield outside function"
+    },
+    {
+      "name": "yield inside list comprehension",
+      "source": "def f():\n    return [(yield x) for x in values]\n",
+      "kind": "SyntaxError",
+      "message_contains": "yield inside list comprehension"
+    },
+    {
+      "name": "yield from inside async function",
+      "source": "async def f():\n    yield from source\n",
+      "kind": "SyntaxError",
+      "message_contains": "yield from inside async function"
+    },
+    {
+      "name": "return value inside async generator",
+      "source": "async def f():\n    yield 1\n    return 2\n",
+      "kind": "SyntaxError",
+      "message_contains": "return with value in async generator"
+    },
+    {
+      "name": "await at module level",
+      "source": "await value\n",
+      "kind": "SyntaxError",
+      "message_contains": "await outside function"
+    },
+    {
+      "name": "await inside synchronous function",
+      "source": "def f():\n    return await value\n",
+      "kind": "SyntaxError",
+      "message_contains": "await outside async function"
+    },
+    {
+      "name": "async with inside synchronous function",
+      "source": "def f():\n    async with manager:\n        pass\n",
+      "kind": "SyntaxError",
+      "message_contains": "async with outside async function"
+    },
+    {
+      "name": "async for inside synchronous function",
+      "source": "def f():\n    async for item in source:\n        pass\n",
+      "kind": "SyntaxError",
+      "message_contains": "async for outside async function"
+    },
+    {
+      "name": "async list comprehension inside synchronous function",
+      "source": "def f():\n    return [item async for item in source]\n",
+      "kind": "SyntaxError",
+      "message_contains": "asynchronous comprehension outside of an asynchronous function"
+    },
+    {
+      "name": "assignment expression in comprehension iterable",
+      "source": "[item for item in (source := values)]\n",
+      "kind": "SyntaxError",
+      "message_contains": "assignment expression cannot be used in a comprehension iterable expression"
+    },
+    {
+      "name": "assignment expression rebinds comprehension target",
+      "source": "[(item := 1) for item in values]\n",
+      "kind": "SyntaxError",
+      "message_contains": "assignment expression cannot rebind comprehension iteration variable"
+    },
+    {
+      "name": "assignment expression in class comprehension",
+      "source": "class C:\n    values = [(last := item) for item in source]\n",
+      "kind": "SyntaxError",
+      "message_contains": "assignment expression within a comprehension cannot be used in a class body"
+    },
+    {
+      "name": "assignment expression in type alias comprehension",
+      "source": "type Alias = [(last := item) for item in source]\n",
+      "kind": "SyntaxError",
+      "message_contains": "assignment expression within a comprehension cannot be used in a type alias"
+    },
+    {
+      "name": "assignment expression in type variable bound",
+      "source": "def f[T: [(last := item) for item in source]]():\n    pass\n",
+      "kind": "SyntaxError",
+      "message_contains": "assignment expression within a comprehension cannot be used in a TypeVar bound"
+    },
+    {
+      "name": "assignment expression inside annotation",
+      "source": "value: (other := Kind)\n",
+      "kind": "SyntaxError",
+      "message_contains": "named expression cannot be used within an annotation"
+    },
+    {
+      "name": "duplicate pattern capture",
+      "source": "match subject:\n    case [x, x]:\n        pass\n",
+      "kind": "SyntaxError",
+      "message_contains": "multiple assignments to name"
+    },
+    {
+      "name": "or pattern binds different names",
+      "source": "match subject:\n    case [x] | [y]:\n        pass\n",
+      "kind": "SyntaxError",
+      "message_contains": "alternative patterns bind different names"
+    },
+    {
+      "name": "capture makes later or pattern unreachable",
+      "source": "match subject:\n    case x | 1:\n        pass\n",
+      "kind": "SyntaxError",
+      "message_contains": "name capture"
+    },
+    {
+      "name": "wildcard makes later or pattern unreachable",
+      "source": "match subject:\n    case _ | 1:\n        pass\n",
+      "kind": "SyntaxError",
+      "message_contains": "wildcard makes remaining patterns unreachable"
+    },
+    {
+      "name": "future import after statement",
+      "source": "value = 1\nfrom __future__ import annotations\n",
+      "kind": "SyntaxError",
+      "message_contains": "future imports must occur at the beginning"
+    },
+    {
+      "name": "unknown future feature",
+      "source": "from __future__ import unknown_feature\n",
+      "kind": "SyntaxError",
+      "message_contains": "future feature unknown_feature is not defined"
+    },
+    {
+      "name": "global declaration before annotation",
+      "source": "def f():\n    global x\n    x: int\n",
+      "kind": "SyntaxError",
+      "message_contains": "annotated name"
+    },
+    {
+      "name": "nonlocal declaration before annotation",
+      "source": "def outer():\n    x = 1\n    def inner():\n        nonlocal x\n        x: int\n",
+      "kind": "SyntaxError",
+      "message_contains": "annotated name"
+    },
+    {
+      "name": "comprehension inner loop rebinds assignment target",
+      "source": "[item for item in source if (target := item) for target in other]\n",
+      "kind": "SyntaxError",
+      "message_contains": "inner loop cannot rebind assignment expression target"
+    },
+    {
+      "name": "debug constant parameter",
+      "source": "def f(__debug__):\n    pass\n",
+      "kind": "SyntaxError",
+      "message_contains": "cannot assign to __debug__"
+    }
+  ]
+}
