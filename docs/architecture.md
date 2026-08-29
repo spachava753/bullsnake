@@ -433,7 +433,7 @@ stack, but a Python-to-Python call will remain in the iterative dispatcher.
 The runtime has a sealed internal `Value` interface. Immutable singleton
 objects represent `None`, both booleans, and ellipsis. Heap-backed objects
 represent arbitrary-precision integers, binary64 floats, complex numbers,
-strings, bytes, fixed tuples and lists, dictionaries, sets, slices, sequence
+strings, bytes, fixed tuples and lists, dictionaries, sets, slices, collection
 iterators, and Python exceptions. Every live reference remains in a typed
 pointer or interface visible to Go's collector. Module bindings use a temporary
 string-keyed namespace; Python dictionaries use their own value type and
@@ -442,11 +442,12 @@ insertion-ordered entries.
 The current object operations cover fixed scalar truth, numeric unary
 operators, selected arbitrary-precision integer binary operators, scalar and
 tuple equality, object identity, fixed and starred tuple/list construction and
-unpacking, tuple/list iteration and subscription, fixed and unpacked dictionary
-displays, fixed and starred set displays, dictionary subscription and item
-mutation, and tuple/list/dict/set membership. Dictionary key and set element
-matching are linear until user-defined hash and equality protocols justify hash
-tables.
+unpacking, tuple/list/dictionary/set iteration, tuple/list subscription, fixed
+and unpacked dictionary displays, fixed and starred set displays, dictionary
+subscription and item mutation, and tuple/list/dict/set membership. Dictionary
+key and set element matching are linear until user-defined hash and equality
+protocols justify hash tables. Dictionary iterators detect key insertion and
+deletion while allowing value replacement.
 Later user-defined protocols must reuse the VM's outcome and exception paths.
 
 The object model can become the largest compatibility component, so it should

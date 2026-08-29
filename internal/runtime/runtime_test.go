@@ -445,6 +445,64 @@ func TestForLoops(t *testing.T) {
 	}
 }
 
+func TestHashContainerLoops(t *testing.T) {
+	code := compileSource(t, "mapping = {'first': 1, 'second': 2}\n"+
+		"mapping_total = 0\n"+
+		"mapping_position = 1\n"+
+		"mapping_order = 0\n"+
+		"for key in mapping:\n"+
+		"    mapping_total = mapping_total + mapping[key]\n"+
+		"    if key == 'first':\n"+
+		"        mapping_order = mapping_order + mapping_position\n"+
+		"    else:\n"+
+		"        mapping_order = mapping_order + mapping_position * 10\n"+
+		"    mapping_position = mapping_position + 1\n"+
+		"else:\n"+
+		"    mapping_complete = True\n"+
+		"set_total = 0\n"+
+		"set_count = 0\n"+
+		"for value in {3, 1, 2, 1}:\n"+
+		"    set_total = set_total + value\n"+
+		"    set_count = set_count + 1\n"+
+		"for absent in {*()}:\n"+
+		"    missing\n"+
+		"else:\n"+
+		"    empty_complete = True\n"+
+		"pairs = {(4, 5): 1, (6, 7): 2}\n"+
+		"pair_total = 0\n"+
+		"for left, right in pairs:\n"+
+		"    pair_total = pair_total + left + right\n"+
+		"for key in mapping:\n"+
+		"    mapping[key] = mapping[key] + 10\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("collection iteration", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"mapping":          "{'first': 11, 'second': 12}",
+		"mapping_total":    "3",
+		"mapping_order":    "21",
+		"mapping_complete": "True",
+		"set_total":        "6",
+		"set_count":        "3",
+		"empty_complete":   "True",
+		"pair_total":       "22",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+	if _, ok := module.Get("absent"); ok {
+		t.Fatal("empty set iteration assigned its target")
+	}
+}
+
 func TestComparisons(t *testing.T) {
 	code := compileSource(t, "equal = 2 == 2\n"+
 		"not_equal = 2 != 3\n"+
@@ -1135,6 +1193,31 @@ func TestPythonExceptions(t *testing.T) {
 			source:      "answer = None[0]\n",
 			wantType:    "TypeError",
 			wantMessage: "'NoneType' object is not subscriptable",
+		},
+		{
+			name: "dictionary insertion during iteration",
+			source: "mapping = {'first': 1}\n" +
+				"for key in mapping:\n" +
+				"    mapping['second'] = 2\n",
+			wantType:    "RuntimeError",
+			wantMessage: "dictionary changed size during iteration",
+		},
+		{
+			name: "dictionary deletion during iteration",
+			source: "mapping = {'first': 1, 'second': 2}\n" +
+				"for key in mapping:\n" +
+				"    del mapping['second']\n",
+			wantType:    "RuntimeError",
+			wantMessage: "dictionary changed size during iteration",
+		},
+		{
+			name: "dictionary keys replaced during iteration",
+			source: "mapping = {'first': 1, 'second': 2}\n" +
+				"for key in mapping:\n" +
+				"    del mapping['second']\n" +
+				"    mapping['third'] = 3\n",
+			wantType:    "RuntimeError",
+			wantMessage: "dictionary keys changed during iteration",
 		},
 		{
 			name:        "non-iterable for loop",

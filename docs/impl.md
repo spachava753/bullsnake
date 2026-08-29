@@ -434,7 +434,7 @@ The initial sealed `Value` interface keeps every Python reference in a typed Go
 interface or pointer. Process-wide immutable singletons represent `None`,
 `False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
 precision integers, binary64 floats, complex values, strings, bytes, tuples,
-lists, dictionaries, sets, slices, sequence iterators, and exceptions. Code
+lists, dictionaries, sets, slices, collection iterators, and exceptions. Code
 preparation materializes each constant once per runtime and code object. String
 objects accept UTF-8 plus the compiler's deliberate WTF-8 encoding for lone
 surrogates; bytes objects retain arbitrary payloads. Stable representations
@@ -444,10 +444,11 @@ Fixed tuple and list displays consume their elements in source order and
 allocate heap-backed sequence values. Exact and starred unpacking arrange stack
 values so nested assignment targets store left to right. Arity mismatches raise
 `ValueError`; other values raise `TypeError`. Tuple and list truth depends on
-length. Their iterators retain the source sequence, yield its elements in order,
-and leave the operand stack on normal exhaustion. The current `for`
-implementation accepts only tuples and lists. Integer and boolean subscription
-returns the existing element and normalizes negative indexes. Slice
+length. Their iterators retain the source sequence and yield its elements in
+order. Dictionary iterators yield keys in insertion order, while set iterators
+yield the runtime's stable first-seen order. Every iterator remains beneath the
+loop body stack and is removed on normal exhaustion. Integer and boolean
+subscription returns the existing element and normalizes negative indexes. Slice
 subscription clips arbitrary-size integer or boolean bounds, supports positive
 and negative steps, reuses a tuple for a complete unit-step slice, and always
 allocates a list result. Starred displays append ordinary values and extend from
@@ -467,16 +468,18 @@ key's representation; membership returns a boolean for present or missing keys.
 Item assignment uses the same key matching as display
 construction. Deletion removes the entry without disturbing later entries;
 reinsertion appends it. Missing deletion keys raise `KeyError`. Dictionary truth
-depends on entry count. A later object-model slice can replace the linear
-storage after user-defined hash and equality protocols exist. Sequence item
-mutation, string and bytes subscription, general set iteration and mutation,
-and cyclic representations are not implemented.
+depends on entry count. Iterators snapshot the entry count and key version.
+Replacing values during iteration is valid. Inserting or deleting keys raises
+`RuntimeError` on the next iteration step, including same-size key replacement.
+A later object-model slice can replace the linear storage after user-defined
+hash and equality protocols exist. Sequence item mutation, string and bytes
+subscription, set mutation, and cyclic representations are not implemented.
 
 Set values keep first-seen elements in an ordered slice and use the same
 identity, equality, and recursive hashability rules as dictionary keys. Fixed
 and starred displays support current tuple, list, and set iterables. Empty sets
-render as `set()`. Nonempty set representations use first-seen order as a stable
-Bullsnake testing contract; Python does not guarantee set representation order.
+render as `set()`. Nonempty representations and iteration use first-seen order
+as a stable Bullsnake testing contract; Python guarantees neither order.
 Membership uses the same element validation and identity-or-equality matching.
 Set truth depends on element count.
 

@@ -9,6 +9,7 @@ type dictEntry struct {
 
 type dictValue struct {
 	entries []dictEntry
+	version uint64
 }
 
 func (*dictValue) TypeName() string { return "dict" }
@@ -40,6 +41,7 @@ func (dictionary *dictValue) set(key, value Value) *Exception {
 		}
 	}
 	dictionary.entries = append(dictionary.entries, dictEntry{key: key, value: value})
+	dictionary.version++
 	return nil
 }
 
@@ -67,6 +69,7 @@ func (dictionary *dictValue) delete(key Value) (bool, *Exception) {
 		last := len(dictionary.entries) - 1
 		dictionary.entries[last] = dictEntry{}
 		dictionary.entries = dictionary.entries[:last]
+		dictionary.version++
 		return true, nil
 	}
 	return false, nil
@@ -86,7 +89,7 @@ func validateDictKey(key Value) *Exception {
 func unhashableComponent(value Value) (string, bool) {
 	switch value := value.(type) {
 	case *noneValue, *boolValue, *intValue, *floatValue, *complexValue,
-		*stringValue, *bytesValue, *ellipsisValue, *Exception, *sequenceIterator:
+		*stringValue, *bytesValue, *ellipsisValue, *Exception, valueIterator:
 		return "", false
 	case *tupleValue:
 		for _, element := range value.elements {
