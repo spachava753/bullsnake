@@ -434,8 +434,11 @@ preserve exact strings through empty formatting, and join compiler-selected
 components in source order. `FORMAT_WITH_SPEC` accepts an empty specification
 for every current value. Strings additionally support one-code-point fill,
 left, right, or center alignment, decimal width, code-point precision, and the
-optional `s` type. Numeric format codes and custom `__format__` dispatch remain
-unsupported.
+optional `s` type. Arbitrary-precision integers and booleans support sign and
+alternate prefixes, zero or custom fill, all four alignments, comma or
+underscore grouping, nested widths, character conversion, and `b`, `d`, `o`,
+`x`, or `X` presentation. Float-style integer presentations, locale-aware `n`,
+and custom `__format__` dispatch remain unsupported.
 
 A heap-allocated frame contains prepared code, the next instruction index, a
 preallocated operand stack, indexed fast locals, an ordered cell/free-variable

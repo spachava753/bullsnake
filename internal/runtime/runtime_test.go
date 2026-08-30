@@ -987,6 +987,64 @@ func TestSpecifiedStringFormatting(t *testing.T) {
 	}
 }
 
+func TestFormattedIntegers(t *testing.T) {
+	code := compileSource(t, "value = 42\n"+
+		"negative = -42\n"+
+		"width = 10\n"+
+		"decimal = f'{value:d}'\n"+
+		"signed_zero = f'{value:+06d}'\n"+
+		"negative_zero = f'{negative:06d}'\n"+
+		"hexadecimal = f'{value:#06x}'\n"+
+		"upper_hex = f'{value:#06X}'\n"+
+		"binary = f'{value:#010b}'\n"+
+		"octal = f'{value:#06o}'\n"+
+		"left = f'{value:*<6d}'\n"+
+		"center = f'{value:*^7d}'\n"+
+		"equal = f'{negative:*=7d}'\n"+
+		"grouped = f'{1000000:,}'\n"+
+		"grouped_zero = f'{1000:010,}'\n"+
+		"grouped_hex = f'{0x12345678:_x}'\n"+
+		"unicode_pad = f'{value:🐍>5d}'\n"+
+		"huge_hex = f'{0x123456789abcdef0123456789abcdef:X}'\n"+
+		"nested = f'{value:#0{width}x}'\n"+
+		"character = f'{65:c}'\n"+
+		"boolean = f'{True:d}'\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("integer_formats", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"decimal":       "'42'",
+		"signed_zero":   "'+00042'",
+		"negative_zero": "'-00042'",
+		"hexadecimal":   "'0x002a'",
+		"upper_hex":     "'0X002A'",
+		"binary":        "'0b00101010'",
+		"octal":         "'0o0052'",
+		"left":          "'42****'",
+		"center":        "'**42***'",
+		"equal":         "'-****42'",
+		"grouped":       "'1,000,000'",
+		"grouped_zero":  "'00,001,000'",
+		"grouped_hex":   "'1234_5678'",
+		"unicode_pad":   "'🐍🐍🐍42'",
+		"huge_hex":      "'123456789ABCDEF0123456789ABCDEF'",
+		"nested":        "'0x0000002a'",
+		"character":     "'A'",
+		"boolean":       "'1'",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -2061,6 +2119,24 @@ func TestPythonExceptions(t *testing.T) {
 				"clear()\n",
 			wantType:    "NameError",
 			wantMessage: "name 'absent' is not defined",
+		},
+		{
+			name:        "integer precision",
+			source:      "value = f'{1:.2d}'\n",
+			wantType:    "ValueError",
+			wantMessage: "Precision not allowed in integer format specifier",
+		},
+		{
+			name:        "unknown integer format code",
+			source:      "value = f'{1:q}'\n",
+			wantType:    "ValueError",
+			wantMessage: "Unknown format code 'q' for object of type 'int'",
+		},
+		{
+			name:        "integer character range",
+			source:      "value = f'{-1:c}'\n",
+			wantType:    "OverflowError",
+			wantMessage: "%c arg not in range(0x110000)",
 		},
 		{
 			name:        "string sign option",

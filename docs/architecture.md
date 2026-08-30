@@ -431,8 +431,12 @@ non-ASCII code point in that representation. Empty formatting preserves an
 exact string, and `BUILD_STRING` joins only verified string pieces. String
 format specifications support one-code-point fill, left, right, or center
 alignment, decimal width, code-point precision, and the optional `s` type.
-Numeric formatting and user-defined `__format__` dispatch require later value-
-type slices.
+Arbitrary-precision integers and booleans keep sign and base prefixes separate
+from their digits, so zero and `=` padding occur after those prefixes. They
+support binary, character, decimal, octal, and hexadecimal presentation plus
+comma or underscore grouping. Float-style integer presentation, locale-aware
+formatting, and user-defined `__format__` dispatch require later value-type
+slices.
 
 `MAKE_FUNCTION` captures one prepared child and its defining global namespace.
 `CALL` reads inline positional arguments. `CALL_EX` reads a compiler-built
