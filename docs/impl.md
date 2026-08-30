@@ -21,7 +21,7 @@ execute every instruction. Each stage rejects behavior it does not yet own.
 | Resolver | Name scopes, closures, contextual checks, annotations, generics, and comprehensions |
 | Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
 | Runtime | Modules, values, collections, functions, basic classes, and structured exceptions |
-| Imports | Dotted host modules and flat `.py` files from configured roots |
+| Imports | Regular packages and modules from configured filesystem roots |
 | Go API, standard library, async, and REPL | Not implemented |
 
 The parser and resolver intentionally cover more language forms than the
@@ -309,12 +309,13 @@ A module has one string-keyed namespace used as both locals and globals.
 the same object and namespace, including names assigned during partial
 initialization.
 
-`NewWithLoader` accepts a `ModuleLoader` callback. Each result is a `ModuleSpec`
-with immutable code, a package flag, an optional origin, and package search
-locations. A cache miss prepares the complete returned code tree, creates the
-module, and switches the existing dispatch loop to a module frame. Normal
-return leaves the module cached. Repeated and circular imports reuse that
-identity without another loader call.
+`NewWithLoader` accepts a `ModuleLoader` callback. A `ModuleRequest` carries the
+absolute name and, for a child, a copy of its parent package's search locations.
+Each result is a `ModuleSpec` with immutable code, a package flag, an optional
+origin, and package search locations. A cache miss prepares the complete
+returned code tree, creates the module, and switches the existing dispatch loop
+to a module frame. Normal return leaves the module cached. Repeated and circular
+imports reuse that identity without another loader call.
 
 A dotted absolute import loads its prefixes in order. Every intermediate module
 must be a package. After a child returns, the runtime publishes it on its parent
@@ -331,24 +332,25 @@ removes every module frame still initializing. An explicit `ExecuteModule`
 failure restores any older module that the execution temporarily replaced.
 
 `internal/importer.FileSystem` implements the callback contract while keeping
-source decoding and compilation outside `internal/runtime`. It currently
-searches configured roots in order for a flat `name.py`, uses the ordinary
-source loader, parser, resolver, and compiler, and preserves typed frontend
-errors under a module-loading wrapper.
+source decoding and compilation outside `internal/runtime`. It searches roots
+in order. At each location it prefers `name/__init__.py` over `name.py`.
+Submodule requests search only the locations retained from the parent package's
+specification. Found files use the ordinary source loader, parser, resolver, and
+compiler, and preserve typed frontend errors under a module-loading wrapper.
 
 A missing callback, missing file, or missing callback result raises
 `ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
-until the runtime has the corresponding Python exception values. Filesystem
-package discovery, relative imports, from-list submodule fallback,
-`sys.modules`, `__all__`, finder and loader hooks, reload, import locks, and a
-standard library remain unimplemented.
+until the runtime has the corresponding Python exception values. Namespace
+packages, relative imports, from-list submodule fallback, dynamic `__path__`
+changes, `sys.modules`, `__all__`, finder and loader hooks, reload, import locks,
+and a standard library remain unimplemented.
 
 ## Deliberate boundaries
 
 The largest current gaps are:
 
 - no public Go embedding or extension API
-- no filesystem package discovery, standard library, or native extension loading
+- no namespace packages, standard library, or native extension loading
 - no generators, coroutines, async execution, or Python threads
 - no comprehensions, context-manager execution, or structural matching
 - no complete Python object protocol, descriptors, user hashing, or multiple

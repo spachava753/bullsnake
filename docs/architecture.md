@@ -236,13 +236,15 @@ reuse one object. Because the cache entry exists before execution, circular
 imports see the names assigned so far. If execution fails, the runtime removes
 only that module; dependencies that finished successfully remain cached.
 
-The first filesystem loader searches configured roots for a flat `name.py`,
-decodes and compiles the file outside the runtime, and returns its module
-description. A later slice will make that loader find package directories.
-Source modules and statically linked Go modules should enter through the same
-runtime loading path. Relative names, Python-visible `sys.modules`, advanced
-`importlib` hooks, zip imports, reload, and bytecode caches should be added only
-when package tests require their observable behavior.
+The filesystem loader searches configured roots for top-level modules and
+regular packages. Within one location it prefers `name/__init__.py` over
+`name.py`. Child lookup uses the parent package's recorded search locations
+rather than restarting at global roots. The loader decodes and compiles files
+outside the runtime. Source modules and statically linked Go modules should
+enter through the same runtime loading path. Namespace packages, relative
+names, Python-visible `sys.modules`, advanced `importlib` hooks, zip imports,
+reload, and bytecode caches should be added only when package tests require
+their observable behavior.
 
 ## Go embedding and extensions
 
@@ -372,7 +374,7 @@ The project still needs concrete decisions about:
 - the first package compatibility set
 - the first standard-library modules needed by that set
 - the public Go embedding and extension API
-- filesystem and package import loading
+- namespace-package and extended import-hook behavior
 - generator, coroutine, and scheduler behavior
 - the first Python threading subset and execution-token policy
 - whether weak references are needed

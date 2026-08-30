@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
@@ -14,8 +15,15 @@ type ModuleSpec struct {
 	SearchLocations []string
 }
 
+// ModuleRequest names a module and the parent package locations that may
+// contain it. SearchLocations is nil for a top-level import.
+type ModuleRequest struct {
+	Name            string
+	SearchLocations []string
+}
+
 // ModuleLoader finds one absolute module description.
-type ModuleLoader func(name string) (spec ModuleSpec, found bool, err error)
+type ModuleLoader func(request ModuleRequest) (spec ModuleSpec, found bool, err error)
 
 // Runtime owns mutable interpreter state shared by executions in one isolated
 // Python runtime instance.
@@ -115,7 +123,16 @@ func (runtime *Runtime) newModuleFrame(
 		}
 		globals.values["__path__"] = &listValue{elements: locations}
 	}
-	module := &Module{name: name, globals: globals, isPackage: spec.IsPackage}
+	searchLocations := slices.Clone(spec.SearchLocations)
+	if spec.IsPackage && searchLocations == nil {
+		searchLocations = make([]string, 0)
+	}
+	module := &Module{
+		name:            name,
+		globals:         globals,
+		isPackage:       spec.IsPackage,
+		searchLocations: searchLocations,
+	}
 	fastLocals := make([]Value, len(prepared.locals))
 	deref, ok := initializeDeref(prepared, fastLocals, nil)
 	if !ok {

@@ -1,6 +1,9 @@
 package runtime
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // executeImportName validates compiler-supplied operands, then resumes or
 // starts the ordered loading of one absolute module path.
@@ -95,7 +98,11 @@ func advanceImport(
 		if frame.runtime.loader == nil {
 			return missingModuleOutcome(name), nil
 		}
-		spec, found, err := frame.runtime.loader(name)
+		loadRequest := ModuleRequest{Name: name}
+		if parent != nil {
+			loadRequest.SearchLocations = slices.Clone(parent.searchLocations)
+		}
+		spec, found, err := frame.runtime.loader(loadRequest)
 		if err != nil {
 			return instructionOutcome{}, err
 		}

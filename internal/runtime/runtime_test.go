@@ -170,7 +170,8 @@ func TestLoadedModuleIdentity(t *testing.T) {
 		"helper":  "value = 40\n",
 		"library": "import helper\nvalue = helper.value + 2\n",
 	}
-	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
+	loader := bullruntime.ModuleLoader(func(request bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+		name := request.Name
 		source, found := sources[name]
 		if !found {
 			return bullruntime.ModuleSpec{}, false, nil
@@ -204,7 +205,8 @@ func TestLoadedModuleIdentity(t *testing.T) {
 
 func TestCircularModuleInitialization(t *testing.T) {
 	loads := make(map[string]int)
-	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
+	loader := bullruntime.ModuleLoader(func(request bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+		name := request.Name
 		loads[name]++
 		if name != "beta" {
 			return bullruntime.ModuleSpec{}, false, nil
@@ -235,7 +237,8 @@ func TestFailedModuleInitialization(t *testing.T) {
 		"side":   "value = 1\n",
 		"broken": "import side\nraise ValueError('boom')\n",
 	}
-	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
+	loader := bullruntime.ModuleLoader(func(request bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+		name := request.Name
 		source, found := sources[name]
 		if !found {
 			return bullruntime.ModuleSpec{}, false, nil
@@ -271,7 +274,8 @@ func TestFailedModuleInitialization(t *testing.T) {
 
 func TestLoaderHostFailure(t *testing.T) {
 	loadFailure := errors.New("module storage unavailable")
-	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
+	loader := bullruntime.ModuleLoader(func(request bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+		name := request.Name
 		switch name {
 		case "bridge":
 			return bullruntime.ModuleSpec{
@@ -300,10 +304,14 @@ func TestLoaderHostFailure(t *testing.T) {
 
 func TestDottedImports(t *testing.T) {
 	loads := make(map[string]int)
-	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
+	loader := bullruntime.ModuleLoader(func(request bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+		name := request.Name
 		loads[name]++
 		switch name {
 		case "package":
+			if request.SearchLocations != nil {
+				t.Fatalf("top-level search locations = %v, want nil", request.SearchLocations)
+			}
 			return bullruntime.ModuleSpec{
 				Code:            compileSource(t, "marker = 'root'\n"),
 				IsPackage:       true,
@@ -311,6 +319,9 @@ func TestDottedImports(t *testing.T) {
 				SearchLocations: []string{"/modules/package"},
 			}, true, nil
 		case "package.child":
+			if len(request.SearchLocations) != 1 || request.SearchLocations[0] != "/modules/package" {
+				t.Fatalf("child search locations = %v, want package path", request.SearchLocations)
+			}
 			return bullruntime.ModuleSpec{
 				Code:   compileSource(t, "value = 42\n"),
 				Origin: "/modules/package/child.py",
@@ -358,7 +369,8 @@ func TestDottedImports(t *testing.T) {
 
 func TestNonPackageImportParent(t *testing.T) {
 	loads := make(map[string]int)
-	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
+	loader := bullruntime.ModuleLoader(func(request bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+		name := request.Name
 		loads[name]++
 		if name == "plain" {
 			return bullruntime.ModuleSpec{Code: compileSource(t, "value = 1\n")}, true, nil

@@ -27,28 +27,69 @@ func NewFileSystem(roots ...string) *FileSystem {
 	return &FileSystem{roots: slices.Clone(roots)}
 }
 
-// Load finds and compiles name.py. A false result means no configured root
-// contains the requested flat module.
-func (loader *FileSystem) Load(name string) (bullruntime.ModuleSpec, bool, error) {
-	if name == "" || strings.Contains(name, ".") || strings.ContainsAny(name, `/\\`) {
+// Load finds and compiles a regular package or source module under the first
+// configured root that contains it.
+func (loader *FileSystem) Load(request bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+	name := request.Name
+	if name == "" || strings.ContainsAny(name, `/\\`) {
 		return bullruntime.ModuleSpec{}, false, nil
 	}
-	for _, root := range loader.roots {
-		filename := filepath.Join(root, name+".py")
-		unit, err := source.ReadFile(filename)
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
+	parts := strings.Split(name, ".")
+	for _, part := range parts {
+		if part == "" {
+			return bullruntime.ModuleSpec{}, false, nil
 		}
+	}
+	roots := loader.roots
+	relative := filepath.Join(parts...)
+	if request.SearchLocations != nil {
+		roots = request.SearchLocations
+		relative = parts[len(parts)-1]
+	}
+	for _, root := range roots {
+		packageFile := filepath.Join(root, relative, "__init__.py")
+		unit, found, err := readUnit(packageFile)
 		if err != nil {
 			return bullruntime.ModuleSpec{}, true, fmt.Errorf("load module %q: %w", name, err)
 		}
-		code, err := compileUnit(unit)
-		if err != nil {
-			return bullruntime.ModuleSpec{}, true, fmt.Errorf("compile module %q: %w", name, err)
+		if found {
+			code, err := compileUnit(unit)
+			if err != nil {
+				return bullruntime.ModuleSpec{}, true, fmt.Errorf("compile module %q: %w", name, err)
+			}
+			return bullruntime.ModuleSpec{
+				Code:            code,
+				IsPackage:       true,
+				Origin:          packageFile,
+				SearchLocations: []string{filepath.Dir(packageFile)},
+			}, true, nil
 		}
-		return bullruntime.ModuleSpec{Code: code, Origin: filename}, true, nil
+
+		moduleFile := filepath.Join(root, relative+".py")
+		unit, found, err = readUnit(moduleFile)
+		if err != nil {
+			return bullruntime.ModuleSpec{}, true, fmt.Errorf("load module %q: %w", name, err)
+		}
+		if found {
+			code, err := compileUnit(unit)
+			if err != nil {
+				return bullruntime.ModuleSpec{}, true, fmt.Errorf("compile module %q: %w", name, err)
+			}
+			return bullruntime.ModuleSpec{Code: code, Origin: moduleFile}, true, nil
+		}
 	}
 	return bullruntime.ModuleSpec{}, false, nil
+}
+
+func readUnit(filename string) (source.Unit, bool, error) {
+	unit, err := source.ReadFile(filename)
+	if errors.Is(err, fs.ErrNotExist) {
+		return source.Unit{}, false, nil
+	}
+	if err != nil {
+		return source.Unit{}, false, err
+	}
+	return unit, true, nil
 }
 
 func compileUnit(unit source.Unit) (*bytecode.Code, error) {
