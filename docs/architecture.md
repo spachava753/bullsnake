@@ -35,8 +35,8 @@ implementation substantially simpler.
 These decisions guide the implementation:
 
 1. Use Python 3.14 as the reference version for syntax and selected runtime
-   behavior. Maintain an explicit feature manifest instead of claiming full
-   Python 3.14 compatibility.
+   behavior. Document the supported subset instead of claiming full Python 3.14
+   compatibility.
 2. Prefer familiar Python semantics for supported features. Permit deliberate,
    documented divergences when they avoid a pitfall or remove complexity that
    does not serve the package corpus.
@@ -145,11 +145,11 @@ behavior exposes CPython internals, depends on reference counting, creates a
 common correctness trap, or adds substantial complexity for little practical
 value.
 
-Every intentional divergence must appear in the implementation notes. Once the
-feature manifest exists, it must record the divergence too. User-facing behavior
-and tests must cover it. Unsupported features should fail at parse time, import
-time, or the narrowest practical runtime boundary. Bullsnake must not silently
-accept a feature and produce subtly incorrect results.
+Every intentional divergence must appear in the implementation notes and
+user-facing documentation, and tests must cover it. Unsupported features should
+fail at parse time, import time, or the narrowest practical runtime boundary.
+Bullsnake must not silently accept a feature and produce subtly incorrect
+results.
 
 Examples of acceptable omissions include `dis`, `gc`, reference-count APIs,
 CPython bytecode caches, C extension loading, and exact finalizer timing. Other
@@ -162,9 +162,7 @@ desire to redesign Python.
 
 Bullsnake uses Python 3.14 as the grammar and semantic reference for its
 selected subset. `docs/impl.md` is the current inventory of supported behavior
-and boundaries. A future feature manifest will record supported statements,
-expressions, built-ins, protocols, and intentional differences in a more
-structured form. Programs outside the documented subset have no compatibility
+and boundaries. Programs outside the documented subset have no compatibility
 promise.
 
 The reference version is still an architectural input. Grammar, AST nodes,
@@ -178,7 +176,7 @@ Packages depend on behavior beyond grammar. The possible runtime surface
 includes built-in types, descriptors, exceptions, imports, modules, I/O,
 encodings, paths, time, networking, and selected introspection. Bullsnake
 implements only the portions documented in its current implementation inventory.
-The future feature manifest and package corpus will determine additions.
+The package corpus will determine additions.
 
 CPython behavior is a differential-testing reference for those selected
 features. CPython implementation details remain excluded unless Bullsnake
@@ -218,7 +216,7 @@ features enter the supported subset:
 
 1. **The reference version and subset are explicit.** Parser behavior, runtime
    behavior, tests, and implementation notes identify the Python 3.14-derived
-   subset. A future feature manifest will make that inventory structured.
+   subset.
 2. **Bullsnake's documented behavior is the compatibility boundary.** Python
    behavior is the default for supported features. Intentional differences and
    omissions are part of the contract rather than hidden test exceptions.
@@ -1067,12 +1065,8 @@ Correctness work needs several test layers:
 
 Differential tests must account for valid implementation differences. Exact
 object IDs, hash values, finalization timing, memory statistics, error wording,
-and Bullsnake bytecode are compared only when the documented contract or future
-feature manifest promises that behavior.
-
-The feature matrix should use precise states such as `supported`, `partial`,
-`unsupported`, `diverges`, and `implementation-specific`. Every `supported` or
-`diverges` entry links to tests and a short contract.
+and Bullsnake bytecode are compared only when the documented contract promises
+that behavior.
 
 ## Prior art
 
@@ -1092,23 +1086,21 @@ start, with less machinery, because its frame representation is new.
 The following decisions remain open and should be resolved before related
 public or runtime features depend on them:
 
-1. Define the initial feature manifest, including supported syntax, built-ins,
-   protocols, modules, and intentional divergences.
-2. Choose the first package corpus and define what passing each package means.
-3. Decide how much CPython standard-library source to vendor, and establish its
+1. Choose the first package corpus and define what passing each package means.
+2. Decide how much CPython standard-library source to vendor, and establish its
    update and licensing process.
-4. Decide whether the package corpus needs `weakref`. `__del__` and `gc` remain
+3. Decide whether the package corpus needs `weakref`. `__del__` and `gc` remain
    omitted unless a future decision explicitly reopens them.
-5. Define the first goroutine-backed `threading` subset and its safe-point
+4. Define the first goroutine-backed `threading` subset and its safe-point
    fairness policy. Candidate primitives are `Thread`, `Lock`, `RLock`,
    `Event`, `local`, `current_thread()`, and `join()`.
-6. Decide which frame and code-object introspection APIs are required by the
+5. Decide which frame and code-object introspection APIs are required by the
    first package corpus.
-7. Decide whether Go extensions remain statically linked or need a later
+6. Decide whether Go extensions remain statically linked or need a later
    process-based or plugin-based distribution mechanism.
-8. Validate whether goroutine-backed Python threads satisfy the intended
+7. Validate whether goroutine-backed Python threads satisfy the intended
    green-thread workloads before designing any separate tasklet API.
-9. Select initial host platforms and decide how unsupported OS, signal,
+8. Select initial host platforms and decide how unsupported OS, signal,
    subprocess, and networking behavior is reported.
 
 ## References
