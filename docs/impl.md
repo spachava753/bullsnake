@@ -396,9 +396,9 @@ Preparation copies the instruction, name, local, and child-code tables,
 materializes code constants as runtime values, and validates the complete code
 tree before execution. Validation currently accepts `NOP`, `LOAD_CONST`,
 `LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`, `LOAD_GLOBAL`,
-`STORE_GLOBAL`, `MAKE_FUNCTION`, positional-default `SET_FUNCTION_ATTRIBUTE`,
-`CALL`, positional-only `CALL_EX`, `POP_TOP`, `COPY`, `SWAP`, fixed
-`BUILD_TUPLE`, `BUILD_LIST`,
+`STORE_GLOBAL`, `MAKE_FUNCTION`, positional- and keyword-default
+`SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms, `POP_TOP`, `COPY`,
+`SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`,
 `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`,
 `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
 `MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
@@ -436,14 +436,15 @@ a Go call; `RETURN_VALUE` restores the predecessor and pushes the result.
 Repeated, nested, and recursive Python calls therefore remain in one iterative
 loop.
 
-The current call binder supports positional-only and ordinary positional
-parameters, trailing defaults, `*args`, and ordinary parameter names supplied by
-keyword or `**dict`. It rejects positional-only names, duplicate bindings,
-non-string keys, and unexpected names with Python exceptions. Keyword-only
-parameters and defaults, variadic keyword parameters, closures, decorators at
-execution time, callable native values, suspension, exception handlers,
-traceback chains, cancellation, recursion limits, and execution budgets are not
-yet implemented.
+The current call binder supports positional-only, ordinary positional, and
+keyword-only parameters; trailing positional defaults; sparse keyword-only
+defaults; `*args`; and named values supplied by keyword or `**dict`. Defaults
+remain the same Python objects captured when the definition executes. The binder
+rejects positional-only names, duplicate bindings, non-string keys, unexpected
+names, and missing required positional or keyword-only arguments with Python
+exceptions. Variadic keyword parameters, closures, decorators at execution time,
+callable native values, suspension, exception handlers, traceback chains,
+cancellation, recursion limits, and execution budgets are not yet implemented.
 
 ## Object model and runtime
 

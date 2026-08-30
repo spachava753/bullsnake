@@ -81,19 +81,26 @@ func (code *preparedCode) validateMetadata() error {
 			len(code.locals),
 		)
 	}
-	if keywordOnly != 0 {
-		return code.failure(-1, "keyword-only parameters are not supported")
-	}
 	flags := code.code.Flags()
-	if flags&bytecode.VarKeywords != 0 {
-		return code.failure(-1, "variadic keyword parameters are not supported")
+	keywordStart := positional
+	if flags&bytecode.VarArgs != 0 {
+		if positional >= len(code.locals) {
+			return code.failure(
+				-1,
+				"variadic positional parameter index %d out of range",
+				positional,
+			)
+		}
+		keywordStart++
 	}
-	if flags&bytecode.VarArgs != 0 && positional >= len(code.locals) {
+	if keywordStart+keywordOnly > len(code.locals) {
 		return code.failure(
 			-1,
-			"variadic positional parameter index %d out of range",
-			positional,
+			"keyword-only parameter range exceeds local table length",
 		)
+	}
+	if flags&bytecode.VarKeywords != 0 {
+		return code.failure(-1, "variadic keyword parameters are not supported")
 	}
 	supportedFlags := bytecode.Optimized | bytecode.NewLocals | bytecode.Nested |
 		bytecode.VarArgs
@@ -351,14 +358,16 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.SetFunctionAttribute:
-		if instruction.Operand != uint32(bytecode.FunctionDefaults) {
+		switch bytecode.FunctionAttribute(instruction.Operand) {
+		case bytecode.FunctionDefaults, bytecode.FunctionKeywordDefaults:
+			return nil
+		default:
 			return code.failure(
 				index,
 				"unsupported SET_FUNCTION_ATTRIBUTE operand %d",
 				instruction.Operand,
 			)
 		}
-		return nil
 	case bytecode.BuildTuple, bytecode.BuildList:
 		if uint64(instruction.Operand) > uint64(code.stackSize) {
 			return code.failure(

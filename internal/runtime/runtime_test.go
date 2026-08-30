@@ -285,6 +285,42 @@ func TestKeywordArgumentCalls(t *testing.T) {
 	}
 }
 
+func TestNamedOnlyParameters(t *testing.T) {
+	code := compileSource(t, "def configure(*, required, mode='safe', retries=3, verbose):\n"+
+		"    return required, mode, retries, verbose\n"+
+		"defaulted = configure(required=1, verbose=True)\n"+
+		"overridden = configure(required=2, mode='fast', retries=5, verbose=False)\n"+
+		"def mixed(first=10, *items, flag, mode='mixed'):\n"+
+		"    return first, items, flag, mode\n"+
+		"mixed_default = mixed(flag=True)\n"+
+		"mixed_values = mixed(20, 30, 40, flag=False, mode='custom')\n"+
+		"marker = []\n"+
+		"def retain(*, value=marker):\n"+
+		"    return value\n"+
+		"default_identity = retain() is marker\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("keyword only", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"defaulted":        "(1, 'safe', 3, True)",
+		"overridden":       "(2, 'fast', 5, False)",
+		"mixed_default":    "(10, (), True, 'mixed')",
+		"mixed_values":     "(20, (30, 40), False, 'custom')",
+		"default_identity": "True",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1338,6 +1374,14 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name: "missing keyword-only arguments",
+			source: "def configure(*, required, mode='safe', verbose):\n" +
+				"    return required, mode, verbose\n" +
+				"answer = configure()\n",
+			wantType:    "TypeError",
+			wantMessage: "configure() missing 2 required keyword-only arguments: 'required' and 'verbose'",
+		},
+		{
 			name: "positional and keyword duplicate",
 			source: "def combine(first, second):\n" +
 				"    return first + second\n" +
@@ -2014,19 +2058,61 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "operand stack underflow",
 		},
 		{
+			name: "keyword-only local range",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants:        []bytecode.Constant{bytecode.None()},
+				Flags:            bytecode.Optimized | bytecode.NewLocals,
+				KeywordOnlyCount: 1,
+			}),
+			wantFragment: "keyword-only parameter range exceeds local table length",
+		},
+		{
+			name: "invalid keyword defaults payload",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeFunction},
+					{
+						Opcode:  bytecode.SetFunctionAttribute,
+						Operand: uint32(bytecode.FunctionKeywordDefaults),
+					},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children: []*bytecode.Code{
+					testCode(
+						1,
+						[]bytecode.Instruction{
+							{Opcode: bytecode.LoadConst},
+							{Opcode: bytecode.ReturnValue},
+						},
+						[]bytecode.Constant{bytecode.None()},
+						nil,
+					),
+				},
+			}),
+			wantFragment: "function keyword defaults payload is not a dictionary",
+		},
+		{
 			name: "unsupported function attribute",
 			code: testCode(
 				0,
 				[]bytecode.Instruction{
 					{
 						Opcode:  bytecode.SetFunctionAttribute,
-						Operand: uint32(bytecode.FunctionKeywordDefaults),
+						Operand: uint32(bytecode.FunctionClosure),
 					},
 				},
 				nil,
 				nil,
 			),
-			wantFragment: "unsupported SET_FUNCTION_ATTRIBUTE operand 2",
+			wantFragment: "unsupported SET_FUNCTION_ATTRIBUTE operand 8",
 		},
 		{
 			name: "function defaults underflow",

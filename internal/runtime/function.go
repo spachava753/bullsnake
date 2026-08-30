@@ -8,9 +8,10 @@ import (
 )
 
 type functionValue struct {
-	code     *preparedCode
-	globals  *Namespace
-	defaults []Value
+	code            *preparedCode
+	globals         *Namespace
+	defaults        []Value
+	keywordDefaults map[string]Value
 }
 
 func (*functionValue) TypeName() string { return "function" }
@@ -123,8 +124,16 @@ func executeFunctionCall(
 	return instructionOutcome{kind: called, frame: child}, nil
 }
 
-// bindFunctionArguments applies positional values, ordinary keyword values,
-// defaults, and *args in CPython's conflict and missing-argument order.
+func keywordOnlyRange(code *preparedCode) (int, int) {
+	start := code.code.PositionalCount()
+	if code.code.Flags()&bytecode.VarArgs != 0 {
+		start++
+	}
+	return start, start + code.code.KeywordOnlyCount()
+}
+
+// bindFunctionArguments applies positional and keyword values, defaults, and
+// *args in CPython's conflict and missing-argument order.
 func bindFunctionArguments(
 	function *functionValue,
 	arguments []Value,
@@ -133,6 +142,7 @@ func bindFunctionArguments(
 	code := function.code.code
 	positionalCount := code.PositionalCount()
 	positionalOnly := code.PositionalOnlyCount()
+	keywordStart, keywordEnd := keywordOnlyRange(function.code)
 	required := positionalCount - len(function.defaults)
 	variadic := code.Flags()&bytecode.VarArgs != 0
 	locals := make([]Value, len(function.code.locals))
@@ -179,6 +189,14 @@ func bindFunctionArguments(
 				if function.code.locals[parameter] == name {
 					parameterIndex = parameter
 					break
+				}
+			}
+			if parameterIndex < 0 {
+				for parameter := keywordStart; parameter < keywordEnd; parameter++ {
+					if function.code.locals[parameter] == name {
+						parameterIndex = parameter
+						break
+					}
 				}
 			}
 			if parameterIndex < 0 {
@@ -234,6 +252,34 @@ func bindFunctionArguments(
 		if locals[parameter] == nil {
 			locals[parameter] = function.defaults[parameter-defaultStart]
 		}
+	}
+	var missingKeywordOnly []string
+	for parameter := keywordStart; parameter < keywordEnd; parameter++ {
+		if locals[parameter] != nil {
+			continue
+		}
+		name := function.code.locals[parameter]
+		if value, ok := function.keywordDefaults[name]; ok {
+			locals[parameter] = value
+			continue
+		}
+		missingKeywordOnly = append(missingKeywordOnly, name)
+	}
+	if len(missingKeywordOnly) != 0 {
+		argument := "arguments"
+		if len(missingKeywordOnly) == 1 {
+			argument = "argument"
+		}
+		return nil, newException(
+			"TypeError",
+			fmt.Sprintf(
+				"%s() missing %d required keyword-only %s: %s",
+				code.QualifiedName(),
+				len(missingKeywordOnly),
+				argument,
+				formatMissingArguments(missingKeywordOnly),
+			),
+		)
 	}
 	return locals, nil
 }

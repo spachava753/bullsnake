@@ -234,21 +234,57 @@ func executeInstruction(
 				"SET_FUNCTION_ATTRIBUTE target is not a function",
 			)
 		}
-		defaults, ok := payload.(*tupleValue)
-		if !ok {
-			return instructionOutcome{}, frame.failure(
-				index,
-				"function defaults payload is not a tuple",
-			)
+		switch bytecode.FunctionAttribute(instruction.Operand) {
+		case bytecode.FunctionDefaults:
+			defaults, defaultsOK := payload.(*tupleValue)
+			if !defaultsOK {
+				return instructionOutcome{}, frame.failure(
+					index,
+					"function defaults payload is not a tuple",
+				)
+			}
+			if len(defaults.elements) > function.code.code.PositionalCount() {
+				return instructionOutcome{}, frame.failure(
+					index,
+					"function default count exceeds positional parameter count",
+				)
+			}
+			function.defaults = make([]Value, len(defaults.elements))
+			copy(function.defaults, defaults.elements)
+		case bytecode.FunctionKeywordDefaults:
+			defaults, defaultsOK := payload.(*dictValue)
+			if !defaultsOK {
+				return instructionOutcome{}, frame.failure(
+					index,
+					"function keyword defaults payload is not a dictionary",
+				)
+			}
+			function.keywordDefaults = make(map[string]Value, len(defaults.entries))
+			start, end := keywordOnlyRange(function.code)
+			for _, entry := range defaults.entries {
+				name, nameOK := entry.key.(*stringValue)
+				if !nameOK {
+					return instructionOutcome{}, frame.failure(
+						index,
+						"function keyword default name is not a string",
+					)
+				}
+				found := false
+				for parameter := start; parameter < end; parameter++ {
+					if function.code.locals[parameter] == name.value {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return instructionOutcome{}, frame.failure(
+						index,
+						"function keyword default has no keyword-only parameter",
+					)
+				}
+				function.keywordDefaults[name.value] = entry.value
+			}
 		}
-		if len(defaults.elements) > function.code.code.PositionalCount() {
-			return instructionOutcome{}, frame.failure(
-				index,
-				"function default count exceeds positional parameter count",
-			)
-		}
-		function.defaults = make([]Value, len(defaults.elements))
-		copy(function.defaults, defaults.elements)
 		return pushOutcome(frame, index, function)
 	case bytecode.Call:
 		return executeCall(frame, index, int(instruction.Operand))
