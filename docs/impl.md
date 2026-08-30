@@ -29,7 +29,7 @@ describes the code that exists.
 | Compiler and bytecode | Initial Python 3.14-derived bytecode subset implemented |
 | Virtual machine and frames | Modules, functions, and basic classes execute |
 | Object model and runtime | Initial scalar, collection, function, and type values |
-| Import system and standard library | Not implemented |
+| Import system and standard library | Initial runtime-cached absolute imports |
 | Go embedding API | Not implemented |
 | Async and scheduling | Not implemented |
 | REPL | Not implemented |
@@ -402,8 +402,9 @@ the complete code tree before execution. Validation currently accepts `NOP`,
 `DELETE_DEREF`, `LOAD_CLOSURE`, `LOAD_ASSERTION_ERROR`,
 `LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`, `MAKE_FUNCTION`,
 positional-default, keyword-default, closure, and annotation
-`SET_FUNCTION_ATTRIBUTE` variants, `CALL`, both `CALL_EX` forms, one-argument
-`RAISE_VARARGS`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
+`SET_FUNCTION_ATTRIBUTE` variants, `CALL`, both `CALL_EX` forms,
+`IMPORT_NAME`, `IMPORT_FROM`, `IMPORT_STAR`, one-argument `RAISE_VARARGS`,
+`POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
 `BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
 `LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
 `MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
@@ -507,9 +508,10 @@ The initial sealed `Value` interface keeps every Python reference in a typed Go
 interface or pointer. Process-wide immutable singletons represent `None`,
 `False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
 precision integers, binary64 floats, complex values, strings, bytes, tuples,
-lists, dictionaries, sets, slices, collection iterators, functions, basic type
-objects, instances, bound methods, and exceptions. Code preparation materializes
-each constant once per runtime and code object. String objects accept UTF-8 plus
+lists, dictionaries, sets, slices, collection iterators, modules, functions,
+basic type objects, instances, bound methods, and exceptions. Code
+preparation materializes each constant once per runtime and code object.
+String objects accept UTF-8 plus
 the compiler's deliberate WTF-8 encoding for lone surrogates; bytes objects
 retain arbitrary payloads. Stable representations escape non-printable text and
 bytes without losing their contents. Basic type objects retain their class-body
@@ -597,16 +599,26 @@ Python `TypeError` or `NameError` values.
 `UncaughtException` carries the exception across the current Go host boundary.
 
 A runtime owns its prepared-code cache, builtin namespace, and successful
-modules. A module owns one string-keyed namespace used as both locals and
-globals during module execution. This namespace is intentionally narrower than
-a Python dictionary. General hashing, insertion ordering, sets, dictionaries,
-sequence protocols and mutation, user types, descriptors, attributes, and
-callable values remain unimplemented.
+modules. A module is a sealed runtime value with a stable representation and one
+string-keyed namespace used as both locals and globals during execution.
+`Runtime.Module`, `Module.Get`, ordinary attribute loads, and imports observe the
+same namespace. It remains narrower than Python's module dictionary and does not
+yet implement arbitrary module mutation or descriptors.
 
 ## Import system
 
-Not implemented. This section will record module state, finders, loaders,
-filesystem and embedded imports, standard-library policy, and import locking.
+The initial import path resolves flat absolute names from the current runtime's
+successful module cache. `Runtime.ExecuteModule` inserts a module only after its
+body returns normally. `IMPORT_NAME` accepts level zero and returns that cached
+module object; `IMPORT_FROM` reads one global while retaining the module for
+later names; `IMPORT_STAR` copies globals whose names do not begin with an
+underscore. Imports inside functions use the same owning runtime as their
+caller. Missing modules and members raise `ModuleNotFoundError` and `ImportError`.
+
+There is no source or filesystem loader yet. Dotted modules, packages, relative
+imports, insertion before execution, circular imports, `sys.modules`, `__all__`,
+finders, loaders, standard-library policy, and import locking remain future
+slices.
 
 ## Go embedding
 

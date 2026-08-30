@@ -178,6 +178,18 @@ func executeInstruction(
 		}
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
+		case *Module:
+			value, found := owner.globals.get(name)
+			if !found {
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"module '"+owner.name+"' has no attribute '"+name+"'",
+					),
+				}, nil
+			}
+			return pushOutcome(frame, index, value)
 		case *typeValue:
 			value, found := owner.lookup(name)
 			if !found {
@@ -412,6 +424,12 @@ func executeInstruction(
 		return executeMapUpdate(frame, index)
 	case bytecode.MapMerge:
 		return executeMapMerge(frame, index)
+	case bytecode.ImportName:
+		return executeImportName(frame, index, frame.code.names[instruction.Operand])
+	case bytecode.ImportFrom:
+		return executeImportFrom(frame, index, frame.code.names[instruction.Operand])
+	case bytecode.ImportStar:
+		return executeImportStar(frame, index)
 	case bytecode.MakeFunction:
 		function := &functionValue{
 			code:    frame.code.children[instruction.Operand],

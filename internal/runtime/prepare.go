@@ -329,7 +329,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
-		bytecode.LoadAssertionError, bytecode.LoadBuildClass:
+		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -369,7 +369,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		return nil
 	case bytecode.LoadName, bytecode.StoreName, bytecode.DeleteName,
 		bytecode.LoadGlobal, bytecode.StoreGlobal, bytecode.DeleteGlobal,
-		bytecode.LoadAttr, bytecode.StoreAttr, bytecode.DeleteAttr:
+		bytecode.LoadAttr, bytecode.StoreAttr, bytecode.DeleteAttr,
+		bytecode.ImportName, bytecode.ImportFrom:
 		if uint64(instruction.Operand) >= uint64(len(code.names)) {
 			return code.failure(index, "name index %d out of range", instruction.Operand)
 		}
@@ -547,10 +548,11 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.LoadConst, bytecode.LoadName, bytecode.LoadFast,
 		bytecode.LoadGlobal, bytecode.LoadDeref, bytecode.LoadClosure,
 		bytecode.LoadNotImplementedError, bytecode.LoadAssertionError,
-		bytecode.LoadBuildClass, bytecode.MakeFunction:
+		bytecode.LoadBuildClass, bytecode.MakeFunction, bytecode.ImportFrom:
 		return 0, 1
 	case bytecode.StoreName, bytecode.StoreFast, bytecode.StoreGlobal,
-		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue:
+		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue,
+		bytecode.ImportStar:
 		return 1, 0
 	case bytecode.DeleteName, bytecode.DeleteFast, bytecode.DeleteGlobal,
 		bytecode.DeleteDeref:
@@ -566,9 +568,9 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.StoreSubscript:
 		return 3, 0
 	case bytecode.BinaryOp, bytecode.InplaceOp, bytecode.CompareOp,
-		bytecode.FormatWithSpec, bytecode.BinarySubscript, bytecode.ListAppend,
-		bytecode.ListExtend, bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapUpdate,
-		bytecode.MapMerge:
+		bytecode.FormatWithSpec, bytecode.BinarySubscript, bytecode.ImportName,
+		bytecode.ListAppend, bytecode.ListExtend, bytecode.SetAdd, bytecode.SetUpdate,
+		bytecode.MapUpdate, bytecode.MapMerge:
 		return 2, 1
 	case bytecode.MapSet:
 		return 3, 1

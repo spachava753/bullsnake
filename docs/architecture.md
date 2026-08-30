@@ -494,11 +494,11 @@ The runtime has a sealed internal `Value` interface. Immutable singleton
 objects represent `None`, both booleans, and ellipsis. Heap-backed objects
 represent arbitrary-precision integers, binary64 floats, complex numbers,
 strings, bytes, fixed tuples and lists, dictionaries, sets, slices, collection
-iterators, Python functions, basic type objects, instances, bound methods, and
-Python exceptions. Every live reference remains in a typed pointer or interface
-visible to Go's collector. Module bindings, instance attributes, and basic class
-bodies use string-keyed namespaces; Python dictionaries use their own value type
-and insertion-ordered entries.
+iterators, modules, Python functions, basic type objects, instances, bound
+methods, and Python exceptions. Every live reference remains in a typed pointer
+or interface visible to Go's collector. Module bindings, instance attributes,
+and basic class bodies use string-keyed namespaces; Python dictionaries use
+their own value type and insertion-ordered entries.
 
 The current object operations cover fixed scalar truth, numeric unary
 operators, selected arbitrary-precision integer binary and in-place operators,
@@ -578,8 +578,16 @@ may not be shared implicitly between runtimes.
 
 ## Import system
 
-Imports are a runtime service, but the baseline does not need the complete
-`importlib` protocol. The smallest useful design supports:
+The current first slice resolves flat absolute names from modules that completed
+through `Runtime.ExecuteModule` in the same runtime. Frames retain their owning
+runtime, so imports inside functions share that cache. `IMPORT_NAME` consumes
+level and from-list values, `IMPORT_FROM` keeps the module below each selected
+global, and `IMPORT_STAR` copies public names. This is an execution mechanism,
+not a loader: it does not open files, execute a missing module, model packages,
+or insert modules before their bodies run.
+
+The next loader remains a runtime service, but the baseline does not need the
+complete `importlib` protocol. The smallest useful design supports:
 
 - A runtime-local module cache checked before loading
 - Absolute and relative names

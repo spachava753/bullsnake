@@ -24,6 +24,12 @@ type Module struct {
 // Name returns the runtime cache name of the module.
 func (module *Module) Name() string { return module.name }
 
+func (*Module) TypeName() string { return "module" }
+func (module *Module) Repr() string {
+	return "<module '" + module.name + "'>"
+}
+func (*Module) isValue() {}
+
 // Get returns one module global binding.
 func (module *Module) Get(name string) (Value, bool) {
 	return module.globals.get(name)

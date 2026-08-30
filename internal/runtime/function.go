@@ -166,6 +166,7 @@ func executeFunctionCall(
 	}
 	caller.stack = caller.stack[:base]
 	child := &frame{
+		runtime:    caller.runtime,
 		code:       function.code,
 		stack:      make([]Value, 0, function.code.stackSize),
 		fastLocals: locals,

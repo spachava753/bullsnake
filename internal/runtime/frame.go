@@ -3,6 +3,7 @@ package runtime
 import "github.com/spachava753/bullsnake/internal/compiler/lexer"
 
 type frame struct {
+	runtime      *Runtime
 	code         *preparedCode
 	instruction  int
 	stack        []Value

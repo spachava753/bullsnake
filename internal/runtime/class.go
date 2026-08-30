@@ -161,6 +161,7 @@ func executeBuildClassCall(
 		}
 	}
 	child := &frame{
+		runtime:    caller.runtime,
 		code:       body.code,
 		stack:      make([]Value, 0, body.code.stackSize),
 		fastLocals: locals,

@@ -39,6 +39,7 @@ func (runtime *Runtime) ExecuteModule(name string, code *bytecode.Code) (*Module
 		)
 	}
 	frame := &frame{
+		runtime:    runtime,
 		code:       prepared,
 		stack:      make([]Value, 0, prepared.stackSize),
 		fastLocals: fastLocals,

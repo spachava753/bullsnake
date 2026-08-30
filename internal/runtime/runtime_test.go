@@ -1123,6 +1123,97 @@ func TestGeneralFloatFormatting(t *testing.T) {
 	}
 }
 
+func TestCachedModuleImports(t *testing.T) {
+	libraryCode := compileSource(t, "value = 41\n"+
+		"public = 'ready'\n"+
+		"_private = 'hidden'\n")
+	runtime := bullruntime.New()
+	if _, err := runtime.ExecuteModule("library", libraryCode); err != nil {
+		t.Fatal(err)
+	}
+	mainCode := compileSource(t, "import library as first\n"+
+		"import library as second\n"+
+		"from library import public as selected\n"+
+		"from library import *\n"+
+		"def read():\n"+
+		"    import library\n"+
+		"    return library.value\n"+
+		"answer = first.value + 1\n"+
+		"same = first is second\n"+
+		"function_value = read()\n"+
+		"module_repr = f'{first!r}'\n")
+	module, err := runtime.ExecuteModule("main", mainCode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"answer":         "42",
+		"same":           "True",
+		"selected":       "'ready'",
+		"public":         "'ready'",
+		"function_value": "41",
+		"module_repr":    `"<module 'library'>"`,
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+	if _, leaked := module.Get("_private"); leaked {
+		t.Fatal("star import copied a private binding")
+	}
+}
+
+func TestImportFailures(t *testing.T) {
+	runtime := bullruntime.New()
+	libraryCode := compileSource(t, "present = 1\n")
+	if _, err := runtime.ExecuteModule("library", libraryCode); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name        string
+		source      string
+		wantType    string
+		wantMessage string
+	}{
+		{
+			name:        "module",
+			source:      "import absent\n",
+			wantType:    "ModuleNotFoundError",
+			wantMessage: "No module named 'absent'",
+		},
+		{
+			name:        "member",
+			source:      "from library import missing\n",
+			wantType:    "ImportError",
+			wantMessage: "cannot import name 'missing' from 'library' (unknown location)",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code := compileSource(t, test.source)
+			module, err := runtime.ExecuteModule("failure_"+test.name, code)
+			if module != nil {
+				t.Fatalf("module = %#v, want nil", module)
+			}
+			var raised *bullruntime.UncaughtException
+			if !errors.As(err, &raised) {
+				t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+			}
+			if got := raised.Exception().TypeName(); got != test.wantType {
+				t.Errorf("exception type = %q, want %q", got, test.wantType)
+			}
+			if got := raised.Exception().Message(); got != test.wantMessage {
+				t.Errorf("exception message = %q, want %q", got, test.wantMessage)
+			}
+		})
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -2919,6 +3010,21 @@ func TestBytecodeValidation(t *testing.T) {
 				nil,
 			),
 			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "import name index",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst, Operand: 1},
+					{Opcode: bytecode.ImportName},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.Integer("0"), bytecode.None()},
+				nil,
+			),
+			wantFragment: "name index 0 out of range",
 		},
 		{
 			name: "invalid formatted conversion",
