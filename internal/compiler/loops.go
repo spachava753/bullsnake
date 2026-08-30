@@ -9,6 +9,7 @@ type loopContext struct {
 	continueLabel *jumpLabel
 	breakLabel    *jumpLabel
 	breakDepth    int
+	cleanupDepth  int
 }
 
 // compileWhileStatement keeps normal condition failure separate from break so
@@ -34,6 +35,7 @@ func (compiler *compilerState) compileWhileStatement(statement *compilerast.Whil
 		continueLabel: start,
 		breakLabel:    end,
 		breakDepth:    compiler.stackDepth,
+		cleanupDepth:  len(compiler.exceptionCleanups),
 	})
 	if err := compiler.compileStatements(statement.Body); err != nil {
 		return err
@@ -91,6 +93,7 @@ func (compiler *compilerState) compileForStatement(statement *compilerast.ForStm
 		continueLabel: start,
 		breakLabel:    end,
 		breakDepth:    baseDepth,
+		cleanupDepth:  len(compiler.exceptionCleanups),
 	})
 	if err := compiler.compileStatements(statement.Body); err != nil {
 		return err

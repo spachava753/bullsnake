@@ -41,6 +41,7 @@ type compilerState struct {
 	loops               []loopContext
 	exceptionHandlers   []instructionExceptionHandler
 	activeHandlers      []instructionExceptionHandler
+	exceptionCleanups   []exceptionHandlerCleanup
 }
 
 // emit appends a fallthrough instruction after validating reachability,

@@ -399,8 +399,11 @@ stack depth to restore after a raise. The runtime can therefore skip handler
 bookkeeping on normal execution. Handler dispatch checks classes or flat tuples
 in source order and reraises when no clause matches. A selected clause enters a
 frame-owned handled-exception scope, which supports bare re-raise without
-keeping setup state on the operand stack. A normal protected body runs an
-optional `else` outside its own range before it jumps over dispatch.
+keeping setup state on the operand stack. An `as` binding uses resolver-selected
+storage and a compiler cleanup action. Normal and nonlocal exits leave the
+handled scope, assign `None`, and delete the name; a protected cleanup range does
+the same before a secondary exception propagates. A normal protected body runs
+an optional `else` outside its own range before it jumps over dispatch.
 
 Bytecode currently remains in memory and evolves with the compiler and runtime.
 If cached compiled files are added, their format must include a Bullsnake magic
@@ -449,8 +452,9 @@ run `else`; exceptions there bypass this statement's handlers. Selected handlers
 push frame-owned scopes with exclusive instruction ends. Dispatch removes a
 scope after a jump leaves it, and normal handler completion removes it
 explicitly. Bare `raise` searches these scopes through caller frames and raises
-`RuntimeError` when none is active. Handler bindings and `finally` remain later
-slices.
+`RuntimeError` when none is active. Bound handler names clear through the same
+compiler-selected storage on normal, nonlocal, and exceptional exits. `finally`
+remains a later slice.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one

@@ -438,6 +438,11 @@
       "name": "bare exception reraise",
       "source": "try:\n    missing\nexcept NameError:\n    raise\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[None], names=[\"missing\", \"NameError\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=3, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, JUMP 9, LOAD_NAME 1, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 8, ENTER_EXCEPT 9, RAISE_VARARGS 0, RERAISE, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "exception handler binding",
+      "source": "try:\n    missing\nexcept NameError as error:\n    result = error\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[None], names=[\"missing\", \"NameError\", \"error\", \"result\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=3, depth=0), Handler(start=9, end=11, target=16, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, JUMP 22, LOAD_NAME 1, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 21, COPY 1, ENTER_EXCEPT 22, STORE_NAME 2, LOAD_NAME 2, STORE_NAME 3, LEAVE_EXCEPT, LOAD_CONST 0, STORE_NAME 2, DELETE_NAME 2, JUMP 22, LEAVE_EXCEPT, LOAD_CONST 0, STORE_NAME 2, DELETE_NAME 2, RERAISE, RERAISE, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }

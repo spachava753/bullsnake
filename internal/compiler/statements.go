@@ -81,18 +81,33 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		if compiler.stackDepth < loop.breakDepth {
 			return compiler.error(statement.Span(), "break is below its loop stack depth")
 		}
+		savedHandlers := compiler.suspendCleanedExceptionHandlers(loop.cleanupDepth)
+		if err := compiler.emitExceptionCleanupsFrom(loop.cleanupDepth, statement.Span()); err != nil {
+			compiler.activeHandlers = savedHandlers
+			return err
+		}
 		for compiler.stackDepth > loop.breakDepth {
 			if err := compiler.emit(bytecode.PopTop, 0, statement.Span()); err != nil {
+				compiler.activeHandlers = savedHandlers
 				return err
 			}
 		}
-		return compiler.emitJump(bytecode.Jump, loop.breakLabel, statement.Span())
+		err := compiler.emitJump(bytecode.Jump, loop.breakLabel, statement.Span())
+		compiler.activeHandlers = savedHandlers
+		return err
 	case *compilerast.ContinueStmt:
 		if len(compiler.loops) == 0 {
 			return compiler.error(statement.Span(), "continue has no enclosing loop")
 		}
 		loop := compiler.loops[len(compiler.loops)-1]
-		return compiler.emitJump(bytecode.Jump, loop.continueLabel, statement.Span())
+		savedHandlers := compiler.suspendCleanedExceptionHandlers(loop.cleanupDepth)
+		if err := compiler.emitExceptionCleanupsFrom(loop.cleanupDepth, statement.Span()); err != nil {
+			compiler.activeHandlers = savedHandlers
+			return err
+		}
+		err := compiler.emitJump(bytecode.Jump, loop.continueLabel, statement.Span())
+		compiler.activeHandlers = savedHandlers
+		return err
 	default:
 		return compiler.unsupported(statement)
 	}

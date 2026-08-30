@@ -178,3 +178,66 @@ except NameError:
     except NameError:
         restored = True
 assert restored is True
+# ---
+# case: exception handler bindings clear on every exit
+normal_cleared = False
+try:
+    try:
+        missing_for_binding
+    except NameError as error:
+        representation = f'{error!r}'
+    error
+except NameError:
+    normal_cleared = True
+assert representation == 'NameError("name \'missing_for_binding\' is not defined")'
+assert normal_cleared is True
+
+try:
+    missing_before_delete
+except NameError as deleted_error:
+    del deleted_error
+try:
+    deleted_error
+except NameError:
+    deleted_cleared = True
+assert deleted_cleared is True
+
+def make_reader():
+    try:
+        missing_before_return
+    except NameError as returned_error:
+        def read_error():
+            return returned_error
+        return read_error
+
+reader = make_reader()
+try:
+    reader()
+except NameError:
+    return_cleared = True
+assert return_cleared is True
+
+for item in (1,):
+    try:
+        missing_before_break
+    except NameError as break_error:
+        break
+try:
+    break_error
+except NameError:
+    break_cleared = True
+assert break_cleared is True
+
+try:
+    try:
+        missing_before_secondary
+    except NameError as secondary_error:
+        another_missing
+except NameError:
+    secondary_raised = True
+try:
+    secondary_error
+except NameError:
+    secondary_cleared = True
+assert secondary_raised is True
+assert secondary_cleared is True

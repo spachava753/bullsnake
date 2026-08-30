@@ -242,6 +242,8 @@ func (compiler *compilerState) compileFunctionDefaults(
 	return positionalCount != 0, keywordCount != 0, nil
 }
 
+// compileReturnStatement evaluates the result before unwinding handler bindings,
+// then removes lower loop state while preserving that result for RETURN_VALUE.
 func (compiler *compilerState) compileReturnStatement(statement *compilerast.ReturnStmt) error {
 	if compiler.scope.Kind != resolver.FunctionScope {
 		return compiler.error(statement.Span(), "return has no enclosing function")
@@ -257,7 +259,24 @@ func (compiler *compilerState) compileReturnStatement(statement *compilerast.Ret
 	} else if err := compiler.compileExpr(statement.Value); err != nil {
 		return err
 	}
-	return compiler.emitTerminator(bytecode.ReturnValue, 0, statement.Span())
+	savedHandlers := compiler.suspendCleanedExceptionHandlers(0)
+	if err := compiler.emitExceptionCleanupsFrom(0, statement.Span()); err != nil {
+		compiler.activeHandlers = savedHandlers
+		return err
+	}
+	for compiler.stackDepth > 1 {
+		if err := compiler.emit(bytecode.Swap, 2, statement.Span()); err != nil {
+			compiler.activeHandlers = savedHandlers
+			return err
+		}
+		if err := compiler.emit(bytecode.PopTop, 0, statement.Span()); err != nil {
+			compiler.activeHandlers = savedHandlers
+			return err
+		}
+	}
+	err := compiler.emitTerminator(bytecode.ReturnValue, 0, statement.Span())
+	compiler.activeHandlers = savedHandlers
+	return err
 }
 
 func (compiler *compilerState) addLocal(name string) {

@@ -3,11 +3,18 @@ package compiler
 import (
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
 
 type instructionExceptionHandler struct {
 	target     *jumpLabel
 	stackDepth int
+}
+
+type exceptionHandlerCleanup struct {
+	name         string
+	span         lexer.Span
+	handlerDepth int
 }
 
 // compileRaiseStatement evaluates an optional exception and cause before
@@ -72,9 +79,6 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 		if handler.Star {
 			return compiler.error(handler.Range, "exception-group handlers are not compiled")
 		}
-		if handler.Name != "" {
-			return compiler.error(handler.Range, "exception handler bindings are not compiled")
-		}
 		if handler.Type == nil && index != len(statement.Handlers)-1 {
 			return compiler.error(handler.Range, "bare exception handler is not last")
 		}
@@ -127,21 +131,78 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 				return err
 			}
 		}
+
+		var cleanupTarget *jumpLabel
+		var cleanup exceptionHandlerCleanup
+		if handler.Name != "" {
+			if err := compiler.emit(bytecode.Copy, 1, handler.Range); err != nil {
+				return err
+			}
+			cleanup = exceptionHandlerCleanup{
+				name:         handler.Name,
+				span:         handler.Range,
+				handlerDepth: len(compiler.activeHandlers),
+			}
+			cleanupTarget = compiler.newLabel()
+		}
 		if err := compiler.emitLabelOperand(bytecode.EnterExcept, end, handler.Range); err != nil {
 			return err
 		}
-		if err := compiler.compileStatements(handler.Body); err != nil {
+		if handler.Name != "" {
+			if err := compiler.emitNameStore(handler.Name, handler.Range); err != nil {
+				return err
+			}
+			compiler.activeHandlers = append(compiler.activeHandlers, instructionExceptionHandler{
+				target:     cleanupTarget,
+				stackDepth: baseDepth,
+			})
+			compiler.exceptionCleanups = append(compiler.exceptionCleanups, cleanup)
+		}
+		err := compiler.compileStatements(handler.Body)
+		if handler.Name != "" {
+			compiler.exceptionCleanups = compiler.exceptionCleanups[:len(compiler.exceptionCleanups)-1]
+			compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
+		}
+		if err != nil {
 			return err
 		}
 		if compiler.reachable {
-			if err := compiler.emit(bytecode.LeaveExcept, 0, handler.Range); err != nil {
+			if handler.Name == "" {
+				if err := compiler.emit(bytecode.LeaveExcept, 0, handler.Range); err != nil {
+					return err
+				}
+			} else if err := compiler.emitExceptionHandlerCleanup(cleanup); err != nil {
 				return err
 			}
 		}
+
+		if cleanupTarget != nil {
+			if compiler.reachable {
+				if err := compiler.emitJump(bytecode.Jump, end, handler.Range); err != nil {
+					return err
+				}
+			}
+			if err := compiler.mergeLabelDepth(cleanupTarget, baseDepth+1, handler.Range); err != nil {
+				return err
+			}
+			if baseDepth+1 > compiler.maxStack {
+				compiler.maxStack = baseDepth + 1
+			}
+			if err := compiler.markLabel(cleanupTarget, handler.Range); err != nil {
+				return err
+			}
+			if err := compiler.emitExceptionHandlerCleanup(cleanup); err != nil {
+				return err
+			}
+			if err := compiler.emitTerminator(bytecode.Reraise, 0, handler.Range); err != nil {
+				return err
+			}
+		}
+
 		if next == nil {
 			return compiler.markLabel(end, statement.Span())
 		}
-		if compiler.reachable {
+		if cleanupTarget == nil && compiler.reachable {
 			if err := compiler.emitJump(bytecode.Jump, end, handler.Range); err != nil {
 				return err
 			}
@@ -156,6 +217,48 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 		}
 	}
 	return compiler.markLabel(end, statement.Span())
+}
+
+// emitExceptionHandlerCleanup restores handled state, then clears and deletes
+// the temporary exception binding while preserving any lower stack values.
+func (compiler *compilerState) emitExceptionHandlerCleanup(cleanup exceptionHandlerCleanup) error {
+	if err := compiler.emit(bytecode.LeaveExcept, 0, cleanup.span); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.None()),
+		cleanup.span,
+	); err != nil {
+		return err
+	}
+	if err := compiler.emitNameStore(cleanup.name, cleanup.span); err != nil {
+		return err
+	}
+	return compiler.emitNameDelete(cleanup.name, cleanup.span)
+}
+
+func (compiler *compilerState) emitExceptionCleanupsFrom(depth int, span lexer.Span) error {
+	if depth < 0 || depth > len(compiler.exceptionCleanups) {
+		return compiler.error(span, "exception cleanup depth %d out of range", depth)
+	}
+	for index := len(compiler.exceptionCleanups) - 1; index >= depth; index-- {
+		if err := compiler.emitExceptionHandlerCleanup(compiler.exceptionCleanups[index]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (compiler *compilerState) suspendCleanedExceptionHandlers(
+	depth int,
+) []instructionExceptionHandler {
+	saved := compiler.activeHandlers
+	if depth < len(compiler.exceptionCleanups) {
+		handlerDepth := compiler.exceptionCleanups[depth].handlerDepth
+		compiler.activeHandlers = compiler.activeHandlers[:handlerDepth]
+	}
+	return saved
 }
 
 // finishedExceptionHandlers combines adjacent instructions protected by the
