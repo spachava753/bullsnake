@@ -137,3 +137,42 @@ except RuntimeError as error:
 assert f'{transformed!r}' == 'RuntimeError("generator raised StopIteration")'
 assert transformed.__cause__ is transformed.__context__
 assert f'{transformed.__cause__!r}' == 'StopIteration("hidden")'
+# ---
+# case: send supplies yield expression values
+def exchange():
+    first = yield 1
+    second = yield first + 1
+    return second
+
+stream = exchange()
+sender = stream.send
+assert sender(None) == 1
+assert sender(10) == 11
+try:
+    sender(20)
+except StopIteration as error:
+    returned = error.value
+assert returned == 20
+try:
+    stream.send(None)
+except StopIteration as error:
+    exhausted = error.value
+assert exhausted is None
+
+fresh = exchange()
+try:
+    fresh.send(5)
+except TypeError:
+    rejected = True
+assert rejected
+assert fresh.send(None) == 1
+# ---
+# case: next and send share generator state
+def communicate():
+    received = yield 2
+    yield received
+
+stream = communicate()
+assert next(stream) == 2
+assert stream.send(30) == 30
+assert next(stream, 40) == 40

@@ -16,7 +16,7 @@ type generatorResumeKind uint8
 
 const (
 	generatorIteration generatorResumeKind = iota
-	generatorNext
+	generatorCall
 )
 
 type generatorResume struct {
@@ -33,6 +33,16 @@ type generatorValue struct {
 	state         generatorState
 	resume        generatorResume
 }
+
+type generatorSendMethod struct {
+	generator *generatorValue
+}
+
+func (*generatorSendMethod) TypeName() string { return "builtin_function_or_method" }
+func (method *generatorSendMethod) Repr() string {
+	return "<built-in method send of " + method.generator.Repr() + ">"
+}
+func (*generatorSendMethod) isValue() {}
 
 func (*generatorValue) TypeName() string { return "generator" }
 func (generator *generatorValue) Repr() string {
@@ -122,7 +132,7 @@ func executeBuiltinNext(
 			iterator,
 			None,
 			generatorResume{
-				kind:         generatorNext,
+				kind:         generatorCall,
 				instruction:  instruction,
 				defaultValue: defaultValue,
 				hasDefault:   hasDefault,
@@ -154,6 +164,61 @@ func executeBuiltinNext(
 			),
 		}, nil
 	}
+}
+
+// executeGeneratorSendCall validates the bound method call and resumes its
+// generator with the supplied yield-expression value.
+func executeGeneratorSendCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *generatorSendMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "generator.send() takes no keyword arguments"),
+		}, nil
+	}
+	if len(arguments) != 1 {
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"generator.send() takes exactly one argument ("+
+					strconv.Itoa(len(arguments))+" given)",
+			),
+		}, nil
+	}
+	value := arguments[0]
+	generator := method.generator
+	discardCallSegment(caller, base)
+	if generator.state == generatorCompleted {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newStopIteration(None),
+		}, nil
+	}
+	if generator.state == generatorCreated && value != None {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"can't send non-None value to a just-started generator",
+			),
+		}, nil
+	}
+	return resumeGenerator(
+		caller,
+		instruction,
+		generator,
+		value,
+		generatorResume{kind: generatorCall, instruction: instruction},
+	)
 }
 
 // suspendGenerator verifies the active frame and its resumption contract,
@@ -210,7 +275,7 @@ func finishGenerator(
 		generator.complete()
 		caller.instruction = resume.target
 		return caller, nil, nil
-	case generatorNext:
+	case generatorCall:
 		generator.complete()
 		if !resume.hasDefault {
 			return caller, newStopIteration(result), nil

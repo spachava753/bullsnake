@@ -67,3 +67,48 @@ def recursive_next():
 
 current = recursive_next()
 next(current)
+# ---
+# case: send rejects initial value
+# error: TypeError
+# message: "can't send non-None value to a just-started generator"
+def values():
+    yield 1
+
+values().send(1)
+# ---
+# case: send requires one argument
+# error: TypeError
+# message: "generator.send() takes exactly one argument (0 given)"
+def values():
+    yield 1
+
+values().send()
+# ---
+# case: send limits arguments
+# error: TypeError
+# message: "generator.send() takes exactly one argument (2 given)"
+def values():
+    yield 1
+
+values().send(None, None)
+# ---
+# case: send rejects keywords
+# error: TypeError
+# message: "generator.send() takes no keyword arguments"
+def values():
+    yield 1
+
+values().send(value=None)
+# ---
+# case: send rejects generator reentry
+# error: ValueError
+# message: "generator already executing"
+current = None
+
+def recursive_send():
+    yield 1
+    current.send(None)
+
+current = recursive_send()
+current.send(None)
+current.send(None)

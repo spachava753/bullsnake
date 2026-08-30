@@ -241,9 +241,11 @@ stack.
 A generator owns a frame that is detached while created or suspended. `FOR_ITER`
 and `next` attach it to the caller and start or resume execution. `YIELD_VALUE`
 removes the yielded value, detaches the frame, and gives the value to the caller.
-Resumption supplies `None` as the yield expression's result. Return and escaping
-exceptions complete the generator; repeated iteration then stays exhausted.
-`next` raises `StopIteration` with the return value or returns its optional
+Iteration and `next` supply `None` as the yield expression's result; the bound
+`send` method supplies its argument. A newly created generator rejects a first
+sent value other than `None`. Return and escaping exceptions complete the
+generator; repeated iteration then stays exhausted. Explicit resumption raises
+`StopIteration` with the return value, while `next` may return its optional
 default. Re-entering a running generator raises `ValueError`.
 
 A raised Python exception follows protected ranges in the current code. If a
@@ -422,8 +424,7 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no `iter`, `send`, `throw`, or `close` generator operations or delegated
-  `yield from`
+- no `iter`, `throw`, or `close` generator operations or delegated `yield from`
 - no generator expressions, asynchronous comprehensions, coroutines, async
   execution, or Python threads
 - no asynchronous context managers or structural matching

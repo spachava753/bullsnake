@@ -188,12 +188,13 @@ not use Go recursion as the Python call stack. This choice has several benefits:
 A generator call binds arguments and creates a generator that owns a detached
 frame. Iteration attaches that frame to the caller. `yield` detaches it again
 and returns one value. `FOR_ITER` and `next` resume a suspended yield expression
-with `None`. A normal return exhausts a loop; `next` exposes its value through
-`StopIteration.value` or returns a supplied default. An escaping exception also
-completes the generator, and later iteration remains exhausted. The runtime
-rejects re-entry and converts an explicit `StopIteration` escaping generator
-code into `RuntimeError`. The protocol does not yet expose `iter`, `send`,
-`throw`, or `close`.
+with `None`; `send` supplies its argument instead. A new generator accepts only
+`None` as its first sent value. A normal return exhausts a loop; explicit
+resumption exposes its value through `StopIteration.value`, while `next` may
+return a supplied default. An escaping exception also completes the generator,
+and later iteration remains exhausted. The runtime rejects re-entry and converts
+an explicit `StopIteration` escaping generator code into `RuntimeError`. The
+protocol does not yet expose `iter`, `throw`, or `close`.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
@@ -311,8 +312,8 @@ features.
 
 Synchronous generators already retain suspended Python frames and resume through
 the VM's ordinary frame loop. Future coroutine and async-generator work should
-extend that state model with `send`, delegated iteration, awaiting, cancellation,
-and asynchronous iteration. An event loop will manage ready tasks, timers, I/O
+extend that state model with delegated iteration, awaiting, cancellation, and
+asynchronous iteration. An event loop will manage ready tasks, timers, I/O
 completion, cancellation, and task context. Async tasks will not be modeled as
 one goroutine each because Python task scheduling and cancellation need explicit
 interpreter state.

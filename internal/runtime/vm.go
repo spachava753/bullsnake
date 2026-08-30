@@ -359,6 +359,17 @@ func executeInstruction(
 		}
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
+		case *generatorValue:
+			if name == "send" {
+				return pushOutcome(frame, index, &generatorSendMethod{generator: owner})
+			}
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"AttributeError",
+					"'generator' object has no attribute '"+name+"'",
+				),
+			}, nil
 		case *Exception:
 			value, found := owner.attribute(name)
 			if !found {
