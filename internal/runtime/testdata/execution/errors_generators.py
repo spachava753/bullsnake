@@ -285,3 +285,17 @@ def failing_close_outer():
 stream = failing_close_outer()
 next(stream)
 stream.close()
+# ---
+# case: generator expression rejects first non-iterable eagerly
+# error: TypeError
+# message: "'int' object is not iterable"
+stream = (item for item in 1)
+# ---
+# case: generator expression rejects later non-iterable lazily
+# error: TypeError
+# message: "'int' object is not iterable"
+def deferred_expression():
+    return (right for left in (1,) for right in 2)
+
+stream = deferred_expression()
+next(stream)

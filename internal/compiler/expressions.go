@@ -112,6 +112,8 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 				return child.appendDictComprehensionEntry(expression.Key, expression.Value)
 			},
 		)
+	case *compilerast.GeneratorExpr:
+		return compiler.compileGeneratorExpression(expression)
 	case *compilerast.UnaryExpr:
 		return compiler.compileUnary(expression)
 	case *compilerast.BinaryExpr:

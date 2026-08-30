@@ -497,3 +497,50 @@ except RuntimeError as error:
 assert f'{ignored_exit!r}' == 'RuntimeError("generator ignored GeneratorExit")'
 assert next(stream, 9) == 9
 assert next(retained_delegate, 8) == 8
+# ---
+# case: generator expression evaluates first iterable eagerly
+expression_state = 0
+
+def expression_source():
+    global expression_state
+    expression_state = 1
+    return (1, 2, 3)
+
+stream = (value * 10 for value in expression_source() if value > 1)
+assert expression_state == 1
+expression_state = 2
+assert next(stream) == 20
+assert expression_state == 2
+assert next(stream) == 30
+assert next(stream, 9) == 9
+# ---
+# case: generator expression has lazy nested scope
+item = 99
+offset = 10
+stream = (
+    item + offset
+    for group in ((1, 2), (), (3,))
+    if group
+    for item in group
+    if item % 2
+)
+offset = 20
+seen = 0
+for value in stream:
+    seen = seen * 100 + value
+assert seen == 2123
+assert item == 99
+# ---
+# case: generator expression routes assignment and ignores sent value
+last = 0
+stream = ((last := item) for item in (4, 5))
+assert last == 0
+assert next(stream) == 4
+assert last == 4
+assert stream.send(100) == 5
+assert last == 5
+try:
+    next(stream)
+except StopIteration as error:
+    expression_result = error.value
+assert expression_result is None

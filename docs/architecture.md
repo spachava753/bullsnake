@@ -141,15 +141,17 @@ targets, and source locations.
 
 The result is an immutable code object. A code object contains the information
 the VM needs to run one module, function, generator, class body, annotation
-body, or hidden comprehension body. Child functions and current eager
-comprehensions have child code objects rather than hidden Go closures.
+body, or hidden comprehension body. Child functions and comprehensions have
+child code objects rather than hidden Go closures.
 
 CPython 3.14 inlines eager comprehensions into the enclosing frame. Bullsnake
-currently runs each eager comprehension in a hidden child frame. The first
-iterable is still evaluated in the enclosing scope, while targets, filters, and
-the result expression use the comprehension scope. This simpler compiler model
-preserves name isolation and closure behavior. The extra frame may change when
-Bullsnake exposes Python frame introspection.
+currently runs every comprehension in a hidden child frame. The enclosing frame
+evaluates the first iterable and creates its iterator. An eager child runs at
+once and returns its collection. A generator-expression child stays suspended
+until iteration. In both forms, targets, filters, later iterables, and the result
+expression use the comprehension scope. This simpler compiler model preserves
+name isolation and closure behavior. The extra frame may change when Bullsnake
+exposes Python frame introspection.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches

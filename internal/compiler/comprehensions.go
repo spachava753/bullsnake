@@ -11,6 +11,32 @@ const (
 	comprehensionResultLocal   = ".result"
 )
 
+// comprehensionScope validates the synchronous clauses and returns the
+// function-like resolver scope owned by the comprehension expression.
+func (compiler *compilerState) comprehensionScope(
+	owner compilerast.Expr,
+	clauses []compilerast.Comprehension,
+	codeName string,
+	scopeFlag resolver.ScopeFlags,
+) (*resolver.Scope, error) {
+	if len(clauses) == 0 {
+		return nil, compiler.error(owner.Span(), "%s has no clauses", codeName)
+	}
+	for _, clause := range clauses {
+		if clause.Async {
+			return nil, compiler.error(
+				clause.Range,
+				"asynchronous comprehensions are not compiled",
+			)
+		}
+	}
+	scope := compiler.table.ScopeFor(owner, resolver.ComprehensionBody, 0)
+	if scope == nil || scope.Kind != resolver.FunctionScope || scope.Flags&scopeFlag == 0 {
+		return nil, compiler.error(owner.Span(), "resolver has no %s scope", codeName)
+	}
+	return scope, nil
+}
+
 // compileEagerComprehension builds a hidden function for the comprehension
 // body, then calls it with an iterator evaluated in the enclosing scope.
 func (compiler *compilerState) compileEagerComprehension(
@@ -21,20 +47,11 @@ func (compiler *compilerState) compileEagerComprehension(
 	buildOpcode bytecode.Opcode,
 	appendValue func(*compilerState) error,
 ) error {
-	if len(clauses) == 0 {
-		return compiler.error(owner.Span(), "%s has no clauses", codeName)
+	scope, err := compiler.comprehensionScope(owner, clauses, codeName, scopeFlag)
+	if err != nil {
+		return err
 	}
-	for _, clause := range clauses {
-		if clause.Async {
-			return compiler.error(clause.Range, "asynchronous comprehensions are not compiled")
-		}
-	}
-
-	scope := compiler.table.ScopeFor(owner, resolver.ComprehensionBody, 0)
-	if scope == nil || scope.Kind != resolver.FunctionScope || scope.Flags&scopeFlag == 0 {
-		return compiler.error(owner.Span(), "resolver has no %s scope", codeName)
-	}
-	child := compiler.newComprehensionCompiler(owner, scope, codeName)
+	child := compiler.newComprehensionCompiler(owner, scope, codeName, true)
 	if err := child.emit(buildOpcode, 0, owner.Span()); err != nil {
 		return err
 	}
@@ -76,14 +93,75 @@ func (compiler *compilerState) compileEagerComprehension(
 	return compiler.emit(bytecode.Call, 1, owner.Span())
 }
 
+// compileGeneratorExpression builds a lazy comprehension child and calls it
+// with the first iterator, which the enclosing scope creates eagerly.
+func (compiler *compilerState) compileGeneratorExpression(
+	expression *compilerast.GeneratorExpr,
+) error {
+	scope, err := compiler.comprehensionScope(
+		expression,
+		expression.Clauses,
+		"<genexpr>",
+		resolver.GeneratorExpression,
+	)
+	if err != nil {
+		return err
+	}
+	child := compiler.newComprehensionCompiler(expression, scope, "<genexpr>", false)
+	if err := child.compileComprehensionClauses(
+		expression.Clauses,
+		0,
+		func(child *compilerState) error {
+			if err := child.compileExpr(expression.Element); err != nil {
+				return err
+			}
+			if err := child.emit(bytecode.YieldValue, 0, expression.Element.Span()); err != nil {
+				return err
+			}
+			return child.emit(bytecode.PopTop, 0, expression.Element.Span())
+		},
+	); err != nil {
+		return err
+	}
+	if err := child.emit(
+		bytecode.LoadConst,
+		child.constantIndex(bytecode.None()),
+		expression.Span(),
+	); err != nil {
+		return err
+	}
+	if err := child.emitTerminator(bytecode.ReturnValue, 0, expression.Span()); err != nil {
+		return err
+	}
+	code, err := child.finish()
+	if err != nil {
+		return err
+	}
+	if err := compiler.emitFunction(code, false, false, false, expression.Span()); err != nil {
+		return err
+	}
+	first := expression.Clauses[0]
+	if err := compiler.compileExpr(first.Iterable); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.GetIter, 0, first.Iterable.Span()); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.Call, 1, expression.Span())
+}
+
 func (compiler *compilerState) newComprehensionCompiler(
 	owner compilerast.Node,
 	scope *resolver.Scope,
 	codeName string,
+	withResult bool,
 ) *compilerState {
 	flags := bytecode.Optimized | bytecode.NewLocals
 	if scope.Flags&resolver.Nested != 0 {
 		flags |= bytecode.Nested
+	}
+	if scope.Flags&resolver.Generator != 0 {
+		flags |= bytecode.Generator
 	}
 	child := &compilerState{
 		filename:            compiler.filename,
@@ -104,7 +182,9 @@ func (compiler *compilerState) newComprehensionCompiler(
 		reachable:           true,
 	}
 	child.addLocal(comprehensionIteratorLocal)
-	child.addLocal(comprehensionResultLocal)
+	if withResult {
+		child.addLocal(comprehensionResultLocal)
+	}
 	child.initializeScopeLayout(scope)
 	return child
 }

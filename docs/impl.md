@@ -171,6 +171,7 @@ The current compiler translates:
 - eager list, set, and dictionary comprehensions with filters, nested clauses,
   destructuring, isolated targets, closure captures, and enclosing
   assignment-expression targets
+- lazy generator expressions with the same synchronous clause and scope rules
 - names, attributes, calls, subscriptions, slices, operators, comparisons, and
   conditional expressions
 - simple, chained, destructuring, annotated, augmented, and deletion targets
@@ -193,19 +194,20 @@ WTF-8-compatible form, while bytes constants preserve arbitrary bytes.
 Formatted-string compilation retains conversion, format-specification, raw
 prefix, and debug-field behavior needed by the current runtime formatter.
 
-Functions, generator functions, class bodies, and eager comprehensions are child
-code objects. Closures contain explicit cell references instead of Go closures.
+Functions, generator functions, class bodies, and comprehensions are child code
+objects. Closures contain explicit cell references instead of Go closures.
 Calling a generator creates its runtime object without executing its child code.
-For an eager comprehension, the enclosing code evaluates the first iterable and
-passes its iterator to the child; the child owns its target names and result
-collection. Deferred annotation bodies are also children and do not run during
-an ordinary function definition or call.
+For every comprehension, the enclosing code evaluates the first iterable and
+passes its iterator to the child. Eager children build and return a collection;
+generator-expression children yield values lazily. Each child owns its target
+names. Deferred annotation bodies are also children and do not run during an
+ordinary function definition or call.
 
 The compiler rejects template-string execution, annotated class attributes,
-`from __future__ import annotations`, generic and async definitions, generator
-expressions, asynchronous comprehensions, `async for`, `async with`, pattern
-matching, and coroutines. Unsupported AST forms return compiler errors; they
-are not approximated with similar bytecode.
+`from __future__ import annotations`, generic and async definitions,
+asynchronous comprehensions, `async for`, `async with`, pattern matching, and
+coroutines. Unsupported AST forms return compiler errors; they are not
+approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -448,8 +450,8 @@ The largest current gaps are:
 - no namespace packages, broad standard library, or native extension loading
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
-- no generator expressions, asynchronous comprehensions, coroutines, async
-  execution, or Python threads
+- no asynchronous comprehensions, coroutines, async execution, or Python
+  threads
 - no asynchronous context managers or structural matching
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
