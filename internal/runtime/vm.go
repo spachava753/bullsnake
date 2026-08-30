@@ -250,6 +250,8 @@ func executeInstruction(
 		return pushOutcome(frame, index, function)
 	case bytecode.Call:
 		return executeCall(frame, index, int(instruction.Operand))
+	case bytecode.CallEx:
+		return executeUnpackedCall(frame, index)
 	case bytecode.SetAdd:
 		return executeSetAdd(frame, index)
 	case bytecode.SetUpdate:

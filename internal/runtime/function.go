@@ -19,8 +19,8 @@ func (function *functionValue) Repr() string {
 }
 func (*functionValue) isValue() {}
 
-// executeCall removes one function and its positional arguments from the
-// caller, binds a fresh fast-local array, and returns a child-frame transition.
+// executeCall removes one inline function and positional argument segment before
+// delegating to the shared function-frame constructor.
 func executeCall(
 	caller *frame,
 	instruction int,
@@ -31,7 +31,48 @@ func executeCall(
 		return instructionOutcome{}, caller.failure(instruction, "operand stack underflow")
 	}
 	base := len(caller.stack) - required
-	callable := caller.stack[base]
+	return executeFunctionCall(
+		caller,
+		instruction,
+		base,
+		caller.stack[base],
+		caller.stack[base+1:],
+	)
+}
+
+func executeUnpackedCall(
+	caller *frame,
+	instruction int,
+) (instructionOutcome, error) {
+	if len(caller.stack) < 2 {
+		return instructionOutcome{}, caller.failure(instruction, "operand stack underflow")
+	}
+	base := len(caller.stack) - 2
+	arguments, ok := caller.stack[base+1].(*tupleValue)
+	if !ok {
+		return instructionOutcome{}, caller.failure(
+			instruction,
+			"CALL_EX positional arguments are not a tuple",
+		)
+	}
+	return executeFunctionCall(
+		caller,
+		instruction,
+		base,
+		caller.stack[base],
+		arguments.elements,
+	)
+}
+
+// executeFunctionCall validates one callable, binds positional values into a
+// fresh local array, consumes the caller segment, and creates the child frame.
+func executeFunctionCall(
+	caller *frame,
+	instruction int,
+	base int,
+	callable Value,
+	arguments []Value,
+) (instructionOutcome, error) {
 	function, ok := callable.(*functionValue)
 	if !ok {
 		return instructionOutcome{
@@ -42,12 +83,12 @@ func executeCall(
 			),
 		}, nil
 	}
+	argumentCount := len(arguments)
 	if exception := checkPositionalArity(function, argumentCount); exception != nil {
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
 
 	locals := make([]Value, len(function.code.locals))
-	arguments := caller.stack[base+1:]
 	positionalCount := function.code.code.PositionalCount()
 	positionalGiven := min(argumentCount, positionalCount)
 	copy(locals[:positionalGiven], arguments[:positionalGiven])

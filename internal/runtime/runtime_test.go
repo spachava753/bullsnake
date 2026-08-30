@@ -220,6 +220,37 @@ func TestVariadicArgumentBinding(t *testing.T) {
 	}
 }
 
+func TestCallArgumentExpansion(t *testing.T) {
+	code := compileSource(t, "def add(left, right):\n"+
+		"    return left + right\n"+
+		"from_tuple = add(*(40, 2))\n"+
+		"from_list = add(*[20, 22])\n"+
+		"def collect(*items):\n"+
+		"    return items\n"+
+		"mixed = collect(1, *[2, 3], 4, *(5, 6))\n"+
+		"empty = collect(*())\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("unpacked calls", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"from_tuple": "42",
+		"from_list":  "42",
+		"mixed":      "(1, 2, 3, 4, 5, 6)",
+		"empty":      "()",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1273,6 +1304,14 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name: "missing positional argument after unpacking",
+			source: "def add(left, right):\n" +
+				"    return left + right\n" +
+				"answer = add(*(1,))\n",
+			wantType:    "TypeError",
+			wantMessage: "add() missing 1 required positional argument: 'right'",
+		},
+		{
 			name: "missing required argument before varargs",
 			source: "def collect(first, *items):\n" +
 				"    return first, items\n" +
@@ -1806,6 +1845,43 @@ func TestBytecodeValidation(t *testing.T) {
 				Locals:          []string{"first"},
 			}),
 			wantFragment: "variadic positional parameter index 1 out of range",
+		},
+		{
+			name: "unsupported unpacked call operand",
+			code: testCode(
+				0,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.CallEx, Operand: bytecode.CallExWithKeywords},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "unsupported CALL_EX operand 1",
+		},
+		{
+			name: "invalid unpacked call payload",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.CallEx, Operand: bytecode.CallExNoKeywords},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children: []*bytecode.Code{
+					testCode(
+						1,
+						[]bytecode.Instruction{
+							{Opcode: bytecode.LoadConst},
+							{Opcode: bytecode.ReturnValue},
+						},
+						[]bytecode.Constant{bytecode.None()},
+						nil,
+					),
+				},
+			}),
+			wantFragment: "CALL_EX positional arguments are not a tuple",
 		},
 		{
 			name: "unsupported function attribute",

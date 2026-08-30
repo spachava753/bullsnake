@@ -340,6 +340,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "operand stack underflow")
 		}
 		return nil
+	case bytecode.CallEx:
+		if instruction.Operand != bytecode.CallExNoKeywords {
+			return code.failure(
+				index,
+				"unsupported CALL_EX operand %d",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.SetFunctionAttribute:
 		if instruction.Operand != uint32(bytecode.FunctionDefaults) {
 			return code.failure(
@@ -483,6 +492,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 2, 1
 	case bytecode.Call:
 		return int(instruction.Operand) + 1, 1
+	case bytecode.CallEx:
+		return 2, 1
 	case bytecode.UnaryOp, bytecode.GetIter, bytecode.ListToTuple:
 		return 1, 1
 	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSet,
