@@ -1,811 +1,374 @@
-# Bullsnake in Go: implementation
+# Bullsnake implementation guide
 
-This document is a work in progress. It records implementation choices in the
-Go interpreter as they are made. The [runtime design](architecture.md) describes
-goals, compatibility boundaries, architecture decisions, and future direction;
-this document describes the code that exists.
+Status: living implementation notes
 
-- [Pipeline status](#pipeline-status)
-- [Source loading](#source-loading)
-- [Lexer](#lexer)
-- [Parser and resolver](#parser-and-resolver)
-- [Compiler and bytecode](#compiler-and-bytecode)
-- [Virtual machine and frames](#virtual-machine-and-frames)
-- [Object model and runtime](#object-model-and-runtime)
-- [Import system](#import-system)
-- [Go embedding](#go-embedding)
-- [Async and scheduling](#async-and-scheduling)
-- [Memory management](#memory-management)
-- [REPL](#repl)
-- [Testing](#testing)
+This document describes the code that exists today. It explains how source
+moves through the repository, what each package owns, which Python behavior can
+run, and where execution stops. For long-term goals and design reasons, read the
+[architecture](architecture.md).
 
-## Pipeline status
+Bullsnake is under active development. Parsing a program does not mean the
+compiler can translate it, and compiling it does not mean the runtime can
+execute every instruction. Each stage rejects behavior it does not yet own.
 
-| Stage | Status |
+## Current state
+
+| Part | What works now |
 | --- | --- |
-| Source loading | Initial PEP 263 behavior implemented for supported codecs |
-| Lexer | Initial Python 3.14 behavior implemented |
-| Parser and resolver | Initial Python 3.14 parser and name resolution implemented |
-| Compiler and bytecode | Initial Python 3.14-derived bytecode subset implemented |
-| Virtual machine and frames | Modules, functions, and basic classes execute |
-| Object model and runtime | Initial scalar, collection, function, and type values |
-| Import system and standard library | Cached flat absolute imports; standard library not implemented |
-| Go embedding API | Not implemented |
-| Async and scheduling | Not implemented |
-| REPL | Not implemented |
+| Source loading | Python encoding cookies, UTF-8 BOM handling, and selected legacy encodings |
+| Lexer | Initial Python 3.14 tokenization, including f-strings and template strings |
+| Parser | A broad Python 3.14 statement and expression grammar |
+| Resolver | Name scopes, closures, contextual checks, annotations, generics, and comprehensions |
+| Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
+| Runtime | Modules, values, collections, functions, basic classes, and structured exceptions |
+| Imports | Flat absolute lookup of modules already executed by the same runtime |
+| Go API, standard library, async, and REPL | Not implemented |
+
+The parser and resolver intentionally cover more language forms than the
+compiler. The compiler also defines some bytecode that the runtime still
+rejects. This lets each package grow and remain testable without pretending the
+whole pipeline supports a feature.
+
+## The pipeline
+
+The current internal path from decoded text to execution is:
+
+```text
+parser.Parse
+    -> resolver.Resolve
+    -> compiler.Compile
+    -> runtime.New
+    -> Runtime.ExecuteModule
+```
+
+Raw file bytes first pass through `internal/compiler/source`. No public package
+combines these calls yet. Tests and internal callers compose them directly.
+
+Errors belong to the stage that can explain them. The source loader reports
+encoding failures. The lexer and parser report malformed syntax. The resolver
+reports invalid name or scope use. The compiler reports supported syntax that
+it cannot translate. The runtime reports invalid bytecode as a `BytecodeError`
+and uncaught Python exceptions as an `UncaughtException`.
 
 ## Source loading
 
-`internal/compiler/source` loads one complete source unit before lexing.
-`Decode` accepts bytes, `Read` consumes an `io.Reader`, and `ReadFile` reads a
-path. They return a `Unit` containing the filename, detected encoding, and one
-immutable UTF-8 string. Reading the complete unit keeps I/O failures separate
-from lexical failures and lets `Token.Text` remain a zero-copy slice.
+`internal/compiler/source` reads a complete source unit before lexing. `Decode`
+accepts bytes, `Read` consumes an `io.Reader`, and `ReadFile` reads a path. Each
+returns a `Unit` with the filename, detected encoding, and decoded text.
 
-The loader implements PEP 263's first-two-line coding-cookie rules. Its CPython
-3.14.7 references are `Parser/tokenizer/helpers.c`,
-`Parser/tokenizer/string_tokenizer.c`, and `Lib/test/test_source_encoding.py`.
-It defaults to strict UTF-8, removes an initial UTF-8 BOM, rejects a conflicting
-cookie, and transcodes supported declared encodings to UTF-8. The coding
-comment and physical CR, LF, or CRLF spellings remain in the decoded text.
-Token offsets therefore count bytes in the decoded UTF-8 text; a source loaded
-through a BOM starts at offset zero.
+The loader implements the first-two-line encoding-cookie rules from PEP 263. It
+defaults to strict UTF-8, removes an initial UTF-8 BOM, rejects a cookie that
+conflicts with that BOM, and converts supported encodings to UTF-8. It preserves
+the source's physical newline spelling in the decoded text.
 
-Bullsnake does not yet have Python's runtime-extensible codec registry. Source
-encodings are limited to ASCII-compatible IANA names and aliases implemented by
-`golang.org/x/text`, plus common Python aliases for those codecs. This includes
-the supported ISO-8859 and Windows code pages, Shift-JIS, EUC-JP, EUC-KR,
-ISO-2022-JP, GBK, GB18030, HZ-GB-2312, and Big5. Unknown, unavailable, and
-non-ASCII-compatible encodings fail with a structured `source.Error`.
-Malformed legacy input also fails when an `x/text` decoder would otherwise
-insert a replacement character that does not round-trip to the original bytes.
+Bullsnake has no Python codec registry. It accepts ASCII-compatible encodings
+available through `golang.org/x/text`, plus common Python aliases. Unsupported,
+non-ASCII-compatible, and malformed input produces a structured `source.Error`
+instead of replacement characters.
 
-The source loader owns byte-level BOM handling. `lexer.New` and
-`lexer.NewFile` accept decoded UTF-8 text, reject malformed UTF-8 and null
-bytes, and do not perform file I/O. A decoded U+FEFF is ordinary source input
-and receives the same lexical validation as any other source character.
+The lexer accepts decoded text. It does not read files or remove a BOM, and it
+rejects malformed UTF-8 and null bytes.
 
 ## Lexer
 
-Status: initial implementation complete.
+`internal/compiler/lexer` is a pull-based tokenizer. `Next` advances through one
+source string while retaining indentation, delimiter, and formatted-string
+state. Tokens keep their exact source spelling and a half-open source span.
+Lines start at one. Columns and absolute offsets count UTF-8 bytes, matching the
+coordinates used by Python compiler and AST nodes.
 
-Reference: CPython 3.14.7, tag `v3.14.7`, commit
-`823f0323ee6ec1402088b73bce1a38473cac36dc`.
+The lexer handles Python indentation and tab consistency, physical and logical
+newlines, explicit and implicit line joining, delimiter nesting, Python 3.14
+operators, number forms, ordinary strings, f-strings, template strings, and
+PEP 3131 identifiers. It retains comments and non-significant newlines as
+trivia so future source tools do not need a second tokenizer.
 
-Bullsnake follows Python 3.14 lexical behavior for supported syntax. The main
-references are `Grammar/Tokens`, `Parser/lexer/lexer.c`,
-`Parser/lexer/state.c`, and `Lib/test/test_tokenize.py` at the revision above.
-CPython `main` was also reviewed because it has split number and string
-scanning into separate files. Bullsnake copies the lexical semantics, not
-CPython's C storage and buffer-management model.
+Literal evaluation happens later. Number and string tokens still contain source
+text, keywords remain name tokens, and operators have exact token kinds. The
+parser decides which names are keywords. The compiler converts literal values.
 
-### Go representation
+The scanner exposes an `Incomplete` hint for open delimiters, unfinished triple
+strings, and final line continuations. A future REPL must combine that hint with
+parser completeness because valid tokens can still form an unfinished
+statement.
 
-`internal/compiler/lexer` holds a byte cursor, indentation stack, delimiter
-stack, f/t-string mode stack, and queue for pending dedents. These are ordinary
-Go values and slices. The Python-facing limits of a 100-entry indentation
-stack, 200 open delimiters, and a 150-entry f/t-string mode stack remain part of
-the lexical behavior. The regular root mode occupies one f/t-string stack
-entry, matching CPython.
+The lexer follows Python 3.14's Unicode 16 identifier set even though the Go
+toolchain and `x/text` use a newer Unicode release. It removes the small newer
+identifier addition rather than accepting names Python 3.14 rejects.
 
-`Next` is a pull API so the parser can request lookahead without materializing
-the token stream. The lexer precomputes physical line starts so it can convert
-arbitrary byte offsets into line and column positions.
+## Parser and AST
 
-Complex scanners are split by phase. Indentation measurement is separate from
-indent-stack updates, number scanning separates digit groups from fractions
-and exponents, and formatted-string scanning separates text boundaries from
-brace transitions. This keeps the state changes local while preserving
-CPython's token order.
+`internal/compiler/parser.Parse` accepts a filename and one decoded source
+string. The hand-written recursive-descent parser requests tokens lazily and
+builds nodes from `internal/compiler/ast`.
 
-### Token contract
+The grammar covers ordinary simple and compound statements, assignments,
+imports, functions, classes, type parameters and aliases, context managers,
+exception handling including `except*`, and pattern matching. Expressions cover
+comprehensions, lambdas, calls, subscriptions, collection displays, f-strings,
+template strings, `await`, and `yield`. This is a grammar claim, not an
+execution claim. Later stages still reject unsupported forms.
 
-Tokens retain their exact source spelling and a half-open span. Lines are
-one-based. Columns and absolute offsets count UTF-8 bytes, matching Python
-compiler and AST column semantics and allowing ordinary spans to slice the Go
-source directly.
+AST nodes carry source spans and syntax facts needed by later stages. They do
+not contain resolved names, bytecode positions, or runtime values. `ast.Dump`
+provides a deterministic description for tests. The AST is private and may
+change when a later stage needs a clearer representation.
 
-`NEWLINE` and `NL` end coordinates follow Python's token convention and remain
-on the preceding line after the line-ending bytes. The following token starts
-on the next line. Python's public `tokenize` module reports Unicode code-point
-columns instead; an adapter for that module must convert columns at its
-boundary.
+The parser uses one module grammar. It marks an end-of-input error as incomplete
+when more source could finish the construct. A future eval API or REPL can add
+its own result policy without a second parser mode.
 
-The lexer emits exact operator kinds. Keywords remain `NAME` tokens. Literal
-values remain as source text, and the lexer does not decode string escapes.
-Keyword classification belongs to the parser. Number conversion and string
-literal evaluation belong to later compiler stages.
+## Resolver
 
-`COMMENT` and non-significant `NL` tokens remain in the stream. A parser can
-skip them with `Token.IsTrivia`; retaining them supports diagnostics and future
-source tooling without a second lexer.
+`internal/compiler/resolver.Resolve` walks a parsed module and returns a
+separate symbol table. It does not modify the AST.
 
-F/t-string middle tokens follow CPython's parser-facing brace behavior. Doubled
-braces leave a gap between spans rather than appearing twice in token text.
+The first pass creates scopes, records name uses and bindings in source order,
+reads future imports, applies private-name rewriting, and checks rules that need
+surrounding syntax. The second pass classifies names as local, cell, free,
+explicit global, or implicit global. Free-variable requests travel outward so
+enclosing functions allocate the required cells.
 
-### Implemented behavior
+The scope tree includes modules, functions, lambdas, classes, comprehensions,
+annotations, type-parameter lists, type-variable bounds and defaults, and type
+alias values. One AST node can own more than one scope, so `Table.ScopeFor`
+selects a scope by its purpose.
 
-The lexer implements:
+The resolver handles closure propagation, class scope rules, `__class__` and
+`__classdict__` cells, private names, comprehension bindings, assignment
+expressions, deferred annotations, generic scopes, and pattern captures. It
+also records generator and coroutine flags and checks where control-flow and
+suspension syntax may appear. Unknown names remain implicit globals for runtime
+lookup.
 
-- Python indentation, form-feed handling, the alternate tab-width stack, and
-  ordered `INDENT` and `DEDENT` emission
-- Physical `NL` versus logical `NEWLINE`, explicit continuations, implicit
-  joining inside delimiters, and synthetic final line endings
-- Ordered delimiter matching and Python's nesting limits
-- Python 3.14 operators and maximal-munch tokenization
-- Decimal, binary, octal, hexadecimal, float, exponent, underscore, imaginary,
-  and leading-zero validation
-- Ordinary raw, bytes, and Unicode string prefixes and triple-quoted strings
-- Python 3.14 f-strings and template strings, including nested replacement
-  fields, format specifications, doubled braces, and nested strings
-- PEP 3131 identifiers with NFKC checks
-- Structured syntax, indentation, tab, and encoding errors with source spans
-- A lexical `Incomplete` hint for an open delimiter, triple-quoted string,
-  triple-quoted f/t string, or final line continuation
-
-Go 1.27 and `golang.org/x/text` use Unicode 17, while Python 3.14 uses Unicode
-16. The lexer removes the small Unicode 17 XID addition delta so it does not
-accept identifiers that the reference Python rejects.
-
-### Current boundaries
-
-The scanner uses file-input EOF behavior. A REPL must combine the lexical
-`Incomplete` hint with parser completeness. A lexically complete `if` header is
-still parser-incomplete, so the lexer cannot decide by itself when to request
-another input line.
-
-Type comments remain `COMMENT` tokens. Optional `TYPE_COMMENT` and
-`TYPE_IGNORE` classification can be added when the AST adopts type comments.
-`SOFT_KEYWORD` classification also belongs to the parser.
-
-Exact CPython warning behavior and error wording are outside Bullsnake's
-contract. CPython emits transitional `SyntaxWarning` messages for some
-number-and-keyword adjacencies. Bullsnake preserves valid token boundaries and
-reports malformed literals directly.
-
-## Parser and resolver
-
-The checked-in parser grammar and resolver are implemented for the Python 3.14
-syntax forms emitted by the lexer. The parser constructs the AST; the resolver
-classifies names and rejects rules that depend on surrounding scopes.
-
-`internal/compiler/ast` defines the internal AST. The initial node set covers
-the module root; expression, chained, annotated, and augmented assignments;
-`pass`, `return`, `raise`, `del`, `assert`, loop-control, scope-declaration,
-import, conditional, loop, function-definition, class-definition, type-alias,
-context-manager, exception-handling, and structural pattern-matching statements;
-names; number, plain string,
-boolean, `None`, ellipsis, adjacent-string, formatted-string, and template-string
-literals; unary, binary, boolean, comparison, conditional,
-lambda, named-assignment, await, yield,
-attribute, subscript, slice, starred, list, set, dictionary, comprehension, and
-generator expressions; positional, starred, named, and dictionary-unpacked
-calls; and tuples. Nodes carry lexer byte spans.
-`ast.Dump` provides a deterministic structural representation with optional
-spans for tests and diagnostics. The node set will grow with the supported
-grammar; it is not a stable extension API.
-
-`internal/compiler/parser.Parse` accepts decoded source and a filename. It
-creates the lexer and returns an `ast.Module` or a structured compiler error.
-All source uses the same statement grammar. A later eval API will require one
-`ExprStmt` and preserve its value; a REPL will display expression-statement
-values while executing other statements normally. Reaching the end marker
-while required syntax is missing marks an error as incomplete for any caller,
-so the REPL needs no parser mode.
-
-The parser token cursor requests lexer tokens lazily, removes `COMMENT` and
-non-significant `NL` tokens from parser lookahead, and caches every significant
-token. Marks are token indexes, so local speculative parses can rewind without
-rewinding the lexer. End markers and lexer errors are cached as terminal cursor
-items, which makes repeated lookahead deterministic.
-
-The hand-written recursive-descent grammar constructs AST nodes directly.
-Ordinary binary operators use precedence climbing. Dedicated rules handle
-comparison chains, boolean `and`/`or`/`not`, unary operators, power,
-conditional, lambda, and assignment expressions, `await`, `yield`, tuples,
-parenthesized expressions, collection displays, comprehensions, generator
-expressions, unpacking, and complete ordinary call arguments. A
-primary-expression loop supports chained calls, attributes, subscripts, and
-slices; attributes, lists, and subscripts can also be assignment targets.
-Simple-statement lines support semicolon separators, all assignment forms,
-`return`, `raise`, `del`, `assert`, `pass`, `break`, `continue`, `global`,
-`nonlocal`, and imports. Context-manager statements support multiple items,
-parentheses, assignment targets, and `async with`. Exception handling supports
-`except`, `except*`, `else`, and `finally`. Structural matching supports literal,
-capture, wildcard, value, OR, AS, sequence, mapping, and class patterns with
-optional guards. `if`/`elif`/`else` supports a same-line simple-statement
-list or an indented statement list; `elif` clauses become nested `IfStmt`
-alternatives. `while` and synchronous or asynchronous `for` loops support
-optional `else` suites. Functions and lambdas support positional-only,
-ordinary, variadic, keyword-only, and keyword-variadic parameters and defaults.
-Functions also support parameter and return annotations. Functions, classes,
-and type aliases support generic type parameters; functions and classes support
-decorators. Adjacent plain and formatted strings, nested format specifications,
-debug fields, and template strings are parsed directly from the lexer's string
-tokens. Formatted-string nodes retain raw-prefix mode and the exact debug-field
-spelling needed by bytecode generation.
-
-`internal/compiler/resolver.Resolve` accepts a filename and parsed module. Its
-first walk follows source order, creates the scope tree, records every use and
-binding, applies private-name mangling, reads future imports, and performs
-context-sensitive checks. Its second walk classifies each symbol as local,
-cell, free, explicit global, or implicit global and propagates closure requests
-back through enclosing scopes. The result is a separate `resolver.Table`; the
-AST remains unchanged.
-
-The scope tree represents modules, functions and lambdas, classes,
-comprehensions, annotations, type-parameter lists, type-variable bounds and
-defaults, and type-alias values. `Table.ScopeFor` distinguishes the several
-scopes that one AST node can create. Symbols retain source-order flags and
-locations, while stable resolver dumps expose the complete tree for tests and
-diagnostics.
-
-The resolver implements ordinary and declaration bindings, closure cells,
-class-local skipping and `__class__` closure creation, private names,
-comprehension iterator scopes and assignment-expression targets, deferred
-annotations, PEP 695 generic scopes, pattern capture validation, generator and
-coroutine flags, and placement checks for `return`, loop control, `yield`,
-`await`, asynchronous statements, `except*`, wildcard imports, and
-`__debug__`. The `except*` control stack records the active handler depth when a
-loop begins. Break and continue may target a loop created at that depth, while a
-transfer to an outer loop remains invalid. Function-local annotation
-expressions are traversed for syntax validation but do not record direct name
-facts or propagate closure requests.
-Unknown names remain implicit globals for runtime lookup rather than becoming
-compile-time errors.
-
-The resolver does not assign local, cell, or free-variable array positions and
-does not choose bytecode instructions. Those remain compiler responsibilities.
-Parser tests identify whether invalid syntax belongs to the lexer or parser;
-resolver tests start only from ASTs the parser accepts.
+The resolver decides what a name means. It does not assign bytecode indexes or
+choose load and store instructions. Those decisions belong to the compiler.
 
 ## Compiler and bytecode
 
-`internal/compiler.Compile` accepts a parsed module and its resolver table and
-produces an `internal/compiler/bytecode.Code`. Code objects copy their
-instruction, position, constant, name, and exception-handler tables at
-construction and expose copies through accessors. Each instruction has an
-explicit opcode and operand; a parallel table retains its lexer span. The
-compiler tracks operand-stack depth while emitting and records the maximum on
-the code object. Control-flow instructions use absolute instruction indexes.
-Labels patch forward jumps and require every incoming edge to have the same
-stack depth.
+`internal/compiler.Compile` accepts one AST module and its resolver table. It
+returns an immutable `internal/compiler/bytecode.Code` or a source-located
+compiler error.
 
-The current bytecode implements the supported file-input subset: empty
-modules, `pass`, singleton, numeric, string, bytes, and formatted-string
-constants; module name loads and stores; simple, chained, destructuring,
-augmented, module-deferred, and function-local annotated assignments;
-recursive deletion targets; expression statements;
-collection displays; unary, binary, boolean, comparison, conditional, named,
-lambda, attribute, subscription, slice, and call expressions; ordinary,
-relative, aliased, and wildcard imports; assertions; bare, explicit, and
-explicitly caused raises; synchronous function definitions with decorators,
-required and defaulted parameters, lazy parameter and return annotations,
-closures, and returns;
-class definitions with decorators, ordinary and starred bases, class keywords,
-methods, enclosing closure reads, and the `__class__` cell requested by
-zero-argument `super()`; `if`/`elif`/`else` statements; `while` loops;
-synchronous `for` loops with name, tuple, or list targets, including one starred
-target per sequence; and `try` statements with ordered typed or bare `except`
-clauses, optional `as` bindings, `else`, and `finally`. Final suites support
-normal, exceptional, return, break, or continue completion. Both loop forms
-support optional `else`, `break`, and `continue`.
-Reachable code-object fallthrough ends with a synthetic `None` return.
-For supported handlers, the compiler records the innermost active handler and
-current stack depth on every protected instruction. `finish` combines adjacent
-records into sorted, non-overlapping ranges. Normal execution jumps over the
-handler dispatch. A typed clause evaluates its class or tuple and uses
-`CHECK_EXC_MATCH`; false checks continue in source order, a bare clause catches
-unconditionally, and a final miss uses `RERAISE`. A selected clause enters a
-frame-owned handled-exception scope whose end is the statement's exit. Normal
-completion leaves that scope; return discards its frame, and jumps outside the
-scope become inactive at their target. An `as` clause stores a second reference
-through the resolver-selected name operation. Compiler cleanup actions leave the
-handled scope, assign `None`, then delete that name on normal completion,
-return, break, and continue. The handler body also has a protected cleanup range
-that performs the same clear/delete sequence before propagating a secondary
-exception. A normal protected body runs its `else` suite outside that range
-before jumping over handler dispatch, so an exception from `else` continues to
-an enclosing handler. One ordered control-cleanup stack interleaves bound-name
-cleanup and final suites in lexical order. Plain `try/finally` duplicates the
-final suite: normal fallthrough runs one copy, while an exception-range target
-runs the other with the pending exception below its temporary values. That copy
-enters a handled-exception scope so bare `raise` can select the pending value,
-then leaves the scope before reraising or transferring elsewhere. Return, break,
-and continue emit active cleanup actions from inner to outer before completing
-their transfer. A return keeps its value on the operand stack; loop control
-restores the target loop's recorded stack depth. If
-a final suite returns, raises, breaks, or continues, that newer transfer replaces
-the pending one. A combined statement compiles its complete handler and `else`
-flow as the protected body of the outer finalization region.
-Integer literals are canonicalized at arbitrary precision; float and imaginary
-literals are converted to binary64. The compiler decodes Python string and
-bytes escapes, normalizes physical newlines in literal values, folds adjacent
-plain literals, and retains lone Unicode surrogates as WTF-8-compatible bytes.
-Formatted strings preserve raw mode and debug-field spelling, apply `str`,
-`repr`, or `ascii` conversions, recursively build format specs, and join plain
-and formatted components with explicit stack effects. Tuple, list, set, and
-dictionary displays use count-based build instructions when they have no
-unpacking. Starred displays use typed append, extend, and update instructions
-against one accumulator while evaluating elements from left to right. Unary,
-binary, and in-place operations use the same explicit operand IDs. Augmented
-attribute and subscript assignments retain their evaluated address beneath the
-current value, then rotate the result into the ordinary store order without
-reevaluating the object or index. Boolean operators retain the selected operand
-across short-circuit jumps. Comparison chains evaluate each operand once,
-retain only the next left operand, and clean it up on a false edge. Conditional
-expressions merge their two value-producing branches at one checked stack
-depth. Attribute loads share the deterministic name table with ordinary names.
-Subscriptions evaluate the container before the index; slices represent omitted
-bounds with `None` and use one build instruction for two or three components.
-Calls without unpacking or keywords use an inline argument count. Other calls
-build a positional tuple and optional keyword map; keyword mappings merge in source
-order and reject duplicate names rather than applying dictionary-update
-semantics. Imports carry an explicit relative level and from-name tuple.
-Dotted `as` imports traverse components while removing intermediate modules;
-imported values use ordinary resolver-selected stores. Wildcard imports consume
-the module after updating the current namespace.
-Named assignment expressions copy their value before storing the
-target, so the same value remains as the expression result. Attribute and
-subscript stores evaluate their object and index after the right-hand value.
-Function-local annotated assignments never execute their annotation expression.
-Simple module annotations record their source-order index when execution reaches
-them; a module-end `__annotate__` child checks those indexes before adding lazy
-values to its result map. An optional value uses the ordinary store path. An
-annotation-only attribute or subscript evaluates and discards its address
-components without reading or writing the target. Fixed tuple and list targets
-unpack once, then consume their targets from left to right.
-Starred targets use CPython's packed `UNPACK_EX`. Its low byte records up to 255
-targets before the star, and its upper 24 bits record targets after it.
-Delete statements recursively visit grouped targets without building or
-unpacking a runtime collection. Assertions evaluate their message only on the
-failing edge, construct `AssertionError`, and terminate that edge
-with the same zero-, one-, or two-argument raise instruction used by `raise`.
-A fully terminating code object has no synthetic return. Synchronous function
-definitions store immutable child code objects by index. Child metadata records
-required parameter counts and variadic flags; resolver-local names use indexed
-fast operations, while explicit and implicit globals use the name table.
-Non-capturing nested functions receive Python-style qualified names. Lambdas
-use `<lambda>` names, share the function creation path, and compile their body
-expression directly to `RETURN_VALUE`.
-Function scopes index cells before free variables in one dereference table,
-following resolver order. Captured parameters remain in both the argument-local and cell
-tables so frame setup can seed their cells. Each child requests cell objects in
-its own free-variable order, which keeps transitive captures correct when parent
-and child indexes differ. The parent evaluates positional defaults into one
-tuple and sparse keyword-only defaults into one map before loading the closure
-tuple and creating the function. Attribute instructions attach the closure,
-keyword-only map, and positional tuple in reverse stack order while retaining
-the function. Decorator expressions evaluate in source order before defaults.
-Calls apply them in reverse order after function creation and attribute
-attachment. Parameter and return annotations compile into a sibling
-`__annotate__` code object with one positional-only `format` argument. Its
-format guard matches CPython 3.14's VALUE and internal fake-globals boundary,
-and the body returns an insertion-ordered map of annotation names to values.
-The annotation callable may capture enclosing cells and attaches with function
-attribute `0x10` before defaults and decorators are consumed. Class-visible
-annotation loads check a captured `__classdict__` before their global or
-free-variable fallback. Class definitions evaluate decorators before class
-construction.
-`LOAD_BUILD_CLASS` calls a namespace body function with the class name and
-bases. Ordinary arguments use inline `CALL`; starred bases and keyword maps use
-a seeded positional list, `MAP_MERGE`, and `CALL_EX`. The body initializes
-`__module__`, `__qualname__`, and `__firstlineno__`, uses namespace name
-operations, may capture an enclosing function cell, and gives methods
-class-qualified names. When the resolver requests `__classdict__`, the class body
-captures its live namespace, publishes the cell as `__classdictcell__`, and
-passes it to annotation callables. When the resolver requests `__class__`, the
-class body allocates that cell before free variables, passes it to methods,
-stores a copy as `__classcell__`, and returns the cell to the class builder.
-Conditional statements use the same checked labels as conditional expressions;
-every true, false, and `elif` edge merges with an empty operand stack. The
-compiler keeps a nearest-loop stack for `break` and `continue`. A `while`
-condition's normal false edge enters `else`, while `break` targets the loop end
-directly. A `for` loop keeps its iterator beneath the body stack; successful
-iteration pushes one item, normal exhaustion removes the iterator and enters
-`else`, and `break`
-pops to the loop's recorded base depth before skipping `else`. This depth rule
-preserves outer iterators in nested loops. A suite stops emitting after an
-unconditional jump, and a join with no reachable input remains unreachable.
-Constants and referenced names use deterministic indexed tables. Stable code
-dumps support compiler tests and future diagnostics. Exception handling records
-the innermost active handler and restore depth for each protected instruction,
-then combines adjacent records into immutable ranges. Ordinary clauses dispatch
-in source order. Exception-group clauses keep the original exception, one result
-list, and the current remainder on the stack; handler-body ranges collect raised
-exceptions before later clauses run. `CHECK_EG_MATCH` performs each split and
-`PREP_RERAISE_STAR` produces the final exception or `None`. The same outer
-finally cleanup can enclose either handler form.
+A code object describes one module, function, lambda, class body, or deferred
+annotation body. It contains instructions, source positions, constants, names,
+fast locals, closure cells, free variables, child code objects, argument
+metadata, maximum stack size, and exception-handler ranges. Construction copies
+mutable input, and accessors return copies of tables. Bytecode is an in-memory
+internal format, not a `.pyc` format or a compatibility promise.
 
-The instruction representation remains decoded rather than serialized.
-Template strings, class annotated assignments, future annotations, generic and
-async functions, class docstrings, static-attribute metadata, `async for`,
-`with` statements, structural matching, comprehensions, and suspended execution
-are not yet compiled. Unsupported AST nodes fail with a source-located compiler
-error.
+The compiler tracks operand-stack depth while emitting. Labels patch forward
+jumps and require every incoming control-flow path to agree on the stack depth.
+Protected instruction ranges record where an exception handler starts and how
+much stack to retain. The runtime validates those claims independently.
 
-## Virtual machine and frames
+The current compiler translates:
 
-`internal/runtime` contains the executable VM. `Runtime.ExecuteModule` accepts an
-immutable code object, prepares it once per runtime, executes it in a new
-module namespace, and caches the module by name only after normal return.
-`Runtime.Module` and `Module.Get` expose successful executions to internal
-callers and tests. There is not yet a public Go embedding API.
+- scalar literals, f-strings, and tuple, list, set, and dictionary displays
+- names, attributes, calls, subscriptions, slices, operators, comparisons, and
+  conditional expressions
+- simple, chained, destructuring, annotated, augmented, and deletion targets
+- `if`, synchronous `while` and `for`, loop `else`, `break`, and `continue`
+- synchronous functions, lambdas, every parameter kind, defaults, decorators,
+  lexical closures, returns, and lazy function annotations
+- basic classes with decorators, bases, class keywords, methods, enclosing
+  closures, and the cells used by class-visible annotations and `__class__`
+- ordinary imports and assertions
+- ordinary exception handlers, `else`, `finally`, exception groups, `except*`,
+  bare reraising, explicit causes, and cleanup during return or loop transfer
 
-Preparation copies the instruction, name, local, cell, free-variable,
-child-code, and exception-handler tables, materializes code constants as runtime
-values, and validates the complete code tree before execution. Validation
-currently accepts `NOP`,
-`LOAD_CONST`, `CONVERT_VALUE`, `FORMAT_SIMPLE`, `FORMAT_WITH_SPEC`,
-`BUILD_STRING`, `LOAD_NAME`, `STORE_NAME`, `DELETE_NAME`, `LOAD_FAST`,
-`STORE_FAST`, `DELETE_FAST`, `LOAD_GLOBAL`, `STORE_GLOBAL`, `DELETE_GLOBAL`,
-`LOAD_ATTR`, `STORE_ATTR`, `DELETE_ATTR`, `LOAD_DEREF`, `STORE_DEREF`,
-`DELETE_DEREF`, `LOAD_CLOSURE`, `LOAD_ASSERTION_ERROR`,
-`LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`, `MAKE_FUNCTION`,
-positional-default, keyword-default, closure, and annotation
-`SET_FUNCTION_ATTRIBUTE` variants, `CALL`, both `CALL_EX` forms,
-`IMPORT_NAME`, `IMPORT_FROM`, `IMPORT_STAR`, zero- or one-argument
-`RAISE_VARARGS`, `CHECK_EXC_MATCH`, `CHECK_EG_MATCH`, `PREP_RERAISE_STAR`,
-`RERAISE`, `ENTER_EXCEPT`, `LEAVE_EXCEPT`, `POP_TOP`, `COPY`, `SWAP`, fixed
-`BUILD_TUPLE`, `BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
-`LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
-`MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
-`FOR_ITER`, integer or slice `BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and
-`DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP` and
-`INPLACE_OP` variants; scalar `COMPARE_OP` variants; absolute `JUMP`; both
-pop-and-test jumps; both short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks
-constant, name, local, and child indexes, code metadata, operation operands,
-jump targets, exception ranges and restore depths, stack underflow, the declared
-maximum stack size, return stack balance, and reachable termination. Any
-unsupported constant, instruction, operand, or nested code object fails with a
-source-located `BytecodeError` before a module can observe side effects.
+Integer constants use arbitrary precision. Float and imaginary constants use
+binary64. String decoding preserves lone surrogate escapes in an internal
+WTF-8-compatible form, while bytes constants preserve arbitrary bytes.
+Formatted-string compilation retains conversion, format-specification, raw
+prefix, and debug-field behavior needed by the current runtime formatter.
 
-Stack validation uses a worklist over instruction indexes. Each reachable edge
-carries its operand-stack depth and active handled-exception scope ends.
-Conditional jumps propagate their distinct fallthrough and taken-edge effects.
-`FOR_ITER` adds an item on its fallthrough edge and removes the iterator on its
-exhaustion edge. Every protected instruction also contributes an edge to its
-handler at the recorded restore depth plus one exception value. Jumps prune
-scopes whose instruction range they leave. Loops terminate through already-seen
-instruction states, and a merge with different depths or scopes is invalid. The
-validator allows well-formed unreachable instructions but still checks their
-opcodes, operands, and table indexes before execution. The compiler uses
-these validated jumps for boolean short-circuit expressions, conditional
-expressions, `if` statements, and `while` and synchronous `for` loops. Loop
-`else`, `break`, and `continue` require no separate runtime mechanism; their
-targets preserve the same frame and operand stack.
+Functions and class bodies are child code objects. Closures contain explicit
+cell references instead of Go closures. Deferred annotation bodies are also
+children and do not run during an ordinary function definition or call.
 
-Formatted strings apply `str`, `repr`, and ASCII-escaped `repr` conversions,
-preserve exact strings through empty formatting, and join compiler-selected
-components in source order. `FORMAT_WITH_SPEC` accepts an empty specification
-for every current value. Strings additionally support one-code-point fill,
-left, right, or center alignment, decimal width, code-point precision, and the
-optional `s` type. Arbitrary-precision integers and booleans support sign and
-alternate prefixes, zero or custom fill, all four alignments, comma or
-underscore grouping, nested widths, character conversion, and `b`, `d`, `o`,
-`x`, or `X` presentation. Binary64 floats support `e`, `E`, `f`, `F`, `g`,
-`G`, percent, and precision-without-type presentation with sign, negative-zero
-coercion, alternate form, grouping, precision, nested fields, and numeric
-alignment. Float-style integer presentations, locale-aware `n`, complex
-formatting, and custom `__format__` dispatch remain unsupported.
+The compiler rejects template-string execution, annotated class attributes,
+`from __future__ import annotations`, generic and async definitions,
+comprehensions, `async for`, `with`, pattern matching, generators, and
+coroutines. Unsupported AST forms return compiler errors; they are not
+approximated with similar bytecode.
 
-A heap-allocated frame contains prepared code, the next instruction index, a
-preallocated operand stack, indexed fast locals, an ordered cell/free-variable
-array, local, global, and builtin namespaces, and its logical predecessor. A
-thread state points at the active frame. `MAKE_FUNCTION` captures prepared child
-code and the defining globals; its closure attribute retains the exact cells
-requested by the child's free-variable table. Calls allocate local cells, seed
-captured parameters from the bound fast locals, and append the captured free
-cells. `CALL` binds inline positional arguments. `CALL_EX` consumes a
-compiler-built positional tuple and, for operand one, an ordered keyword
-dictionary assembled by duplicate-checking `MAP_MERGE`. Both return a
-child-frame outcome. The dispatch loop switches to that frame without a Go call;
-`RETURN_VALUE` restores the predecessor and pushes the result. Repeated, nested,
-and recursive Python calls therefore remain in one iterative loop. A raised
-outcome searches the current frame's protected ranges. A match truncates the
-operand stack to the recorded depth, pushes the exception, and resumes at the
-handler. Without a match, the same loop removes the frame and checks its
-caller's `CALL` instruction. This continues to a handler or the host boundary;
-an uncaught error retains the original raising frame and source span. Frames
-also retain nested handled-exception scopes. `ENTER_EXCEPT` records the selected
-exception and exclusive scope end, while `LEAVE_EXCEPT` removes it on normal
-completion. Before each instruction, dispatch removes scopes left by a jump.
-Bare `raise` searches the active frame and its callers, which lets a function
-called inside a handler re-raise that handler's exception.
-`LOAD_BUILD_CLASS` uses the same transition to run a zero- or single-base class
-body with a fresh local namespace. The builder accepts an ordinary Bullsnake
-type or a built-in exception class as that base. A class-build record on the
-body frame converts return into a basic type value, retains the namespace and
-optional base, and fills a returned `__class__` cell before resuming the defining
-frame. Module execution seeds `__name__` so class bodies can initialize
-`__module__`. Ordinary type calls allocate fresh instances. If a class defines
-or inherits a plain `__init__`, construction invokes it as a bound method and a
-frame-return continuation requires `None` before pushing the instance. Without
-`__init__`, only an empty call is accepted.
-`LOAD_ATTR` checks instance storage before walking the class base chain and binds
-class-level plain functions; type lookup still returns raw namespace entries.
-`STORE_ATTR` and `DELETE_ATTR` mutate only the selected instance or type
-namespace. Exception subclasses inherit the current positional message
-construction and participate in user and built-in ancestry checks. A custom
-exception `__init__` and general exception-instance method binding remain
+## Runtime preparation
+
+`internal/runtime.Runtime` owns builtins, prepared code, and successful modules.
+`ExecuteModule` prepares a complete code tree before creating observable module
+state. Prepared code copies the code tables and converts constants to runtime
+values. The runtime caches that prepared form by code-object identity.
+
+Preparation checks all child code, including deferred and unreachable code. It
+rejects unknown instructions, unsupported operands and metadata, invalid table
+indexes, bad jumps, malformed exception ranges, stack underflow or overflow,
+control-flow joins with incompatible stack state, reachable fallthrough, and
+invalid return shape. A failure is a source-located `BytecodeError`.
+
+Stack validation follows every reachable control-flow edge with a worklist. It
+models the different stack results of conditional jumps, iteration, and
+exception edges. It also checks unreachable instructions and operands, even
+though they do not contribute control-flow edges. No module code runs until the
+whole tree passes.
+
+## VM and frames
+
+The VM allocates Python frames on the Go heap and executes them in one loop. A
+frame stores prepared code, the next instruction, operand stack, fast locals,
+closure cells, local and global namespaces, builtins, active handled
+exceptions, and its caller.
+
+An instruction can advance, call another Python frame, return, or raise. A call
+switches the loop to a new frame. A return restores the caller and pushes the
+result. Python recursion therefore does not recurse through the Go call stack.
+
+A raised Python exception follows protected ranges in the current code. If a
+range matches, the VM trims the operand stack to its recorded depth, pushes the
+exception, and resumes at the handler. Otherwise it removes the frame and
+continues at the caller's call instruction. An uncaught exception retains
+Python traceback entries and crosses the host boundary as
+`UncaughtException`.
+
+Frames also track exceptions active inside handlers and final suites. This makes
+bare `raise`, implicit context, explicit causes, and replacement by a newer
+return, loop transfer, or exception work across nested calls and cleanup.
+
+## Runtime values
+
+Runtime values implement a sealed `Value` interface. Current concrete values
+include the Python singletons, arbitrary-precision integers, binary64 floats,
+complex numbers, strings, bytes, tuples, lists, dictionaries, sets, slices,
+iterators, modules, functions, classes, instances, bound methods, and
+exceptions.
+
+The object model implements the behavior needed by the executable subset.
+Collections support displays, unpacking, iteration, membership, integer and
+slice subscription, and dictionary item mutation. Current values also support
+truth testing, selected scalar operations and comparisons, and attribute access
+for modules, basic classes, and instances. Dictionaries and sets currently use
+ordered linear storage. This keeps Python identity and equality checks explicit
+until user-defined hashing and equality can call back into Python.
+
+Strings index and iterate by decoded code point, including preserved lone
+surrogates. Bytes index and iterate as integers. Slices use Python-style bound
+clipping and positive or negative steps. Dictionary iteration detects key-set
+changes; replacing an existing value is allowed. Set display and iteration
+order is stable for Bullsnake tests but is not a Python compatibility promise.
+
+The current function binder supports positional-only, positional, keyword-only,
+`*args`, and `**kwargs` parameters, positional and keyword-only defaults, and
+keyword unpacking. Defaults retain the objects created when the definition ran.
+Calls reject duplicate, missing, unexpected, or non-string keyword arguments
+with Python exceptions.
+
+Classes support one base, inherited attribute lookup, bound Python methods,
+ordinary `__init__`, instance and class attribute mutation, and user exception
+subclasses. The object model does not yet implement class keyword arguments,
+multiple inheritance, C3 method order, metaclasses, `super`, `__new__`, or
+general descriptors. Custom exception initializers and methods remain
 unsupported.
 
-The current call binder supports positional-only, ordinary positional, and
-keyword-only parameters; trailing positional defaults; sparse keyword-only
-defaults; `*args`; `**kwargs`; and named values supplied by keyword or `**dict`.
-Defaults remain the same Python objects captured when the definition executes.
-Every call creates a fresh variadic-keyword dictionary after the keyword-only
-fast locals, then inserts unmatched names in call order. A positional-only name
-is unmatched and therefore enters that dictionary when the function declares
-`**kwargs`. The binder rejects duplicate bindings, non-string keys, unexpected
-names, and missing required positional or keyword-only arguments with Python
-exceptions. Closure cells use the compiler's cells-first dereference indexes;
-`LOAD_DEREF`, `STORE_DEREF`, and `DELETE_DEREF` share updates and report empty
-local or free cells with Python's distinct exception families and messages.
-`LOAD_NAME` and `DELETE_NAME` use the frame's local namespace, while
-`LOAD_GLOBAL` and `DELETE_GLOBAL` use the module namespace. Name deletion
-removes the mapping entry and raises `NameError` when it is absent. `DELETE_FAST`
-clears an indexed local slot and raises `UnboundLocalError` when that slot is
-already empty. Decorators require no VM-only state: their expressions and
-defaults execute in the compiler-selected order, and ordinary calls apply the
-resulting decorators from bottom to top. Annotation attributes retain the
-compiler-generated callable without evaluating annotation expressions during
-definition or ordinary calls.
-Its internal format guard can raise `NotImplementedError`; Python attribute
-lookup and `annotationlib` integration cannot request annotation maps yet.
-Assertions load a callable internal `AssertionError` class and use the supported
-one-argument raise path with either that class or a constructed exception.
-Invalid raised values become `TypeError`. Runtime builtins contain the current
-exception classes and their CPython inheritance links. User classes may extend
-one of those classes or another user exception class. `BaseExceptionGroup` and
-`ExceptionGroup` validate a text message and a non-empty list or tuple of
-exception instances, retain one immutable child tuple, and expose read-only
-`message` and `exceptions` attributes. The base constructor selects
-`ExceptionGroup` for ordinary exceptions; the latter rejects base-only children
-and follows both required ancestry paths. Single-base user subclasses retain
-their class and the corresponding child restriction. Typed handlers accept one
-supported exception class or a flat tuple, validate every tuple member before
-matching, and follow user ancestry into the built-in hierarchy. Multiple ordinary
-clauses run in source order; an unmatched `RERAISE` retains the original raising
-frame and source span. Exception-group clauses reject group classes, recursively
-split nested children, apply the built-in `BaseExceptionGroup.derive` class
-selection, wrap a matching naked exception, and run every clause against the
-remaining subgroup. Custom `derive` overrides await general exception-instance
-method dispatch. Handler failures enter a result list instead of skipping later
-clauses. Final preparation projects bare reraises and unmatched leaves through
-the original nested shape, then combines new failures in source order. Named
-bindings clear on both normal and raised clause exits. Bare `raise` uses the
-active handled exception or raises `RuntimeError` when none exists.
-An exceptional final suite temporarily makes its pending exception active,
-including while nested final suites run. Plain and combined `try/finally` run
-before normal completion, exception propagation, return, break, or continue; a
-newer transfer from the final suite replaces the pending one.
-Explicit causes accept an exception class, instance, or `None`; invalid causes
-raise `TypeError`. The raised exception exposes read-only `__cause__`,
-`__context__`, and `__suppress_context__` attributes. Fresh raises link the
-active handled exception as context, including across function calls and final
-suites. Reraises preserve the existing chain, and cycle prevention cuts a
-back-link before assigning context. Every unwind records its Python frame and
-instruction. `UncaughtException.Traceback` returns an outermost-first copy;
-`Backtrace` formats the chain while `Error` retains its short location form.
-Python `__traceback__` objects, frame introspection, callable native values,
-multiple inheritance, C3 linearization, metaclasses, `super`, `__new__`, general
-descriptors, suspension, cancellation, recursion limits, and execution budgets
-are not yet implemented.
+The formatter supports current strings, integers, booleans, and floats for the
+format forms covered by execution tests. It does not yet provide general
+`__format__` dispatch.
 
-## Object model and runtime
+## Exceptions
 
-The initial sealed `Value` interface keeps every Python reference in a typed Go
-interface or pointer. Process-wide immutable singletons represent `None`,
-`False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
-precision integers, binary64 floats, complex values, strings, bytes, tuples,
-lists, dictionaries, sets, slices, collection iterators, modules, functions,
-basic type objects, instances, bound methods, and exceptions. Code
-preparation materializes each constant once per runtime and code object.
-String objects accept UTF-8 plus
-the compiler's deliberate WTF-8 encoding for lone surrogates; bytes objects
-retain arbitrary payloads. Stable representations escape non-printable text and
-bytes without losing their contents. Basic type objects retain their class-body
-namespace; instances own a separate namespace and use stable module-qualified
-representations. `LOAD_ATTR` implements instance-first lookup, then walks the
-single-base class chain and binds plain functions. `STORE_ATTR` and `DELETE_ATTR`
-directly mutate instance or type namespaces. Multiple inheritance and general
-descriptors remain deferred.
+Python exceptions are `Value` implementations. The runtime has the built-in
+exception classes needed by current operations and follows their inheritance
+when matching handlers. `raise` accepts an exception instance or a supported
+exception class. Bare `raise` uses the active handled exception.
 
-Fixed tuple and list displays consume their elements in source order and
-allocate heap-backed sequence values. Exact and starred unpacking arrange stack
-values so nested assignment targets store left to right. Arity mismatches raise
-`ValueError`; other values raise `TypeError`. Tuple and list truth depends on
-length. Their iterators retain the source sequence and yield its elements in
-order. Dictionary iterators yield keys in insertion order, while set iterators
-yield the runtime's stable first-seen order. String iterators yield one decoded
-code point at a time, including lone surrogates, while bytes iterators yield
-unsigned integer values. Every iterator remains beneath the loop body stack and
-is removed on normal exhaustion. Integer and boolean subscription returns the
-existing element and normalizes negative indexes. Slice
-subscription clips arbitrary-size integer or boolean bounds, supports positive
-and negative steps, reuses a tuple for a complete unit-step slice, and always
-allocates a list result. String subscription counts decoded Unicode code points,
-including preserved lone surrogates, rather than UTF-8 storage bytes. Bytes
-subscription counts raw bytes and returns an integer for an ordinary index.
-String and bytes slices share the sequence bound rules, preserve their type, and
-reuse the original immutable object for a complete unit-step slice. Starred
-displays append ordinary values and extend from current tuple/list iterables in
-source order. Membership scans tuple and list elements with current
-identity-or-equality semantics. String membership performs a code-point-safe
-substring search and requires a string needle. Bytes membership accepts a bytes
-subsequence or an integer in `0..255`; oversized host integers and other types
-follow CPython's bytes-like `TypeError` path.
+Ordinary `try` statements support ordered typed or bare handlers, `as` bindings,
+`else`, and `finally`. Handler bindings clear on every exit. Final suites run
+for normal completion, propagation, return, break, and continue. A transfer
+started in the final suite replaces the pending transfer.
 
-Dictionary values keep an insertion-ordered entry slice and currently find keys
-with a linear identity-or-equality scan. `BUILD_MAP` consumes fixed pairs in
-source order. Mixed displays apply ordinary pairs and unpacked dictionaries to
-one accumulator. Replacing an equal key retains its original object and
-position; new unpacked keys append in their source mapping's order. A non-mapping
-`**` operand raises `TypeError`. Current scalar values and recursively hashable
-tuples may be keys; construction, subscription, and membership report the
-contextual Python 3.14 `TypeError` for unhashable keys.
-Subscription returns the stored object and raises `KeyError` with the missing
-key's representation; membership returns a boolean for present or missing keys.
-Item assignment uses the same key matching as display
-construction. Deletion removes the entry without disturbing later entries;
-reinsertion appends it. Missing deletion keys raise `KeyError`. Dictionary truth
-depends on entry count. Iterators snapshot the entry count and key version.
-Replacing values during iteration is valid. Inserting or deleting keys raises
-`RuntimeError` on the next iteration step, including same-size key replacement.
-A later object-model slice can replace the linear storage after user-defined
-hash and equality protocols exist. Sequence item mutation, set mutation, and
-cyclic representations are not implemented.
+Fresh exceptions record an active handled exception as `__context__`.
+`raise ... from ...` records `__cause__` and suppression state. Reraising
+preserves the original source location and traceback.
 
-Set values keep first-seen elements in an ordered slice and use the same
-identity, equality, and recursive hashability rules as dictionary keys. Fixed
-and starred displays support current tuple, list, and set iterables. Empty sets
-render as `set()`. Nonempty representations and iteration use first-seen order
-as a stable Bullsnake testing contract; Python guarantees neither order.
-Membership uses the same element validation and identity-or-equality matching.
-Set truth depends on element count.
+`BaseExceptionGroup`, `ExceptionGroup`, and `except*` support nested groups,
+recursive splitting, ordered clauses, unmatched remainder propagation, and
+combination of handler failures. The runtime does not yet call a custom
+exception group's `derive` override.
 
-Truth testing follows Python for the current built-in values: `None`, false
-booleans, numeric zero, and empty strings, bytes, tuples, lists, dictionaries,
-or sets are false; other values are true. Unary `not` returns a boolean
-singleton. Unary plus and minus support integers, booleans, floats, and complex
-values; invert supports integers and booleans. Booleans produce ordinary integer
-results for numeric unary and binary operations. Binary `+`, `-`, `*`, `|`, `^`,
-`&`, `//`, `%`, `<<`, and `>>` currently accept integers and booleans and produce
-arbitrary-precision integer results. Floor division rounds toward negative
-infinity, and modulo produces a remainder with the divisor's sign. Shifts reject
-negative counts; huge right shifts collapse by the left operand's sign, while a
-huge left shift of a nonzero value raises `OverflowError`. A zero divisor raises
-`ZeroDivisionError`.
+The host can inspect an uncaught exception's copied traceback and formatted
+backtrace. Python `__traceback__` objects, frame objects, and broad introspection
+are not implemented.
 
-Equality covers all current scalar values, including boolean/integer,
-integer/float, and real-valued complex numeric pairs. Ordering supports
-integers, booleans, floats, strings, and bytes; incompatible pairs raise
-`TypeError`. Identity compares runtime object identity. Chained comparisons use
-validated `COPY`, `SWAP`, and short-circuit jumps so each middle operand is
-evaluated once and later operands are skipped after a false result.
+## Modules and imports
 
-Unsupported operand pairings, missing names, and invalid unary types raise
-Python `TypeError` or `NameError` values.
-`UncaughtException` carries the exception across the current Go host boundary.
+A module has one string-keyed namespace used as both locals and globals.
+`Runtime.ExecuteModule` adds it to the runtime's module cache only after normal
+completion. `Runtime.Module`, `Module.Get`, module attribute access, and imports
+all observe that namespace.
 
-A runtime owns its prepared-code cache, builtin namespace, and successful
-modules. A module is a sealed runtime value with a stable representation and one
-string-keyed namespace used as both locals and globals during execution.
-`Runtime.Module`, `Module.Get`, ordinary attribute operations, and imports observe
-the same namespace. It remains narrower than Python's module dictionary and does
-not yet implement module descriptors.
+The current importer resolves only flat absolute names already present in that
+cache. `import`, `from ... import ...`, and wildcard imports work within that
+boundary. Missing modules and members raise Python import exceptions.
 
-## Import system
+There is no filesystem or source loader behind `import`. Dotted packages,
+relative imports, circular-import insertion, `sys.modules`, `__all__`, finder
+and loader hooks, reload, import locks, and a standard library remain
+unimplemented.
 
-The initial import path resolves flat absolute names from the current runtime's
-successful module cache. `Runtime.ExecuteModule` inserts a module only after its
-body returns normally. `IMPORT_NAME` accepts level zero and returns that cached
-module object; `IMPORT_FROM` reads one global while retaining the module for
-later names; `IMPORT_STAR` copies globals whose names do not begin with an
-underscore. Imports inside functions use the same owning runtime as their
-caller. Missing modules and members raise `ModuleNotFoundError` and `ImportError`.
+## Deliberate boundaries
 
-There is no source or filesystem loader and no standard-library module set yet.
-Dotted modules, packages, relative imports, insertion before execution, circular
-imports, `sys.modules`, `__all__`, finders, loaders, standard-library policy,
-and import locking remain future slices.
+The largest current gaps are:
 
-## Go embedding
+- no public Go embedding or extension API
+- no standard library, filesystem package loader, or native extension loading
+- no generators, coroutines, async execution, or Python threads
+- no comprehensions, context-manager execution, or structural matching
+- no complete Python object protocol, descriptors, user hashing, or multiple
+  inheritance
+- no Python frame and traceback objects, tracing, profiling, debugger hooks, or
+  execution budgets
+- no REPL or eval-specific entry point
 
-The public Go embedding API is not implemented. `internal/runtime.New` and the
-current execution methods are private implementation boundaries, not stable host
-contracts. This section will record value conversion, native callables,
-cancellation, resource limits, and host error boundaries.
-
-## Async and scheduling
-
-Not implemented. This section will record generators, coroutines, awaitables,
-asynchronous generators, and scheduler integration.
+Earlier stages may already understand syntax associated with these gaps. The
+later-stage rejection is intentional and remains until that stage has behavior
+tests and an implementation.
 
 ## Memory management
 
-The initial runtime relies on Go's collector. Frames, operand stacks,
-namespaces, integers, and exceptions retain Python references through typed
-pointers and interfaces; the VM does not hide references in integers or unsafe
-storage. Behavior relevant to object identity, finalizers, weak pointers,
-cleanup, and cycles is explored in `experiments/gcprobe`. Those features remain
-design constraints until a supported runtime feature requires production
-machinery.
+Go's garbage collector owns runtime memory. Frames, stacks, namespaces, cells,
+and container entries keep Python references in typed Go pointers and
+interfaces so the collector can trace cycles.
 
-## REPL
-
-Not implemented. The REPL will need a source accumulator plus lexer and parser
-completeness checks. An `io.Reader` alone cannot represent the distinction
-between a completed input chunk and a prompt for another line.
+Bullsnake does not implement CPython reference counting, `__del__`, weak
+references, or a compatible `gc` module. The experiments under
+`experiments/gcprobe` inform these boundaries but are not production runtime
+code.
 
 ## Testing
 
-The ordinary test suite runs with:
+The repository uses several test layers:
+
+- focused Go tests for package APIs, spans, dumps, copying, and invariants
+- CPython-derived lexer and parser cases pinned to Python 3.14.7
+- resolver cases that compare complete deterministic scope dumps
+- compiler cases that compare complete deterministic code-object dumps
+- chunked Python execution fixtures that pass through parser, resolver,
+  compiler, validator, and VM
+- expected-error fixtures that check Python exception type and message
+- hand-built malformed-bytecode cases that exercise runtime validation
+- fuzz tests at lexer, parser, and resolver input boundaries
+
+The checked-in conformance data pins CPython 3.14.7 at commit
+`823f0323ee6ec1402088b73bce1a38473cac36dc`. It runs offline and requires no
+Python binary, CPython checkout, network access, or generation step.
+
+Run the repository checks with:
 
 ```sh
 go test ./...
+go vet ./...
+go tool laas -funcdoc.limit=5 -exclude-packages='(^|/)experiments($|/)' ./...
+git diff --check
 ```
 
-The lexer has checked-in Go conformance tables adapted from CPython 3.14.7,
-focused CPython-derived tests, malformed-input tests, span checks,
-Unicode-version checks, and fuzz seeds. The tables require no Python
-installation, CPython checkout, external test data, network access, or
-generation step. They port every direct `CTokenizeTest.check_tokenize` case.
-CPython cases owned by parsing or execution are excluded from the lexer corpus;
-later-stage suites adopt only behavior Bullsnake supports.
-
-The parser follows the same offline model. Its checked-in corpus is pinned to
-CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
-The initial corpus contains ninety-six successful AST cases and fifty-one
-failures.
-Successful cases record source and a normalized module dump. Failures record
-the owning compiler phase, exception family, message fragment, completeness,
-and optional span. The corpus test requires at least one successful and one
-failing case. Individual fixture fields are checked by the parser assertions
-that consume them rather than a separate schema validator.
-
-The single parser corpus test runs every successful and failing case. Focused
-tests cover successful AST spans, formatted-string format presence, source
-validation, error formatting, token-cursor laziness and rewinds, terminal-error
-caching, and parser fuzz seeds.
-
-The resolver corpus is pinned to the same CPython revision. It contains
-thirty-nine successful symbol-table cases and fifty resolver-owned failures.
-Successful cases record complete stable scope dumps. Failures record the
-exception family, message fragment, and selected exact spans. Focused tests
-cover table lookup, private-name rewriting, dump and diagnostic formatting,
-and resolver fuzz seeds.
-
-The compiler corpus currently contains ninety-four successful
-parse-resolve-compile cases for the supported compiler subset. Cases record
-stable Bullsnake code-object dumps. Focused tests cover instruction source
-positions, stack effects, code-object copying, opcode formatting, literal
-decoding, formatted-string errors, and compiler input errors.
-
-Runtime language semantics use checked-in chunked Python files under
-`internal/runtime/testdata/execution`. The generic runner sends every chunk
-through the parser, resolver, compiler, bytecode validator, and VM in a fresh
-runtime. Successful chunks contain ordinary Python `assert` statements.
-Expected-failure chunks declare an exact exception family and message in
-`# error:` and `# message:` comments. `# case:` names subtests, `# module:`
-preserves module-qualified representations when needed, and `# ---` separates
-isolated programs while retaining physical fixture line numbers. The suite
-currently has seventy-five successful chunks and one hundred nineteen expected
-runtime errors; it requires no Python installation, external checkout, network
-access, or generation step.
-
-Focused Go tests retain only behavior that crosses the language/host boundary
-or cannot be expressed by supported Python source: module cache identity and
-cross-module mutation, exported value metadata and singleton identity, uncaught
-traceback snapshots, direct annotation-format bytecode, and class-builder
-argument checks. A separate table
-in `validation_test.go` constructs malformed code objects directly. Its
-eighty-eight cases cover unsupported instructions, operands, and constant kinds;
-invalid integer and string descriptors; table and jump bounds; stack underflow,
-overflow, and merge mismatches; unreachable returns; and fallthrough. This
-keeps bytecode invariants out of source fixtures without mixing them into
-ordinary execution tests.
-
-Future baseline changes must update the conformance tables, pinned revision,
-case counts, and affected focused tests in the same review.
+Behavior changes should start with a focused source or package test, update the
+relevant implementation notes, and land as one coherent vertical slice.
