@@ -724,6 +724,57 @@ func TestInstanceMethodBinding(t *testing.T) {
 	}
 }
 
+func TestConstructorStateMutation(t *testing.T) {
+	code := compileSource(t, "class Box:\n"+
+		"    kind = 'box'\n"+
+		"    def __init__(self, value=1):\n"+
+		"        self.value = value\n"+
+		"    def set(self, value):\n"+
+		"        self.value = value\n"+
+		"    def clear(self):\n"+
+		"        del self.value\n"+
+		"first = Box(10)\n"+
+		"second = Box()\n"+
+		"initial = first.value\n"+
+		"defaulted = second.value\n"+
+		"set_result = first.set(20)\n"+
+		"updated = first.value\n"+
+		"isolated = second.value\n"+
+		"first.clear()\n"+
+		"def raw(value):\n"+
+		"    return value\n"+
+		"first.callable = raw\n"+
+		"stored_raw = first.callable is raw\n"+
+		"raw_result = first.callable(42)\n"+
+		"Box.kind = 'updated'\n"+
+		"class_update = Box.kind\n"+
+		"del Box.kind\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("mutation", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"initial":      "10",
+		"defaulted":    "1",
+		"set_result":   "None",
+		"updated":      "20",
+		"isolated":     "1",
+		"stored_raw":   "True",
+		"raw_result":   "42",
+		"class_update": "'updated'",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1776,6 +1827,32 @@ func TestPythonExceptions(t *testing.T) {
 		wantType    string
 		wantMessage string
 	}{
+		{
+			name: "initializer return value",
+			source: "class Broken:\n" +
+				"    def __init__(self):\n" +
+				"        return 1\n" +
+				"answer = Broken()\n",
+			wantType:    "TypeError",
+			wantMessage: "__init__() should return None, not 'int'",
+		},
+		{
+			name: "delete missing instance attribute",
+			source: "class Empty:\n" +
+				"    pass\n" +
+				"value = Empty()\n" +
+				"del value.missing\n",
+			wantType:    "AttributeError",
+			wantMessage: "'Empty' object has no attribute 'missing'",
+		},
+		{
+			name: "delete missing type attribute",
+			source: "class Empty:\n" +
+				"    pass\n" +
+				"del Empty.missing\n",
+			wantType:    "AttributeError",
+			wantMessage: "type object 'Empty' has no attribute 'missing'",
+		},
 		{
 			name: "constructor arguments without init",
 			source: "class Empty:\n" +

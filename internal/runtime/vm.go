@@ -54,6 +54,21 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 		case returned:
 			thread.current = active.previous
 			result := outcome.value
+			if active.instanceInit != nil {
+				initialization := active.instanceInit
+				if result != None {
+					return nil, &raisedOutcome{
+						exception: newException(
+							"TypeError",
+							"__init__() should return None, not '"+
+								result.TypeName()+"'",
+						),
+						frame:       thread.current,
+						instruction: initialization.instruction,
+					}, nil
+				}
+				result = initialization.instance
+			}
 			if active.classBuild != nil {
 				result = active.classBuild.finish(result)
 			}
@@ -193,6 +208,61 @@ func executeInstruction(
 				),
 			}, nil
 		}
+	case bytecode.StoreAttr:
+		owner, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		name := frame.code.names[instruction.Operand]
+		switch owner := owner.(type) {
+		case *typeValue:
+			owner.namespace.values[name] = value
+		case *instanceValue:
+			owner.attributes.values[name] = value
+		default:
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"AttributeError",
+					"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
+				),
+			}, nil
+		}
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.DeleteAttr:
+		owner, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		name := frame.code.names[instruction.Operand]
+		var attributes *Namespace
+		missingMessage := "'" + owner.TypeName() + "' object has no attribute '" + name + "'"
+		switch owner := owner.(type) {
+		case *typeValue:
+			attributes = owner.namespace
+			missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
+		case *instanceValue:
+			attributes = owner.attributes
+			missingMessage = "'" + owner.class.name + "' object has no attribute '" + name + "'"
+		}
+		if attributes == nil {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("AttributeError", missingMessage),
+			}, nil
+		}
+		if _, found := attributes.values[name]; !found {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("AttributeError", missingMessage),
+			}, nil
+		}
+		delete(attributes.values, name)
+		return instructionOutcome{kind: advance}, nil
 	case bytecode.StoreName:
 		value, ok := frame.pop()
 		if !ok {

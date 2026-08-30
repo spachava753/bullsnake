@@ -146,6 +146,14 @@ func executeBuildClassCall(
 	return instructionOutcome{kind: called, frame: child}, nil
 }
 
+type instanceInit struct {
+	instance    *instanceValue
+	instruction int
+}
+
+// executeTypeCall allocates an instance, either completes an empty constructor
+// immediately or invokes a plain __init__, and marks its frame to return the
+// instance only after the initializer returns None.
 func executeTypeCall(
 	caller *frame,
 	instruction int,
@@ -154,18 +162,47 @@ func executeTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
-	if len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0) {
+	instance := &instanceValue{class: class, attributes: newNamespace()}
+	initializerValue, hasInitializer := class.namespace.get("__init__")
+	if !hasInitializer {
+		if len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0) {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("TypeError", class.name+"() takes no arguments"),
+			}, nil
+		}
+		for index := base; index < len(caller.stack); index++ {
+			caller.stack[index] = nil
+		}
+		caller.stack = caller.stack[:base]
+		return pushOutcome(caller, instruction, instance)
+	}
+	initializer, callable := initializerValue.(*functionValue)
+	if !callable {
 		return instructionOutcome{
-			kind:      raised,
-			exception: newException("TypeError", class.name+"() takes no arguments"),
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+initializerValue.TypeName()+"' object is not callable",
+			),
 		}, nil
 	}
-	for index := base; index < len(caller.stack); index++ {
-		caller.stack[index] = nil
+	bound := &boundMethodValue{function: initializer, self: instance}
+	outcome, err := executeFunctionCall(
+		caller,
+		instruction,
+		base,
+		bound,
+		arguments,
+		keywords,
+	)
+	if err == nil && outcome.kind == called {
+		outcome.frame.instanceInit = &instanceInit{
+			instance:    instance,
+			instruction: instruction,
+		}
 	}
-	caller.stack = caller.stack[:base]
-	instance := &instanceValue{class: class, attributes: newNamespace()}
-	return pushOutcome(caller, instruction, instance)
+	return outcome, err
 }
 
 var _ Value = (*buildClassValue)(nil)

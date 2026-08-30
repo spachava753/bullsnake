@@ -396,11 +396,12 @@ Preparation copies the instruction, name, local, cell, free-variable, and
 child-code tables, materializes code constants as runtime values, and validates
 the complete code tree before execution. Validation currently accepts `NOP`,
 `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`,
-`LOAD_GLOBAL`, `STORE_GLOBAL`, `LOAD_ATTR`, `LOAD_DEREF`, `STORE_DEREF`,
-`DELETE_DEREF`, `LOAD_CLOSURE`, `LOAD_NOT_IMPLEMENTED_ERROR`,
-`LOAD_BUILD_CLASS`, `MAKE_FUNCTION`, positional-default, keyword-default,
-closure, and annotation `SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms,
-one-argument `RAISE_VARARGS`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
+`LOAD_GLOBAL`, `STORE_GLOBAL`, `LOAD_ATTR`, `STORE_ATTR`, `DELETE_ATTR`,
+`LOAD_DEREF`, `STORE_DEREF`, `DELETE_DEREF`, `LOAD_CLOSURE`,
+`LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`, `MAKE_FUNCTION`,
+positional-default, keyword-default, closure, and annotation
+`SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms, one-argument
+`RAISE_VARARGS`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
 `BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
 `LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
 `MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
@@ -443,11 +444,13 @@ and recursive Python calls therefore remain in one iterative loop.
 fresh local namespace. A class-build record on that body frame converts return
 into a basic type value, retains the namespace, and fills a returned `__class__`
 cell before resuming the defining frame. Module execution seeds `__name__` so
-class bodies can initialize `__module__`. Zero-argument type calls allocate fresh
-instances. `LOAD_ATTR` checks instance storage before the retained class
-namespace and turns class-level plain functions into bound methods that prepend
-the instance through the ordinary binder. Type lookup still returns raw
-namespace entries.
+class bodies can initialize `__module__`. Type calls allocate fresh instances.
+If a class defines a plain `__init__`, construction invokes it as a bound method
+and a frame-return continuation requires `None` before pushing the instance.
+Without `__init__`, only an empty call is accepted. `LOAD_ATTR` checks instance
+storage before the retained class namespace and binds class-level plain
+functions; type lookup still returns raw namespace entries. `STORE_ATTR` and
+`DELETE_ATTR` mutate the selected instance or type namespace directly.
 
 The current call binder supports positional-only, ordinary positional, and
 keyword-only parameters; trailing positional defaults; sparse keyword-only
@@ -468,9 +471,9 @@ without evaluating annotation expressions during definition or ordinary calls.
 Its internal format guard can raise `NotImplementedError`; Python attribute
 lookup and `annotationlib` integration cannot request annotation maps yet.
 Callable native values, other raise forms, class bases, metaclasses, `__new__`,
-`__init__`, general descriptors, attribute mutation, suspension, exception
-handlers, traceback chains, cancellation, recursion limits, and execution
-budgets are not yet implemented.
+inherited lookup, general descriptors, suspension, exception handlers, traceback
+chains, cancellation, recursion limits, and execution budgets are not yet
+implemented.
 
 ## Object model and runtime
 
@@ -486,7 +489,8 @@ retain arbitrary payloads. Stable representations escape non-printable text and
 bytes without losing their contents. Basic type objects retain their class-body
 namespace; instances own a separate namespace and use stable module-qualified
 representations. `LOAD_ATTR` implements instance-first lookup and plain-function
-binding. Mutation, inheritance, and general descriptors remain deferred.
+binding; `STORE_ATTR` and `DELETE_ATTR` directly mutate instance or type
+namespaces. Inheritance and general descriptors remain deferred.
 
 Fixed tuple and list displays consume their elements in source order and
 allocate heap-backed sequence values. Exact and starred unpacking arrange stack

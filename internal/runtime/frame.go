@@ -3,16 +3,17 @@ package runtime
 import "github.com/spachava753/bullsnake/internal/compiler/lexer"
 
 type frame struct {
-	code        *preparedCode
-	instruction int
-	stack       []Value
-	fastLocals  []Value
-	deref       []*cellValue
-	locals      *Namespace
-	globals     *Namespace
-	builtins    *Namespace
-	previous    *frame
-	classBuild  *classBuild
+	code         *preparedCode
+	instruction  int
+	stack        []Value
+	fastLocals   []Value
+	deref        []*cellValue
+	locals       *Namespace
+	globals      *Namespace
+	builtins     *Namespace
+	previous     *frame
+	classBuild   *classBuild
+	instanceInit *instanceInit
 }
 
 type threadState struct {
