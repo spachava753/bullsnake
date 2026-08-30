@@ -361,7 +361,9 @@ contract and its CPython reference revision are recorded in the
 
 The parser recognizes the Python 3.14 syntax represented by the current AST,
 including forms outside the executable subset. The resolver performs contextual
-scope validation, and the compiler rejects AST forms it does not support. The
+scope validation, and the compiler rejects AST forms it does not support. For
+`except*`, resolver control stacks distinguish transfers contained in a loop
+created inside the handler from transfers that would leave the handler. The
 parser is hand-written recursive descent that constructs AST nodes directly.
 Ordinary binary operators use precedence climbing; Python-specific forms use
 dedicated rules. A lazy buffered token cursor supports local rewinds for

@@ -194,6 +194,11 @@
       "name": "nested future local annotation does not capture",
       "source": "from __future__ import annotations\ndef f(x):\n    callback: (lambda: x)\n    return x\n",
       "want_table": "Table(features=[FutureAnnotations], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[annotations=Local[Imported], f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue, UsesAnnotations], parameters=[\"x\"], symbols=[x=Local[Used, Parameter], callback=Local[Assigned, Annotated]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested, UsesAnnotations, UnevaluatedAnnotations], parameters=[], symbols=[], children=[Function(name=\"lambda\", private=\"\", flags=[Nested], parameters=[], symbols=[x=Free[Used]], children=[])])])]))"
+    },
+    {
+      "name": "loop control inside exception group handler loop",
+      "source": "try:\n    pass\nexcept* Error:\n    for item in items:\n        if item:\n            continue\n        break\n",
+      "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[Error=GlobalImplicit[Used], item=Local[Used, Assigned], items=GlobalImplicit[Used]], children=[]))"
     }
   ],
   "errors": [

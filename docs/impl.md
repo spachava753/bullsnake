@@ -246,8 +246,11 @@ comprehension iterator scopes and assignment-expression targets, deferred
 annotations, PEP 695 generic scopes, pattern capture validation, generator and
 coroutine flags, and placement checks for `return`, loop control, `yield`,
 `await`, asynchronous statements, `except*`, wildcard imports, and
-`__debug__`. Function-local annotation expressions are traversed for syntax
-validation but do not record direct name facts or propagate closure requests.
+`__debug__`. The `except*` control stack records the active handler depth when a
+loop begins. Break and continue may target a loop created at that depth, while a
+transfer to an outer loop remains invalid. Function-local annotation
+expressions are traversed for syntax validation but do not record direct name
+facts or propagate closure requests.
 Unknown names remain implicit globals for runtime lookup rather than becoming
 compile-time errors.
 
@@ -768,7 +771,7 @@ validation, error formatting, token-cursor laziness and rewinds, terminal-error
 caching, and parser fuzz seeds.
 
 The resolver corpus is pinned to the same CPython revision. It contains
-thirty-eight successful symbol-table cases and fifty resolver-owned failures.
+thirty-nine successful symbol-table cases and fifty resolver-owned failures.
 Successful cases record complete stable scope dumps. Failures record the
 exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
@@ -788,7 +791,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has seventy-four successful chunks and one hundred nineteen expected
+currently has seventy-five successful chunks and one hundred nineteen expected
 runtime errors; it requires no Python installation, external checkout, network
 access, or generation step.
 

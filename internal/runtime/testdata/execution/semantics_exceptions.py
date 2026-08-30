@@ -968,3 +968,22 @@ except ExceptionGroup:
 except BaseExceptionGroup:
     pass
 assert base_part_is_exception_group is False
+# ---
+# case: except star allows control flow contained inside its body
+handled_item = None
+nested_result = None
+try:
+    raise ExceptionGroup('control', [ValueError('leaf')])
+except* ValueError:
+    for item in (0, 1, 2):
+        if item == 0:
+            continue
+        handled_item = item
+        break
+
+    def nested_choice():
+        return 7
+
+    nested_result = nested_choice()
+assert handled_item == 1
+assert nested_result == 7

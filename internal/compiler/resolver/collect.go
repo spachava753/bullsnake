@@ -17,7 +17,7 @@ type resolver struct {
 }
 
 type controlContext struct {
-	loopDepth       int
+	loopStarDepths  []int
 	exceptStarDepth int
 }
 

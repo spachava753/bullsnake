@@ -41,9 +41,13 @@ func (state *resolver) collectFor(statement *compilerast.ForStmt) error {
 }
 
 func (state *resolver) collectLoopBody(body []compilerast.Stmt) error {
-	state.control.loopDepth++
+	state.control.loopStarDepths = append(
+		state.control.loopStarDepths,
+		state.control.exceptStarDepth,
+	)
 	err := state.collectStatements(body)
-	state.control.loopDepth--
+	lastLoop := len(state.control.loopStarDepths) - 1
+	state.control.loopStarDepths = state.control.loopStarDepths[:lastLoop]
 	return err
 }
 
@@ -110,21 +114,29 @@ func (state *resolver) collectReturn(statement *compilerast.ReturnStmt) error {
 	return state.collectExpr(statement.Value)
 }
 
+func (control *controlContext) loopTransferExitsExceptStar() bool {
+	if len(control.loopStarDepths) == 0 {
+		return control.exceptStarDepth != 0
+	}
+	loopStarDepth := control.loopStarDepths[len(control.loopStarDepths)-1]
+	return control.exceptStarDepth > loopStarDepth
+}
+
 func (state *resolver) collectBreak(statement *compilerast.BreakStmt) error {
-	if state.control.exceptStarDepth != 0 {
+	if state.control.loopTransferExitsExceptStar() {
 		return state.syntaxError(statement.Span(), "break cannot appear in an except* block")
 	}
-	if state.control.loopDepth == 0 {
+	if len(state.control.loopStarDepths) == 0 {
 		return state.syntaxError(statement.Span(), "break outside loop")
 	}
 	return nil
 }
 
 func (state *resolver) collectContinue(statement *compilerast.ContinueStmt) error {
-	if state.control.exceptStarDepth != 0 {
+	if state.control.loopTransferExitsExceptStar() {
 		return state.syntaxError(statement.Span(), "continue cannot appear in an except* block")
 	}
-	if state.control.loopDepth == 0 {
+	if len(state.control.loopStarDepths) == 0 {
 		return state.syntaxError(statement.Span(), "continue not properly in loop")
 	}
 	return nil
