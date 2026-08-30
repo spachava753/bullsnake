@@ -261,10 +261,14 @@ operand stack. `SEND` forwards `None` or a sent value, falls through when the
 delegate yields, and jumps with the delegate's return value when it completes.
 Delegate exceptions enter the outer generator's ordinary protected ranges.
 `throw` walks nested generator delegates; a native delegate without `throw`
-receives the exception in the outer generator instead. Forwarding
-`GeneratorExit` and `close` through an active delegation is not implemented;
-those calls raise `NotImplementedError` without changing the suspended outer
-generator.
+receives the exception in the outer generator instead.
+
+For `GeneratorExit`, the VM closes nested generator delegates from the inside
+out and retains the exception that must enter each outer generator. This path
+supports both `close` and `throw(GeneratorExit())`. A delegate return or uncaught
+`GeneratorExit` continues closing the outer generator. A yielded value becomes
+`RuntimeError`, while another exception enters the outer generator at `SEND`.
+Native iterators have no close operation and are skipped.
 
 A raised Python exception follows protected ranges in the current code. If a
 range matches, the VM trims the operand stack to its recorded depth, pushes the
@@ -442,8 +446,8 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no general `iter` builtin or `GeneratorExit` and `close` forwarding through
-  `yield from`
+- no general `iter` builtin or automatic generator closing during Go garbage
+  collection
 - no generator expressions, asynchronous comprehensions, coroutines, async
   execution, or Python threads
 - no asynchronous context managers or structural matching

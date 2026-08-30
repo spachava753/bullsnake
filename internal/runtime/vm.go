@@ -226,128 +226,159 @@ func routeException(
 	}
 	current := origin
 	currentInstruction := instruction
+route:
 	for {
-		delegate, delegatedAt, forwarded, forwardErr := forwardDelegatedException(
-			current,
-			currentInstruction,
-		)
-		if forwardErr != nil {
-			return nil, forwardErr
-		}
-		if !forwarded {
-			break
-		}
-		current = delegate
-		currentInstruction = delegatedAt
-		thread.current = current
-	}
-	if exception.originFrame == nil {
-		exception.chainContext(activeHandledException(current, currentInstruction))
-		exception.originFrame = current
-		exception.originInstruction = currentInstruction
-	}
-	unhandled := &raisedOutcome{
-		exception:   exception,
-		frame:       exception.originFrame,
-		instruction: exception.originInstruction,
-	}
-	skipTraceback := reraise
-	for current != nil {
-		if skipTraceback {
-			skipTraceback = false
-		} else {
-			exception.traceback = append(exception.traceback, tracebackEntry{
-				frame:       current,
-				instruction: currentInstruction,
-			})
-		}
-		if handler, ok := current.code.exceptionHandler(currentInstruction); ok {
-			if current.delegation != nil &&
-				(currentInstruction == current.delegation.sendInstruction ||
-					currentInstruction == current.delegation.yieldInstruction) {
-				current.delegation = nil
+		for {
+			delegate, delegatedAt, delegatedException, forwarded, forwardErr :=
+				forwardDelegatedException(current, currentInstruction, exception)
+			if forwardErr != nil {
+				return nil, forwardErr
 			}
-			depth := handler.StackDepth
-			if len(current.stack) < depth {
-				return nil, current.failure(
-					currentInstruction,
-					"exception handler stack depth exceeds operand stack",
-				)
+			if !forwarded {
+				break
 			}
-			for index := depth; index < len(current.stack); index++ {
-				current.stack[index] = nil
-			}
-			current.stack = current.stack[:depth]
-			if !current.push(exception) {
-				return nil, current.failure(
-					currentInstruction,
-					"operand stack overflow while entering exception handler",
-				)
-			}
-			current.instruction = int(handler.Target)
+			current = delegate
+			currentInstruction = delegatedAt
+			exception = delegatedException
 			thread.current = current
-			return nil, nil
 		}
-
-		for index := range current.stack {
-			current.stack[index] = nil
+		if exception.originFrame == nil {
+			exception.chainContext(activeHandledException(current, currentInstruction))
+			exception.originFrame = current
+			exception.originInstruction = currentInstruction
 		}
-		current.discardImportedModule()
-		caller := current.previous
-		if current.generator != nil {
-			if current.generator.state != generatorRunning {
-				return nil, current.failure(
-					currentInstruction,
-					"exception left a generator that is not running",
-				)
-			}
-			if current.generator.resume.kind == generatorClose &&
-				exception.class != nil && exception.class.isSubclassOf(generatorExitType) {
-				current.generator.complete()
-				if caller == nil {
-					return nil, current.failure(
-						currentInstruction,
-						"generator close has no caller",
-					)
-				}
-				if !caller.push(None) {
-					return nil, caller.failure(
-						caller.instruction-1,
-						"operand stack overflow while completing generator close",
-					)
-				}
-				thread.current = caller
-				return nil, nil
-			}
-			if isStopIteration(exception) {
-				exception = transformGeneratorStopIteration(
-					exception,
-					current,
-					currentInstruction,
-				)
-				unhandled = &raisedOutcome{
-					exception:   exception,
+		unhandled := &raisedOutcome{
+			exception:   exception,
+			frame:       exception.originFrame,
+			instruction: exception.originInstruction,
+		}
+		skipTraceback := reraise
+		for current != nil {
+			if skipTraceback {
+				skipTraceback = false
+			} else {
+				exception.traceback = append(exception.traceback, tracebackEntry{
 					frame:       current,
 					instruction: currentInstruction,
+				})
+			}
+			if handler, ok := current.code.exceptionHandler(currentInstruction); ok {
+				if current.delegation != nil &&
+					(currentInstruction == current.delegation.sendInstruction ||
+						currentInstruction == current.delegation.yieldInstruction) {
+					current.delegation = nil
+				}
+				depth := handler.StackDepth
+				if len(current.stack) < depth {
+					return nil, current.failure(
+						currentInstruction,
+						"exception handler stack depth exceeds operand stack",
+					)
+				}
+				for index := depth; index < len(current.stack); index++ {
+					current.stack[index] = nil
+				}
+				current.stack = current.stack[:depth]
+				if !current.push(exception) {
+					return nil, current.failure(
+						currentInstruction,
+						"operand stack overflow while entering exception handler",
+					)
+				}
+				current.instruction = int(handler.Target)
+				thread.current = current
+				return nil, nil
+			}
+
+			for index := range current.stack {
+				current.stack[index] = nil
+			}
+			current.discardImportedModule()
+			caller := current.previous
+			if current.generator != nil {
+				generator := current.generator
+				if generator.state != generatorRunning {
+					return nil, current.failure(
+						currentInstruction,
+						"exception left a generator that is not running",
+					)
+				}
+				resumeKind := generator.resume.kind
+				if resumeKind == generatorClose && exception.class != nil &&
+					exception.class.isSubclassOf(generatorExitType) {
+					generator.complete()
+					if caller == nil {
+						return nil, current.failure(
+							currentInstruction,
+							"generator close has no caller",
+						)
+					}
+					if !caller.push(None) {
+						return nil, caller.failure(
+							caller.instruction-1,
+							"operand stack overflow while completing generator close",
+						)
+					}
+					thread.current = caller
+					return nil, nil
+				}
+				if isStopIteration(exception) {
+					exception = transformGeneratorStopIteration(
+						exception,
+						current,
+						currentInstruction,
+					)
+					unhandled = &raisedOutcome{
+						exception:   exception,
+						frame:       current,
+						instruction: currentInstruction,
+					}
+				}
+				if resumeKind == generatorDelegateClose {
+					pending, closeErr := takeDelegatedClose(
+						caller,
+						generator,
+						currentInstruction,
+					)
+					if closeErr != nil {
+						return nil, closeErr
+					}
+					generator.complete()
+					if exception.class != nil &&
+						exception.class.isSubclassOf(generatorExitType) {
+						exception = pending
+						current = caller
+						currentInstruction = current.instruction - 1
+						if currentInstruction < 0 {
+							return nil, current.failure(
+								currentInstruction,
+								"delegated close caller has no active instruction",
+							)
+						}
+						reraise = false
+						thread.current = current
+						continue route
+					}
+				} else {
+					generator.complete()
 				}
 			}
-			current.generator.complete()
+			if caller == nil {
+				thread.current = nil
+				return unhandled, nil
+			}
+			current = caller
+			currentInstruction = current.instruction - 1
+			if currentInstruction < 0 {
+				return nil, current.failure(
+					currentInstruction,
+					"caller has no active call instruction",
+				)
+			}
+			thread.current = current
 		}
-		if caller == nil {
-			thread.current = nil
-			return unhandled, nil
-		}
-		current = caller
-		currentInstruction = current.instruction - 1
-		if currentInstruction < 0 {
-			return nil, current.failure(
-				currentInstruction,
-				"caller has no active call instruction",
-			)
-		}
-		thread.current = current
+		return unhandled, nil
 	}
-	return unhandled, nil
 }
 
 // executeInstruction applies one validated operation and reports whether the

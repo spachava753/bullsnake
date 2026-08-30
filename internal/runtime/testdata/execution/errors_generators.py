@@ -269,3 +269,19 @@ def outer():
 stream = outer()
 next(stream)
 stream.throw(ValueError('forwarded'))
+# ---
+# case: yield from close propagates delegate replacement exception
+# error: ValueError
+# message: "delegated close failed"
+def failing_close_delegate():
+    try:
+        yield 1
+    finally:
+        raise ValueError('delegated close failed')
+
+def failing_close_outer():
+    yield from failing_close_delegate()
+
+stream = failing_close_outer()
+next(stream)
+stream.close()

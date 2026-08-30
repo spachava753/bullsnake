@@ -401,24 +401,99 @@ injected = ValueError('outer')
 assert stream.throw(injected) is injected
 assert next(stream, 7) == 7
 # ---
-# case: yield from still rejects GeneratorExit and close forwarding
-def delegated_values():
-    yield from (1, 2)
+# case: yield from closes nested generator delegates inside out
+close_order = 0
 
-stream = delegated_values()
+def close_inner():
+    global close_order
+    try:
+        yield 1
+    finally:
+        close_order = close_order * 10 + 1
+
+def close_middle():
+    global close_order
+    try:
+        yield from close_inner()
+    finally:
+        close_order = close_order * 10 + 2
+
+def close_outer():
+    global close_order
+    try:
+        yield from close_middle()
+    finally:
+        close_order = close_order * 10 + 3
+
+stream = close_outer()
 assert next(stream) == 1
-try:
-    stream.throw(GeneratorExit())
-except NotImplementedError as error:
-    throw_error = error
-assert f'{throw_error!r}' == 'NotImplementedError("GeneratorExit through yield from is not implemented")'
-assert next(stream) == 2
+assert stream.close() is None
+assert close_order == 123
+assert next(stream, 9) == 9
+# ---
+# case: yield from close skips native delegates
+native_close_state = 0
 
-stream = delegated_values()
+def native_close():
+    global native_close_state
+    try:
+        yield from (1, 2)
+    finally:
+        native_close_state = 1
+
+stream = native_close()
+assert next(stream) == 1
+assert stream.close() is None
+assert native_close_state == 1
+assert next(stream, 9) == 9
+# ---
+# case: yield from preserves thrown GeneratorExit
+throw_close_state = 0
+
+def returning_delegate():
+    global throw_close_state
+    try:
+        yield 1
+    except GeneratorExit:
+        throw_close_state = 1
+        return 4
+
+def throwing_outer():
+    yield from returning_delegate()
+    throw_close_state = 2
+
+stream = throwing_outer()
+assert next(stream) == 1
+thrown = GeneratorExit('forwarded')
+try:
+    stream.throw(thrown)
+except GeneratorExit as caught:
+    forwarded_exit = caught
+assert forwarded_exit is thrown
+assert forwarded_exit.__context__ is None
+assert throw_close_state == 1
+assert next(stream, 9) == 9
+# ---
+# case: yield from reports a delegate that yields while closing
+retained_delegate = None
+
+def yielding_close_delegate():
+    try:
+        yield 1
+    except GeneratorExit:
+        yield 2
+
+def yielding_close_outer():
+    global retained_delegate
+    retained_delegate = yielding_close_delegate()
+    yield from retained_delegate
+
+stream = yielding_close_outer()
 assert next(stream) == 1
 try:
     stream.close()
-except NotImplementedError as error:
-    close_error = error
-assert f'{close_error!r}' == 'NotImplementedError("close through yield from is not implemented")'
-assert next(stream) == 2
+except RuntimeError as error:
+    ignored_exit = error
+assert f'{ignored_exit!r}' == 'RuntimeError("generator ignored GeneratorExit")'
+assert next(stream, 9) == 9
+assert next(retained_delegate, 8) == 8

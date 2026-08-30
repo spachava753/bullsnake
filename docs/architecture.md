@@ -206,10 +206,16 @@ iteration and sent values, exposes a generator delegate's return value, and
 routes delegate failures through the outer generator's handlers. `throw`
 traverses nested generator delegates before recording the injection site. If a
 native delegate has no `throw` method, the exception enters the outer generator
-at the suspended expression. `GeneratorExit` and `close` forwarding remain
-unimplemented; those operations raise `NotImplementedError` and leave the outer
-generator suspended. The protocol does not yet expose a general `iter` builtin,
-and garbage collection does not implicitly close an abandoned generator.
+at the suspended expression.
+
+`GeneratorExit` first closes active generator delegates from the inside out,
+then enters the outer generator at the suspended expression. `close` uses this
+path before closing the outer generator; `throw(GeneratorExit())` preserves and
+propagates the exception supplied by the caller. A delegate that yields while
+closing raises `RuntimeError`. A different delegate failure enters the outer
+generator instead. Native iterators have no close operation and are skipped.
+The protocol does not yet expose a general `iter` builtin, and garbage
+collection does not implicitly close an abandoned generator.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table

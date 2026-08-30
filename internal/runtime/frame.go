@@ -28,6 +28,7 @@ type delegationState struct {
 	sendInstruction  int
 	yieldInstruction int
 	target           int
+	closeException   *Exception
 }
 
 type frame struct {

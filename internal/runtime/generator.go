@@ -19,6 +19,7 @@ const (
 	generatorCall
 	generatorClose
 	generatorDelegate
+	generatorDelegateClose
 )
 
 type generatorResume struct {
@@ -277,17 +278,6 @@ func executeGeneratorThrowCall(
 		return instructionOutcome{kind: raised, exception: failure}, nil
 	}
 	generator := method.generator
-	if generator.state == generatorSuspended && generator.frame != nil &&
-		generator.frame.delegation != nil && injected.class != nil &&
-		injected.class.isSubclassOf(generatorExitType) {
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"NotImplementedError",
-				"GeneratorExit through yield from is not implemented",
-			),
-		}, nil
-	}
 	if generator.state != generatorRunning {
 		injected.originFrame = nil
 		injected.originInstruction = 0
@@ -402,16 +392,6 @@ func executeGeneratorCloseCall(
 	}
 	discardCallSegment(caller, base)
 	generator := method.generator
-	if generator.state == generatorSuspended && generator.frame != nil &&
-		generator.frame.delegation != nil {
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"NotImplementedError",
-				"close through yield from is not implemented",
-			),
-		}, nil
-	}
 	switch generator.state {
 	case generatorRunning:
 		return instructionOutcome{
@@ -534,17 +514,19 @@ func finishDelegation(
 }
 
 // forwardDelegatedException redirects an injection at a yield-from suspension
-// into a generator delegate, or abandons a native delegate without throw.
+// into a generator delegate. GeneratorExit closes the delegate first and stays
+// pending for the outer generator.
 func forwardDelegatedException(
 	outer *frame,
 	instruction int,
-) (*frame, int, bool, error) {
+	exception *Exception,
+) (*frame, int, *Exception, bool, error) {
 	delegation := outer.delegation
 	if delegation == nil || instruction != delegation.yieldInstruction {
-		return nil, 0, false, nil
+		return nil, 0, exception, false, nil
 	}
 	if len(outer.stack) == 0 {
-		return nil, 0, false, outer.failure(
+		return nil, 0, exception, false, outer.failure(
 			instruction,
 			"yield-from delegate is missing from the operand stack",
 		)
@@ -552,30 +534,65 @@ func forwardDelegatedException(
 	delegate, ok := outer.stack[len(outer.stack)-1].(*generatorValue)
 	if !ok {
 		outer.delegation = nil
-		return nil, 0, false, nil
+		return nil, 0, exception, false, nil
+	}
+	generatorExit := exception.class != nil &&
+		exception.class.isSubclassOf(generatorExitType)
+	if generatorExit && delegate.state == generatorCompleted {
+		outer.delegation = nil
+		return nil, 0, exception, false, nil
 	}
 	if delegate.state != generatorSuspended || delegate.frame == nil {
-		return nil, 0, false, outer.failure(
+		return nil, 0, exception, false, outer.failure(
 			instruction,
 			"yield-from generator delegate is not suspended",
 		)
 	}
 	outer.instruction = delegation.yieldInstruction
+	resumeKind := generatorDelegate
+	forwarded := exception
+	if generatorExit {
+		delegation.closeException = exception
+		resumeKind = generatorDelegateClose
+		forwarded = newException("GeneratorExit", "")
+	}
 	delegate.state = generatorRunning
 	delegate.resume = generatorResume{
-		kind:        generatorDelegate,
+		kind:        resumeKind,
 		target:      delegation.target,
 		instruction: delegation.sendInstruction,
 	}
 	delegate.frame.previous = outer
 	injectedAt := delegate.frame.instruction - 1
 	if injectedAt < 0 {
-		return nil, 0, false, delegate.frame.failure(
+		return nil, 0, exception, false, delegate.frame.failure(
 			injectedAt,
 			"delegated exception has no suspended instruction",
 		)
 	}
-	return delegate.frame, injectedAt, true, nil
+	return delegate.frame, injectedAt, forwarded, true, nil
+}
+
+// takeDelegatedClose verifies the outer frame still retains the closing
+// delegate, removes its delegation state, and returns the saved exception.
+func takeDelegatedClose(
+	caller *frame,
+	delegate *generatorValue,
+	instruction int,
+) (*Exception, error) {
+	if caller == nil {
+		return nil, delegate.frame.failure(instruction, "delegated close has no caller")
+	}
+	delegation := caller.delegation
+	if delegation == nil || delegation.closeException == nil {
+		return nil, caller.failure(instruction, "delegated close has no pending exception")
+	}
+	if len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != delegate {
+		return nil, caller.failure(instruction, "closing delegate is not retained by caller")
+	}
+	pending := delegation.closeException
+	caller.delegation = nil
+	return pending, nil
 }
 
 // suspendGenerator verifies the active frame and its resumption contract,
@@ -603,7 +620,11 @@ func suspendGenerator(
 	}
 	active.previous = nil
 	generator.state = generatorSuspended
-	if generator.resume.kind == generatorClose {
+	if generator.resume.kind == generatorClose ||
+		generator.resume.kind == generatorDelegateClose {
+		if generator.resume.kind == generatorDelegateClose {
+			caller.delegation = nil
+		}
 		return caller, newException("RuntimeError", "generator ignored GeneratorExit"), nil
 	}
 	if !caller.push(value) {
@@ -682,6 +703,13 @@ func finishGenerator(
 		}
 		caller.instruction = resume.target
 		return caller, nil, nil
+	case generatorDelegateClose:
+		pending, err := takeDelegatedClose(caller, generator, instruction)
+		if err != nil {
+			return nil, nil, err
+		}
+		generator.complete()
+		return caller, pending, nil
 	default:
 		return nil, nil, active.failure(instruction, "invalid generator resumption")
 	}
