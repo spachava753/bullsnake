@@ -355,13 +355,14 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "constant index %d out of range", instruction.Operand)
 		}
 		return nil
-	case bytecode.LoadName, bytecode.StoreName, bytecode.LoadGlobal, bytecode.StoreGlobal,
+	case bytecode.LoadName, bytecode.StoreName, bytecode.DeleteName,
+		bytecode.LoadGlobal, bytecode.StoreGlobal, bytecode.DeleteGlobal,
 		bytecode.LoadAttr, bytecode.StoreAttr, bytecode.DeleteAttr:
 		if uint64(instruction.Operand) >= uint64(len(code.names)) {
 			return code.failure(index, "name index %d out of range", instruction.Operand)
 		}
 		return nil
-	case bytecode.LoadFast, bytecode.StoreFast:
+	case bytecode.LoadFast, bytecode.StoreFast, bytecode.DeleteFast:
 		if uint64(instruction.Operand) >= uint64(len(code.locals)) {
 			return code.failure(index, "local index %d out of range", instruction.Operand)
 		}
@@ -539,7 +540,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.StoreName, bytecode.StoreFast, bytecode.StoreGlobal,
 		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue:
 		return 1, 0
-	case bytecode.DeleteDeref:
+	case bytecode.DeleteName, bytecode.DeleteFast, bytecode.DeleteGlobal,
+		bytecode.DeleteDeref:
 		return 0, 0
 	case bytecode.StoreAttr:
 		return 2, 0

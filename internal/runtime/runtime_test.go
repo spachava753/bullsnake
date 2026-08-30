@@ -876,6 +876,45 @@ func TestAugmentedIntegerAssignments(t *testing.T) {
 	}
 }
 
+func TestDeletedNameBindings(t *testing.T) {
+	code := compileSource(t, "module_value = 1\n"+
+		"del module_value\n"+
+		"module_value = 2\n"+
+		"marker = 1\n"+
+		"def reset_global():\n"+
+		"    global marker\n"+
+		"    del marker\n"+
+		"    marker = 3\n"+
+		"    return marker\n"+
+		"global_result = reset_global()\n"+
+		"def reset_local():\n"+
+		"    item = 1\n"+
+		"    del item\n"+
+		"    item = 4\n"+
+		"    return item\n"+
+		"local_result = reset_local()\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("deletions", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"module_value":  "2",
+		"marker":        "3",
+		"global_result": "3",
+		"local_result":  "4",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1928,6 +1967,29 @@ func TestPythonExceptions(t *testing.T) {
 		wantType    string
 		wantMessage string
 	}{
+		{
+			name:        "delete missing module name",
+			source:      "del missing\n",
+			wantType:    "NameError",
+			wantMessage: "name 'missing' is not defined",
+		},
+		{
+			name: "delete missing local",
+			source: "def clear():\n" +
+				"    del value\n" +
+				"clear()\n",
+			wantType:    "UnboundLocalError",
+			wantMessage: "cannot access local variable 'value' where it is not associated with a value",
+		},
+		{
+			name: "delete missing explicit global",
+			source: "def clear():\n" +
+				"    global absent\n" +
+				"    del absent\n" +
+				"clear()\n",
+			wantType:    "NameError",
+			wantMessage: "name 'absent' is not defined",
+		},
 		{
 			name:        "augmented zero division",
 			source:      "value = 1\nvalue //= 0\n",

@@ -272,12 +272,37 @@ func executeInstruction(
 		}
 		frame.locals.values[frame.code.names[instruction.Operand]] = value
 		return instructionOutcome{kind: advance}, nil
+	case bytecode.DeleteName:
+		name := frame.code.names[instruction.Operand]
+		if _, found := frame.locals.values[name]; !found {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("NameError", "name '"+name+"' is not defined"),
+			}, nil
+		}
+		delete(frame.locals.values, name)
+		return instructionOutcome{kind: advance}, nil
 	case bytecode.StoreFast:
 		value, ok := frame.pop()
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		frame.fastLocals[instruction.Operand] = value
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.DeleteFast:
+		localIndex := int(instruction.Operand)
+		if frame.fastLocals[localIndex] == nil {
+			name := frame.code.locals[localIndex]
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"UnboundLocalError",
+					"cannot access local variable '"+name+
+						"' where it is not associated with a value",
+				),
+			}, nil
+		}
+		frame.fastLocals[localIndex] = nil
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.StoreDeref:
 		value, ok := frame.pop()
@@ -303,6 +328,16 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		frame.globals.values[frame.code.names[instruction.Operand]] = value
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.DeleteGlobal:
+		name := frame.code.names[instruction.Operand]
+		if _, found := frame.globals.values[name]; !found {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("NameError", "name '"+name+"' is not defined"),
+			}, nil
+		}
+		delete(frame.globals.values, name)
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.Copy:
 		depth := int(instruction.Operand)

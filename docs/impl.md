@@ -395,12 +395,13 @@ callers and tests. There is not yet a public Go embedding API.
 Preparation copies the instruction, name, local, cell, free-variable, and
 child-code tables, materializes code constants as runtime values, and validates
 the complete code tree before execution. Validation currently accepts `NOP`,
-`LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`,
-`LOAD_GLOBAL`, `STORE_GLOBAL`, `LOAD_ATTR`, `STORE_ATTR`, `DELETE_ATTR`,
-`LOAD_DEREF`, `STORE_DEREF`, `DELETE_DEREF`, `LOAD_CLOSURE`,
-`LOAD_ASSERTION_ERROR`, `LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`,
-`MAKE_FUNCTION`, positional-default, keyword-default, closure, and annotation
-`SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms, one-argument
+`LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`, `DELETE_NAME`, `LOAD_FAST`,
+`STORE_FAST`, `DELETE_FAST`, `LOAD_GLOBAL`, `STORE_GLOBAL`, `DELETE_GLOBAL`,
+`LOAD_ATTR`, `STORE_ATTR`, `DELETE_ATTR`, `LOAD_DEREF`, `STORE_DEREF`,
+`DELETE_DEREF`, `LOAD_CLOSURE`, `LOAD_ASSERTION_ERROR`,
+`LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`, `MAKE_FUNCTION`,
+positional-default, keyword-default, closure, and annotation
+`SET_FUNCTION_ATTRIBUTE` variants, `CALL`, both `CALL_EX` forms, one-argument
 `RAISE_VARARGS`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
 `BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
 `LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
@@ -466,10 +467,15 @@ names, and missing required positional or keyword-only arguments with Python
 exceptions. Closure cells use the compiler's cells-first dereference indexes;
 `LOAD_DEREF`, `STORE_DEREF`, and `DELETE_DEREF` share updates and report empty
 local or free cells with Python's distinct exception families and messages.
-Decorators require no VM-only state: their expressions and defaults execute in
-the compiler-selected order, and ordinary calls apply the resulting decorators
-from bottom to top. Annotation attributes retain the compiler-generated callable
-without evaluating annotation expressions during definition or ordinary calls.
+`LOAD_NAME` and `DELETE_NAME` use the frame's local namespace, while
+`LOAD_GLOBAL` and `DELETE_GLOBAL` use the module namespace. Name deletion
+removes the mapping entry and raises `NameError` when it is absent. `DELETE_FAST`
+clears an indexed local slot and raises `UnboundLocalError` when that slot is
+already empty. Decorators require no VM-only state: their expressions and
+defaults execute in the compiler-selected order, and ordinary calls apply the
+resulting decorators from bottom to top. Annotation attributes retain the
+compiler-generated callable without evaluating annotation expressions during
+definition or ordinary calls.
 Its internal format guard can raise `NotImplementedError`; Python attribute
 lookup and `annotationlib` integration cannot request annotation maps yet.
 Assertions load a callable internal `AssertionError` class and use the supported

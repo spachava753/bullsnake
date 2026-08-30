@@ -418,6 +418,12 @@ the code tree fails before the module body can produce side effects. Prepared
 code and its materialized constants are cached per runtime and immutable
 code-object identity.
 
+Name deletion follows the compiler-selected storage location. `DELETE_NAME`
+removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one
+from the module namespace, and `DELETE_FAST` clears an indexed local slot. An
+absent namespace binding raises `NameError`; an empty fast-local slot raises
+`UnboundLocalError`.
+
 `MAKE_FUNCTION` captures one prepared child and its defining global namespace.
 `CALL` reads inline positional arguments. `CALL_EX` reads a compiler-built
 positional tuple plus an optional ordered keyword dictionary assembled by
