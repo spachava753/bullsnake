@@ -31,10 +31,6 @@ spans. Do not make the compiler reconstruct text that the parser discarded.
 
 ## Testing
 
-Do all parser work on the long-lived `feat/parser` branch. If another stage
-finds missing AST information, make and test the parser change there as its own
-commit, then bring that commit to the active stage branch.
-
 When adding a case, use the exact CPython commit recorded in
 `parser_cases.json`. Compare the complete normalized AST or the owned parser
 error. Add focused tests for token cursor behavior, spans, error formatting, and
