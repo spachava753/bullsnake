@@ -118,10 +118,14 @@ func routeException(
 	if exception == nil {
 		return nil, origin.failure(instruction, "raised outcome has no exception")
 	}
+	if exception.originFrame == nil {
+		exception.originFrame = origin
+		exception.originInstruction = instruction
+	}
 	unhandled := &raisedOutcome{
 		exception:   exception,
-		frame:       origin,
-		instruction: instruction,
+		frame:       exception.originFrame,
+		instruction: exception.originInstruction,
 	}
 	current := origin
 	currentInstruction := instruction
@@ -669,6 +673,40 @@ func executeInstruction(
 		return executeBinary(frame, index, instruction.Operand, true)
 	case bytecode.CompareOp:
 		return executeComparison(frame, index, instruction.Operand)
+	case bytecode.CheckExceptionMatch:
+		handlerType, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		if len(frame.stack) == 0 {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		exception, ok := frame.stack[len(frame.stack)-1].(*Exception)
+		if !ok {
+			return instructionOutcome{}, frame.failure(
+				index,
+				"CHECK_EXC_MATCH left operand is not an exception",
+			)
+		}
+		matches, matchError := matchException(exception, handlerType)
+		if matchError != nil {
+			return instructionOutcome{kind: raised, exception: matchError}, nil
+		}
+		result := falseSingleton
+		if matches {
+			result = trueSingleton
+		}
+		return pushOutcome(frame, index, result)
+	case bytecode.Reraise:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		exception, ok := value.(*Exception)
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "RERAISE value is not an exception")
+		}
+		return instructionOutcome{kind: raised, exception: exception}, nil
 	case bytecode.RaiseVarargs:
 		value, ok := frame.pop()
 		if !ok {
@@ -679,10 +717,12 @@ func executeInstruction(
 		case *Exception:
 			exception = raised
 		case *exceptionTypeValue:
-			exception = newException(raised.name, "")
+			exception = newExceptionOfType(raised, "")
 		default:
 			exception = newException("TypeError", "exceptions must derive from BaseException")
 		}
+		exception.originFrame = nil
+		exception.originInstruction = 0
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	case bytecode.ReturnValue:
 		value, ok := frame.pop()

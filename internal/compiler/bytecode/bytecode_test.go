@@ -293,6 +293,15 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := RaiseVarargs.StackEffect(2); got != -2 {
 		t.Fatalf("RAISE_VARARGS 2 stack effect = %d, want -2", got)
 	}
+	if got := (Instruction{Opcode: CheckExceptionMatch}).String(); got != "CHECK_EXC_MATCH" {
+		t.Fatalf("exception match instruction = %q", got)
+	}
+	if got := CheckExceptionMatch.StackEffect(0); got != 0 {
+		t.Fatalf("CHECK_EXC_MATCH stack effect = %d, want 0", got)
+	}
+	if got := Reraise.StackEffect(0); got != -1 {
+		t.Fatalf("RERAISE stack effect = %d, want -1", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

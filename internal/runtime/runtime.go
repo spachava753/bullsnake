@@ -12,8 +12,12 @@ type Runtime struct {
 
 // New constructs an empty runtime instance.
 func New() *Runtime {
+	builtins := newNamespace()
+	for _, exceptionType := range builtinExceptionTypes {
+		builtins.values[exceptionType.name] = exceptionType
+	}
 	return &Runtime{
-		builtins: newNamespace(),
+		builtins: builtins,
 		modules:  make(map[string]*Module),
 		prepared: make(map[*bytecode.Code]*preparedCode),
 	}

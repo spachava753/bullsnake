@@ -59,8 +59,8 @@ func (compiler *compilerState) compileAssertStatement(statement *compilerast.Ass
 	return compiler.markLabel(end, statement.Span())
 }
 
-// compileTryStatement emits the first structured-exception slice: one bare
-// handler without binding, else, finally, or exception-group behavior.
+// compileTryStatement emits ordered ordinary handlers while keeping their
+// dispatch and bodies outside the statement's own protected range.
 func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStmt) error {
 	if len(statement.Finally) != 0 {
 		return compiler.error(statement.Span(), "try/finally is not compiled")
@@ -68,18 +68,19 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 	if len(statement.Else) != 0 {
 		return compiler.error(statement.Span(), "try/except else is not compiled")
 	}
-	if len(statement.Handlers) != 1 {
-		return compiler.error(statement.Span(), "multiple exception handlers are not compiled")
+	if len(statement.Handlers) == 0 {
+		return compiler.error(statement.Span(), "try statement has no exception handlers")
 	}
-	handler := statement.Handlers[0]
-	if handler.Star {
-		return compiler.error(handler.Range, "exception-group handlers are not compiled")
-	}
-	if handler.Type != nil {
-		return compiler.error(handler.Range, "typed exception handlers are not compiled")
-	}
-	if handler.Name != "" {
-		return compiler.error(handler.Range, "exception handler bindings are not compiled")
+	for index, handler := range statement.Handlers {
+		if handler.Star {
+			return compiler.error(handler.Range, "exception-group handlers are not compiled")
+		}
+		if handler.Name != "" {
+			return compiler.error(handler.Range, "exception handler bindings are not compiled")
+		}
+		if handler.Type == nil && index != len(statement.Handlers)-1 {
+			return compiler.error(handler.Range, "bare exception handler is not last")
+		}
 	}
 
 	baseDepth := compiler.stackDepth
@@ -100,20 +101,52 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 		}
 	}
 
-	if err := compiler.mergeLabelDepth(target, baseDepth+1, handler.Range); err != nil {
+	firstHandler := statement.Handlers[0]
+	if err := compiler.mergeLabelDepth(target, baseDepth+1, firstHandler.Range); err != nil {
 		return err
 	}
 	if baseDepth+1 > compiler.maxStack {
 		compiler.maxStack = baseDepth + 1
 	}
-	if err := compiler.markLabel(target, handler.Range); err != nil {
+	if err := compiler.markLabel(target, firstHandler.Range); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.PopTop, 0, handler.Range); err != nil {
-		return err
+	for _, handler := range statement.Handlers {
+		var next *jumpLabel
+		if handler.Type != nil {
+			next = compiler.newLabel()
+			if err := compiler.compileExpr(handler.Type); err != nil {
+				return err
+			}
+			if err := compiler.emit(bytecode.CheckExceptionMatch, 0, handler.Range); err != nil {
+				return err
+			}
+			if err := compiler.emitJump(bytecode.PopJumpIfFalse, next, handler.Range); err != nil {
+				return err
+			}
+		}
+		if err := compiler.emit(bytecode.PopTop, 0, handler.Range); err != nil {
+			return err
+		}
+		if err := compiler.compileStatements(handler.Body); err != nil {
+			return err
+		}
+		if next == nil {
+			return compiler.markLabel(end, statement.Span())
+		}
+		if compiler.reachable {
+			if err := compiler.emitJump(bytecode.Jump, end, handler.Range); err != nil {
+				return err
+			}
+		}
+		if err := compiler.markLabel(next, handler.Range); err != nil {
+			return err
+		}
 	}
-	if err := compiler.compileStatements(handler.Body); err != nil {
-		return err
+	if compiler.reachable {
+		if err := compiler.emitTerminator(bytecode.Reraise, 0, statement.Span()); err != nil {
+			return err
+		}
 	}
 	return compiler.markLabel(end, statement.Span())
 }

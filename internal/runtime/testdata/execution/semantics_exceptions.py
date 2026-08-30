@@ -49,3 +49,46 @@ try:
 except:
     escaped = True
 assert escaped is True
+# ---
+# case: typed handlers match classes and tuples
+assertion = False
+try:
+    assert False, 'typed'
+except AssertionError:
+    assertion = True
+assert assertion is True
+
+selected = ''
+try:
+    missing_typed
+except TypeError:
+    selected = 'type'
+except NameError:
+    selected = 'name'
+assert selected == 'name'
+
+tuple_selected = False
+try:
+    {}['missing']
+except (TypeError, KeyError):
+    tuple_selected = True
+assert tuple_selected is True
+# ---
+# case: typed handlers honor exception inheritance
+def read_empty_local():
+    return local
+    local = 1
+
+name_parent = False
+try:
+    read_empty_local()
+except NameError:
+    name_parent = True
+assert name_parent is True
+
+exception_parent = False
+try:
+    1 // 0
+except Exception:
+    exception_parent = True
+assert exception_parent is True

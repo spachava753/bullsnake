@@ -111,6 +111,49 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "exception handler stack depth 1 exceeds instruction depth 0",
 		},
 		{
+			name: "exception match underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.CheckExceptionMatch},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "exception match left operand",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.CheckExceptionMatch},
+					{Opcode: bytecode.PopTop},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "CHECK_EXC_MATCH left operand is not an exception",
+		},
+		{
+			name: "reraise value",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Reraise},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "RERAISE value is not an exception",
+		},
+		{
 			name: "function child index",
 			code: testCode(
 				1,

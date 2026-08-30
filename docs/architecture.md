@@ -392,11 +392,12 @@ code object should contain:
 - Exception and cleanup regions
 - Stack-size metadata if the VM needs it
 
-For the current bare `except` slice, the compiler records the innermost active
+For current ordinary `except` clauses, the compiler records the innermost active
 handler on each protected instruction and combines adjacent records into
 immutable, non-overlapping ranges. Each range gives the handler target and the
 stack depth to restore after a raise. The runtime can therefore skip handler
-bookkeeping on normal execution.
+bookkeeping on normal execution. Handler dispatch checks classes or flat tuples
+in source order and reraises when no clause matches.
 
 Bytecode currently remains in memory and evolves with the compiler and runtime.
 If cached compiled files are added, their format must include a Bullsnake magic
@@ -434,9 +435,11 @@ ranges. A match truncates the operand stack to the recorded depth, pushes the
 exception, and resumes at the handler target. Without a match, the dispatcher
 removes that frame and checks the caller's call instruction. This uses the same
 iterative frame chain as ordinary return and continues until a handler catches
-the exception or it crosses the host boundary. The first slice accepts one bare
-handler without a binding, `else`, or `finally`; later slices add matching and
-handled-exception state.
+the exception or it crosses the host boundary. Typed clauses match immutable
+builtin exception classes through their CPython inheritance links and accept a
+flat tuple after validating every member. A final miss reraises the same
+exception and retains its original frame and instruction. Handler bindings,
+`else`, `finally`, and handled-exception state remain later slices.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one
@@ -471,10 +474,12 @@ name, moves captured parameter values into those cells, then appends the
 function's captured free cells. Function objects retain the cell pointers, so
 escaped and sibling closures share bindings after the defining frame returns.
 Definition and ordinary call execution do not invoke the annotation callable;
-a later attribute and `annotationlib` slice will request its map. Assertions load
-an internal callable `AssertionError` class, optionally construct an instance
-with one message, and terminate through one-argument raise. That raise path also
-instantiates a directly raised internal exception class. Function decorators use
+a later attribute and `annotationlib` slice will request its map. The builtin
+namespace exposes immutable exception classes with the current CPython ancestry
+links. Assertions load `AssertionError`, optionally construct an instance with
+one message, and terminate through one-argument raise. That raise path also
+instantiates any directly raised builtin exception class. Function decorators
+use
 the ordinary call machinery. Decorator expressions evaluate top to bottom before
 defaults; the resulting callables apply bottom to top after function creation.
 The binder fills defaults, packs surplus arguments into `*args`, and matches

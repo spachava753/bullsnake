@@ -154,6 +154,8 @@ const (
 	LoadLocals
 	LoadFromDictOrGlobals
 	LoadFromDictOrDeref
+	CheckExceptionMatch
+	Reraise
 )
 
 var opcodeNames = [...]string{
@@ -226,6 +228,8 @@ var opcodeNames = [...]string{
 	"LOAD_LOCALS",
 	"LOAD_FROM_DICT_OR_GLOBALS",
 	"LOAD_FROM_DICT_OR_DEREF",
+	"CHECK_EXC_MATCH",
+	"RERAISE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -266,7 +270,7 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
-		SetFunctionAttribute, StoreDeref, ImportName, ImportStar:
+		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, Reraise:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript:
 		return -2

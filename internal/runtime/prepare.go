@@ -349,6 +349,11 @@ func (code *preparedCode) instructionEdges(
 			return nil, false, err
 		}
 		return nil, true, nil
+	case bytecode.Reraise:
+		if err := require(1); err != nil {
+			return nil, false, err
+		}
+		return nil, true, nil
 	case bytecode.Jump:
 		return []stackEdge{{target: target, depth: depth}}, false, nil
 	case bytecode.ForIter:
@@ -394,7 +399,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
-		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar:
+		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar,
+		bytecode.CheckExceptionMatch, bytecode.Reraise:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -628,6 +634,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 1, 0
 	case bytecode.RaiseVarargs:
 		return int(instruction.Operand), 0
+	case bytecode.Reraise:
+		return 1, 0
 	case bytecode.DeleteSubscript:
 		return 2, 0
 	case bytecode.StoreSubscript:
@@ -637,6 +645,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.SetAdd, bytecode.SetUpdate,
 		bytecode.MapUpdate, bytecode.MapMerge:
 		return 2, 1
+	case bytecode.CheckExceptionMatch:
+		return 2, 2
 	case bytecode.MapSet:
 		return 3, 1
 	case bytecode.SetFunctionAttribute:

@@ -9,6 +9,7 @@ import (
 
 type exceptionTypeValue struct {
 	name string
+	base *exceptionTypeValue
 }
 
 func (*exceptionTypeValue) TypeName() string { return "type" }
@@ -17,7 +18,56 @@ func (exceptionType *exceptionTypeValue) Repr() string {
 }
 func (*exceptionTypeValue) isValue() {}
 
-var assertionErrorType = &exceptionTypeValue{name: "AssertionError"}
+func (exceptionType *exceptionTypeValue) isSubclassOf(parent *exceptionTypeValue) bool {
+	for current := exceptionType; current != nil; current = current.base {
+		if current == parent {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	baseExceptionType       = &exceptionTypeValue{name: "BaseException"}
+	exceptionType           = &exceptionTypeValue{name: "Exception", base: baseExceptionType}
+	arithmeticErrorType     = &exceptionTypeValue{name: "ArithmeticError", base: exceptionType}
+	assertionErrorType      = &exceptionTypeValue{name: "AssertionError", base: exceptionType}
+	attributeErrorType      = &exceptionTypeValue{name: "AttributeError", base: exceptionType}
+	importErrorType         = &exceptionTypeValue{name: "ImportError", base: exceptionType}
+	moduleNotFoundErrorType = &exceptionTypeValue{name: "ModuleNotFoundError", base: importErrorType}
+	lookupErrorType         = &exceptionTypeValue{name: "LookupError", base: exceptionType}
+	indexErrorType          = &exceptionTypeValue{name: "IndexError", base: lookupErrorType}
+	keyErrorType            = &exceptionTypeValue{name: "KeyError", base: lookupErrorType}
+	nameErrorType           = &exceptionTypeValue{name: "NameError", base: exceptionType}
+	unboundLocalErrorType   = &exceptionTypeValue{name: "UnboundLocalError", base: nameErrorType}
+	runtimeErrorType        = &exceptionTypeValue{name: "RuntimeError", base: exceptionType}
+	notImplementedErrorType = &exceptionTypeValue{name: "NotImplementedError", base: runtimeErrorType}
+	overflowErrorType       = &exceptionTypeValue{name: "OverflowError", base: arithmeticErrorType}
+	zeroDivisionErrorType   = &exceptionTypeValue{name: "ZeroDivisionError", base: arithmeticErrorType}
+	typeErrorType           = &exceptionTypeValue{name: "TypeError", base: exceptionType}
+	valueErrorType          = &exceptionTypeValue{name: "ValueError", base: exceptionType}
+)
+
+var builtinExceptionTypes = []*exceptionTypeValue{
+	baseExceptionType,
+	exceptionType,
+	arithmeticErrorType,
+	assertionErrorType,
+	attributeErrorType,
+	importErrorType,
+	moduleNotFoundErrorType,
+	lookupErrorType,
+	indexErrorType,
+	keyErrorType,
+	nameErrorType,
+	unboundLocalErrorType,
+	runtimeErrorType,
+	notImplementedErrorType,
+	overflowErrorType,
+	zeroDivisionErrorType,
+	typeErrorType,
+	valueErrorType,
+}
 
 // executeExceptionTypeCall validates an internal exception-class call, converts
 // its positional arguments into the current message representation, consumes
@@ -53,28 +103,39 @@ func executeExceptionTypeCall(
 		caller.stack[index] = nil
 	}
 	caller.stack = caller.stack[:base]
-	return pushOutcome(caller, instruction, newException(exceptionType.name, message))
+	return pushOutcome(caller, instruction, newExceptionOfType(exceptionType, message))
 }
 
 // Exception is a Python exception value raised by bytecode execution.
 type Exception struct {
-	typeName string
-	message  string
+	class             *exceptionTypeValue
+	message           string
+	originFrame       *frame
+	originInstruction int
 }
 
 func newException(typeName, message string) *Exception {
-	return &Exception{typeName: typeName, message: message}
+	for _, exceptionType := range builtinExceptionTypes {
+		if exceptionType.name == typeName {
+			return newExceptionOfType(exceptionType, message)
+		}
+	}
+	panic("runtime: unknown exception type " + typeName)
+}
+
+func newExceptionOfType(exceptionType *exceptionTypeValue, message string) *Exception {
+	return &Exception{class: exceptionType, message: message}
 }
 
 // TypeName returns the Python exception class name.
-func (exception *Exception) TypeName() string { return exception.typeName }
+func (exception *Exception) TypeName() string { return exception.class.name }
 
 // Message returns the exception's detail text.
 func (exception *Exception) Message() string { return exception.message }
 
 // Repr returns a stable Python-like representation of the exception.
 func (exception *Exception) Repr() string {
-	return exception.typeName + "(" + strconv.Quote(exception.message) + ")"
+	return exception.class.name + "(" + strconv.Quote(exception.message) + ")"
 }
 
 func (*Exception) isValue() {}

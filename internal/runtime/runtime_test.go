@@ -164,6 +164,45 @@ func TestPreloadedImportFailures(t *testing.T) {
 	}
 }
 
+func TestReraiseKeepsOriginalLocation(t *testing.T) {
+	code := testCodeSpec(bytecode.CodeSpec{
+		StackSize: 1,
+		Instructions: []bytecode.Instruction{
+			{Opcode: bytecode.LoadAssertionError},
+			{Opcode: bytecode.RaiseVarargs, Operand: 1},
+			{Opcode: bytecode.Reraise},
+		},
+		ExceptionHandlers: []bytecode.ExceptionHandler{
+			{Start: 0, End: 2, Target: 2},
+		},
+	})
+	_, err := bullruntime.New().ExecuteModule("reraised", code)
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Error(); got != "<broken>:1:2: AssertionError: " {
+		t.Fatalf("error = %q, want original raise location", got)
+	}
+}
+
+func TestExplicitRaiseMovesOrigin(t *testing.T) {
+	code := compileSource(t, "error = ValueError('stored')\n"+
+		"try:\n"+
+		"    raise error\n"+
+		"except:\n"+
+		"    pass\n"+
+		"raise error\n")
+	_, err := bullruntime.New().ExecuteModule("explicit", code)
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Error(); got != "<test>:6:1: ValueError: stored" {
+		t.Fatalf("error = %q, want second explicit raise location", got)
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
