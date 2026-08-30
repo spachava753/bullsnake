@@ -458,6 +458,11 @@
       "name": "loop control through finally",
       "source": "for item in values:\n    try:\n        if item:\n            continue\n        break\n    finally:\n        marker = item\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[None], names=[\"values\", \"item\", \"marker\"], locals=[], cells=[], free=[], handlers=[Handler(start=4, end=6, target=13, depth=1)], instructions=[LOAD_NAME 0, GET_ITER, FOR_ITER 16, STORE_NAME 1, LOAD_NAME 1, POP_JUMP_IF_FALSE 9, LOAD_NAME 1, STORE_NAME 2, JUMP 2, LOAD_NAME 1, STORE_NAME 2, POP_TOP, JUMP 16, LOAD_NAME 1, STORE_NAME 2, RERAISE, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "combined handlers and finally",
+      "source": "try:\n    value\nexcept NameError:\n    result = 1\nelse:\n    result = 2\nfinally:\n    marker = 3\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(2), Int(1), Int(3), None], names=[\"value\", \"result\", \"NameError\", \"marker\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0), Handler(start=2, end=14, target=17, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, LOAD_CONST 0, STORE_NAME 1, JUMP 14, LOAD_NAME 2, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 13, ENTER_EXCEPT 14, LOAD_CONST 1, STORE_NAME 1, LEAVE_EXCEPT, JUMP 14, RERAISE, LOAD_CONST 2, STORE_NAME 3, JUMP 20, LOAD_CONST 2, STORE_NAME 3, RERAISE, LOAD_CONST 3, RETURN_VALUE])"
     }
   ]
 }

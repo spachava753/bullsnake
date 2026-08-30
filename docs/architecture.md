@@ -412,7 +412,8 @@ from inner to outer outside their own protected ranges, then returns the
 preserved value. Break and continue use the same cleanup stack, discard pending
 exceptions or temporary values down to the target loop's recorded stack depth,
 and then jump. A return, raise, or loop transfer in a final suite replaces the
-earlier transfer.
+earlier transfer. Combined `try/except/finally` places the complete handler and
+`else` construct inside that same outer finalization region.
 
 Bytecode currently remains in memory and evolves with the compiler and runtime.
 If cached compiled files are added, their format must include a Bullsnake magic
@@ -462,10 +463,9 @@ push frame-owned scopes with exclusive instruction ends. Dispatch removes a
 scope after a jump leaves it, and normal handler completion removes it
 explicitly. Bare `raise` searches these scopes through caller frames and raises
 `RuntimeError` when none is active. Bound handler names clear through the same
-compiler-selected storage on normal, nonlocal, and exceptional exits. Plain
-`try/finally` runs its final suite before normal completion, exception
-propagation, return, break, or continue. Combined `try/except/finally` remains a
-later slice.
+compiler-selected storage on normal, nonlocal, and exceptional exits. Plain or
+combined `try/finally` runs its final suite before normal completion, exception
+propagation, return, break, or continue.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one

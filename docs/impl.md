@@ -282,8 +282,8 @@ class definitions with decorators, ordinary and starred bases, class keywords,
 methods, enclosing closure reads, and the `__class__` cell requested by
 zero-argument `super()`; `if`/`elif`/`else` statements; `while` loops;
 synchronous `for` loops with name, tuple, or list targets, including one starred
-target per sequence; and `try` with ordered typed or bare `except` clauses,
-optional `as` bindings, and an optional `else`; and plain `try/finally` for
+target per sequence; and `try` statements with ordered typed or bare `except`
+clauses, optional `as` bindings, `else`, and `finally`. Final suites support
 normal, exceptional, return, break, or continue completion. Both loop forms
 support optional `else`, `break`, and `continue`.
 Reachable code-object fallthrough ends with a synthetic `None` return.
@@ -310,7 +310,8 @@ reraises afterward. Return, break, and continue emit active cleanup actions from
 inner to outer before completing their transfer. A return keeps its value on the
 operand stack; loop control restores the target loop's recorded stack depth. If
 a final suite returns, raises, breaks, or continues, that newer transfer replaces
-the pending one.
+the pending one. A combined statement compiles its complete handler and `else`
+flow as the protected body of the outer finalization region.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -542,11 +543,11 @@ class or a flat tuple of classes, validate every tuple member before matching,
 and select subclasses through those links. Multiple clauses run in source
 order; an unmatched `RERAISE` retains the original raising frame and source
 span. Bare `raise` uses the active handled exception or raises `RuntimeError`
-when none exists. Plain `try/finally` runs before normal completion, exception
-propagation, return, break, or continue; a newer transfer from its final suite
-replaces the pending one. Combination with `except` remains unsupported.
-Explicit causes, exception chaining, callable native values, multiple
-inheritance, C3 linearization, metaclasses, `super`, `__new__`, general
+when none exists. Plain and combined `try/finally` run before normal completion,
+exception propagation, return, break, or continue; a newer transfer from the
+final suite replaces the pending one. Explicit causes, exception chaining,
+callable native values, multiple inheritance, C3 linearization, metaclasses,
+`super`, `__new__`, general
 descriptors, suspension, traceback chains, cancellation, recursion limits, and
 execution budgets are not yet implemented.
 
@@ -734,7 +735,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains ninety-one successful
+The compiler corpus currently contains ninety-two successful
 parse-resolve-compile cases for the supported compiler subset. Cases record
 stable Bullsnake code-object dumps. Focused tests cover instruction source
 positions, stack effects, code-object copying, opcode formatting, literal
@@ -748,7 +749,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has sixty-two successful chunks and one hundred six expected runtime
+currently has sixty-three successful chunks and one hundred six expected runtime
 errors; it requires no Python installation, external checkout, network access,
 or generation step.
 

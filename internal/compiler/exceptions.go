@@ -81,12 +81,9 @@ func (compiler *compilerState) compileAssertStatement(statement *compilerast.Ass
 	return compiler.markLabel(end, statement.Span())
 }
 
-// compileTryStatement emits ordered ordinary handlers while keeping their
-// dispatch and bodies outside the statement's own protected range.
-func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStmt) error {
-	if len(statement.Finally) != 0 {
-		return compiler.compileTryFinally(statement)
-	}
+// compileTryExcept emits ordered ordinary handlers while keeping their
+// dispatch and bodies outside the statement's own protected body range.
+func (compiler *compilerState) compileTryExcept(statement *compilerast.TryStmt) error {
 	if len(statement.Handlers) == 0 {
 		return compiler.error(statement.Span(), "try statement has no exception handlers")
 	}
@@ -242,8 +239,8 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 // compileTryFinally duplicates the final suite for normal fallthrough and for
 // an exceptional entry that keeps the pending exception below temporary values.
 func (compiler *compilerState) compileTryFinally(statement *compilerast.TryStmt) error {
-	if len(statement.Handlers) != 0 || len(statement.Else) != 0 {
-		return compiler.error(statement.Span(), "combined try/except/finally is not compiled")
+	if len(statement.Handlers) == 0 && len(statement.Else) != 0 {
+		return compiler.error(statement.Span(), "try/finally has else without handlers")
 	}
 	baseDepth := compiler.stackDepth
 	handler := compiler.newLabel()
@@ -258,7 +255,12 @@ func (compiler *compilerState) compileTryFinally(statement *compilerast.TryStmt)
 		handlerDepth: handlerDepth,
 		finalBody:    statement.Finally,
 	})
-	err := compiler.compileStatements(statement.Body)
+	var err error
+	if len(statement.Handlers) != 0 {
+		err = compiler.compileTryExcept(statement)
+	} else {
+		err = compiler.compileStatements(statement.Body)
+	}
 	compiler.controlCleanups = compiler.controlCleanups[:len(compiler.controlCleanups)-1]
 	compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
 	if err != nil {

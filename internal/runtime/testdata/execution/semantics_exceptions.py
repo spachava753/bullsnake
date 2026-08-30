@@ -442,3 +442,99 @@ for item in (1,):
         except NameError:
             binding_cleared_before_final = True
 assert binding_cleared_before_final is True
+# ---
+# case: combined handlers and finally compose all exits
+normal_order = 0
+try:
+    normal_order = 1
+except:
+    normal_order = -1
+else:
+    normal_order = normal_order * 10 + 2
+finally:
+    normal_order = normal_order * 10 + 3
+assert normal_order == 123
+
+handled_order = 0
+try:
+    missing_for_combined_handler
+except NameError:
+    handled_order = 4
+finally:
+    handled_order = handled_order * 10 + 5
+assert handled_order == 45
+
+unmatched_final = False
+unmatched_caught = False
+try:
+    try:
+        1 // 0
+    except NameError:
+        missing_unmatched_handler
+    finally:
+        unmatched_final = True
+except ZeroDivisionError:
+    unmatched_caught = True
+assert unmatched_final is True
+assert unmatched_caught is True
+
+handler_failure_final = False
+handler_failure_caught = False
+try:
+    try:
+        missing_before_failing_handler
+    except NameError:
+        another_missing_from_handler
+    finally:
+        handler_failure_final = True
+except NameError:
+    handler_failure_caught = True
+assert handler_failure_final is True
+assert handler_failure_caught is True
+
+else_failure_final = False
+else_failure_caught = False
+try:
+    try:
+        pass
+    except:
+        missing_unused_handler
+    else:
+        missing_from_combined_else
+    finally:
+        else_failure_final = True
+except NameError:
+    else_failure_caught = True
+assert else_failure_final is True
+assert else_failure_caught is True
+
+return_final_count = 0
+
+def return_from_combined_body():
+    global return_final_count
+    try:
+        return 6
+    except:
+        return -1
+    finally:
+        return_final_count += 1
+
+assert return_from_combined_body() == 6
+assert return_final_count == 1
+
+binding_cleared_in_combined_final = False
+
+def return_from_combined_handler():
+    global binding_cleared_in_combined_final
+    try:
+        missing_before_combined_return
+    except NameError as error:
+        return 7
+    finally:
+        try:
+            error
+        except UnboundLocalError:
+            binding_cleared_in_combined_final = True
+
+assert return_from_combined_handler() == 7
+assert binding_cleared_in_combined_final is True
