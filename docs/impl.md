@@ -260,12 +260,13 @@ resolver tests start only from ASTs the parser accepts.
 
 `internal/compiler.Compile` accepts a parsed module and its resolver table and
 produces an `internal/compiler/bytecode.Code`. Code objects copy their
-instruction, position, constant, and name tables at construction and expose
-copies through accessors. Each instruction has an explicit opcode and operand;
-a parallel table retains its lexer span. The compiler tracks operand-stack
-depth while emitting and records the maximum on the code object. Control-flow
-instructions use absolute instruction indexes. Labels patch forward jumps and
-require every incoming edge to have the same stack depth.
+instruction, position, constant, name, and exception-handler tables at
+construction and expose copies through accessors. Each instruction has an
+explicit opcode and operand; a parallel table retains its lexer span. The
+compiler tracks operand-stack depth while emitting and records the maximum on
+the code object. Control-flow instructions use absolute instruction indexes.
+Labels patch forward jumps and require every incoming edge to have the same
+stack depth.
 
 The current bytecode implements the supported file-input subset: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
@@ -279,11 +280,15 @@ synchronous function definitions with decorators, required and defaulted
 parameters, lazy parameter and return annotations, closures, and returns;
 class definitions with decorators, ordinary and starred bases, class keywords,
 methods, enclosing closure reads, and the `__class__` cell requested by
-zero-argument `super()`; `if`/`elif`/`else` statements; `while` loops; and
-synchronous `for` loops with name, tuple, or list targets,
-including one starred target per sequence. Both loop forms support optional
-`else`, `break`, and `continue`.
+zero-argument `super()`; `if`/`elif`/`else` statements; `while` loops;
+synchronous `for` loops with name, tuple, or list targets, including one starred
+target per sequence; and `try` with one bare `except`. Both loop forms support
+optional `else`, `break`, and `continue`.
 Reachable code-object fallthrough ends with a synthetic `None` return.
+For the supported bare handler, the compiler records the innermost active
+handler and current stack depth on every protected instruction. `finish`
+combines adjacent records into sorted, non-overlapping ranges. Normal execution
+jumps over the handler; its entry stack contains the raised exception.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -390,9 +395,10 @@ module namespace, and caches the module by name only after normal return.
 `Runtime.Module` and `Module.Get` expose successful executions to internal
 callers and tests. There is not yet a public Go embedding API.
 
-Preparation copies the instruction, name, local, cell, free-variable, and
-child-code tables, materializes code constants as runtime values, and validates
-the complete code tree before execution. Validation currently accepts `NOP`,
+Preparation copies the instruction, name, local, cell, free-variable,
+child-code, and exception-handler tables, materializes code constants as runtime
+values, and validates the complete code tree before execution. Validation
+currently accepts `NOP`,
 `LOAD_CONST`, `CONVERT_VALUE`, `FORMAT_SIMPLE`, `FORMAT_WITH_SPEC`,
 `BUILD_STRING`, `LOAD_NAME`, `STORE_NAME`, `DELETE_NAME`, `LOAD_FAST`,
 `STORE_FAST`, `DELETE_FAST`, `LOAD_GLOBAL`, `STORE_GLOBAL`, `DELETE_GLOBAL`,
@@ -410,19 +416,21 @@ positional-default, keyword-default, closure, and annotation
 `DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP` and
 `INPLACE_OP` variants; scalar `COMPARE_OP` variants; absolute `JUMP`; both
 pop-and-test jumps; both short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks
-constant, name, local, and child indexes, code metadata, operation operands, jump
-targets, stack underflow, the declared maximum stack size, return stack balance,
-and reachable termination. Any unsupported constant, instruction, operand, or
-nested code object fails with a source-located `BytecodeError` before a module can
-observe side effects.
+constant, name, local, and child indexes, code metadata, operation operands,
+jump targets, exception ranges and restore depths, stack underflow, the declared
+maximum stack size, return stack balance, and reachable termination. Any
+unsupported constant, instruction, operand, or nested code object fails with a
+source-located `BytecodeError` before a module can observe side effects.
 
 Stack validation uses a worklist over instruction indexes. Each reachable edge
 carries its operand-stack depth. Conditional jumps propagate their distinct
 fallthrough and taken-edge effects. `FOR_ITER` adds an item on its fallthrough
-edge and removes the iterator on its exhaustion edge. Loops terminate through
-already-seen instruction depths, and a merge with different depths is invalid.
-The validator allows well-formed unreachable instructions but still checks
-their opcodes, operands, and table indexes before execution. The compiler uses
+edge and removes the iterator on its exhaustion edge. Every protected
+instruction also contributes an edge to its handler at the recorded restore
+depth plus one exception value. Loops terminate through already-seen instruction
+depths, and a merge with different depths is invalid. The validator allows
+well-formed unreachable instructions but still checks their opcodes, operands,
+and table indexes before execution. The compiler uses
 these validated jumps for boolean short-circuit expressions, conditional
 expressions, `if` statements, and `while` and synchronous `for` loops. Loop
 `else`, `break`, and `continue` require no separate runtime mechanism; their
@@ -454,7 +462,12 @@ compiler-built positional tuple and, for operand one, an ordered keyword
 dictionary assembled by duplicate-checking `MAP_MERGE`. Both return a
 child-frame outcome. The dispatch loop switches to that frame without a Go call;
 `RETURN_VALUE` restores the predecessor and pushes the result. Repeated, nested,
-and recursive Python calls therefore remain in one iterative loop.
+and recursive Python calls therefore remain in one iterative loop. A raised
+outcome searches the current frame's protected ranges. A match truncates the
+operand stack to the recorded depth, pushes the exception, and resumes at the
+handler. Without a match, the same loop removes the frame and checks its
+caller's `CALL` instruction. This continues to a handler or the host boundary;
+an uncaught error retains the original raising frame and source span.
 `LOAD_BUILD_CLASS` uses the same transition to run a zero- or single-base class
 body with a fresh local namespace. The builder requires any base to be a
 Bullsnake type. A class-build record on the body frame converts return into a
@@ -494,11 +507,13 @@ Its internal format guard can raise `NotImplementedError`; Python attribute
 lookup and `annotationlib` integration cannot request annotation maps yet.
 Assertions load a callable internal `AssertionError` class and use the supported
 one-argument raise path with either that class or a constructed exception.
-Invalid raised values become `TypeError`. Callable native values, bare re-raise,
-explicit causes, multiple inheritance, C3 linearization, metaclasses, `super`,
-`__new__`, general descriptors, suspension, exception handlers, traceback
-chains, cancellation, recursion limits, and execution budgets are not yet
-implemented.
+Invalid raised values become `TypeError`. A `try` statement may currently have
+one bare `except` without a binding, `else`, or `finally`; normal completion
+jumps over its handler. Callable native values, typed or multiple handlers,
+handler bindings, bare re-raise, explicit causes, exception state and chaining,
+multiple inheritance, C3 linearization, metaclasses, `super`, `__new__`, general
+descriptors, suspension, traceback chains, cancellation, recursion limits, and
+execution budgets are not yet implemented.
 
 ## Object model and runtime
 
@@ -684,7 +699,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains eighty-three successful
+The compiler corpus currently contains eighty-four successful
 parse-resolve-compile cases for the supported compiler subset. Cases record
 stable Bullsnake code-object dumps. Focused tests cover instruction source
 positions, stack effects, code-object copying, opcode formatting, literal
@@ -698,7 +713,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has fifty successful chunks and one hundred one expected runtime
+currently has fifty-four successful chunks and one hundred one expected runtime
 errors; it requires no Python installation, external checkout, network access,
 or generation step.
 
@@ -707,7 +722,7 @@ or cannot be expressed by supported Python source: module cache identity and
 cross-module mutation, exported value metadata and singleton identity, direct
 annotation-format bytecode, and class-builder argument checks. A separate table
 in `validation_test.go` constructs malformed code objects directly. Its
-sixty-seven cases cover unsupported instructions, operands, and constant kinds;
+seventy-three cases cover unsupported instructions, operands, and constant kinds;
 invalid integer and string descriptors; table and jump bounds; stack underflow,
 overflow, and merge mismatches; unreachable returns; and fallthrough. This
 keeps bytecode invariants out of source fixtures without mixing them into

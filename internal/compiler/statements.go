@@ -71,6 +71,8 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return compiler.compileWhileStatement(statement)
 	case *compilerast.ForStmt:
 		return compiler.compileForStatement(statement)
+	case *compilerast.TryStmt:
+		return compiler.compileTryStatement(statement)
 	case *compilerast.BreakStmt:
 		if len(compiler.loops) == 0 {
 			return compiler.error(statement.Span(), "break has no enclosing loop")

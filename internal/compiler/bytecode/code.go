@@ -46,6 +46,14 @@ func (flags CodeFlags) String() string {
 	return strings.Join(names, ", ")
 }
 
+// ExceptionHandler describes one protected instruction range and its handler.
+type ExceptionHandler struct {
+	Start      uint32
+	End        uint32
+	Target     uint32
+	StackDepth int
+}
+
 // CodeSpec contains the data copied into a new immutable code object.
 type CodeSpec struct {
 	Filename            string
@@ -65,6 +73,7 @@ type CodeSpec struct {
 	Cells               []string
 	FreeVars            []string
 	Children            []*Code
+	ExceptionHandlers   []ExceptionHandler
 }
 
 // Code is one immutable compiled module or nested function.
@@ -86,6 +95,7 @@ type Code struct {
 	cells               []string
 	freeVars            []string
 	children            []*Code
+	exceptionHandlers   []ExceptionHandler
 }
 
 // NewCode copies a completed code specification.
@@ -111,6 +121,7 @@ func NewCode(spec CodeSpec) *Code {
 		cells:               slices.Clone(spec.Cells),
 		freeVars:            slices.Clone(spec.FreeVars),
 		children:            slices.Clone(spec.Children),
+		exceptionHandlers:   slices.Clone(spec.ExceptionHandlers),
 	}
 }
 
@@ -161,6 +172,11 @@ func (code *Code) FreeVars() []string { return slices.Clone(code.freeVars) }
 
 // Children returns a copy of the nested code-object table.
 func (code *Code) Children() []*Code { return slices.Clone(code.children) }
+
+// ExceptionHandlers returns a copy of the protected instruction ranges.
+func (code *Code) ExceptionHandlers() []ExceptionHandler {
+	return slices.Clone(code.exceptionHandlers)
+}
 
 // Position returns the source span for one instruction index.
 func (code *Code) Position(index int) (lexer.Span, bool) {

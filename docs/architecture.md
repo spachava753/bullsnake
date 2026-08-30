@@ -392,6 +392,12 @@ code object should contain:
 - Exception and cleanup regions
 - Stack-size metadata if the VM needs it
 
+For the current bare `except` slice, the compiler records the innermost active
+handler on each protected instruction and combines adjacent records into
+immutable, non-overlapping ranges. Each range gives the handler target and the
+stack depth to restore after a raise. The runtime can therefore skip handler
+bookkeeping on normal execution.
+
 Bytecode currently remains in memory and evolves with the compiler and runtime.
 If cached compiled files are added, their format must include a Bullsnake magic
 value, language version, bytecode version, source hash, and implementation cache
@@ -414,13 +420,23 @@ outcomes without using a Go call as the definition of a Python frame.
 Before execution, the runtime copies the code tables it consumes, materializes
 compiler constants as runtime values, and recursively prepares every child code
 object. It validates each instruction, operand, table index, code-metadata
-constraint, jump target, and reachable stack transition. A worklist requires all
-control-flow edges into an instruction to agree on stack depth. `FOR_ITER` has
-separate yield and exhaustion depths because it retains the iterator and pushes
-an item only on the yield edge. Unsupported or malformed bytecode anywhere in
-the code tree fails before the module body can produce side effects. Prepared
-code and its materialized constants are cached per runtime and immutable
-code-object identity.
+constraint, jump target, exception range, and reachable stack transition. A
+worklist requires all control-flow edges into an instruction to agree on stack
+depth. `FOR_ITER` has separate yield and exhaustion depths because it retains
+the iterator and pushes an item only on the yield edge. A protected instruction
+adds an exception edge at the range's restore depth plus one exception value.
+Unsupported or malformed bytecode anywhere in the code tree fails before the
+module body can produce side effects. Prepared code and its materialized
+constants are cached per runtime and immutable code-object identity.
+
+When an instruction raises, the dispatcher searches the active frame's prepared
+ranges. A match truncates the operand stack to the recorded depth, pushes the
+exception, and resumes at the handler target. Without a match, the dispatcher
+removes that frame and checks the caller's call instruction. This uses the same
+iterative frame chain as ordinary return and continues until a handler catches
+the exception or it crosses the host boundary. The first slice accepts one bare
+handler without a binding, `else`, or `finally`; later slices add matching and
+handled-exception state.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one
@@ -488,9 +504,10 @@ A suspended async task or generator will eventually own the same frame state
 needed to resume it.
 
 As more execution forms enter the supported subset, the VM must add outcomes
-for yield, await suspension, exception propagation through handlers, scheduler
-safe points, host cancellation, and execution-budget stops. A call into a
-synchronous Go extension will run on the Python thread's current Go stack.
+for yield, await suspension, handled-exception state, final cleanup, traceback
+construction, scheduler safe points, host cancellation, and execution-budget
+stops. A call into a synchronous Go extension will run on the Python thread's
+current Go stack.
 
 ## Object model
 

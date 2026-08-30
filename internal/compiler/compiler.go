@@ -39,6 +39,8 @@ type compilerState struct {
 	reachable           bool
 	labels              []*jumpLabel
 	loops               []loopContext
+	exceptionHandlers   []instructionExceptionHandler
+	activeHandlers      []instructionExceptionHandler
 }
 
 // emit appends a fallthrough instruction after validating reachability,
@@ -86,6 +88,11 @@ func (compiler *compilerState) appendInstruction(opcode bytecode.Opcode, operand
 		Operand: operand,
 	})
 	compiler.positions = append(compiler.positions, span)
+	handler := instructionExceptionHandler{}
+	if len(compiler.activeHandlers) != 0 {
+		handler = compiler.activeHandlers[len(compiler.activeHandlers)-1]
+	}
+	compiler.exceptionHandlers = append(compiler.exceptionHandlers, handler)
 	return index
 }
 
@@ -142,5 +149,6 @@ func (compiler *compilerState) finish() (*bytecode.Code, error) {
 		Cells:               compiler.cells,
 		FreeVars:            compiler.freeVars,
 		Children:            compiler.children,
+		ExceptionHandlers:   compiler.finishedExceptionHandlers(),
 	}), nil
 }

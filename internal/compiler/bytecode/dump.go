@@ -48,6 +48,24 @@ func Dump(code *Code) string {
 	dumpStrings(&builder, code.cells)
 	builder.WriteString(", free=")
 	dumpStrings(&builder, code.freeVars)
+	if len(code.exceptionHandlers) != 0 {
+		builder.WriteString(", handlers=[")
+		for index, handler := range code.exceptionHandlers {
+			if index != 0 {
+				builder.WriteString(", ")
+			}
+			builder.WriteString("Handler(start=")
+			builder.WriteString(strconv.FormatUint(uint64(handler.Start), 10))
+			builder.WriteString(", end=")
+			builder.WriteString(strconv.FormatUint(uint64(handler.End), 10))
+			builder.WriteString(", target=")
+			builder.WriteString(strconv.FormatUint(uint64(handler.Target), 10))
+			builder.WriteString(", depth=")
+			builder.WriteString(strconv.Itoa(handler.StackDepth))
+			builder.WriteByte(')')
+		}
+		builder.WriteByte(']')
+	}
 	if len(code.children) != 0 {
 		builder.WriteString(", children=[")
 		for index, child := range code.children {

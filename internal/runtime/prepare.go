@@ -10,17 +10,18 @@ import (
 )
 
 type preparedCode struct {
-	code         *bytecode.Code
-	instructions []bytecode.Instruction
-	constants    []Value
-	names        []string
-	locals       []string
-	cells        []string
-	freeVars     []string
-	cellLocals   []int
-	childCodes   []*bytecode.Code
-	children     []*preparedCode
-	stackSize    int
+	code              *bytecode.Code
+	instructions      []bytecode.Instruction
+	constants         []Value
+	names             []string
+	locals            []string
+	cells             []string
+	freeVars          []string
+	cellLocals        []int
+	childCodes        []*bytecode.Code
+	children          []*preparedCode
+	exceptionHandlers []bytecode.ExceptionHandler
+	stackSize         int
 }
 
 // prepareCode copies runtime-facing tables, materializes constants, and rejects
@@ -30,14 +31,15 @@ func prepareCode(code *bytecode.Code) (*preparedCode, error) {
 		return nil, &BytecodeError{Instruction: -1, Message: "nil code object"}
 	}
 	prepared := &preparedCode{
-		code:         code,
-		instructions: code.Instructions(),
-		names:        code.Names(),
-		locals:       code.Locals(),
-		cells:        code.Cells(),
-		freeVars:     code.FreeVars(),
-		childCodes:   code.Children(),
-		stackSize:    code.StackSize(),
+		code:              code,
+		instructions:      code.Instructions(),
+		names:             code.Names(),
+		locals:            code.Locals(),
+		cells:             code.Cells(),
+		freeVars:          code.FreeVars(),
+		childCodes:        code.Children(),
+		exceptionHandlers: code.ExceptionHandlers(),
+		stackSize:         code.StackSize(),
 	}
 	prepared.cellLocals = make([]int, len(prepared.cells))
 	for cellIndex, name := range prepared.cells {
@@ -64,6 +66,9 @@ func prepareCode(code *bytecode.Code) (*preparedCode, error) {
 			return nil, prepared.failure(-1, "constant %d: %s", index, err)
 		}
 		prepared.constants[index] = value
+	}
+	if err := prepared.validateExceptionHandlers(); err != nil {
+		return nil, err
 	}
 	if err := prepared.validateInstructions(); err != nil {
 		return nil, err
@@ -138,6 +143,52 @@ func (code *preparedCode) validateMetadata() error {
 	return nil
 }
 
+// validateExceptionHandlers rejects malformed protected ranges before stack
+// analysis or execution can observe them.
+func (code *preparedCode) validateExceptionHandlers() error {
+	previousEnd := 0
+	for index, handler := range code.exceptionHandlers {
+		start := int(handler.Start)
+		end := int(handler.End)
+		target := int(handler.Target)
+		if start >= end {
+			return code.failure(-1, "exception handler %d has empty or reversed range", index)
+		}
+		if start < previousEnd {
+			return code.failure(-1, "exception handler %d overlaps or is out of order", index)
+		}
+		if end > len(code.instructions) {
+			return code.failure(-1, "exception handler %d range end %d out of range", index, end)
+		}
+		if target < 0 || target >= len(code.instructions) {
+			return code.failure(-1, "exception handler %d target %d out of range", index, target)
+		}
+		if handler.StackDepth < 0 || handler.StackDepth >= code.stackSize {
+			return code.failure(
+				-1,
+				"exception handler %d stack depth %d cannot receive an exception with stack size %d",
+				index,
+				handler.StackDepth,
+				code.stackSize,
+			)
+		}
+		previousEnd = end
+	}
+	return nil
+}
+
+func (code *preparedCode) exceptionHandler(instruction int) (bytecode.ExceptionHandler, bool) {
+	for _, handler := range code.exceptionHandlers {
+		if instruction < int(handler.Start) {
+			break
+		}
+		if instruction < int(handler.End) {
+			return handler, true
+		}
+	}
+	return bytecode.ExceptionHandler{}, false
+}
+
 // materializeConstant converts every compiler literal descriptor into its
 // runtime object while rejecting malformed strings and integer descriptors.
 func materializeConstant(constant bytecode.Constant) (Value, error) {
@@ -207,6 +258,20 @@ func (code *preparedCode) validateInstructions() error {
 		)
 		if err != nil {
 			return err
+		}
+		if handler, ok := code.exceptionHandler(index); ok {
+			if depths[index] < handler.StackDepth {
+				return code.failure(
+					index,
+					"exception handler stack depth %d exceeds instruction depth %d",
+					handler.StackDepth,
+					depths[index],
+				)
+			}
+			edges = append(edges, stackEdge{
+				target: int(handler.Target),
+				depth:  handler.StackDepth + 1,
+			})
 		}
 		if returns {
 			reachableReturn = true

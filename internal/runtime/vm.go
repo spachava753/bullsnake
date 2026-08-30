@@ -57,15 +57,23 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 			if active.instanceInit != nil {
 				initialization := active.instanceInit
 				if result != None {
-					return nil, &raisedOutcome{
-						exception: newException(
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						initialization.instruction,
+						newException(
 							"TypeError",
 							"__init__() should return None, not '"+
 								result.TypeName()+"'",
 						),
-						frame:       thread.current,
-						instruction: initialization.instruction,
-					}, nil
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
 				}
 				result = initialization.instance
 			}
@@ -82,16 +90,84 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 				)
 			}
 		case raised:
-			return nil, &raisedOutcome{
-				exception:   outcome.exception,
-				frame:       active,
-				instruction: index,
-			}, nil
+			unhandled, routeErr := routeException(thread, active, index, outcome.exception)
+			if routeErr != nil {
+				return nil, nil, routeErr
+			}
+			if unhandled != nil {
+				return nil, unhandled, nil
+			}
 		default:
 			return nil, nil, active.failure(index, "unknown execution outcome")
 		}
 	}
 	return nil, nil, &BytecodeError{Instruction: -1, Message: "execution has no frame"}
+}
+
+// routeException searches the current frame and its callers for a protected
+// instruction range, restoring the selected handler's stack before resuming.
+func routeException(
+	thread *threadState,
+	origin *frame,
+	instruction int,
+	exception *Exception,
+) (*raisedOutcome, error) {
+	if origin == nil {
+		return nil, &BytecodeError{Instruction: instruction, Message: "exception has no frame"}
+	}
+	if exception == nil {
+		return nil, origin.failure(instruction, "raised outcome has no exception")
+	}
+	unhandled := &raisedOutcome{
+		exception:   exception,
+		frame:       origin,
+		instruction: instruction,
+	}
+	current := origin
+	currentInstruction := instruction
+	for current != nil {
+		if handler, ok := current.code.exceptionHandler(currentInstruction); ok {
+			depth := handler.StackDepth
+			if len(current.stack) < depth {
+				return nil, current.failure(
+					currentInstruction,
+					"exception handler stack depth exceeds operand stack",
+				)
+			}
+			for index := depth; index < len(current.stack); index++ {
+				current.stack[index] = nil
+			}
+			current.stack = current.stack[:depth]
+			if !current.push(exception) {
+				return nil, current.failure(
+					currentInstruction,
+					"operand stack overflow while entering exception handler",
+				)
+			}
+			current.instruction = int(handler.Target)
+			thread.current = current
+			return nil, nil
+		}
+
+		for index := range current.stack {
+			current.stack[index] = nil
+		}
+		caller := current.previous
+		if caller == nil {
+			thread.current = nil
+			return unhandled, nil
+		}
+		current = caller
+		currentInstruction = current.instruction - 1
+		if currentInstruction < 0 {
+			return nil, current.failure(
+				currentInstruction,
+				"caller has no active call instruction",
+			)
+		}
+		thread.current = current
+	}
+	return unhandled, nil
 }
 
 // executeInstruction applies one validated operation and reports whether the

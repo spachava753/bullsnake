@@ -15,6 +15,7 @@ func TestCodeCopiesMutableInputAndOutput(t *testing.T) {
 	names := []string{"value"}
 	child := NewCode(CodeSpec{Name: "child", QualifiedName: "f.<locals>.child"})
 	children := []*Code{child}
+	handlers := []ExceptionHandler{{Start: 1, End: 2, Target: 3, StackDepth: 1}}
 	code := NewCode(CodeSpec{
 		Name:                "f",
 		QualifiedName:       "f",
@@ -28,17 +29,21 @@ func TestCodeCopiesMutableInputAndOutput(t *testing.T) {
 		Constants:           []Constant{None()},
 		Names:               names,
 		Children:            children,
+		ExceptionHandlers:   handlers,
 	})
 
 	instructions[0].Opcode = Nop
 	names[0] = "changed"
 	children[0] = nil
+	handlers[0].Target = 99
 	gotInstructions := code.Instructions()
 	gotNames := code.Names()
 	gotChildren := code.Children()
+	gotHandlers := code.ExceptionHandlers()
 	gotInstructions[0].Opcode = Nop
 	gotNames[0] = "changed again"
 	gotChildren[0] = nil
+	gotHandlers[0].Target = 100
 
 	if got := code.Instructions()[0]; got != (Instruction{Opcode: LoadConst}) {
 		t.Fatalf("instruction = %+v", got)
@@ -48,6 +53,11 @@ func TestCodeCopiesMutableInputAndOutput(t *testing.T) {
 	}
 	if got := code.Children()[0]; got != child {
 		t.Fatalf("child = %p, want %p", got, child)
+	}
+	if got := code.ExceptionHandlers()[0]; got != (ExceptionHandler{
+		Start: 1, End: 2, Target: 3, StackDepth: 1,
+	}) {
+		t.Fatalf("exception handler = %+v", got)
 	}
 	if code.PositionalOnlyCount() != 1 || code.PositionalCount() != 2 || code.KeywordOnlyCount() != 3 {
 		t.Fatalf(

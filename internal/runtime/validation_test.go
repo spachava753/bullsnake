@@ -17,6 +17,100 @@ func TestBytecodeValidation(t *testing.T) {
 		wantFragment string
 	}{
 		{
+			name: "empty exception range",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				ExceptionHandlers: []bytecode.ExceptionHandler{
+					{Start: 1, End: 1, Target: 1},
+				},
+			}),
+			wantFragment: "exception handler 0 has empty or reversed range",
+		},
+		{
+			name: "exception range end",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				ExceptionHandlers: []bytecode.ExceptionHandler{
+					{Start: 0, End: 3, Target: 1},
+				},
+			}),
+			wantFragment: "exception handler 0 range end 3 out of range",
+		},
+		{
+			name: "exception handler target",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				ExceptionHandlers: []bytecode.ExceptionHandler{
+					{Start: 0, End: 1, Target: 2},
+				},
+			}),
+			wantFragment: "exception handler 0 target 2 out of range",
+		},
+		{
+			name: "exception handler stack capacity",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				ExceptionHandlers: []bytecode.ExceptionHandler{
+					{Start: 0, End: 1, Target: 1, StackDepth: 1},
+				},
+			}),
+			wantFragment: "stack depth 1 cannot receive an exception with stack size 1",
+		},
+		{
+			name: "overlapping exception ranges",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				ExceptionHandlers: []bytecode.ExceptionHandler{
+					{Start: 0, End: 1, Target: 1},
+					{Start: 0, End: 1, Target: 1},
+				},
+			}),
+			wantFragment: "exception handler 1 overlaps or is out of order",
+		},
+		{
+			name: "exception restore depth",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+					{Opcode: bytecode.PopTop},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				ExceptionHandlers: []bytecode.ExceptionHandler{
+					{Start: 0, End: 1, Target: 2, StackDepth: 1},
+				},
+			}),
+			wantFragment: "exception handler stack depth 1 exceeds instruction depth 0",
+		},
+		{
 			name: "function child index",
 			code: testCode(
 				1,
