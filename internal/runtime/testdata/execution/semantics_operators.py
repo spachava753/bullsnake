@@ -138,3 +138,13 @@ assert addition == 3.75
 assert subtraction == 2.25
 assert multiplication == 6.0
 assert division == 2.5
+assert 5.5 % 2.0 == 1.5
+assert -5.5 % 2.0 == 0.5
+assert 5.5 % -2.0 == -0.5
+# ---
+# case: mixed integer and float arithmetic
+assert 1 + 0.5 == 1.5
+assert 1.5 - 1 == 0.5
+assert 2 * 1.5 == 3.0
+assert 5 / 2 == 2.5
+assert True + 0.5 == 1.5

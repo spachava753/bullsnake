@@ -97,6 +97,15 @@ func executeFunctionCall(
 	keywords *dictValue,
 ) (instructionOutcome, error) {
 	switch callable := callable.(type) {
+	case *builtinFunctionValue:
+		return executeBuiltinFunctionCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,

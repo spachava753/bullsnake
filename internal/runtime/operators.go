@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
@@ -110,9 +111,9 @@ func truthValue(value Value) bool {
 	}
 }
 
-// executeBinary applies the selected arbitrary-precision integer operations.
-// Booleans enter this path as the integer values zero and one. In-place calls
-// share immutable results but retain their diagnostic operator spelling.
+// executeBinary applies the selected numeric operations. Booleans enter integer
+// operations as zero and one. In-place calls share immutable results but retain
+// their diagnostic operator spelling.
 func executeBinary(
 	frame *frame,
 	index int,
@@ -127,31 +128,11 @@ func executeBinary(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
-	if leftFloat, leftOK := left.(*floatValue); leftOK {
-		if rightFloat, rightOK := right.(*floatValue); rightOK {
-			var result float64
-			switch operand {
-			case bytecode.BinaryAdd:
-				result = leftFloat.value + rightFloat.value
-			case bytecode.BinarySubtract:
-				result = leftFloat.value - rightFloat.value
-			case bytecode.BinaryMultiply:
-				result = leftFloat.value * rightFloat.value
-			case bytecode.BinaryDivide:
-				if rightFloat.value == 0 {
-					return instructionOutcome{
-						kind:      raised,
-						exception: newException("ZeroDivisionError", "division by zero"),
-					}, nil
-				}
-				result = leftFloat.value / rightFloat.value
-			default:
-				leftOK = false
-			}
-			if leftOK {
-				return pushOutcome(frame, index, &floatValue{value: result})
-			}
+	if result, exception, handled := floatBinary(left, right, operand); handled {
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
 		}
+		return pushOutcome(frame, index, result)
 	}
 	leftInteger, leftOK := integerOperand(left)
 	rightInteger, rightOK := integerOperand(right)
@@ -277,6 +258,75 @@ func executeBinary(
 		result.And(&leftInteger, &rightInteger)
 	}
 	return pushOutcome(frame, index, &intValue{value: result})
+}
+
+// floatBinary applies operations that require binary64 coercion.
+func floatBinary(left, right Value, operand uint32) (Value, *Exception, bool) {
+	switch operand {
+	case bytecode.BinaryAdd, bytecode.BinarySubtract,
+		bytecode.BinaryMultiply, bytecode.BinaryDivide, bytecode.BinaryModulo:
+	default:
+		return nil, nil, false
+	}
+	_, leftIsFloat := left.(*floatValue)
+	_, rightIsFloat := right.(*floatValue)
+	if !leftIsFloat && !rightIsFloat && operand != bytecode.BinaryDivide {
+		return nil, nil, false
+	}
+	leftNumber, exception, leftOK := numericFloat(left)
+	if exception != nil {
+		return nil, exception, true
+	}
+	rightNumber, exception, rightOK := numericFloat(right)
+	if exception != nil {
+		return nil, exception, true
+	}
+	if !leftOK || !rightOK {
+		return nil, nil, false
+	}
+
+	var result float64
+	switch operand {
+	case bytecode.BinaryAdd:
+		result = leftNumber + rightNumber
+	case bytecode.BinarySubtract:
+		result = leftNumber - rightNumber
+	case bytecode.BinaryMultiply:
+		result = leftNumber * rightNumber
+	case bytecode.BinaryDivide:
+		if rightNumber == 0 {
+			return nil, newException("ZeroDivisionError", "division by zero"), true
+		}
+		result = leftNumber / rightNumber
+	case bytecode.BinaryModulo:
+		if rightNumber == 0 {
+			return nil, newException("ZeroDivisionError", "division by zero"), true
+		}
+		result = math.Mod(leftNumber, rightNumber)
+		if result != 0 {
+			if (rightNumber < 0) != (result < 0) {
+				result += rightNumber
+			}
+		} else {
+			result = math.Copysign(0, rightNumber)
+		}
+	}
+	return &floatValue{value: result}, nil, true
+}
+
+func numericFloat(value Value) (float64, *Exception, bool) {
+	if value, ok := value.(*floatValue); ok {
+		return value.value, nil, true
+	}
+	integer, ok := integerOperand(value)
+	if !ok {
+		return 0, nil, false
+	}
+	converted, _ := integer.Float64()
+	if math.IsInf(converted, 0) {
+		return 0, newException("OverflowError", "int too large to convert to float"), true
+	}
+	return converted, nil, true
 }
 
 func integerOperand(value Value) (big.Int, bool) {

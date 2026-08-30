@@ -259,9 +259,13 @@ clipping and positive or negative steps. Dictionary iteration detects key-set
 changes; replacing an existing value is allowed. Set display and iteration
 order is stable for Bullsnake tests but is not a Python compatibility promise.
 
-Current float arithmetic covers float-to-float addition, subtraction,
-multiplication, and true division. Other numeric combinations remain
-unsupported.
+Current float arithmetic covers addition, subtraction, multiplication, true
+division, and modulo. These operations coerce integer and boolean operands when
+a float participates; true division also converts two integer operands.
+
+The builtin namespace contains the current exception classes plus positional
+`max` and `min` calls with two or more arguments. Their iterable and keyword
+forms remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

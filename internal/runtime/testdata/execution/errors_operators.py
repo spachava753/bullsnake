@@ -69,3 +69,8 @@ answer = ~1.5
 # error: ZeroDivisionError
 # message: "division by zero"
 answer = 1.0 / 0.0
+# ---
+# case: float modulo by zero
+# error: ZeroDivisionError
+# message: "division by zero"
+answer = 1.0 % 0.0

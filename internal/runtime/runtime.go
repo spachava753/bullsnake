@@ -47,6 +47,9 @@ func NewWithLoader(loader ModuleLoader) *Runtime {
 
 func newRuntime(loader ModuleLoader) *Runtime {
 	builtins := newNamespace()
+	for _, function := range builtinFunctions {
+		builtins.values[function.name] = function
+	}
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}

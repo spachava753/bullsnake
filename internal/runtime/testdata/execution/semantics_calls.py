@@ -114,3 +114,9 @@ assert f'{filled!r}' == "(2, {'mode': 'fast', 'retries': 3})", "filled"
 assert f'{combined!r}' == "(10, (20,), 'set', {'extra': 30})", "combined"
 assert f'{preserved!r}' == "('bound', {'name': 'extra'})", "preserved"
 assert f'{distinct!r}' == "True", "distinct"
+# ---
+# case: positional extrema builtins
+assert max(1.0, 3.0, 2.0) == 3.0
+assert min(1.0, -2.0, 0.0) == -2.0
+assert max('alpha', 'gamma', 'beta') == 'gamma'
+assert min(b'alpha', b'gamma', b'beta') == b'alpha'

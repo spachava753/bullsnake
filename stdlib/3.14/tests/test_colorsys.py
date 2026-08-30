@@ -46,3 +46,34 @@ values = [
 
 for rgb, yiq in values:
     assert_triple_equal(yiq, colorsys.rgb_to_yiq(*rgb))
+
+
+# test_hls_values
+values = [
+    # rgb, hls
+    ((0.0, 0.0, 0.0), (0, 0.0, 0.0)),  # black
+    ((0.0, 0.0, 1.0), (4.0 / 6.0, 0.5, 1.0)),  # blue
+    ((0.0, 1.0, 0.0), (2.0 / 6.0, 0.5, 1.0)),  # green
+    ((0.0, 1.0, 1.0), (3.0 / 6.0, 0.5, 1.0)),  # cyan
+    ((1.0, 0.0, 0.0), (0, 0.5, 1.0)),  # red
+    ((1.0, 0.0, 1.0), (5.0 / 6.0, 0.5, 1.0)),  # purple
+    ((1.0, 1.0, 0.0), (1.0 / 6.0, 0.5, 1.0)),  # yellow
+    ((1.0, 1.0, 1.0), (0, 1.0, 0.0)),  # white
+    ((0.5, 0.5, 0.5), (0, 0.5, 0.0)),  # grey
+]
+
+for rgb, hls in values:
+    assert_triple_equal(hls, colorsys.rgb_to_hls(*rgb))
+    assert_triple_equal(rgb, colorsys.hls_to_rgb(*hls))
+
+
+# test_hls_nearwhite
+values = (
+    # rgb, hls: these do not work in reverse
+    ((0.9999999999999999, 1, 1), (0.5, 1.0, 1.0)),
+    ((1, 0.9999999999999999, 0.9999999999999999), (0.0, 1.0, 1.0)),
+)
+
+for rgb, hls in values:
+    assert_triple_equal(hls, colorsys.rgb_to_hls(*rgb))
+    assert_triple_equal((1.0, 1.0, 1.0), colorsys.hls_to_rgb(*hls))
