@@ -601,9 +601,9 @@ Python `TypeError` or `NameError` values.
 A runtime owns its prepared-code cache, builtin namespace, and successful
 modules. A module is a sealed runtime value with a stable representation and one
 string-keyed namespace used as both locals and globals during execution.
-`Runtime.Module`, `Module.Get`, ordinary attribute loads, and imports observe the
-same namespace. It remains narrower than Python's module dictionary and does not
-yet implement arbitrary module mutation or descriptors.
+`Runtime.Module`, `Module.Get`, ordinary attribute operations, and imports observe
+the same namespace. It remains narrower than Python's module dictionary and does
+not yet implement module descriptors.
 
 ## Import system
 

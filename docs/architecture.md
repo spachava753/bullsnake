@@ -582,9 +582,10 @@ The current first slice resolves flat absolute names from modules that completed
 through `Runtime.ExecuteModule` in the same runtime. Frames retain their owning
 runtime, so imports inside functions share that cache. `IMPORT_NAME` consumes
 level and from-list values, `IMPORT_FROM` keeps the module below each selected
-global, and `IMPORT_STAR` copies public names. This is an execution mechanism,
-not a loader: it does not open files, execute a missing module, model packages,
-or insert modules before their bodies run.
+global, and `IMPORT_STAR` copies public names. Module attribute reads, writes,
+and deletes use that same cached namespace. This is an execution mechanism, not
+a loader: it does not open files, execute a missing module, model packages, or
+insert modules before their bodies run.
 
 The next loader remains a runtime service, but the baseline does not need the
 complete `importlib` protocol. The smallest useful design supports:

@@ -1168,6 +1168,37 @@ func TestCachedModuleImports(t *testing.T) {
 	}
 }
 
+func TestImportedModuleMutation(t *testing.T) {
+	runtime := bullruntime.New()
+	libraryCode := compileSource(t, "value = 1\nremovable = 2\n")
+	library, err := runtime.ExecuteModule("library", libraryCode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutatorCode := compileSource(t, "import library\n"+
+		"library.value = 3\n"+
+		"del library.removable\n")
+	if _, err := runtime.ExecuteModule("mutator", mutatorCode); err != nil {
+		t.Fatal(err)
+	}
+	value, ok := library.Get("value")
+	if !ok || value.Repr() != "3" {
+		t.Fatalf("library value = %v, %t, want 3", value, ok)
+	}
+	if _, found := library.Get("removable"); found {
+		t.Fatal("deleted module member remained cached")
+	}
+	observerCode := compileSource(t, "import library\nobserved = library.value\n")
+	observer, err := runtime.ExecuteModule("observer", observerCode)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, ok := observer.Get("observed")
+	if !ok || observed.Repr() != "3" {
+		t.Fatalf("observed = %v, %t, want 3", observed, ok)
+	}
+}
+
 func TestImportFailures(t *testing.T) {
 	runtime := bullruntime.New()
 	libraryCode := compileSource(t, "present = 1\n")
@@ -1191,6 +1222,12 @@ func TestImportFailures(t *testing.T) {
 			source:      "from library import missing\n",
 			wantType:    "ImportError",
 			wantMessage: "cannot import name 'missing' from 'library' (unknown location)",
+		},
+		{
+			name:        "deleted member",
+			source:      "import library\ndel library.missing\n",
+			wantType:    "AttributeError",
+			wantMessage: "module 'library' has no attribute 'missing'",
 		},
 	}
 	for _, test := range tests {

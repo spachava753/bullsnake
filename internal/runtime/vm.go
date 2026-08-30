@@ -241,6 +241,8 @@ func executeInstruction(
 		}
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
+		case *Module:
+			owner.globals.values[name] = value
 		case *typeValue:
 			owner.namespace.values[name] = value
 		case *instanceValue:
@@ -264,6 +266,9 @@ func executeInstruction(
 		var attributes *Namespace
 		missingMessage := "'" + owner.TypeName() + "' object has no attribute '" + name + "'"
 		switch owner := owner.(type) {
+		case *Module:
+			attributes = owner.globals
+			missingMessage = "module '" + owner.name + "' has no attribute '" + name + "'"
 		case *typeValue:
 			attributes = owner.namespace
 			missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
