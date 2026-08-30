@@ -243,10 +243,14 @@ and `next` attach it to the caller and start or resume execution. `YIELD_VALUE`
 removes the yielded value, detaches the frame, and gives the value to the caller.
 Iteration and `next` supply `None` as the yield expression's result; the bound
 `send` method supplies its argument. A newly created generator rejects a first
-sent value other than `None`. Return and escaping exceptions complete the
-generator; repeated iteration then stays exhausted. Explicit resumption raises
-`StopIteration` with the return value, while `next` may return its optional
-default. Re-entering a running generator raises `ValueError`.
+sent value other than `None`. The bound `throw` method injects an exception at
+the suspended yield and lets the existing protected ranges catch it. Throwing
+into a new generator skips its body. Return and escaping exceptions complete
+the generator; repeated iteration then stays exhausted. Explicit resumption
+raises `StopIteration` with the return value, while `next` may return its
+optional default. Re-entering a running generator raises `ValueError`. The
+legacy three-argument `throw` form accepts only `None` for its traceback until
+Python traceback objects exist.
 
 A raised Python exception follows protected ranges in the current code. If a
 range matches, the VM trims the operand stack to its recorded depth, pushes the
@@ -424,7 +428,7 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no `iter`, `throw`, or `close` generator operations or delegated `yield from`
+- no `iter` or `close` generator operations or delegated `yield from`
 - no generator expressions, asynchronous comprehensions, coroutines, async
   execution, or Python threads
 - no asynchronous context managers or structural matching

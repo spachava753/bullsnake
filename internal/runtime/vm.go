@@ -62,6 +62,28 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				return nil, nil, active.failure(index, "invalid call frame transition")
 			}
 			thread.current = outcome.frame
+			if outcome.exception != nil {
+				injectedAt := outcome.frame.instruction - 1
+				if injectedAt < 0 {
+					return nil, nil, outcome.frame.failure(
+						injectedAt,
+						"injected exception has no suspended instruction",
+					)
+				}
+				unhandled, routeErr := routeException(
+					thread,
+					outcome.frame,
+					injectedAt,
+					outcome.exception,
+					false,
+				)
+				if routeErr != nil {
+					return nil, nil, routeErr
+				}
+				if unhandled != nil {
+					return nil, unhandled, nil
+				}
+			}
 		case yielded:
 			caller, suspendErr := suspendGenerator(active, index, outcome.value)
 			if suspendErr != nil {
@@ -360,16 +382,20 @@ func executeInstruction(
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
 		case *generatorValue:
-			if name == "send" {
+			switch name {
+			case "send":
 				return pushOutcome(frame, index, &generatorSendMethod{generator: owner})
+			case "throw":
+				return pushOutcome(frame, index, &generatorThrowMethod{generator: owner})
+			default:
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"'generator' object has no attribute '"+name+"'",
+					),
+				}, nil
 			}
-			return instructionOutcome{
-				kind: raised,
-				exception: newException(
-					"AttributeError",
-					"'generator' object has no attribute '"+name+"'",
-				),
-			}, nil
 		case *Exception:
 			value, found := owner.attribute(name)
 			if !found {

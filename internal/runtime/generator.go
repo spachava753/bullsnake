@@ -38,11 +38,21 @@ type generatorSendMethod struct {
 	generator *generatorValue
 }
 
+type generatorThrowMethod struct {
+	generator *generatorValue
+}
+
 func (*generatorSendMethod) TypeName() string { return "builtin_function_or_method" }
 func (method *generatorSendMethod) Repr() string {
 	return "<built-in method send of " + method.generator.Repr() + ">"
 }
 func (*generatorSendMethod) isValue() {}
+
+func (*generatorThrowMethod) TypeName() string { return "builtin_function_or_method" }
+func (method *generatorThrowMethod) Repr() string {
+	return "<built-in method throw of " + method.generator.Repr() + ">"
+}
+func (*generatorThrowMethod) isValue() {}
 
 func (*generatorValue) TypeName() string { return "generator" }
 func (generator *generatorValue) Repr() string {
@@ -219,6 +229,124 @@ func executeGeneratorSendCall(
 		value,
 		generatorResume{kind: generatorCall, instruction: instruction},
 	)
+}
+
+// executeGeneratorThrowCall normalizes the requested exception and injects it
+// at a suspended yield through the VM's ordinary exception router.
+func executeGeneratorThrowCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *generatorThrowMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "throw() takes no keyword arguments"),
+		}, nil
+	}
+	if len(arguments) < 1 || len(arguments) > 3 {
+		message := "throw expected at least 1 argument, got 0"
+		if len(arguments) > 3 {
+			message = "throw expected at most 3 arguments, got " + strconv.Itoa(len(arguments))
+		}
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", message),
+		}, nil
+	}
+	injected, failure := normalizeGeneratorThrow(arguments)
+	discardCallSegment(caller, base)
+	if failure != nil {
+		return instructionOutcome{kind: raised, exception: failure}, nil
+	}
+	generator := method.generator
+	if generator.state != generatorRunning {
+		injected.originFrame = nil
+		injected.originInstruction = 0
+	}
+	switch generator.state {
+	case generatorRunning:
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("ValueError", "generator already executing"),
+		}, nil
+	case generatorCompleted:
+		return instructionOutcome{kind: raised, exception: injected}, nil
+	case generatorCreated:
+		generator.complete()
+		return instructionOutcome{kind: raised, exception: injected}, nil
+	case generatorSuspended:
+		generator.state = generatorRunning
+		generator.resume = generatorResume{kind: generatorCall, instruction: instruction}
+		generator.frame.previous = caller
+		return instructionOutcome{kind: called, frame: generator.frame, exception: injected}, nil
+	default:
+		return instructionOutcome{}, caller.failure(instruction, "invalid generator state")
+	}
+}
+
+// normalizeGeneratorThrow accepts an exception instance or class, validates the
+// deprecated value and traceback arguments, and constructs the injected value.
+func normalizeGeneratorThrow(arguments []Value) (*Exception, *Exception) {
+	if len(arguments) == 3 && arguments[2] != None {
+		return nil, newException("TypeError", "throw() third argument must be a traceback object")
+	}
+	invalidMessage := "exceptions must be classes or instances deriving from BaseException, not " +
+		arguments[0].TypeName()
+	if instance, ok := arguments[0].(*Exception); ok {
+		if len(arguments) > 1 && arguments[1] != None {
+			return nil, newException(
+				"TypeError",
+				"instance exception may not have a separate value",
+			)
+		}
+		return instance, nil
+	}
+	if len(arguments) == 1 {
+		return normalizeRaisedValue(arguments[0], invalidMessage)
+	}
+	value := arguments[1]
+	switch class := arguments[0].(type) {
+	case *exceptionTypeValue:
+		if instance, ok := value.(*Exception); ok &&
+			instance.class.isSubclassOf(class) {
+			return instance, nil
+		}
+		if isExceptionGroupType(class) {
+			return nil, exceptionGroupArityError(0)
+		}
+		exception := newExceptionOfType(class, exceptionMessage([]Value{value}))
+		if class.isSubclassOf(stopIterationType) {
+			exception.stopIterationValue = value
+		}
+		return exception, nil
+	case *typeValue:
+		if !class.isExceptionClass() {
+			return nil, newException("TypeError", invalidMessage)
+		}
+		if instance, ok := value.(*Exception); ok &&
+			instance.userClass != nil && instance.userClass.isSubclassOf(class) {
+			return instance, nil
+		}
+		if _, hasInitializer := class.lookup("__init__"); hasInitializer {
+			return nil, newException(
+				"TypeError",
+				"custom exception initializers are not supported",
+			)
+		}
+		exception := newUserException(class, exceptionMessage([]Value{value}))
+		if class.builtinExceptionBase().isSubclassOf(stopIterationType) {
+			exception.stopIterationValue = value
+		}
+		return exception, nil
+	default:
+		return nil, newException("TypeError", invalidMessage)
+	}
 }
 
 // suspendGenerator verifies the active frame and its resumption contract,

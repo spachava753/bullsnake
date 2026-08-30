@@ -141,6 +141,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *generatorThrowMethod:
+		return executeGeneratorThrowCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *boundMethodValue:
 		boundArguments := make([]Value, len(arguments)+1)
 		boundArguments[0] = callable.self

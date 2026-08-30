@@ -176,3 +176,74 @@ stream = communicate()
 assert next(stream) == 2
 assert stream.send(30) == 30
 assert next(stream, 40) == 40
+# ---
+# case: throw injects exceptions at suspended yield
+def catcher():
+    try:
+        yield 'ready'
+    except ValueError as error:
+        injected = error
+        yield error
+    return injected
+
+stream = catcher()
+assert next(stream) == 'ready'
+error = ValueError('boom')
+assert stream.throw(error) is error
+try:
+    next(stream)
+except StopIteration as stopped:
+    returned = stopped.value
+assert returned is error
+
+stream = catcher()
+next(stream)
+legacy = stream.throw(ValueError, 'legacy')
+assert f'{legacy!r}' == 'ValueError("legacy")'
+stream = catcher()
+next(stream)
+legacy_none = stream.throw(ValueError, 'third', None)
+assert f'{legacy_none!r}' == 'ValueError("third")'
+# ---
+# case: throw handles created and completed generators
+throw_state = 0
+
+def never_started():
+    global throw_state
+    throw_state = 1
+    yield 1
+
+stream = never_started()
+injected = KeyError('created')
+try:
+    stream.throw(injected)
+except KeyError as caught:
+    created_error = caught
+assert created_error is injected
+assert throw_state == 0
+assert next(stream, 9) == 9
+
+stream = never_started()
+assert next(stream) == 1
+assert next(stream, None) is None
+injected = ValueError('completed')
+try:
+    stream.throw(injected)
+except ValueError as caught:
+    completed_error = caught
+assert completed_error is injected
+# ---
+# case: thrown StopIteration is transformed
+def passive():
+    yield 1
+
+stream = passive()
+next(stream)
+injected = StopIteration('hidden')
+try:
+    stream.throw(injected)
+except RuntimeError as error:
+    transformed = error
+assert transformed.__cause__ is injected
+assert transformed.__context__ is injected
+assert f'{transformed!r}' == 'RuntimeError("generator raised StopIteration")'

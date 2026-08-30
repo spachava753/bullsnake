@@ -112,3 +112,64 @@ def recursive_send():
 current = recursive_send()
 current.send(None)
 current.send(None)
+# ---
+# case: throw requires an exception
+# error: TypeError
+# message: "throw expected at least 1 argument, got 0"
+def values():
+    yield 1
+
+values().throw()
+# ---
+# case: throw limits arguments
+# error: TypeError
+# message: "throw expected at most 3 arguments, got 4"
+def values():
+    yield 1
+
+values().throw(ValueError, 'bad', None, None)
+# ---
+# case: throw rejects keywords
+# error: TypeError
+# message: "throw() takes no keyword arguments"
+def values():
+    yield 1
+
+values().throw(value=ValueError())
+# ---
+# case: throw requires exception value
+# error: TypeError
+# message: "exceptions must be classes or instances deriving from BaseException, not int"
+def values():
+    yield 1
+
+values().throw(1)
+# ---
+# case: throw rejects separate instance value
+# error: TypeError
+# message: "instance exception may not have a separate value"
+def values():
+    yield 1
+
+values().throw(ValueError('first'), 'second')
+# ---
+# case: throw requires traceback object
+# error: TypeError
+# message: "throw() third argument must be a traceback object"
+def values():
+    yield 1
+
+values().throw(ValueError, 'bad', 1)
+# ---
+# case: throw rejects generator reentry
+# error: ValueError
+# message: "generator already executing"
+current = None
+
+def recursive_throw():
+    yield 1
+    current.throw(ValueError('nested'))
+
+current = recursive_throw()
+next(current)
+current.send(None)
