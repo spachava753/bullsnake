@@ -595,3 +595,40 @@ try:
 except RuntimeError:
     no_loop_exception = True
 assert no_loop_exception is True
+# ---
+# case: explicit exception causes retain Python state
+cause = TypeError('inner')
+instance_cause = False
+try:
+    raise ValueError('outer') from cause
+except ValueError as error:
+    instance_cause = error.__cause__ is cause
+    assert error.__context__ is None
+    assert error.__suppress_context__ is True
+assert instance_cause is True
+
+class_cause = False
+try:
+    raise ValueError from TypeError
+except ValueError as error:
+    class_cause = f'{error.__cause__!r}' == 'TypeError("")'
+    assert error.__suppress_context__ is True
+assert class_cause is True
+
+none_cause = False
+try:
+    raise ValueError('hidden') from None
+except ValueError as error:
+    none_cause = error.__cause__ is None
+    assert error.__context__ is None
+    assert error.__suppress_context__ is True
+assert none_cause is True
+
+ordinary_raise = False
+try:
+    raise ValueError('plain')
+except ValueError as error:
+    ordinary_raise = error.__cause__ is None
+    assert error.__context__ is None
+    assert error.__suppress_context__ is False
+assert ordinary_raise is True

@@ -259,6 +259,18 @@ func executeInstruction(
 		}
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
+		case *Exception:
+			value, found := owner.attribute(name)
+			if !found {
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
+					),
+				}, nil
+			}
+			return pushOutcome(frame, index, value)
 		case *Module:
 			value, found := owner.globals.get(name)
 			if !found {
@@ -742,18 +754,39 @@ func executeInstruction(
 			}
 			return instructionOutcome{kind: raised, exception: exception}, nil
 		}
+		var causeValue Value
+		if instruction.Operand == 2 {
+			var ok bool
+			causeValue, ok = frame.pop()
+			if !ok {
+				return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+			}
+		}
 		value, ok := frame.pop()
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
-		var exception *Exception
-		switch raised := value.(type) {
-		case *Exception:
-			exception = raised
-		case *exceptionTypeValue:
-			exception = newExceptionOfType(raised, "")
-		default:
-			exception = newException("TypeError", "exceptions must derive from BaseException")
+		exception, normalizationFailure := normalizeRaisedValue(
+			value,
+			"exceptions must derive from BaseException",
+		)
+		if normalizationFailure != nil {
+			return instructionOutcome{kind: raised, exception: normalizationFailure}, nil
+		}
+		if instruction.Operand == 2 {
+			var cause *Exception
+			if causeValue != None {
+				var causeFailure *Exception
+				cause, causeFailure = normalizeRaisedValue(
+					causeValue,
+					"exception causes must derive from BaseException",
+				)
+				if causeFailure != nil {
+					return instructionOutcome{kind: raised, exception: causeFailure}, nil
+				}
+			}
+			exception.cause = cause
+			exception.suppressContext = true
 		}
 		exception.originFrame = nil
 		exception.originInstruction = 0

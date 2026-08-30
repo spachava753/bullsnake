@@ -543,7 +543,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.RaiseVarargs:
-		if instruction.Operand > 1 {
+		if instruction.Operand > 2 {
 			return code.failure(
 				index,
 				"unsupported RAISE_VARARGS operand %d",

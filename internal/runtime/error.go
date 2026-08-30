@@ -110,6 +110,9 @@ func executeExceptionTypeCall(
 type Exception struct {
 	class             *exceptionTypeValue
 	message           string
+	cause             *Exception
+	context           *Exception
+	suppressContext   bool
 	originFrame       *frame
 	originInstruction int
 }
@@ -125,6 +128,41 @@ func newException(typeName, message string) *Exception {
 
 func newExceptionOfType(exceptionType *exceptionTypeValue, message string) *Exception {
 	return &Exception{class: exceptionType, message: message}
+}
+
+func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exception) {
+	switch raised := value.(type) {
+	case *Exception:
+		return raised, nil
+	case *exceptionTypeValue:
+		return newExceptionOfType(raised, ""), nil
+	default:
+		return nil, newException("TypeError", invalidMessage)
+	}
+}
+
+// attribute returns the three chain fields exposed by current exception values,
+// translating absent exception links to Python None.
+func (exception *Exception) attribute(name string) (Value, bool) {
+	switch name {
+	case "__cause__":
+		if exception.cause == nil {
+			return None, true
+		}
+		return exception.cause, true
+	case "__context__":
+		if exception.context == nil {
+			return None, true
+		}
+		return exception.context, true
+	case "__suppress_context__":
+		if exception.suppressContext {
+			return trueSingleton, true
+		}
+		return falseSingleton, true
+	default:
+		return nil, false
+	}
 }
 
 // TypeName returns the Python exception class name.

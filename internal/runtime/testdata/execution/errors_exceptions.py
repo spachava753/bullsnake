@@ -52,3 +52,8 @@ for item in (1,):
     except NameError:
         continue
 raise
+# ---
+# case: invalid explicit exception cause
+# error: TypeError
+# message: "exception causes must derive from BaseException"
+raise ValueError('outer') from 42

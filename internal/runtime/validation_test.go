@@ -212,18 +212,19 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "LEAVE_EXCEPT has no active handler",
 		},
 		{
-			name: "unsupported raise cause operand",
+			name: "unsupported raise operand",
 			code: testCode(
-				2,
+				3,
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.LoadConst},
-					{Opcode: bytecode.RaiseVarargs, Operand: 2},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.RaiseVarargs, Operand: 3},
 				},
 				[]bytecode.Constant{bytecode.None()},
 				nil,
 			),
-			wantFragment: "unsupported RAISE_VARARGS operand 2",
+			wantFragment: "unsupported RAISE_VARARGS operand 3",
 		},
 		{
 			name: "exception scope merge",

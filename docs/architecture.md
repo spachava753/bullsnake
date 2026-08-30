@@ -469,7 +469,11 @@ exception to the same scope stack, including across nested final suites. Bound
 handler names clear through the same compiler-selected storage on normal,
 nonlocal, and exceptional exits. Plain or combined `try/finally` runs its final
 suite before normal completion, exception propagation, return, break, or
-continue.
+continue. `RAISE_VARARGS 2` normalizes an explicit cause from an exception class
+or instance, accepts `None`, and marks implicit context display as suppressed.
+Exception values expose read-only `__cause__`, `__context__`, and
+`__suppress_context__` attributes. Automatic context links and traceback
+rendering remain future runtime work.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one
