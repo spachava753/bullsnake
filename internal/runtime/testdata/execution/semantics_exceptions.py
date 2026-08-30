@@ -759,3 +759,77 @@ try:
 except Problem as caught:
     caught_custom_cause = caught.__cause__ is custom_cause
 assert caught_custom_cause is True
+# ---
+# case: exception groups construct and raise as ordinary exceptions
+first_group_error = ValueError('bad')
+second_group_error = TypeError('wrong')
+group = ExceptionGroup('batch', [first_group_error, second_group_error])
+assert group.message == 'batch'
+assert group.exceptions is group.exceptions
+assert group.exceptions[0] is first_group_error
+assert group.exceptions[1] is second_group_error
+assert f'{group!r}' == 'ExceptionGroup("batch", [ValueError("bad"), TypeError("wrong")])'
+
+nested_group = ExceptionGroup('nested', (group, ValueError('later')))
+assert nested_group.exceptions[0] is group
+
+caught_group = False
+try:
+    raise group
+except ExceptionGroup as caught:
+    caught_group = caught is group
+assert caught_group is True
+
+caught_as_exception = False
+try:
+    raise group
+except Exception:
+    caught_as_exception = True
+assert caught_as_exception is True
+# ---
+# case: base exception groups select their runtime class from their children
+ordinary_group = BaseExceptionGroup('ordinary', [ValueError('recoverable')])
+narrowed_to_exception_group = False
+try:
+    raise ordinary_group
+except ExceptionGroup as caught:
+    narrowed_to_exception_group = caught is ordinary_group
+assert narrowed_to_exception_group is True
+
+fatal = BaseException('stop')
+mixed_group = BaseExceptionGroup('mixed', (ValueError('recoverable'), fatal))
+assert mixed_group.message == 'mixed'
+assert mixed_group.exceptions[1] is fatal
+caught_as_base_group = False
+caught_as_exception = False
+try:
+    raise mixed_group
+except Exception:
+    caught_as_exception = True
+except BaseExceptionGroup as caught:
+    caught_as_base_group = caught is mixed_group
+assert caught_as_exception is False
+assert caught_as_base_group is True
+
+class CustomGroup(ExceptionGroup):
+    pass
+
+custom_group = CustomGroup('custom', [ValueError('child')])
+caught_custom_group = False
+try:
+    raise custom_group
+except CustomGroup as caught:
+    caught_custom_group = caught is custom_group
+assert caught_custom_group is True
+assert custom_group.message == 'custom'
+
+class CustomBaseGroup(BaseExceptionGroup):
+    pass
+
+custom_base_group = CustomBaseGroup('custom base', [BaseException('child')])
+caught_custom_base_group = False
+try:
+    raise custom_base_group
+except CustomBaseGroup as caught:
+    caught_custom_base_group = caught is custom_base_group
+assert caught_custom_base_group is True

@@ -458,15 +458,24 @@ removes that frame and checks the caller's call instruction. This uses the same
 iterative frame chain as ordinary return and continues until a handler catches
 the exception or it crosses the host boundary. Typed clauses match immutable
 builtin exception classes through their CPython inheritance links and accept a
-flat tuple after validating every member. A final miss reraises the same
-exception and retains its original frame and instruction. Normal completion can
-run `else`; exceptions there bypass this statement's handlers. Selected handlers
-push frame-owned scopes with exclusive instruction ends. Dispatch removes a
-scope after a jump leaves it, and normal handler completion removes it
-explicitly. Bare `raise` searches these scopes through caller frames and raises
-`RuntimeError` when none is active. Exceptional final suites add their pending
-exception to the same scope stack, including across nested final suites. Bound
-handler names clear through the same compiler-selected storage on normal,
+flat tuple after validating every member. `BaseExceptionGroup` and
+`ExceptionGroup` require a text message and a non-empty list or tuple of
+exception instances. They retain the children in one immutable tuple.
+`BaseExceptionGroup` selects `ExceptionGroup` when every child derives from
+`Exception`; `ExceptionGroup` rejects a base-only child and follows both the
+`BaseExceptionGroup` and `Exception` ancestry paths. Single-base user subclasses
+retain their class while enforcing the same child restriction. Ordinary typed
+handlers can catch these values. `except*` splitting and result merging remain
+future work. A final miss reraises the same exception and retains its original
+frame and instruction. Normal completion can run `else`; exceptions there
+bypass this statement's handlers.
+Selected handlers push frame-owned scopes with exclusive instruction ends.
+Dispatch removes a scope after a jump leaves it, and normal handler completion
+removes it explicitly. Bare `raise` searches these scopes through caller
+frames and raises `RuntimeError` when none is active.
+Exceptional final suites add their pending exception to the same scope stack,
+including across nested final suites.
+Bound handler names clear through the same compiler-selected storage on normal,
 nonlocal, and exceptional exits. Plain or combined `try/finally` runs its final
 suite before normal completion, exception propagation, return, break, or
 continue. `RAISE_VARARGS 2` normalizes an explicit cause from an exception class

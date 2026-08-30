@@ -546,17 +546,25 @@ Assertions load a callable internal `AssertionError` class and use the supported
 one-argument raise path with either that class or a constructed exception.
 Invalid raised values become `TypeError`. Runtime builtins contain the current
 exception classes and their CPython inheritance links. User classes may extend
-one of those classes or another user exception class. Typed handlers accept one
+one of those classes or another user exception class. `BaseExceptionGroup` and
+`ExceptionGroup` validate a text message and a non-empty list or tuple of
+exception instances, retain one immutable child tuple, and expose read-only
+`message` and `exceptions` attributes. The base constructor selects
+`ExceptionGroup` for ordinary exceptions; the latter rejects base-only children
+and follows both required ancestry paths. Single-base user subclasses retain
+their class and the corresponding child restriction. Typed handlers accept one
 supported exception class or a flat tuple, validate every tuple member before
 matching, and follow user ancestry into the built-in hierarchy. Multiple clauses
 run in source order; an unmatched `RERAISE` retains the original raising frame
-and source span. Bare `raise` uses the active handled exception or raises `RuntimeError`
-when none exists. An exceptional final suite temporarily makes its pending
-exception active, including while nested final suites run. Plain and combined
-`try/finally` run before normal completion, exception propagation, return,
-break, or continue; a newer transfer from the final suite replaces the pending
-one. Explicit causes accept an exception class, instance, or `None`; invalid
-causes raise `TypeError`. The raised exception exposes read-only `__cause__`,
+and source span. Group values work with these ordinary handlers; `except*`
+splitting and merge semantics remain unsupported. Bare `raise` uses the active
+handled exception or raises `RuntimeError` when none exists. An exceptional
+final suite temporarily makes its pending exception active, including while
+nested final suites run. Plain and combined `try/finally` run before normal
+completion, exception propagation, return, break, or continue; a newer
+transfer from the final suite replaces the pending one.
+Explicit causes accept an exception class, instance, or `None`; invalid causes
+raise `TypeError`. The raised exception exposes read-only `__cause__`,
 `__context__`, and `__suppress_context__` attributes. Fresh raises link the
 active handled exception as context, including across function calls and final
 suites. Reraises preserve the existing chain, and cycle prevention cuts a
@@ -766,7 +774,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has sixty-seven successful chunks and one hundred eight expected
+currently has sixty-nine successful chunks and one hundred sixteen expected
 runtime errors; it requires no Python installation, external checkout, network
 access, or generation step.
 

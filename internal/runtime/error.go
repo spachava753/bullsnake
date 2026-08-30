@@ -10,8 +10,9 @@ import (
 )
 
 type exceptionTypeValue struct {
-	name string
-	base *exceptionTypeValue
+	name           string
+	base           *exceptionTypeValue
+	additionalBase *exceptionTypeValue
 }
 
 func (*exceptionTypeValue) TypeName() string { return "type" }
@@ -25,6 +26,9 @@ func (exceptionType *exceptionTypeValue) isSubclassOf(parent *exceptionTypeValue
 		if current == parent {
 			return true
 		}
+		if current.additionalBase != nil && current.additionalBase.isSubclassOf(parent) {
+			return true
+		}
 	}
 	return false
 }
@@ -32,6 +36,8 @@ func (exceptionType *exceptionTypeValue) isSubclassOf(parent *exceptionTypeValue
 var (
 	baseExceptionType       = &exceptionTypeValue{name: "BaseException"}
 	exceptionType           = &exceptionTypeValue{name: "Exception", base: baseExceptionType}
+	baseExceptionGroupType  = &exceptionTypeValue{name: "BaseExceptionGroup", base: baseExceptionType}
+	exceptionGroupType      = &exceptionTypeValue{name: "ExceptionGroup", base: baseExceptionGroupType, additionalBase: exceptionType}
 	arithmeticErrorType     = &exceptionTypeValue{name: "ArithmeticError", base: exceptionType}
 	assertionErrorType      = &exceptionTypeValue{name: "AssertionError", base: exceptionType}
 	attributeErrorType      = &exceptionTypeValue{name: "AttributeError", base: exceptionType}
@@ -53,6 +59,8 @@ var (
 var builtinExceptionTypes = []*exceptionTypeValue{
 	baseExceptionType,
 	exceptionType,
+	baseExceptionGroupType,
+	exceptionGroupType,
 	arithmeticErrorType,
 	assertionErrorType,
 	attributeErrorType,
@@ -82,6 +90,17 @@ func executeExceptionTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
+	if isExceptionGroupType(exceptionType) {
+		return executeExceptionGroupTypeCall(
+			caller,
+			instruction,
+			base,
+			exceptionType,
+			nil,
+			arguments,
+			keywords,
+		)
+	}
 	if keywords != nil && len(keywords.entries) != 0 {
 		return instructionOutcome{
 			kind: raised,
@@ -99,6 +118,8 @@ func executeExceptionTypeCall(
 	return pushOutcome(caller, instruction, newExceptionOfType(exceptionType, message))
 }
 
+// executeUserExceptionTypeCall rejects custom initializers, delegates group
+// subclasses, and constructs ordinary user exceptions from positional values.
 func executeUserExceptionTypeCall(
 	caller *frame,
 	instruction int,
@@ -115,6 +136,17 @@ func executeUserExceptionTypeCall(
 				"custom exception initializers are not supported",
 			),
 		}, nil
+	}
+	if exceptionBase := class.builtinExceptionBase(); isExceptionGroupType(exceptionBase) {
+		return executeExceptionGroupTypeCall(
+			caller,
+			instruction,
+			base,
+			exceptionBase,
+			class,
+			arguments,
+			keywords,
+		)
 	}
 	if keywords != nil && len(keywords.entries) != 0 {
 		return instructionOutcome{
@@ -164,6 +196,7 @@ type Exception struct {
 	class             *exceptionTypeValue
 	userClass         *typeValue
 	message           string
+	group             *tupleValue
 	cause             *Exception
 	context           *Exception
 	suppressContext   bool
@@ -200,6 +233,9 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 	case *Exception:
 		return raised, nil
 	case *exceptionTypeValue:
+		if isExceptionGroupType(raised) {
+			return nil, exceptionGroupArityError(0)
+		}
 		return newExceptionOfType(raised, ""), nil
 	case *typeValue:
 		if !raised.isExceptionClass() {
@@ -210,6 +246,9 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 				"TypeError",
 				"custom exception initializers are not supported",
 			)
+		}
+		if isExceptionGroupType(raised.builtinExceptionBase()) {
+			return nil, exceptionGroupArityError(0)
 		}
 		return newUserException(raised, ""), nil
 	default:
@@ -251,10 +290,20 @@ func (exception *Exception) tracebackFrames() []TracebackFrame {
 	return frames
 }
 
-// attribute returns the three chain fields exposed by current exception values,
-// translating absent exception links to Python None.
+// attribute returns the chain fields shared by all exceptions and the immutable
+// message and child tuple held by an exception group.
 func (exception *Exception) attribute(name string) (Value, bool) {
 	switch name {
+	case "message":
+		if exception.group == nil {
+			return nil, false
+		}
+		return &stringValue{value: exception.message}, true
+	case "exceptions":
+		if exception.group == nil {
+			return nil, false
+		}
+		return exception.group, true
 	case "__cause__":
 		if exception.cause == nil {
 			return None, true
@@ -284,10 +333,23 @@ func (exception *Exception) TypeName() string {
 }
 
 // Message returns the exception's detail text.
-func (exception *Exception) Message() string { return exception.message }
+func (exception *Exception) Message() string {
+	if exception.group != nil {
+		return fmt.Sprintf(
+			"%s (%d sub-exceptions)",
+			exception.message,
+			len(exception.group.elements),
+		)
+	}
+	return exception.message
+}
 
 // Repr returns a stable Python-like representation of the exception.
 func (exception *Exception) Repr() string {
+	if exception.group != nil {
+		children := (&listValue{elements: exception.group.elements}).Repr()
+		return exception.TypeName() + "(" + strconv.Quote(exception.message) + ", " + children + ")"
+	}
 	return exception.TypeName() + "(" + strconv.Quote(exception.message) + ")"
 }
 
