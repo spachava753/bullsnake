@@ -447,22 +447,27 @@
     {
       "name": "basic finally suite",
       "source": "try:\n    value = 40\nfinally:\n    added = 2\nresult = value + added\n",
-      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(40), Int(2), None], names=[\"value\", \"added\", \"result\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0)], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, JUMP 8, LOAD_CONST 1, STORE_NAME 1, RERAISE, LOAD_NAME 0, LOAD_NAME 1, BINARY_OP 0, STORE_NAME 2, LOAD_CONST 2, RETURN_VALUE])"
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(40), Int(2), None], names=[\"value\", \"added\", \"result\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0)], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, JUMP 11, COPY 1, ENTER_EXCEPT 11, LOAD_CONST 1, STORE_NAME 1, LEAVE_EXCEPT, RERAISE, LOAD_NAME 0, LOAD_NAME 1, BINARY_OP 0, STORE_NAME 2, LOAD_CONST 2, RETURN_VALUE])"
     },
     {
       "name": "return through finally",
       "source": "def choose():\n    try:\n        return 1\n    finally:\n        marker = 2\nresult = choose()\n",
-      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"choose\", \"result\"], locals=[], cells=[], free=[], children=[Code(name=\"choose\", qualname=\"choose\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=0, kwonly=0), stack=2, constants=[Int(1), Int(2)], names=[], locals=[\"marker\"], cells=[], free=[], handlers=[Handler(start=0, end=1, target=4, depth=0)], instructions=[LOAD_CONST 0, LOAD_CONST 1, STORE_FAST 0, RETURN_VALUE, LOAD_CONST 1, STORE_FAST 0, RERAISE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, CALL 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"choose\", \"result\"], locals=[], cells=[], free=[], children=[Code(name=\"choose\", qualname=\"choose\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=0, kwonly=0), stack=2, constants=[Int(1), Int(2)], names=[], locals=[\"marker\"], cells=[], free=[], handlers=[Handler(start=0, end=1, target=4, depth=0)], instructions=[LOAD_CONST 0, LOAD_CONST 1, STORE_FAST 0, RETURN_VALUE, COPY 1, ENTER_EXCEPT 10, LOAD_CONST 1, STORE_FAST 0, LEAVE_EXCEPT, RERAISE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, CALL 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
     },
     {
       "name": "loop control through finally",
       "source": "for item in values:\n    try:\n        if item:\n            continue\n        break\n    finally:\n        marker = item\n",
-      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[None], names=[\"values\", \"item\", \"marker\"], locals=[], cells=[], free=[], handlers=[Handler(start=4, end=6, target=13, depth=1)], instructions=[LOAD_NAME 0, GET_ITER, FOR_ITER 16, STORE_NAME 1, LOAD_NAME 1, POP_JUMP_IF_FALSE 9, LOAD_NAME 1, STORE_NAME 2, JUMP 2, LOAD_NAME 1, STORE_NAME 2, POP_TOP, JUMP 16, LOAD_NAME 1, STORE_NAME 2, RERAISE, LOAD_CONST 0, RETURN_VALUE])"
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[None], names=[\"values\", \"item\", \"marker\"], locals=[], cells=[], free=[], handlers=[Handler(start=4, end=6, target=13, depth=1)], instructions=[LOAD_NAME 0, GET_ITER, FOR_ITER 19, STORE_NAME 1, LOAD_NAME 1, POP_JUMP_IF_FALSE 9, LOAD_NAME 1, STORE_NAME 2, JUMP 2, LOAD_NAME 1, STORE_NAME 2, POP_TOP, JUMP 19, COPY 1, ENTER_EXCEPT 19, LOAD_NAME 1, STORE_NAME 2, LEAVE_EXCEPT, RERAISE, LOAD_CONST 0, RETURN_VALUE])"
     },
     {
       "name": "combined handlers and finally",
       "source": "try:\n    value\nexcept NameError:\n    result = 1\nelse:\n    result = 2\nfinally:\n    marker = 3\n",
-      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(2), Int(1), Int(3), None], names=[\"value\", \"result\", \"NameError\", \"marker\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0), Handler(start=2, end=14, target=17, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, LOAD_CONST 0, STORE_NAME 1, JUMP 14, LOAD_NAME 2, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 13, ENTER_EXCEPT 14, LOAD_CONST 1, STORE_NAME 1, LEAVE_EXCEPT, JUMP 14, RERAISE, LOAD_CONST 2, STORE_NAME 3, JUMP 20, LOAD_CONST 2, STORE_NAME 3, RERAISE, LOAD_CONST 3, RETURN_VALUE])"
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(2), Int(1), Int(3), None], names=[\"value\", \"result\", \"NameError\", \"marker\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0), Handler(start=2, end=14, target=17, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, LOAD_CONST 0, STORE_NAME 1, JUMP 14, LOAD_NAME 2, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 13, ENTER_EXCEPT 14, LOAD_CONST 1, STORE_NAME 1, LEAVE_EXCEPT, JUMP 14, RERAISE, LOAD_CONST 2, STORE_NAME 3, JUMP 23, COPY 1, ENTER_EXCEPT 23, LOAD_CONST 2, STORE_NAME 3, LEAVE_EXCEPT, RERAISE, LOAD_CONST 3, RETURN_VALUE])"
+    },
+    {
+      "name": "bare reraise in finally",
+      "source": "try:\n    missing\nfinally:\n    raise\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[], names=[\"missing\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=3, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, RAISE_VARARGS 0, COPY 1, ENTER_EXCEPT 6, RAISE_VARARGS 0])"
     }
   ]
 }

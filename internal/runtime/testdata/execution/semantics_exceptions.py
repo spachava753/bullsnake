@@ -538,3 +538,60 @@ def return_from_combined_handler():
 
 assert return_from_combined_handler() == 7
 assert binding_cleared_in_combined_final is True
+# ---
+# case: exceptional finally exposes the pending exception to bare raise
+same_exception = False
+try:
+    try:
+        try:
+            missing_before_finally_reraise
+        except NameError as original:
+            saved_exception = original
+            raise
+    finally:
+        raise
+except NameError as reraised:
+    same_exception = reraised is saved_exception
+assert same_exception is True
+
+nested_finally_reraise = False
+try:
+    try:
+        try:
+            missing_before_nested_finally
+        finally:
+            raise
+    finally:
+        raise
+except NameError:
+    nested_finally_reraise = True
+assert nested_finally_reraise is True
+
+def suppress_with_return():
+    try:
+        missing_before_suppressed_finally
+    finally:
+        return 9
+
+assert suppress_with_return() == 9
+no_stale_exception = False
+try:
+    raise
+except RuntimeError:
+    no_stale_exception = True
+assert no_stale_exception is True
+
+continued_after_exception = 0
+for item in (1,):
+    try:
+        missing_before_final_continue_cleanup
+    finally:
+        continued_after_exception += 1
+        continue
+assert continued_after_exception == 1
+no_loop_exception = False
+try:
+    raise
+except RuntimeError:
+    no_loop_exception = True
+assert no_loop_exception is True

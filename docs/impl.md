@@ -305,10 +305,12 @@ before jumping over handler dispatch, so an exception from `else` continues to
 an enclosing handler. One ordered control-cleanup stack interleaves bound-name
 cleanup and final suites in lexical order. Plain `try/finally` duplicates the
 final suite: normal fallthrough runs one copy, while an exception-range target
-runs the other with the pending exception below its temporary values and
-reraises afterward. Return, break, and continue emit active cleanup actions from
-inner to outer before completing their transfer. A return keeps its value on the
-operand stack; loop control restores the target loop's recorded stack depth. If
+runs the other with the pending exception below its temporary values. That copy
+enters a handled-exception scope so bare `raise` can select the pending value,
+then leaves the scope before reraising or transferring elsewhere. Return, break,
+and continue emit active cleanup actions from inner to outer before completing
+their transfer. A return keeps its value on the operand stack; loop control
+restores the target loop's recorded stack depth. If
 a final suite returns, raises, breaks, or continues, that newer transfer replaces
 the pending one. A combined statement compiles its complete handler and `else`
 flow as the protected body of the outer finalization region.
@@ -543,11 +545,12 @@ class or a flat tuple of classes, validate every tuple member before matching,
 and select subclasses through those links. Multiple clauses run in source
 order; an unmatched `RERAISE` retains the original raising frame and source
 span. Bare `raise` uses the active handled exception or raises `RuntimeError`
-when none exists. Plain and combined `try/finally` run before normal completion,
-exception propagation, return, break, or continue; a newer transfer from the
-final suite replaces the pending one. Explicit causes, exception chaining,
-callable native values, multiple inheritance, C3 linearization, metaclasses,
-`super`, `__new__`, general
+when none exists. An exceptional final suite temporarily makes its pending
+exception active, including while nested final suites run. Plain and combined
+`try/finally` run before normal completion, exception propagation, return,
+break, or continue; a newer transfer from the final suite replaces the pending
+one. Explicit causes, exception chaining, callable native values, multiple
+inheritance, C3 linearization, metaclasses, `super`, `__new__`, general
 descriptors, suspension, traceback chains, cancellation, recursion limits, and
 execution budgets are not yet implemented.
 
@@ -735,7 +738,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains ninety-two successful
+The compiler corpus currently contains ninety-three successful
 parse-resolve-compile cases for the supported compiler subset. Cases record
 stable Bullsnake code-object dumps. Focused tests cover instruction source
 positions, stack effects, code-object copying, opcode formatting, literal
@@ -749,7 +752,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has sixty-three successful chunks and one hundred six expected runtime
+currently has sixty-four successful chunks and one hundred six expected runtime
 errors; it requires no Python installation, external checkout, network access,
 or generation step.
 

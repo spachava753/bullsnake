@@ -405,7 +405,9 @@ handled scope, assign `None`, and delete the name; a protected cleanup range doe
 the same before a secondary exception propagates. A normal protected body runs
 an optional `else` outside its own range before it jumps over dispatch. Plain
 `try/finally` emits the final suite once for normal fallthrough and once for an
-exceptional entry that retains and reraises the pending exception. Returns use
+exceptional entry that retains the pending exception. The exceptional copy
+enters a handled-exception scope, so bare `raise` reraises that pending value,
+and leaves the scope before reraising or making another transfer. Returns use
 one ordered compiler cleanup stack shared with named-handler cleanup. The
 compiler keeps the return value on the operand stack, emits active final suites
 from inner to outer outside their own protected ranges, then returns the
@@ -462,10 +464,12 @@ run `else`; exceptions there bypass this statement's handlers. Selected handlers
 push frame-owned scopes with exclusive instruction ends. Dispatch removes a
 scope after a jump leaves it, and normal handler completion removes it
 explicitly. Bare `raise` searches these scopes through caller frames and raises
-`RuntimeError` when none is active. Bound handler names clear through the same
-compiler-selected storage on normal, nonlocal, and exceptional exits. Plain or
-combined `try/finally` runs its final suite before normal completion, exception
-propagation, return, break, or continue.
+`RuntimeError` when none is active. Exceptional final suites add their pending
+exception to the same scope stack, including across nested final suites. Bound
+handler names clear through the same compiler-selected storage on normal,
+nonlocal, and exceptional exits. Plain or combined `try/finally` runs its final
+suite before normal completion, exception propagation, return, break, or
+continue.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one

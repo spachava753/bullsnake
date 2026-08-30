@@ -22,6 +22,7 @@ type controlCleanupKind uint8
 
 const (
 	exceptionHandlerControlCleanup controlCleanupKind = iota
+	handledScopeControlCleanup
 	finallyControlCleanup
 )
 
@@ -287,11 +288,25 @@ func (compiler *compilerState) compileTryFinally(statement *compilerast.TryStmt)
 	if err := compiler.markLabel(handler, statement.Span()); err != nil {
 		return err
 	}
+	if err := compiler.emit(bytecode.Copy, 1, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emitLabelOperand(bytecode.EnterExcept, end, statement.Span()); err != nil {
+		return err
+	}
+	compiler.controlCleanups = append(compiler.controlCleanups, controlCleanup{
+		kind:         handledScopeControlCleanup,
+		handlerDepth: len(compiler.activeHandlers),
+	})
 	err = compiler.compileStatements(statement.Finally)
+	compiler.controlCleanups = compiler.controlCleanups[:len(compiler.controlCleanups)-1]
 	if err != nil {
 		return err
 	}
 	if compiler.reachable {
+		if err := compiler.emit(bytecode.LeaveExcept, 0, statement.Span()); err != nil {
+			return err
+		}
 		if err := compiler.emitTerminator(bytecode.Reraise, 0, statement.Span()); err != nil {
 			return err
 		}
@@ -350,6 +365,8 @@ func (compiler *compilerState) emitControlCleanupsFrom(
 		switch cleanup.kind {
 		case exceptionHandlerControlCleanup:
 			err = compiler.emitExceptionHandlerCleanup(cleanup.exception)
+		case handledScopeControlCleanup:
+			err = compiler.emit(bytecode.LeaveExcept, 0, span)
 		case finallyControlCleanup:
 			err = compiler.compileStatements(cleanup.finalBody)
 		default:
