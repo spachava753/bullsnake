@@ -428,8 +428,11 @@ Formatted-string instructions produce ordinary string values. `str` conversion
 uses unquoted text for existing strings and the current value text for other
 objects; `repr` shares each value's stable representation; `ascii` escapes every
 non-ASCII code point in that representation. Empty formatting preserves an
-exact string, and `BUILD_STRING` joins only verified string pieces. Non-empty
-format specifications require a later object-formatting slice.
+exact string, and `BUILD_STRING` joins only verified string pieces. String
+format specifications support one-code-point fill, left, right, or center
+alignment, decimal width, code-point precision, and the optional `s` type.
+Numeric formatting and user-defined `__format__` dispatch require later value-
+type slices.
 
 `MAKE_FUNCTION` captures one prepared child and its defining global namespace.
 `CALL` reads inline positional arguments. `CALL_EX` reads a compiler-built

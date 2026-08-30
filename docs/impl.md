@@ -395,9 +395,9 @@ callers and tests. There is not yet a public Go embedding API.
 Preparation copies the instruction, name, local, cell, free-variable, and
 child-code tables, materializes code constants as runtime values, and validates
 the complete code tree before execution. Validation currently accepts `NOP`,
-`LOAD_CONST`, `CONVERT_VALUE`, `FORMAT_SIMPLE`, `BUILD_STRING`, `LOAD_NAME`,
-`STORE_NAME`, `DELETE_NAME`, `LOAD_FAST`, `STORE_FAST`, `DELETE_FAST`,
-`LOAD_GLOBAL`, `STORE_GLOBAL`, `DELETE_GLOBAL`,
+`LOAD_CONST`, `CONVERT_VALUE`, `FORMAT_SIMPLE`, `FORMAT_WITH_SPEC`,
+`BUILD_STRING`, `LOAD_NAME`, `STORE_NAME`, `DELETE_NAME`, `LOAD_FAST`,
+`STORE_FAST`, `DELETE_FAST`, `LOAD_GLOBAL`, `STORE_GLOBAL`, `DELETE_GLOBAL`,
 `LOAD_ATTR`, `STORE_ATTR`, `DELETE_ATTR`, `LOAD_DEREF`, `STORE_DEREF`,
 `DELETE_DEREF`, `LOAD_CLOSURE`, `LOAD_ASSERTION_ERROR`,
 `LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`, `MAKE_FUNCTION`,
@@ -429,10 +429,13 @@ statements, and `while` and synchronous `for` loops. Loop `else`, `break`, and
 `continue` require no separate runtime mechanism; their compiler-selected jump
 targets preserve the same frame and operand stack.
 
-Plain formatted strings apply `str`, `repr`, and ASCII-escaped `repr`
-conversions, preserve exact strings through empty formatting, and join compiler-
-selected string components in source order. Non-empty format specifications and
-`FORMAT_WITH_SPEC` remain unsupported.
+Formatted strings apply `str`, `repr`, and ASCII-escaped `repr` conversions,
+preserve exact strings through empty formatting, and join compiler-selected
+components in source order. `FORMAT_WITH_SPEC` accepts an empty specification
+for every current value. Strings additionally support one-code-point fill,
+left, right, or center alignment, decimal width, code-point precision, and the
+optional `s` type. Numeric format codes and custom `__format__` dispatch remain
+unsupported.
 
 A heap-allocated frame contains prepared code, the next instruction index, a
 preallocated operand stack, indexed fast locals, an ordered cell/free-variable

@@ -111,6 +111,8 @@ func executeInstruction(
 		return executeConvertValue(frame, index, instruction.Operand)
 	case bytecode.FormatSimple:
 		return executeFormatSimple(frame, index)
+	case bytecode.FormatWithSpec:
+		return executeFormatWithSpec(frame, index)
 	case bytecode.BuildString:
 		return executeBuildString(frame, index, int(instruction.Operand))
 	case bytecode.LoadNotImplementedError:

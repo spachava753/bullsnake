@@ -325,7 +325,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 	switch instruction.Opcode {
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
 		bytecode.BinarySubscript, bytecode.StoreSubscript, bytecode.DeleteSubscript,
-		bytecode.FormatSimple, bytecode.BuildString,
+		bytecode.FormatSimple, bytecode.FormatWithSpec, bytecode.BuildString,
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
@@ -566,8 +566,9 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.StoreSubscript:
 		return 3, 0
 	case bytecode.BinaryOp, bytecode.InplaceOp, bytecode.CompareOp,
-		bytecode.BinarySubscript, bytecode.ListAppend, bytecode.ListExtend,
-		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapUpdate, bytecode.MapMerge:
+		bytecode.FormatWithSpec, bytecode.BinarySubscript, bytecode.ListAppend,
+		bytecode.ListExtend, bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapUpdate,
+		bytecode.MapMerge:
 		return 2, 1
 	case bytecode.MapSet:
 		return 3, 1

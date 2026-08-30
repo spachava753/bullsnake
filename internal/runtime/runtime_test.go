@@ -948,6 +948,45 @@ func TestPlainFormattedStrings(t *testing.T) {
 	}
 }
 
+func TestSpecifiedStringFormatting(t *testing.T) {
+	code := compileSource(t, "text = 'cat'\n"+
+		"width = 8\n"+
+		"right = f'{text:>6}'\n"+
+		"left = f'{text:.<6}'\n"+
+		"center = f'{text:*^7}'\n"+
+		"typed = f'{text:6s}'\n"+
+		"truncated = f'{\"bullsnake\":.4s}'\n"+
+		"nested = f'{text:>{width}}'\n"+
+		"unicode_fill = f'{\"猫\":🐍^5}'\n"+
+		"identity = f'{text:s}' is text\n"+
+		"empty_integer = f'{42:}'\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("string_formats", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"right":         "'   cat'",
+		"left":          "'cat...'",
+		"center":        "'**cat**'",
+		"typed":         "'cat   '",
+		"truncated":     "'bull'",
+		"nested":        "'     cat'",
+		"unicode_fill":  "'🐍🐍猫🐍🐍'",
+		"identity":      "True",
+		"empty_integer": "'42'",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -2024,6 +2063,18 @@ func TestPythonExceptions(t *testing.T) {
 			wantMessage: "name 'absent' is not defined",
 		},
 		{
+			name:        "string sign option",
+			source:      "value = f\"{'x':+5}\"\n",
+			wantType:    "ValueError",
+			wantMessage: "Sign not allowed in string format specifier",
+		},
+		{
+			name:        "unknown string format code",
+			source:      "value = f\"{'x':q}\"\n",
+			wantType:    "ValueError",
+			wantMessage: "Unknown format code 'q' for object of type 'str'",
+		},
+		{
 			name:        "augmented zero division",
 			source:      "value = 1\nvalue //= 0\n",
 			wantType:    "ZeroDivisionError",
@@ -2694,6 +2745,20 @@ func TestBytecodeValidation(t *testing.T) {
 				nil,
 			),
 			wantFragment: "name index 0 out of range",
+		},
+		{
+			name: "specified format underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.FormatWithSpec},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("value")},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
 		},
 		{
 			name: "invalid formatted conversion",
