@@ -7,8 +7,9 @@ import (
 )
 
 type builtinFunctionValue struct {
-	name string
-	call func(arguments []Value, keywords *dictValue) (Value, *Exception)
+	name      string
+	call      func(arguments []Value, keywords *dictValue) (Value, *Exception)
+	frameCall func(*frame, int, int, []Value, *dictValue) (instructionOutcome, error)
 }
 
 func (*builtinFunctionValue) TypeName() string { return "builtin_function_or_method" }
@@ -25,21 +26,29 @@ func executeBuiltinFunctionCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
-	result, exception := function.call(arguments, keywords)
-	for index := base; index < len(caller.stack); index++ {
-		caller.stack[index] = nil
+	if function.frameCall != nil {
+		return function.frameCall(caller, instruction, base, arguments, keywords)
 	}
-	caller.stack = caller.stack[:base]
+	result, exception := function.call(arguments, keywords)
+	discardCallSegment(caller, base)
 	if exception != nil {
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
 	return pushOutcome(caller, instruction, result)
 }
 
+func discardCallSegment(caller *frame, base int) {
+	for index := base; index < len(caller.stack); index++ {
+		caller.stack[index] = nil
+	}
+	caller.stack = caller.stack[:base]
+}
+
 var builtinFunctions = []*builtinFunctionValue{
 	{name: "int", call: builtinInt},
 	{name: "max", call: builtinMax},
 	{name: "min", call: builtinMin},
+	{name: "next", frameCall: executeBuiltinNext},
 }
 
 // builtinInt converts the currently supported scalar numeric values.

@@ -187,10 +187,13 @@ not use Go recursion as the Python call stack. This choice has several benefits:
 
 A generator call binds arguments and creates a generator that owns a detached
 frame. Iteration attaches that frame to the caller. `yield` detaches it again
-and returns one value to the loop. The next iteration resumes the expression
-with `None`. Return or an escaping exception completes the generator, and later
-iteration remains exhausted. This first protocol does not yet expose `next`,
-`send`, `throw`, or `close`.
+and returns one value. `FOR_ITER` and `next` resume a suspended yield expression
+with `None`. A normal return exhausts a loop; `next` exposes its value through
+`StopIteration.value` or returns a supplied default. An escaping exception also
+completes the generator, and later iteration remains exhausted. The runtime
+rejects re-entry and converts an explicit `StopIteration` escaping generator
+code into `RuntimeError`. The protocol does not yet expose `iter`, `send`,
+`throw`, or `close`.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table

@@ -207,7 +207,7 @@ func executeForIter(
 	}
 	value := frame.stack[len(frame.stack)-1]
 	if generator, ok := value.(*generatorValue); ok {
-		return resumeGenerator(frame, index, target, generator)
+		return resumeGeneratorIteration(frame, index, target, generator)
 	}
 	iterator, ok := value.(valueIterator)
 	if !ok {

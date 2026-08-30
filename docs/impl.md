@@ -239,11 +239,12 @@ the result. Python recursion therefore does not recurse through the Go call
 stack.
 
 A generator owns a frame that is detached while created or suspended. `FOR_ITER`
-attaches it to the caller and starts or resumes execution. `YIELD_VALUE` removes
-the yielded value, detaches the frame, and gives the value to the caller. A later
-iteration resumes the yield expression with `None`. Return and escaping
+and `next` attach it to the caller and start or resume execution. `YIELD_VALUE`
+removes the yielded value, detaches the frame, and gives the value to the caller.
+Resumption supplies `None` as the yield expression's result. Return and escaping
 exceptions complete the generator; repeated iteration then stays exhausted.
-Re-entering a running generator raises `ValueError`.
+`next` raises `StopIteration` with the return value or returns its optional
+default. Re-entering a running generator raises `ValueError`.
 
 A raised Python exception follows protected ranges in the current code. If a
 range matches, the VM trims the operand stack to its recorded depth, pushes the
@@ -290,9 +291,10 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes, scalar numeric
-`int`, and positional `max` and `min` calls with two or more arguments. String
-and base forms of `int`, and the iterable and keyword forms of `max` and `min`,
-remain unsupported.
+`int`, positional `max` and `min` calls with two or more arguments, and `next`
+for generators and existing internal iterators. `next` accepts one optional
+default. String and base forms of `int`, the iterable and keyword forms of `max`
+and `min`, and the general `iter` builtin remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and
@@ -319,6 +321,12 @@ Python exceptions are `Value` implementations. The runtime has the built-in
 exception classes needed by current operations and follows their inheritance
 when matching handlers. `raise` accepts an exception instance or a supported
 exception class. Bare `raise` uses the active handled exception.
+
+`StopIteration` stores its `value` for `next`. A generator return creates that
+exception only for explicit `next` calls; loop iteration consumes completion
+internally. If generator code lets a `StopIteration` exception escape, the
+runtime raises `RuntimeError("generator raised StopIteration")` with the original
+exception as its cause and context.
 
 Ordinary `try` statements support ordered typed or bare handlers, `as` bindings,
 `else`, and `finally`. Handler bindings clear on every exit. Final suites and
@@ -414,7 +422,7 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no `next`, `send`, `throw`, or `close` generator operations or delegated
+- no `iter`, `send`, `throw`, or `close` generator operations or delegated
   `yield from`
 - no generator expressions, asynchronous comprehensions, coroutines, async
   execution, or Python threads

@@ -50,6 +50,7 @@ var (
 	unboundLocalErrorType   = &exceptionTypeValue{name: "UnboundLocalError", base: nameErrorType}
 	runtimeErrorType        = &exceptionTypeValue{name: "RuntimeError", base: exceptionType}
 	notImplementedErrorType = &exceptionTypeValue{name: "NotImplementedError", base: runtimeErrorType}
+	stopIterationType       = &exceptionTypeValue{name: "StopIteration", base: exceptionType}
 	overflowErrorType       = &exceptionTypeValue{name: "OverflowError", base: arithmeticErrorType}
 	zeroDivisionErrorType   = &exceptionTypeValue{name: "ZeroDivisionError", base: arithmeticErrorType}
 	typeErrorType           = &exceptionTypeValue{name: "TypeError", base: exceptionType}
@@ -73,6 +74,7 @@ var builtinExceptionTypes = []*exceptionTypeValue{
 	unboundLocalErrorType,
 	runtimeErrorType,
 	notImplementedErrorType,
+	stopIterationType,
 	overflowErrorType,
 	zeroDivisionErrorType,
 	typeErrorType,
@@ -111,11 +113,15 @@ func executeExceptionTypeCall(
 		}, nil
 	}
 	message := exceptionMessage(arguments)
-	for index := base; index < len(caller.stack); index++ {
-		caller.stack[index] = nil
+	discardCallSegment(caller, base)
+	exception := newExceptionOfType(exceptionType, message)
+	if exceptionType.isSubclassOf(stopIterationType) {
+		exception.stopIterationValue = None
+		if len(arguments) != 0 {
+			exception.stopIterationValue = arguments[0]
+		}
 	}
-	caller.stack = caller.stack[:base]
-	return pushOutcome(caller, instruction, newExceptionOfType(exceptionType, message))
+	return pushOutcome(caller, instruction, exception)
 }
 
 // executeUserExceptionTypeCall rejects custom initializers, delegates group
@@ -158,11 +164,15 @@ func executeUserExceptionTypeCall(
 		}, nil
 	}
 	message := exceptionMessage(arguments)
-	for index := base; index < len(caller.stack); index++ {
-		caller.stack[index] = nil
+	discardCallSegment(caller, base)
+	exception := newUserException(class, message)
+	if class.builtinExceptionBase().isSubclassOf(stopIterationType) {
+		exception.stopIterationValue = None
+		if len(arguments) != 0 {
+			exception.stopIterationValue = arguments[0]
+		}
 	}
-	caller.stack = caller.stack[:base]
-	return pushOutcome(caller, instruction, newUserException(class, message))
+	return pushOutcome(caller, instruction, exception)
 }
 
 func exceptionMessage(arguments []Value) string {
@@ -193,16 +203,17 @@ type TracebackFrame struct {
 
 // Exception is a Python exception value raised by bytecode execution.
 type Exception struct {
-	class             *exceptionTypeValue
-	userClass         *typeValue
-	message           string
-	group             *tupleValue
-	cause             *Exception
-	context           *Exception
-	suppressContext   bool
-	originFrame       *frame
-	originInstruction int
-	traceback         []tracebackEntry
+	class              *exceptionTypeValue
+	userClass          *typeValue
+	message            string
+	group              *tupleValue
+	stopIterationValue Value
+	cause              *Exception
+	context            *Exception
+	suppressContext    bool
+	originFrame        *frame
+	originInstruction  int
+	traceback          []tracebackEntry
 }
 
 func newException(typeName, message string) *Exception {
@@ -216,6 +227,23 @@ func newException(typeName, message string) *Exception {
 
 func newExceptionOfType(exceptionType *exceptionTypeValue, message string) *Exception {
 	return &Exception{class: exceptionType, message: message}
+}
+
+func newStopIteration(value Value) *Exception {
+	message := ""
+	if value != None {
+		message = exceptionMessage([]Value{value})
+	}
+	return &Exception{
+		class:              stopIterationType,
+		message:            message,
+		stopIterationValue: value,
+	}
+}
+
+func isStopIteration(exception *Exception) bool {
+	return exception != nil && exception.class != nil &&
+		exception.class.isSubclassOf(stopIterationType)
 }
 
 func newUserException(class *typeValue, message string) *Exception {
@@ -294,6 +322,14 @@ func (exception *Exception) tracebackFrames() []TracebackFrame {
 // message and child tuple held by an exception group.
 func (exception *Exception) attribute(name string) (Value, bool) {
 	switch name {
+	case "value":
+		if exception.class == nil || !exception.class.isSubclassOf(stopIterationType) {
+			return nil, false
+		}
+		if exception.stopIterationValue == nil {
+			return None, true
+		}
+		return exception.stopIterationValue, true
 	case "message":
 		if exception.group == nil {
 			return nil, false

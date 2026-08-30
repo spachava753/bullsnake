@@ -94,3 +94,46 @@ again = 0
 for value in stream:
     again += value
 assert again == 0
+# ---
+# case: next resumes generator and exposes return value
+def exchange():
+    received = yield 10
+    assert received is None
+    return 99
+
+stream = exchange()
+assert next(stream) == 10
+try:
+    next(stream)
+except StopIteration as error:
+    returned = error.value
+assert returned == 99
+try:
+    next(stream)
+except StopIteration as error:
+    exhausted = error.value
+assert exhausted is None
+# ---
+# case: next default handles generator exhaustion
+def one_value():
+    yield 4
+
+stream = one_value()
+assert next(stream, 40) == 4
+assert next(stream, 40) == 40
+assert next(stream, 50) == 50
+# ---
+# case: explicit StopIteration is transformed in generator
+def invalid_stop():
+    yield 1
+    raise StopIteration('hidden')
+
+stream = invalid_stop()
+assert next(stream) == 1
+try:
+    next(stream)
+except RuntimeError as error:
+    transformed = error
+assert f'{transformed!r}' == 'RuntimeError("generator raised StopIteration")'
+assert transformed.__cause__ is transformed.__context__
+assert f'{transformed.__cause__!r}' == 'StopIteration("hidden")'

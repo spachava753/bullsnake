@@ -70,11 +70,30 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 			thread.current = caller
 		case returned:
 			if active.generator != nil {
-				caller, finishErr := finishGenerator(active, index)
+				caller, completionException, finishErr := finishGenerator(
+					active,
+					index,
+					outcome.value,
+				)
 				if finishErr != nil {
 					return nil, nil, finishErr
 				}
 				thread.current = caller
+				if completionException != nil {
+					unhandled, routeErr := routeException(
+						thread,
+						caller,
+						caller.instruction-1,
+						completionException,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+				}
 				continue
 			}
 			thread.current = active.previous
@@ -220,6 +239,18 @@ func routeException(
 					currentInstruction,
 					"exception left a generator that is not running",
 				)
+			}
+			if isStopIteration(exception) {
+				exception = transformGeneratorStopIteration(
+					exception,
+					current,
+					currentInstruction,
+				)
+				unhandled = &raisedOutcome{
+					exception:   exception,
+					frame:       current,
+					instruction: currentInstruction,
+				}
 			}
 			current.generator.complete()
 		}
