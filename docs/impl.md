@@ -267,7 +267,7 @@ depth while emitting and records the maximum on the code object. Control-flow
 instructions use absolute instruction indexes. Labels patch forward jumps and
 require every incoming edge to have the same stack depth.
 
-Bytecode version 1 implements the initial file-input module slices: empty
+The current bytecode implements the initial file-input module slices: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
 constants; module name loads and stores; simple, chained, destructuring,
 augmented, module-deferred, and function-local annotated assignments;

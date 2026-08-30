@@ -388,10 +388,10 @@ code object should contain:
 - Exception and cleanup regions
 - Stack-size metadata if the VM needs it
 
-Bullsnake bytecode is private and versioned. Cached compiled files, if added,
-need a Bullsnake magic value, language version, bytecode version, source hash,
-and implementation cache tag. The runtime must reject stale or foreign cache
-files.
+Bytecode currently remains in memory and evolves with the compiler and runtime.
+If cached compiled files are added, their format must include a Bullsnake magic
+value, language version, bytecode version, source hash, and implementation cache
+tag. The runtime must reject stale or foreign cache files.
 
 The first instruction set should favor correctness and clarity. Specialized
 opcodes, inline caches, superinstructions, and adaptive optimization can be
