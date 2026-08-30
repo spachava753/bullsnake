@@ -57,3 +57,11 @@ raise
 # error: TypeError
 # message: "exception causes must derive from BaseException"
 raise ValueError('outer') from 42
+# ---
+# case: custom exception initializer is unsupported
+# error: TypeError
+# message: "custom exception initializers are not supported"
+class CustomError(Exception):
+    def __init__(self):
+        pass
+CustomError()

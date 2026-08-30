@@ -8,31 +8,54 @@ func matchException(exception *Exception, handlerType Value) (bool, *Exception) 
 	if !validExceptionHandlerType(handlerType) {
 		return false, newException("TypeError", cannotCatchMessage)
 	}
-	switch handlerType := handlerType.(type) {
-	case *exceptionTypeValue:
-		return exception.class.isSubclassOf(handlerType), nil
-	case *tupleValue:
-		for _, item := range handlerType.elements {
-			if exception.class.isSubclassOf(item.(*exceptionTypeValue)) {
+	if tuple, ok := handlerType.(*tupleValue); ok {
+		for _, item := range tuple.elements {
+			if exceptionMatchesClass(exception, item) {
 				return true, nil
 			}
 		}
+		return false, nil
 	}
-	return false, nil
+	return exceptionMatchesClass(exception, handlerType), nil
 }
 
-func validExceptionHandlerType(handlerType Value) bool {
+func exceptionMatchesClass(exception *Exception, handlerType Value) bool {
 	switch handlerType := handlerType.(type) {
 	case *exceptionTypeValue:
-		return true
-	case *tupleValue:
-		for _, item := range handlerType.elements {
-			if _, ok := item.(*exceptionTypeValue); !ok {
-				return false
-			}
+		if exception.userClass != nil {
+			return exception.userClass.builtinExceptionBase().isSubclassOf(handlerType)
 		}
-		return true
+		return exception.class.isSubclassOf(handlerType)
+	case *typeValue:
+		return exception.userClass != nil && exception.userClass.isSubclassOf(handlerType)
 	default:
 		return false
 	}
+}
+
+func validExceptionClass(value Value) bool {
+	switch value := value.(type) {
+	case *exceptionTypeValue:
+		return true
+	case *typeValue:
+		return value.isExceptionClass()
+	default:
+		return false
+	}
+}
+
+func validExceptionHandlerType(handlerType Value) bool {
+	if validExceptionClass(handlerType) {
+		return true
+	}
+	tuple, ok := handlerType.(*tupleValue)
+	if !ok {
+		return false
+	}
+	for _, item := range tuple.elements {
+		if !validExceptionClass(item) {
+			return false
+		}
+	}
+	return true
 }

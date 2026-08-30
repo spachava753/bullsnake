@@ -516,12 +516,14 @@ escaped and sibling closures share bindings after the defining frame returns.
 Definition and ordinary call execution do not invoke the annotation callable;
 a later attribute and `annotationlib` slice will request its map. The builtin
 namespace exposes immutable exception classes with the current CPython ancestry
-links. Assertions load `AssertionError`, optionally construct an instance with
-one message, and terminate through one-argument raise. That raise path also
-instantiates any directly raised builtin exception class. Function decorators
-use
-the ordinary call machinery. Decorator expressions evaluate top to bottom before
-defaults; the resulting callables apply bottom to top after function creation.
+links. A user class may inherit one of those classes or another user exception
+class; matching follows the user chain into the built-in ancestry. Assertions
+load `AssertionError`, optionally construct an instance with one message, and
+terminate through one-argument raise. That raise path also instantiates a
+directly raised built-in or supported user exception class. Function
+decorators use the ordinary call machinery. Decorator expressions evaluate top
+to bottom before defaults; the resulting callables apply bottom to top after
+function creation.
 The binder fills defaults, packs surplus arguments into `*args`, and matches
 ordinary and keyword-only names. When `**kwargs` is present, it stores unmatched
 names in a fresh dictionary in call order. The binder rejects positional-only,
@@ -530,21 +532,25 @@ a legal destination. It then replaces the active frame with a child whose
 `previous` link names the caller.
 Return restores that caller and pushes the result. Nested and recursive Python
 calls therefore remain in the iterative dispatcher. `LOAD_BUILD_CLASS` pushes
-an internal class builder. For a class with at most one Bullsnake type base, it
-runs the body function in a fresh namespace and records a class-build
-continuation on that frame. Return turns the retained namespace into a type
-value, fills a returned `__class__` cell when present, and then resumes the
-defining frame. Type calls allocate a fresh instance. Without `__init__`, only an
-empty call is accepted. If the class defines or inherits a plain `__init__`,
-construction binds its arguments, runs it as another Python frame, and requires
-a `None` return before exposing the instance. `LOAD_ATTR` checks instance
-storage, falls back through the type's base chain, and binds plain class
-functions by prepending the instance through the ordinary call binder.
+an internal class builder. For a class with at most one Bullsnake type or
+built-in exception base, it runs the body function in a fresh namespace and
+records a class-build continuation on that frame. Return turns the retained
+namespace into a type value, fills a returned `__class__` cell when present,
+and then resumes the defining frame. Type calls allocate a fresh instance.
+Without `__init__`, only an empty call is accepted. If the class defines or
+inherits a plain `__init__`, construction binds its arguments, runs it as
+another Python frame, and requires a `None` return before exposing the instance.
+`LOAD_ATTR` checks instance storage, falls back through the type's base chain,
+and binds plain class functions by prepending the instance through the ordinary
+call binder.
 `STORE_ATTR` and `DELETE_ATTR` mutate instance or class namespaces directly.
-The class builder accepts one existing Bullsnake type as a base; class,
-instance, and initializer lookup walk that base chain with child entries taking
-precedence. Multiple inheritance, C3 linearization, metaclasses, `super`,
-`__new__`, and general descriptors require later object-model slices.
+The class builder accepts one existing Bullsnake type or built-in exception
+class as a base; class, instance, and initializer lookup walk user base chains
+with child entries taking precedence. User exception calls inherit the current
+BaseException-style message construction. Custom exception initializers and
+exception-instance method binding remain unsupported. Multiple inheritance, C3
+linearization, metaclasses, `super`, `__new__`, and general descriptors require
+later object-model slices.
 A suspended async task or generator will eventually own the same frame state
 needed to resume it.
 

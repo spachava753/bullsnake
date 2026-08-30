@@ -14,6 +14,7 @@ type typeValue struct {
 	module        string
 	namespace     *Namespace
 	bases         []*typeValue
+	exceptionBase *exceptionTypeValue
 }
 
 func (*typeValue) TypeName() string { return "type" }
@@ -36,6 +37,36 @@ func (class *typeValue) lookup(name string) (Value, bool) {
 		current = current.bases[0]
 	}
 	return nil, false
+}
+
+func (class *typeValue) builtinExceptionBase() *exceptionTypeValue {
+	for current := class; current != nil; {
+		if current.exceptionBase != nil {
+			return current.exceptionBase
+		}
+		if len(current.bases) == 0 {
+			return nil
+		}
+		current = current.bases[0]
+	}
+	return nil
+}
+
+func (class *typeValue) isExceptionClass() bool {
+	return class.builtinExceptionBase() != nil
+}
+
+func (class *typeValue) isSubclassOf(parent *typeValue) bool {
+	for current := class; current != nil; {
+		if current == parent {
+			return true
+		}
+		if len(current.bases) == 0 {
+			return false
+		}
+		current = current.bases[0]
+	}
+	return false
 }
 
 type instanceValue struct {
@@ -70,6 +101,7 @@ type classBuild struct {
 	module        string
 	namespace     *Namespace
 	bases         []*typeValue
+	exceptionBase *exceptionTypeValue
 }
 
 func (build *classBuild) finish(bodyResult Value) Value {
@@ -79,6 +111,7 @@ func (build *classBuild) finish(bodyResult Value) Value {
 		module:        build.module,
 		namespace:     build.namespace,
 		bases:         build.bases,
+		exceptionBase: build.exceptionBase,
 	}
 	if classCell, ok := bodyResult.(*cellValue); ok {
 		classCell.value = class
@@ -128,15 +161,19 @@ func executeBuildClassCall(
 		}, nil
 	}
 	var bases []*typeValue
+	var exceptionBase *exceptionTypeValue
 	if len(arguments) == 3 {
-		classBase, isType := arguments[2].(*typeValue)
-		if !isType {
+		switch classBase := arguments[2].(type) {
+		case *typeValue:
+			bases = []*typeValue{classBase}
+		case *exceptionTypeValue:
+			exceptionBase = classBase
+		default:
 			return instructionOutcome{
 				kind:      raised,
 				exception: newException("TypeError", "class base is not a type"),
 			}, nil
 		}
-		bases = []*typeValue{classBase}
 	}
 	locals, exception := bindFunctionArguments(body, nil, nil)
 	if exception != nil {
@@ -176,6 +213,7 @@ func executeBuildClassCall(
 			module:        module,
 			namespace:     namespace,
 			bases:         bases,
+			exceptionBase: exceptionBase,
 		},
 	}
 	return instructionOutcome{kind: called, frame: child}, nil
@@ -197,6 +235,16 @@ func executeTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
+	if class.isExceptionClass() {
+		return executeUserExceptionTypeCall(
+			caller,
+			instruction,
+			base,
+			class,
+			arguments,
+			keywords,
+		)
+	}
 	instance := &instanceValue{class: class, attributes: newNamespace()}
 	initializerValue, hasInitializer := class.lookup("__init__")
 	if !hasInitializer {

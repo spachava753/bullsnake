@@ -91,21 +91,59 @@ func executeExceptionTypeCall(
 			),
 		}, nil
 	}
-	message := ""
-	if len(arguments) == 1 {
-		if text, ok := arguments[0].(*stringValue); ok {
-			message = text.value
-		} else {
-			message = arguments[0].Repr()
-		}
-	} else if len(arguments) > 1 {
-		message = (&tupleValue{elements: arguments}).Repr()
-	}
+	message := exceptionMessage(arguments)
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil
 	}
 	caller.stack = caller.stack[:base]
 	return pushOutcome(caller, instruction, newExceptionOfType(exceptionType, message))
+}
+
+func executeUserExceptionTypeCall(
+	caller *frame,
+	instruction int,
+	base int,
+	class *typeValue,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if _, hasInitializer := class.lookup("__init__"); hasInitializer {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"custom exception initializers are not supported",
+			),
+		}, nil
+	}
+	if keywords != nil && len(keywords.entries) != 0 {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				class.name+"() takes no keyword arguments",
+			),
+		}, nil
+	}
+	message := exceptionMessage(arguments)
+	for index := base; index < len(caller.stack); index++ {
+		caller.stack[index] = nil
+	}
+	caller.stack = caller.stack[:base]
+	return pushOutcome(caller, instruction, newUserException(class, message))
+}
+
+func exceptionMessage(arguments []Value) string {
+	if len(arguments) == 1 {
+		if text, ok := arguments[0].(*stringValue); ok {
+			return text.value
+		}
+		return arguments[0].Repr()
+	}
+	if len(arguments) > 1 {
+		return (&tupleValue{elements: arguments}).Repr()
+	}
+	return ""
 }
 
 type tracebackEntry struct {
@@ -124,6 +162,7 @@ type TracebackFrame struct {
 // Exception is a Python exception value raised by bytecode execution.
 type Exception struct {
 	class             *exceptionTypeValue
+	userClass         *typeValue
 	message           string
 	cause             *Exception
 	context           *Exception
@@ -146,12 +185,33 @@ func newExceptionOfType(exceptionType *exceptionTypeValue, message string) *Exce
 	return &Exception{class: exceptionType, message: message}
 }
 
+func newUserException(class *typeValue, message string) *Exception {
+	return &Exception{
+		class:     class.builtinExceptionBase(),
+		userClass: class,
+		message:   message,
+	}
+}
+
+// normalizeRaisedValue accepts exception instances or instantiates supported
+// built-in and user exception classes, rejecting every other raised value.
 func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exception) {
 	switch raised := value.(type) {
 	case *Exception:
 		return raised, nil
 	case *exceptionTypeValue:
 		return newExceptionOfType(raised, ""), nil
+	case *typeValue:
+		if !raised.isExceptionClass() {
+			return nil, newException("TypeError", invalidMessage)
+		}
+		if _, hasInitializer := raised.lookup("__init__"); hasInitializer {
+			return nil, newException(
+				"TypeError",
+				"custom exception initializers are not supported",
+			)
+		}
+		return newUserException(raised, ""), nil
 	default:
 		return nil, newException("TypeError", invalidMessage)
 	}
@@ -216,14 +276,19 @@ func (exception *Exception) attribute(name string) (Value, bool) {
 }
 
 // TypeName returns the Python exception class name.
-func (exception *Exception) TypeName() string { return exception.class.name }
+func (exception *Exception) TypeName() string {
+	if exception.userClass != nil {
+		return exception.userClass.name
+	}
+	return exception.class.name
+}
 
 // Message returns the exception's detail text.
 func (exception *Exception) Message() string { return exception.message }
 
 // Repr returns a stable Python-like representation of the exception.
 func (exception *Exception) Repr() string {
-	return exception.class.name + "(" + strconv.Quote(exception.message) + ")"
+	return exception.TypeName() + "(" + strconv.Quote(exception.message) + ")"
 }
 
 func (*Exception) isValue() {}

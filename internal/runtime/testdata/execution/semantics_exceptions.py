@@ -713,3 +713,49 @@ except ValueError:
             cycle_broken = reraised.__context__ is second
             assert second.__context__ is None
 assert cycle_broken is True
+# ---
+# case: user exception classes raise and match through inheritance
+class Problem(Exception):
+    pass
+
+class SpecificProblem(Problem):
+    pass
+
+problem = Problem('broken')
+assert f'{problem!r}' == 'Problem("broken")'
+
+caught_identity = False
+try:
+    raise problem
+except Problem as caught:
+    caught_identity = caught is problem
+assert caught_identity is True
+
+caught_parent = False
+try:
+    raise SpecificProblem('specific')
+except Problem:
+    caught_parent = True
+assert caught_parent is True
+
+caught_builtin_parent = False
+try:
+    raise SpecificProblem
+except Exception as caught:
+    caught_builtin_parent = f'{caught!r}' == 'SpecificProblem("")'
+assert caught_builtin_parent is True
+
+caught_tuple = False
+try:
+    raise SpecificProblem('tuple')
+except (TypeError, Problem):
+    caught_tuple = True
+assert caught_tuple is True
+
+custom_cause = SpecificProblem('cause')
+caught_custom_cause = False
+try:
+    raise Problem('outer') from custom_cause
+except Problem as caught:
+    caught_custom_cause = caught.__cause__ is custom_cause
+assert caught_custom_cause is True

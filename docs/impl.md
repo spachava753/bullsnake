@@ -502,18 +502,22 @@ completion. Before each instruction, dispatch removes scopes left by a jump.
 Bare `raise` searches the active frame and its callers, which lets a function
 called inside a handler re-raise that handler's exception.
 `LOAD_BUILD_CLASS` uses the same transition to run a zero- or single-base class
-body with a fresh local namespace. The builder requires any base to be a
-Bullsnake type. A class-build record on the body frame converts return into a
-basic type value, retains the namespace and optional base, and fills a returned
-`__class__` cell before resuming the defining frame. Module execution seeds
-`__name__` so class bodies can initialize `__module__`. Type calls allocate fresh
-instances. If a class defines or inherits a plain `__init__`, construction
-invokes it as a bound method and a frame-return continuation requires `None`
-before pushing the instance. Without `__init__`, only an empty call is accepted.
+body with a fresh local namespace. The builder accepts an ordinary Bullsnake
+type or a built-in exception class as that base. A class-build record on the
+body frame converts return into a basic type value, retains the namespace and
+optional base, and fills a returned `__class__` cell before resuming the defining
+frame. Module execution seeds `__name__` so class bodies can initialize
+`__module__`. Ordinary type calls allocate fresh instances. If a class defines
+or inherits a plain `__init__`, construction invokes it as a bound method and a
+frame-return continuation requires `None` before pushing the instance. Without
+`__init__`, only an empty call is accepted.
 `LOAD_ATTR` checks instance storage before walking the class base chain and binds
 class-level plain functions; type lookup still returns raw namespace entries.
 `STORE_ATTR` and `DELETE_ATTR` mutate only the selected instance or type
-namespace.
+namespace. Exception subclasses inherit the current positional message
+construction and participate in user and built-in ancestry checks. A custom
+exception `__init__` and general exception-instance method binding remain
+unsupported.
 
 The current call binder supports positional-only, ordinary positional, and
 keyword-only parameters; trailing positional defaults; sparse keyword-only
@@ -541,11 +545,12 @@ lookup and `annotationlib` integration cannot request annotation maps yet.
 Assertions load a callable internal `AssertionError` class and use the supported
 one-argument raise path with either that class or a constructed exception.
 Invalid raised values become `TypeError`. Runtime builtins contain the current
-exception classes and their CPython inheritance links. Typed handlers accept one
-class or a flat tuple of classes, validate every tuple member before matching,
-and select subclasses through those links. Multiple clauses run in source
-order; an unmatched `RERAISE` retains the original raising frame and source
-span. Bare `raise` uses the active handled exception or raises `RuntimeError`
+exception classes and their CPython inheritance links. User classes may extend
+one of those classes or another user exception class. Typed handlers accept one
+supported exception class or a flat tuple, validate every tuple member before
+matching, and follow user ancestry into the built-in hierarchy. Multiple clauses
+run in source order; an unmatched `RERAISE` retains the original raising frame
+and source span. Bare `raise` uses the active handled exception or raises `RuntimeError`
 when none exists. An exceptional final suite temporarily makes its pending
 exception active, including while nested final suites run. Plain and combined
 `try/finally` run before normal completion, exception propagation, return,
@@ -761,9 +766,9 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has sixty-six successful chunks and one hundred seven expected runtime
-errors; it requires no Python installation, external checkout, network access,
-or generation step.
+currently has sixty-seven successful chunks and one hundred eight expected
+runtime errors; it requires no Python installation, external checkout, network
+access, or generation step.
 
 Focused Go tests retain only behavior that crosses the language/host boundary
 or cannot be expressed by supported Python source: module cache identity and
