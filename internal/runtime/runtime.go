@@ -58,10 +58,16 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	}
 }
 
-// ExecuteModule validates and executes one module code object. The module
-// enters the cache before its body runs so imports can observe partial state.
+// ExecuteModule validates and executes one code object as an ordinary module.
 func (runtime *Runtime) ExecuteModule(name string, code *bytecode.Code) (*Module, error) {
-	module, moduleFrame, err := runtime.newModuleFrame(name, ModuleSpec{Code: code}, nil)
+	return runtime.ExecuteModuleSpec(name, ModuleSpec{Code: code})
+}
+
+// ExecuteModuleSpec validates and executes a module description while
+// preserving its package and origin metadata. The module enters the cache
+// before its body runs so imports can observe partial state.
+func (runtime *Runtime) ExecuteModuleSpec(name string, spec ModuleSpec) (*Module, error) {
+	module, moduleFrame, err := runtime.newModuleFrame(name, spec, nil)
 	if err != nil {
 		return nil, err
 	}

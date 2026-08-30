@@ -56,6 +56,10 @@ func TestFileSystem(t *testing.T) {
 			"_private = 2\n"+
 			"hidden = 3\n")
 	writeSource(t, second, "exports/child.py", "value = 4\n")
+	writeSource(t, second, "entry_package/__init__.py",
+		"from .child import value\n"+
+			"answer = value + 1\n")
+	writeSource(t, second, "entry_package/child.py", "value = 41\n")
 	writeSource(t, second, "invalid_all.py", "__all__ = [1]\n")
 	writeSource(t, first, "invalid_all_entry.py", "from invalid_all import *\n")
 	writeSource(t, first, "beyond_entry.py", "import package.beyond\n")
@@ -75,10 +79,12 @@ func TestFileSystem(t *testing.T) {
 			t.Fatal("main module was not found")
 		}
 		runtime := bullruntime.NewWithLoader(loader.Load)
-		module, err := runtime.ExecuteModule("main", spec.Code)
+		module, err := runtime.ExecuteModuleSpec("main", spec)
 		if err != nil {
 			t.Fatal(err)
 		}
+		assertImportValue(t, module, "__file__", "'"+filepath.Join(first, "main.py")+"'")
+		assertImportValue(t, module, "__package__", "''")
 		answer, found := module.Get("answer")
 		if !found || answer.Repr() != "42" {
 			t.Fatalf("answer = %v, %t, want 42", answer, found)
@@ -116,6 +122,24 @@ func TestFileSystem(t *testing.T) {
 		}
 		if _, found := runtime.Module("exports.child"); !found {
 			t.Fatal("package __all__ did not load its child module")
+		}
+	})
+
+	t.Run("executes a package entry", func(t *testing.T) {
+		spec, found, err := loader.Load(bullruntime.ModuleRequest{Name: "entry_package"})
+		if err != nil || !found {
+			t.Fatalf("Load(entry_package) = %#v, %t, %v", spec, found, err)
+		}
+		runtime := bullruntime.NewWithLoader(loader.Load)
+		module, err := runtime.ExecuteModuleSpec("entry_package", spec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertImportValue(t, module, "answer", "42")
+		assertImportValue(t, module, "__package__", "'entry_package'")
+		assertImportValue(t, module, "__path__", "['"+filepath.Join(second, "entry_package")+"']")
+		if _, found := runtime.Module("entry_package.child"); !found {
+			t.Fatal("package entry did not load its relative child")
 		}
 	})
 

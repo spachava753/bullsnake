@@ -304,10 +304,12 @@ are not implemented.
 ## Modules and imports
 
 A module has one string-keyed namespace used as both locals and globals.
-`Runtime.ExecuteModule` creates and caches that module before its body starts.
-`Runtime.Module`, `Module.Get`, module attribute access, and imports all observe
-the same object and namespace, including names assigned during partial
-initialization.
+`Runtime.ExecuteModule` executes bare code as an ordinary module.
+`Runtime.ExecuteModuleSpec` preserves a loader's package, origin, and search
+metadata for a file or package entry. Both create and cache the module before
+its body starts. `Runtime.Module`, `Module.Get`, module attribute access, and
+imports all observe the same object and namespace, including names assigned
+during partial initialization.
 
 `NewWithLoader` accepts a `ModuleLoader` callback. A `ModuleRequest` carries the
 absolute name and, for a child, a copy of its parent package's search locations.
