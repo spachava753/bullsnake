@@ -181,7 +181,11 @@ func advanceImport(
 			return instructionOutcome{}, frame.failure(index, "completed import is not cached")
 		}
 		request.fallbackName = ""
-		if startNextFromImport(module, request) {
+		started, exception := startNextFromImport(module, request)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if started {
 			continue
 		}
 		result := frame.runtime.modules[request.returnName]
@@ -192,14 +196,27 @@ func advanceImport(
 	}
 }
 
-func startNextFromImport(module *Module, request *importRequest) bool {
+// startNextFromImport expands package wildcard exports and selects the next
+// missing from-list name that should be attempted as a child module.
+func startNextFromImport(module *Module, request *importRequest) (bool, *Exception) {
 	if !module.isPackage {
-		return false
+		return false, nil
 	}
 	for request.fromIndex < len(request.fromNames) {
 		name := request.fromNames[request.fromIndex]
 		request.fromIndex++
 		if name == "*" {
+			names, found, exception := moduleAllNames(module)
+			if exception != nil {
+				return false, exception
+			}
+			if found {
+				for _, exported := range names {
+					if exported != "*" {
+						request.fromNames = append(request.fromNames, exported)
+					}
+				}
+			}
 			continue
 		}
 		if _, found := module.globals.get(name); found {
@@ -208,9 +225,9 @@ func startNextFromImport(module *Module, request *importRequest) bool {
 		request.fallbackName = request.requestedName + "." + name
 		request.names = qualifiedImportNames(request.fallbackName)
 		request.next = strings.Count(request.requestedName, ".") + 1
-		return true
+		return true, nil
 	}
-	return false
+	return false, nil
 }
 
 func missingModuleOutcome(name string) instructionOutcome {
@@ -218,6 +235,39 @@ func missingModuleOutcome(name string) instructionOutcome {
 		kind:      raised,
 		exception: newException("ModuleNotFoundError", "No module named '"+name+"'"),
 	}
+}
+
+// moduleAllNames reads and validates the list or tuple used by the current
+// wildcard-import subset while preserving whether __all__ was absent.
+func moduleAllNames(module *Module) ([]string, bool, *Exception) {
+	value, found := module.globals.get("__all__")
+	if !found {
+		return nil, false, nil
+	}
+	var elements []Value
+	switch value := value.(type) {
+	case *listValue:
+		elements = value.elements
+	case *tupleValue:
+		elements = value.elements
+	default:
+		return nil, true, newException(
+			"TypeError",
+			module.name+".__all__ must be a list or tuple, not "+value.TypeName(),
+		)
+	}
+	names := make([]string, len(elements))
+	for index, element := range elements {
+		name, ok := element.(*stringValue)
+		if !ok {
+			return nil, true, newException(
+				"TypeError",
+				"Item in "+module.name+".__all__ must be str, not "+element.TypeName(),
+			)
+		}
+		names[index] = name.value
+	}
+	return names, true, nil
 }
 
 func validateFromList(frame *frame, index int, value Value) error {
@@ -261,6 +311,8 @@ func executeImportFrom(
 	return pushOutcome(frame, index, value)
 }
 
+// executeImportStar copies explicit __all__ names or public namespace names
+// into the importing frame and reports invalid or missing explicit exports.
 func executeImportStar(frame *frame, index int) (instructionOutcome, error) {
 	value, ok := frame.pop()
 	if !ok {
@@ -270,10 +322,31 @@ func executeImportStar(frame *frame, index int) (instructionOutcome, error) {
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "IMPORT_STAR owner is not a module")
 	}
-	for name, imported := range module.globals.values {
-		if !strings.HasPrefix(name, "_") {
-			frame.locals.values[name] = imported
+	names, explicit, exception := moduleAllNames(module)
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	if !explicit {
+		names = make([]string, 0, len(module.globals.values))
+		for name := range module.globals.values {
+			names = append(names, name)
 		}
+	}
+	for _, name := range names {
+		if !explicit && strings.HasPrefix(name, "_") {
+			continue
+		}
+		imported, found := module.globals.get(name)
+		if !found {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"AttributeError",
+					"module '"+module.name+"' has no attribute '"+name+"'",
+				),
+			}, nil
+		}
+		frame.locals.values[name] = imported
 	}
 	return instructionOutcome{kind: advance}, nil
 }

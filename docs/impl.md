@@ -328,6 +328,13 @@ attribute is tried as a child module. An exact missing child is left for
 found child propagates normally. Modules initialize `__name__` and
 `__package__`; loader metadata adds `__file__` and a package `__path__` list.
 
+Wildcard imports use a module's `__all__` list or tuple when present. Package
+handling first attempts to load missing names from that sequence as child
+modules. `IMPORT_STAR` then copies exactly the listed names, including leading
+underscores. Without `__all__`, it copies namespace names that do not begin with
+an underscore. Other Python sequence implementations are not yet accepted for
+`__all__`.
+
 `IMPORT_NAME` resolves a positive relative level against the executing frame's
 `__package__` global, then uses the same absolute loading path. Level one keeps
 the complete package name; each additional level removes one component. An
@@ -350,8 +357,8 @@ compiler, and preserve typed frontend errors under a module-loading wrapper.
 A missing callback, missing file, or missing callback result raises
 `ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
 until the runtime has the corresponding Python exception values. Namespace
-packages, dynamic `__path__` changes, `sys.modules`, `__all__`, finder and
-loader hooks, reload, import locks, and a standard library remain unimplemented.
+packages, dynamic `__path__` changes, `sys.modules`, finder and loader hooks,
+reload, import locks, and a standard library remain unimplemented.
 
 ## Deliberate boundaries
 

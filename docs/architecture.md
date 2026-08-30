@@ -233,8 +233,9 @@ immutable code and package metadata. For a dotted absolute name, the runtime
 loads each parent first, verifies that it is a package, and publishes each child
 on that parent. Relative from-imports resolve their level against the executing
 module's package name. A from-import also tries a missing package attribute as a
-child module. Modules execute in the existing frame loop. Repeated imports reuse
-one object. Because the cache entry exists before execution, circular imports
+child module. Wildcard imports honor an explicit `__all__` list and load listed
+package children. Modules execute in the existing frame loop. Repeated imports
+reuse one object. Because the cache entry exists before execution, circular
 see the names assigned so far. If execution fails, the runtime removes only
 that module; dependencies that finished successfully remain cached.
 
