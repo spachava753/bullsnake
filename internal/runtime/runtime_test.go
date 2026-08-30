@@ -915,6 +915,39 @@ func TestDeletedNameBindings(t *testing.T) {
 	}
 }
 
+func TestPlainFormattedStrings(t *testing.T) {
+	code := compileSource(t, "name = 'Ada'\n"+
+		"number = 42\n"+
+		"simple = f'hello {name}: {number}'\n"+
+		"converted = f'{name!s}|{name!r}|{name!a}'\n"+
+		"debug = f'{name = }'\n"+
+		"unicode_ascii = f\"{'café'!a}\"\n"+
+		"container = f'{[1, 2]}'\n"+
+		"bytes_value = f\"{b'xy'}\"\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("formatted", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"simple":        "'hello Ada: 42'",
+		"converted":     `"Ada|'Ada'|'Ada'"`,
+		"debug":         `"name = 'Ada'"`,
+		"unicode_ascii": `"'caf\\xe9'"`,
+		"container":     "'[1, 2]'",
+		"bytes_value":   `"b'xy'"`,
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -2661,6 +2694,34 @@ func TestBytecodeValidation(t *testing.T) {
 				nil,
 			),
 			wantFragment: "name index 0 out of range",
+		},
+		{
+			name: "invalid formatted conversion",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ConvertValue, Operand: 99},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "unsupported CONVERT_VALUE operand 99",
+		},
+		{
+			name: "formatted join underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildString, Operand: 2},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("part")},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
 		},
 		{
 			name: "call underflow",

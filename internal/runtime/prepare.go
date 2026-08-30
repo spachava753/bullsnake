@@ -325,6 +325,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 	switch instruction.Opcode {
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
 		bytecode.BinarySubscript, bytecode.StoreSubscript, bytecode.DeleteSubscript,
+		bytecode.FormatSimple, bytecode.BuildString,
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
@@ -350,6 +351,17 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "jump target %d out of range", instruction.Operand)
 		}
 		return nil
+	case bytecode.ConvertValue:
+		switch instruction.Operand {
+		case bytecode.ConversionString, bytecode.ConversionRepr, bytecode.ConversionASCII:
+			return nil
+		default:
+			return code.failure(
+				index,
+				"unsupported CONVERT_VALUE operand %d",
+				instruction.Operand,
+			)
+		}
 	case bytecode.LoadConst:
 		if uint64(instruction.Operand) >= uint64(len(code.constants)) {
 			return code.failure(index, "constant index %d out of range", instruction.Operand)
@@ -565,11 +577,11 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return int(instruction.Operand) + 1, 1
 	case bytecode.CallEx:
 		return 2 + int(instruction.Operand), 1
-	case bytecode.UnaryOp, bytecode.GetIter, bytecode.ListToTuple,
-		bytecode.LoadAttr:
+	case bytecode.UnaryOp, bytecode.ConvertValue, bytecode.FormatSimple,
+		bytecode.GetIter, bytecode.ListToTuple, bytecode.LoadAttr:
 		return 1, 1
-	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSet,
-		bytecode.BuildSlice:
+	case bytecode.BuildString, bytecode.BuildTuple, bytecode.BuildList,
+		bytecode.BuildSet, bytecode.BuildSlice:
 		return int(instruction.Operand), 1
 	case bytecode.BuildMap:
 		return 2 * int(instruction.Operand), 1

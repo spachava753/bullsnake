@@ -107,6 +107,12 @@ func executeInstruction(
 	case bytecode.LoadConst:
 		value := frame.code.constants[instruction.Operand]
 		return pushOutcome(frame, index, value)
+	case bytecode.ConvertValue:
+		return executeConvertValue(frame, index, instruction.Operand)
+	case bytecode.FormatSimple:
+		return executeFormatSimple(frame, index)
+	case bytecode.BuildString:
+		return executeBuildString(frame, index, int(instruction.Operand))
 	case bytecode.LoadNotImplementedError:
 		return pushOutcome(frame, index, newException("NotImplementedError", ""))
 	case bytecode.LoadAssertionError:

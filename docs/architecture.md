@@ -424,6 +424,13 @@ from the module namespace, and `DELETE_FAST` clears an indexed local slot. An
 absent namespace binding raises `NameError`; an empty fast-local slot raises
 `UnboundLocalError`.
 
+Formatted-string instructions produce ordinary string values. `str` conversion
+uses unquoted text for existing strings and the current value text for other
+objects; `repr` shares each value's stable representation; `ascii` escapes every
+non-ASCII code point in that representation. Empty formatting preserves an
+exact string, and `BUILD_STRING` joins only verified string pieces. Non-empty
+format specifications require a later object-formatting slice.
+
 `MAKE_FUNCTION` captures one prepared child and its defining global namespace.
 `CALL` reads inline positional arguments. `CALL_EX` reads a compiler-built
 positional tuple plus an optional ordered keyword dictionary assembled by
