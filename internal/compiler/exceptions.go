@@ -24,13 +24,20 @@ const (
 	exceptionHandlerControlCleanup controlCleanupKind = iota
 	handledScopeControlCleanup
 	finallyControlCleanup
+	withControlCleanup
 )
+
+type contextManagerCleanup struct {
+	baseDepth int
+	span      lexer.Span
+}
 
 type controlCleanup struct {
 	kind         controlCleanupKind
 	handlerDepth int
 	exception    exceptionHandlerCleanup
 	finalBody    []compilerast.Stmt
+	context      contextManagerCleanup
 }
 
 // compileRaiseStatement evaluates an optional exception and cause before
@@ -580,6 +587,8 @@ func (compiler *compilerState) emitControlCleanupsFrom(
 			err = compiler.emit(bytecode.LeaveExcept, 0, span)
 		case finallyControlCleanup:
 			err = compiler.compileStatements(cleanup.finalBody)
+		case withControlCleanup:
+			err = compiler.emitPreservedContextExit(cleanup.context)
 		default:
 			err = compiler.error(span, "unknown control cleanup kind %d", cleanup.kind)
 		}

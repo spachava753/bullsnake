@@ -280,6 +280,8 @@ func executeInstruction(
 		return pushOutcome(frame, index, value)
 	case bytecode.LoadClosure:
 		return pushOutcome(frame, index, frame.deref[instruction.Operand])
+	case bytecode.LoadHandledExceptionType:
+		return executeLoadHandledExceptionType(frame, index)
 	case bytecode.LoadGlobal:
 		name := frame.code.names[instruction.Operand]
 		value, ok := frame.globals.get(name)
@@ -293,6 +295,8 @@ func executeInstruction(
 			}, nil
 		}
 		return pushOutcome(frame, index, value)
+	case bytecode.LoadSpecial:
+		return executeLoadSpecial(frame, index, frame.code.names[instruction.Operand])
 	case bytecode.LoadAttr:
 		owner, ok := frame.pop()
 		if !ok {

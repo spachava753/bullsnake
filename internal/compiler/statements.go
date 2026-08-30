@@ -71,6 +71,8 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return compiler.compileWhileStatement(statement)
 	case *compilerast.ForStmt:
 		return compiler.compileForStatement(statement)
+	case *compilerast.WithStmt:
+		return compiler.compileWithStatement(statement)
 	case *compilerast.TryStmt:
 		if len(statement.Finally) != 0 {
 			return compiler.compileTryFinally(statement)

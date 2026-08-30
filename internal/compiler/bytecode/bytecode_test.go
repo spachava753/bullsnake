@@ -201,6 +201,13 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := attribute.String(); got != "LOAD_ATTR 4" {
 		t.Fatalf("attribute instruction = %q", got)
 	}
+	special := Instruction{Opcode: LoadSpecial, Operand: 5}
+	if got := special.String(); got != "LOAD_SPECIAL 5" {
+		t.Fatalf("special instruction = %q", got)
+	}
+	if got := LoadSpecial.StackEffect(5); got != 0 {
+		t.Fatalf("LOAD_SPECIAL stack effect = %d, want 0", got)
+	}
 	if got := BinarySubscript.StackEffect(0); got != -1 {
 		t.Fatalf("BINARY_SUBSCR stack effect = %d, want -1", got)
 	}
@@ -323,6 +330,12 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	}
 	if got := LeaveExcept.StackEffect(0); got != 0 {
 		t.Fatalf("LEAVE_EXCEPT stack effect = %d, want 0", got)
+	}
+	if got := (Instruction{Opcode: LoadHandledExceptionType}).String(); got != "LOAD_HANDLED_EXCEPTION_TYPE" {
+		t.Fatalf("handled exception type instruction = %q", got)
+	}
+	if got := LoadHandledExceptionType.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_HANDLED_EXCEPTION_TYPE stack effect = %d, want 1", got)
 	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {

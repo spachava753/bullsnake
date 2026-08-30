@@ -326,6 +326,8 @@ func (code *preparedCode) validateInstructions() error {
 	return nil
 }
 
+// instructionExceptionScopes tracks lexical handled-exception entries across
+// control flow and rejects operations that require a scope when none is active.
 func (code *preparedCode) instructionExceptionScopes(
 	index int,
 	scopes []exceptionScopeState,
@@ -338,6 +340,14 @@ func (code *preparedCode) instructionExceptionScopes(
 			start: index + 1,
 			end:   int(instruction.Operand),
 		}), nil
+	case bytecode.LoadHandledExceptionType:
+		if len(scopes) == 0 {
+			return nil, code.failure(
+				index,
+				"LOAD_HANDLED_EXCEPTION_TYPE has no active exception",
+			)
+		}
+		return scopes, nil
 	case bytecode.LeaveExcept:
 		if len(scopes) == 0 {
 			return nil, code.failure(index, "LEAVE_EXCEPT has no active handler")
@@ -453,7 +463,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
 		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar,
 		bytecode.CheckExceptionMatch, bytecode.CheckExceptionGroupMatch,
-		bytecode.PrepareReraiseStar, bytecode.Reraise, bytecode.LeaveExcept:
+		bytecode.PrepareReraiseStar, bytecode.Reraise, bytecode.LeaveExcept,
+		bytecode.LoadHandledExceptionType:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -503,7 +514,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		return nil
 	case bytecode.LoadName, bytecode.StoreName, bytecode.DeleteName,
 		bytecode.LoadGlobal, bytecode.StoreGlobal, bytecode.DeleteGlobal,
-		bytecode.LoadAttr, bytecode.StoreAttr, bytecode.DeleteAttr,
+		bytecode.LoadAttr, bytecode.LoadSpecial, bytecode.StoreAttr, bytecode.DeleteAttr,
 		bytecode.ImportName, bytecode.ImportFrom:
 		if uint64(instruction.Operand) >= uint64(len(code.names)) {
 			return code.failure(index, "name index %d out of range", instruction.Operand)
@@ -684,7 +695,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.LoadConst, bytecode.LoadName, bytecode.LoadFast,
 		bytecode.LoadGlobal, bytecode.LoadDeref, bytecode.LoadClosure,
 		bytecode.LoadNotImplementedError, bytecode.LoadAssertionError,
-		bytecode.LoadBuildClass, bytecode.MakeFunction, bytecode.ImportFrom:
+		bytecode.LoadBuildClass, bytecode.MakeFunction, bytecode.ImportFrom,
+		bytecode.LoadHandledExceptionType:
 		return 0, 1
 	case bytecode.StoreName, bytecode.StoreFast, bytecode.StoreGlobal,
 		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue,
@@ -723,7 +735,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.CallEx:
 		return 2 + int(instruction.Operand), 1
 	case bytecode.UnaryOp, bytecode.ConvertValue, bytecode.FormatSimple,
-		bytecode.GetIter, bytecode.ListToTuple, bytecode.LoadAttr:
+		bytecode.GetIter, bytecode.ListToTuple, bytecode.LoadAttr,
+		bytecode.LoadSpecial:
 		return 1, 1
 	case bytecode.BuildString, bytecode.BuildTuple, bytecode.BuildList,
 		bytecode.BuildSet, bytecode.BuildSlice:

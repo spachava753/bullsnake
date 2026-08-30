@@ -157,9 +157,16 @@ compiler mistakes before the VM runs them.
 
 Exceptions use protected instruction ranges. A range says where the handler
 starts and how much of the operand stack to keep when an instruction raises.
-Normal execution pays no setup cost for entering a `try` block. `finally` and
-handler-name cleanup are compiler-controlled actions that run before a return,
-loop transfer, or propagated exception completes.
+Normal execution pays no setup cost for entering a `try` block. `finally`,
+context-manager exit, and handler-name cleanup are compiler-controlled actions
+that run before a return, loop transfer, or propagated exception completes.
+
+A synchronous `with` keeps each bound `__exit__` method on the operand stack.
+The compiler protects target assignment and the body, and calls exits from inner
+to outer for normal flow, exceptions, returns, and loop transfers. Special
+method lookup reads the class rather than an instance attribute. Until Python
+traceback objects exist, exceptional `__exit__` calls receive `None` for their
+third argument.
 
 Code objects stay in memory today. A bytecode cache, if one is ever needed,
 will require an explicit format version and must reject stale or foreign data.
@@ -324,10 +331,10 @@ that finalizers and cleanup callbacks have timing and cycle limitations that do
 not fit normal Python finalization semantics.
 
 The baseline therefore omits `__del__` and a CPython-compatible `gc` module.
-External resources should use explicit `close()` methods and Go-side lifecycle
-APIs. Python context managers can join that path when the VM implements them.
-Weak references may be added if package tests need them, but Python callbacks
-would run later at a safe VM point, never on a Go cleanup goroutine.
+External resources can use explicit `close()` methods and synchronous context
+managers. Go-side lifecycle APIs remain necessary for host resources. Weak
+references may be added if package tests need them, but Python callbacks would
+run later at a safe VM point, never on a Go cleanup goroutine.
 
 ## Rules the implementation must preserve
 

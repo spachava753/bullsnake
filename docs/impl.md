@@ -175,6 +175,8 @@ The current compiler translates:
   conditional expressions
 - simple, chained, destructuring, annotated, augmented, and deletion targets
 - `if`, synchronous `while` and `for`, loop `else`, `break`, and `continue`
+- synchronous `with`, including multiple managers, exception suppression, and
+  cleanup during return or loop transfer
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, and lazy function annotations
 - basic classes with decorators, bases, class keywords, methods, enclosing
@@ -198,8 +200,8 @@ function definition or call.
 
 The compiler rejects template-string execution, annotated class attributes,
 `from __future__ import annotations`, generic and async definitions, generator
-expressions, asynchronous comprehensions, `async for`, `with`, pattern matching,
-generators, and coroutines. Unsupported AST forms return compiler errors; they
+expressions, asynchronous comprehensions, `async for`, `async with`, pattern
+matching, generators, and coroutines. Unsupported AST forms return compiler errors; they
 are not approximated with similar bytecode.
 
 ## Runtime preparation
@@ -289,10 +291,11 @@ with Python exceptions.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, and user exception
-subclasses. The object model does not yet implement class keyword arguments,
-multiple inheritance, C3 method order, metaclasses, `super`, `__new__`, or
-general descriptors. Custom exception initializers and methods remain
-unsupported.
+subclasses. Synchronous context managers look up `__enter__` and `__exit__` on
+that class chain, ignoring same-named instance attributes. The object model does
+not yet implement class keyword arguments, multiple inheritance, C3 method
+order, metaclasses, `super`, `__new__`, or general descriptors. Custom exception
+initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general
@@ -306,9 +309,12 @@ when matching handlers. `raise` accepts an exception instance or a supported
 exception class. Bare `raise` uses the active handled exception.
 
 Ordinary `try` statements support ordered typed or bare handlers, `as` bindings,
-`else`, and `finally`. Handler bindings clear on every exit. Final suites run
-for normal completion, propagation, return, break, and continue. A transfer
-started in the final suite replaces the pending transfer.
+`else`, and `finally`. Handler bindings clear on every exit. Final suites and
+context-manager exits run for normal completion, propagation, return, break,
+and continue. A transfer started in a final suite or exit method replaces the
+pending transfer. An exceptional `__exit__` call receives the exception class
+and instance, but receives `None` for its traceback argument until Python
+traceback objects exist.
 
 Fresh exceptions record an active handled exception as `__context__`.
 `raise ... from ...` records `__cause__` and suppression state. Reraising
@@ -398,7 +404,7 @@ The largest current gaps are:
 - no namespace packages, broad standard library, or native extension loading
 - no generators, coroutines, async execution, or Python threads
 - no generator expressions or asynchronous comprehensions
-- no context-manager execution or structural matching
+- no asynchronous context managers or structural matching
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

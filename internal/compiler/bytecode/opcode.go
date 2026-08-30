@@ -160,6 +160,8 @@ const (
 	Reraise
 	EnterExcept
 	LeaveExcept
+	LoadSpecial
+	LoadHandledExceptionType
 )
 
 var opcodeNames = [...]string{
@@ -238,6 +240,8 @@ var opcodeNames = [...]string{
 	"RERAISE",
 	"ENTER_EXCEPT",
 	"LEAVE_EXCEPT",
+	"LOAD_SPECIAL",
+	"LOAD_HANDLED_EXCEPTION_TYPE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -259,7 +263,7 @@ func (opcode Opcode) HasOperand() bool {
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
 		DeleteDeref, LoadClosure, ImportName, ImportFrom, LoadFromDictOrGlobals,
-		LoadFromDictOrDeref, EnterExcept:
+		LoadFromDictOrDeref, EnterExcept, LoadSpecial:
 		return true
 	default:
 		return false
@@ -272,7 +276,8 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
 	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError,
 		LoadNotImplementedError, LoadFast, LoadGlobal, MakeFunction, LoadDeref,
-		LoadClosure, ImportFrom, LoadBuildClass, LoadLocals:
+		LoadClosure, ImportFrom, LoadBuildClass, LoadLocals,
+		LoadHandledExceptionType:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,

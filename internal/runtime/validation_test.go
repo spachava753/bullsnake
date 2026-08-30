@@ -1217,6 +1217,33 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "unsupported opcode LOAD_LOCALS",
 		},
 		{
+			name: "special method name out of range",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadSpecial},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "name index 0 out of range",
+		},
+		{
+			name: "handled exception type outside handler",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadHandledExceptionType},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "LOAD_HANDLED_EXCEPTION_TYPE has no active exception",
+		},
+		{
 			name: "unsupported matrix binary operation",
 			code: testCode(
 				2,
