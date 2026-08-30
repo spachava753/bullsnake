@@ -1088,6 +1088,41 @@ func TestBinary64Formatting(t *testing.T) {
 	}
 }
 
+func TestGeneralFloatFormatting(t *testing.T) {
+	code := compileSource(t, "default_fixed = f'{1.0:.3}'\n"+
+		"default_scientific = f'{1234.0:.3}'\n"+
+		"general_integer = f'{1.0:.3g}'\n"+
+		"general_scientific = f'{1234.0:.3g}'\n"+
+		"upper_general = f'{1234.0:.3G}'\n"+
+		"default_precision = f'{1.234567:g}'\n"+
+		"alternate = f'{1.0:#.3g}'\n"+
+		"grouped = f'{12345.0:,.6g}'\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("general_float_formats", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"default_fixed":      "'1.0'",
+		"default_scientific": "'1.23e+03'",
+		"general_integer":    "'1'",
+		"general_scientific": "'1.23e+03'",
+		"upper_general":      "'1.23E+03'",
+		"default_precision":  "'1.23457'",
+		"alternate":          "'1.00'",
+		"grouped":            "'12,345'",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+

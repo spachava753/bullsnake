@@ -193,17 +193,26 @@ func formatFloatValue(value float64, specification string) (string, *Exception) 
 	} else {
 		switch typeCode {
 		case 0:
-			if precision >= 0 {
-				return "", newException(
-					"ValueError",
-					"format precision without a presentation type is not implemented",
-				)
+			if precision < 0 {
+				body = formatFloat(absolute, true)
+			} else {
+				if precision == 0 {
+					precision = 1
+				}
+				body = strconv.FormatFloat(absolute, 'g', precision, 64)
+				if !strings.ContainsAny(body, ".eE") {
+					body += ".0"
+				}
 			}
-			body = formatFloat(absolute, true)
 		case 'f', 'F':
 			body = strconv.FormatFloat(absolute, 'f', precision, 64)
 		case 'e', 'E':
 			body = strconv.FormatFloat(absolute, 'e', precision, 64)
+		case 'g', 'G':
+			if precision == 0 {
+				precision = 1
+			}
+			body = strconv.FormatFloat(absolute, 'g', precision, 64)
 		case '%':
 			body = strconv.FormatFloat(absolute*100, 'f', precision, 64)
 			suffix = "%"
@@ -213,11 +222,14 @@ func formatFloatValue(value float64, specification string) (string, *Exception) 
 				"Unknown format code '"+string(typeCode)+"' for object of type 'float'",
 			)
 		}
-		if spec.alternate && precision == 0 {
+		if spec.alternate && (typeCode == 'g' || typeCode == 'G' ||
+			(typeCode == 0 && spec.precision >= 0)) {
+			body = alternateGeneralFloat(body, precision)
+		} else if spec.alternate && precision == 0 {
 			body = addFloatDecimalPoint(body)
 		}
 	}
-	if typeCode == 'E' || typeCode == 'F' {
+	if typeCode == 'E' || typeCode == 'F' || typeCode == 'G' {
 		body = strings.ToUpper(body)
 	}
 	if spec.coerceNegativeZero && negative && formattedFloatIsZero(body) {
@@ -328,6 +340,29 @@ func addFloatDecimalPoint(body string) string {
 		return body[:exponent] + "." + body[exponent:]
 	}
 	return body + "."
+}
+
+// alternateGeneralFloat ensures the mantissa has a decimal point and enough
+// trailing zeros to expose the requested number of significant digits.
+func alternateGeneralFloat(body string, precision int) string {
+	exponent := ""
+	if position := strings.IndexAny(body, "eE"); position >= 0 {
+		exponent = body[position:]
+		body = body[:position]
+	}
+	digits := 0
+	for _, current := range body {
+		if current >= '0' && current <= '9' {
+			digits++
+		}
+	}
+	if !strings.Contains(body, ".") {
+		body += "."
+	}
+	if digits < precision {
+		body += strings.Repeat("0", precision-digits)
+	}
+	return body + exponent
 }
 
 func formattedFloatIsZero(body string) bool {

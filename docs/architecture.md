@@ -434,10 +434,10 @@ alignment, decimal width, code-point precision, and the optional `s` type.
 Arbitrary-precision integers and booleans keep sign and base prefixes separate
 from their digits, so zero and `=` padding occur after those prefixes. They
 support binary, character, decimal, octal, and hexadecimal presentation plus
-comma or underscore grouping. Binary64 floats support explicit fixed,
-scientific, and percent presentation while retaining sign, negative-zero,
-grouping, precision, and numeric-padding components separately. General float
-presentation, float-style integer conversion, locale-aware formatting, complex
+comma or underscore grouping. Binary64 floats support fixed, scientific,
+general, percent, and precision-without-type presentation while retaining sign,
+negative-zero, alternate, grouping, precision, and numeric-padding components
+separately. Float-style integer conversion, locale-aware formatting, complex
 formatting, and user-defined `__format__` dispatch require later value-type
 slices.
 
