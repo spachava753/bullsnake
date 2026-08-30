@@ -350,6 +350,18 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := Send.StackEffect(8); got != 0 {
 		t.Fatalf("SEND stack effect = %d, want 0", got)
 	}
+	if got := (Instruction{Opcode: MatchSequence}).String(); got != "MATCH_SEQUENCE" {
+		t.Fatalf("match sequence instruction = %q", got)
+	}
+	if got := MatchSequence.StackEffect(0); got != 1 {
+		t.Fatalf("MATCH_SEQUENCE stack effect = %d, want 1", got)
+	}
+	if got := (Instruction{Opcode: GetLen}).String(); got != "GET_LEN" {
+		t.Fatalf("get length instruction = %q", got)
+	}
+	if got := GetLen.StackEffect(0); got != 1 {
+		t.Fatalf("GET_LEN stack effect = %d, want 1", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

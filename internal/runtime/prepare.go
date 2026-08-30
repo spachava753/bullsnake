@@ -481,7 +481,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar,
 		bytecode.CheckExceptionMatch, bytecode.CheckExceptionGroupMatch,
 		bytecode.PrepareReraiseStar, bytecode.Reraise, bytecode.LeaveExcept,
-		bytecode.LoadHandledExceptionType:
+		bytecode.LoadHandledExceptionType, bytecode.MatchSequence, bytecode.GetLen:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -765,6 +765,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		bytecode.GetIter, bytecode.ListToTuple, bytecode.LoadAttr,
 		bytecode.LoadSpecial:
 		return 1, 1
+	case bytecode.MatchSequence, bytecode.GetLen:
+		return 1, 2
 	case bytecode.BuildString, bytecode.BuildTuple, bytecode.BuildList,
 		bytecode.BuildSet, bytecode.BuildSlice:
 		return int(instruction.Operand), 1

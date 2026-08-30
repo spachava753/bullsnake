@@ -160,9 +160,14 @@ compiler mistakes before the VM runs them.
 Basic structural matching keeps one evaluated subject across case tests.
 Literal and dotted-value patterns compare copies of that subject. The compiler
 stores capture names only after the complete pattern succeeds, then evaluates
-the guard. A false guard leaves those names bound, as Python specifies. Later
-sequence, mapping, and class-pattern support will add extraction before this
-same commit-and-guard step.
+the guard. A false guard leaves those names bound, as Python specifies.
+
+Sequence patterns currently accept tuples and lists. They check the candidate
+kind and length before unpacking fixed or starred elements. Tentative nested and
+OR-pattern captures use hidden frame locals, so a failed pattern exposes none of
+them. A successful pattern commits those values before its guard. Mapping and
+class patterns will use the same commit-and-guard step after their extraction
+rules exist.
 
 Exceptions use protected instruction ranges. A range says where the handler
 starts and how much of the operand stack to keep when an instruction raises.

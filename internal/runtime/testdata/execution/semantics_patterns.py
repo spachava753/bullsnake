@@ -113,3 +113,87 @@ def capture_reader(value):
 
 reader = capture_reader(7)
 assert reader() == 7
+# ---
+# case: match fixed and nested sequence patterns
+
+def sequence_kind(value):
+    match value:
+        case [first, [left, right]]:
+            return first * 100 + left * 10 + right
+        case [first, second]:
+            return first * 10 + second
+        case _:
+            return -1
+
+assert sequence_kind((1, 2)) == 12
+assert sequence_kind([3, 4]) == 34
+assert sequence_kind([5, (6, 7)]) == 567
+assert sequence_kind([1]) == -1
+assert sequence_kind([1, 2, 3]) == -1
+assert sequence_kind('ab') == -1
+assert sequence_kind(b'ab') == -1
+# ---
+# case: match starred sequence patterns
+
+def split_sequence(value):
+    match value:
+        case [first, *middle, last]:
+            return first, middle, last
+        case [only]:
+            return only, [], only
+        case _:
+            return None
+
+first, middle, last = split_sequence((1, 2, 3, 4))
+assert first == 1
+middle_first, middle_second = middle
+assert middle_first == 2
+assert middle_second == 3
+assert last == 4
+single, empty, repeated = split_sequence([8])
+assert single == 8
+empty_count = 0
+for empty_item in empty:
+    empty_count += 1
+assert empty_count == 0
+assert repeated == 8
+assert split_sequence([]) is None
+# ---
+# case: match sequence OR alternatives and rollback captures
+match [2, 3]:
+    case [choice] | [_, choice]:
+        sequence_choice = choice
+
+assert sequence_choice == 3
+
+match [1]:
+    case [missing_first, missing_second]:
+        sequence_rollback = 'wrong'
+    case _:
+        sequence_rollback = 'clean'
+
+assert sequence_rollback == 'clean'
+try:
+    missing_first
+except NameError:
+    first_capture_absent = True
+try:
+    missing_second
+except NameError:
+    second_capture_absent = True
+assert first_capture_absent
+assert second_capture_absent
+# ---
+# case: match sequence guard keeps captures and closure cells
+
+def sequence_guard(value):
+    match value:
+        case [captured] if False:
+            return None
+        case _:
+            def read():
+                return captured
+            return read
+
+reader = sequence_guard([11])
+assert reader() == 11

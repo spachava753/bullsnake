@@ -71,6 +71,46 @@ func executeBuildSequence(
 	return pushOutcome(frame, index, &listValue{elements: elements})
 }
 
+// executeMatchSequence retains one candidate and reports whether it has the
+// tuple or list representation currently accepted by sequence patterns.
+func executeMatchSequence(frame *frame, index int) (instructionOutcome, error) {
+	if len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+	}
+	candidate := frame.stack[len(frame.stack)-1]
+	_, tuple := candidate.(*tupleValue)
+	_, list := candidate.(*listValue)
+	result := falseSingleton
+	if tuple || list {
+		result = trueSingleton
+	}
+	return pushOutcome(frame, index, result)
+}
+
+// executeGetLen retains one matched sequence and pushes its concrete length.
+func executeGetLen(frame *frame, index int) (instructionOutcome, error) {
+	if len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+	}
+	candidate := frame.stack[len(frame.stack)-1]
+	var length int
+	switch candidate := candidate.(type) {
+	case *tupleValue:
+		length = len(candidate.elements)
+	case *listValue:
+		length = len(candidate.elements)
+	default:
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"object of type '"+candidate.TypeName()+"' has no len()",
+			),
+		}, nil
+	}
+	return pushOutcome(frame, index, integerFromInt64(int64(length)))
+}
+
 // executeUnpackSequence accepts the fixed sequence types, checks exact arity,
 // and pushes elements in reverse so target stores consume them left to right.
 func executeUnpackSequence(

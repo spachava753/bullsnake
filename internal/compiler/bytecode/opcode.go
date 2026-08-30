@@ -164,6 +164,8 @@ const (
 	LoadHandledExceptionType
 	YieldValue
 	Send
+	MatchSequence
+	GetLen
 )
 
 var opcodeNames = [...]string{
@@ -246,6 +248,8 @@ var opcodeNames = [...]string{
 	"LOAD_HANDLED_EXCEPTION_TYPE",
 	"YIELD_VALUE",
 	"SEND",
+	"MATCH_SEQUENCE",
+	"GET_LEN",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -281,7 +285,7 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError,
 		LoadNotImplementedError, LoadFast, LoadGlobal, MakeFunction, LoadDeref,
 		LoadClosure, ImportFrom, LoadBuildClass, LoadLocals,
-		LoadHandledExceptionType:
+		LoadHandledExceptionType, MatchSequence, GetLen:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
