@@ -299,6 +299,18 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := CheckExceptionMatch.StackEffect(0); got != 0 {
 		t.Fatalf("CHECK_EXC_MATCH stack effect = %d, want 0", got)
 	}
+	if got := (Instruction{Opcode: CheckExceptionGroupMatch}).String(); got != "CHECK_EG_MATCH" {
+		t.Fatalf("exception group match instruction = %q", got)
+	}
+	if got := CheckExceptionGroupMatch.StackEffect(0); got != 0 {
+		t.Fatalf("CHECK_EG_MATCH stack effect = %d, want 0", got)
+	}
+	if got := (Instruction{Opcode: PrepareReraiseStar}).String(); got != "PREP_RERAISE_STAR" {
+		t.Fatalf("exception group merge instruction = %q", got)
+	}
+	if got := PrepareReraiseStar.StackEffect(0); got != -1 {
+		t.Fatalf("PREP_RERAISE_STAR stack effect = %d, want -1", got)
+	}
 	if got := Reraise.StackEffect(0); got != -1 {
 		t.Fatalf("RERAISE stack effect = %d, want -1", got)
 	}

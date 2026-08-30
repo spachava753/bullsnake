@@ -88,13 +88,20 @@ func (compiler *compilerState) compileTryExcept(statement *compilerast.TryStmt) 
 	if len(statement.Handlers) == 0 {
 		return compiler.error(statement.Span(), "try statement has no exception handlers")
 	}
+	star := statement.Handlers[0].Star
 	for index, handler := range statement.Handlers {
-		if handler.Star {
-			return compiler.error(handler.Range, "exception-group handlers are not compiled")
+		if handler.Star != star {
+			return compiler.error(handler.Range, "cannot mix except and except* handlers")
 		}
-		if handler.Type == nil && index != len(statement.Handlers)-1 {
+		if star && handler.Type == nil {
+			return compiler.error(handler.Range, "except* handler has no exception type")
+		}
+		if !star && handler.Type == nil && index != len(statement.Handlers)-1 {
 			return compiler.error(handler.Range, "bare exception handler is not last")
 		}
+	}
+	if star {
+		return compiler.compileTryExceptStar(statement)
 	}
 
 	baseDepth := compiler.stackDepth
@@ -237,6 +244,206 @@ func (compiler *compilerState) compileTryExcept(statement *compilerast.TryStmt) 
 	return compiler.markLabel(end, statement.Span())
 }
 
+// compileTryExceptStar splits one pending exception across every except* clause,
+// collects exceptions raised by clause bodies, and recombines the remainder.
+func (compiler *compilerState) compileTryExceptStar(statement *compilerast.TryStmt) error {
+	baseDepth := compiler.stackDepth
+	handlerTarget := compiler.newLabel()
+	end := compiler.newLabel()
+	compiler.activeHandlers = append(compiler.activeHandlers, instructionExceptionHandler{
+		target:     handlerTarget,
+		stackDepth: baseDepth,
+	})
+	err := compiler.compileStatements(statement.Body)
+	compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
+	if err != nil {
+		return err
+	}
+	if compiler.reachable {
+		if err := compiler.compileStatements(statement.Else); err != nil {
+			return err
+		}
+	}
+	if compiler.reachable {
+		if err := compiler.emitJump(bytecode.Jump, end, statement.Span()); err != nil {
+			return err
+		}
+	}
+
+	firstHandler := statement.Handlers[0]
+	if err := compiler.mergeLabelDepth(handlerTarget, baseDepth+1, firstHandler.Range); err != nil {
+		return err
+	}
+	if baseDepth+1 > compiler.maxStack {
+		compiler.maxStack = baseDepth + 1
+	}
+	if err := compiler.markLabel(handlerTarget, firstHandler.Range); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.Copy, 1, firstHandler.Range); err != nil {
+		return err
+	}
+	if err := compiler.emitLabelOperand(bytecode.EnterExcept, end, firstHandler.Range); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.BuildList, 0, firstHandler.Range); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.Copy, 2, firstHandler.Range); err != nil {
+		return err
+	}
+
+	for _, handler := range statement.Handlers {
+		noMatch := compiler.newLabel()
+		raisedTarget := compiler.newLabel()
+		clauseEnd := compiler.newLabel()
+		if err := compiler.compileExpr(handler.Type); err != nil {
+			return err
+		}
+		if err := compiler.emit(bytecode.CheckExceptionGroupMatch, 0, handler.Range); err != nil {
+			return err
+		}
+		if err := compiler.emitJumpIfTopNone(noMatch, handler.Range); err != nil {
+			return err
+		}
+
+		var cleanup exceptionHandlerCleanup
+		cleanupHandlerDepth := len(compiler.activeHandlers)
+		if handler.Name != "" {
+			if err := compiler.emit(bytecode.Copy, 1, handler.Range); err != nil {
+				return err
+			}
+			cleanup = exceptionHandlerCleanup{name: handler.Name, span: handler.Range}
+		}
+		if err := compiler.emitLabelOperand(bytecode.EnterExcept, raisedTarget, handler.Range); err != nil {
+			return err
+		}
+		if handler.Name != "" {
+			if err := compiler.emitNameStore(handler.Name, handler.Range); err != nil {
+				return err
+			}
+			compiler.controlCleanups = append(compiler.controlCleanups, controlCleanup{
+				kind:         exceptionHandlerControlCleanup,
+				handlerDepth: cleanupHandlerDepth,
+				exception:    cleanup,
+			})
+		}
+		compiler.activeHandlers = append(compiler.activeHandlers, instructionExceptionHandler{
+			target:     raisedTarget,
+			stackDepth: baseDepth + 3,
+		})
+		err := compiler.compileStatements(handler.Body)
+		compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
+		if handler.Name != "" {
+			compiler.controlCleanups = compiler.controlCleanups[:len(compiler.controlCleanups)-1]
+		}
+		if err != nil {
+			return err
+		}
+		if compiler.reachable {
+			if handler.Name == "" {
+				err = compiler.emit(bytecode.LeaveExcept, 0, handler.Range)
+			} else {
+				err = compiler.emitExceptionHandlerCleanup(cleanup)
+			}
+			if err != nil {
+				return err
+			}
+			if err := compiler.emitJump(bytecode.Jump, clauseEnd, handler.Range); err != nil {
+				return err
+			}
+		}
+
+		if err := compiler.mergeLabelDepth(raisedTarget, baseDepth+4, handler.Range); err != nil {
+			return err
+		}
+		if baseDepth+4 > compiler.maxStack {
+			compiler.maxStack = baseDepth + 4
+		}
+		if err := compiler.markLabel(raisedTarget, handler.Range); err != nil {
+			return err
+		}
+		if handler.Name != "" {
+			if err := compiler.emitExceptionBindingClear(cleanup); err != nil {
+				return err
+			}
+		}
+		if err := compiler.emitListAppendAtDepth(3, handler.Range); err != nil {
+			return err
+		}
+		if err := compiler.emitJump(bytecode.Jump, clauseEnd, handler.Range); err != nil {
+			return err
+		}
+
+		if err := compiler.markLabel(noMatch, handler.Range); err != nil {
+			return err
+		}
+		if err := compiler.emit(bytecode.PopTop, 0, handler.Range); err != nil {
+			return err
+		}
+		if err := compiler.markLabel(clauseEnd, handler.Range); err != nil {
+			return err
+		}
+	}
+
+	if err := compiler.emitListAppendAtDepth(2, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.PrepareReraiseStar, 0, statement.Span()); err != nil {
+		return err
+	}
+	noRaise := compiler.newLabel()
+	if err := compiler.emitJumpIfTopNone(noRaise, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.LeaveExcept, 0, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emitTerminator(bytecode.Reraise, 0, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.markLabel(noRaise, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.PopTop, 0, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.LeaveExcept, 0, statement.Span()); err != nil {
+		return err
+	}
+	return compiler.markLabel(end, statement.Span())
+}
+
+func (compiler *compilerState) emitJumpIfTopNone(target *jumpLabel, span lexer.Span) error {
+	if err := compiler.emit(bytecode.Copy, 1, span); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.None()),
+		span,
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.CompareOp, bytecode.CompareIs, span); err != nil {
+		return err
+	}
+	return compiler.emitJump(bytecode.PopJumpIfTrue, target, span)
+}
+
+func (compiler *compilerState) emitListAppendAtDepth(depth uint32, span lexer.Span) error {
+	if err := compiler.emit(bytecode.Copy, depth, span); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.Swap, 2, span); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.ListAppend, 0, span); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.PopTop, 0, span)
+}
+
 // compileTryFinally duplicates the final suite for normal fallthrough and for
 // an exceptional entry that keeps the pending exception below temporary values.
 func (compiler *compilerState) compileTryFinally(statement *compilerast.TryStmt) error {
@@ -320,6 +527,10 @@ func (compiler *compilerState) emitExceptionHandlerCleanup(cleanup exceptionHand
 	if err := compiler.emit(bytecode.LeaveExcept, 0, cleanup.span); err != nil {
 		return err
 	}
+	return compiler.emitExceptionBindingClear(cleanup)
+}
+
+func (compiler *compilerState) emitExceptionBindingClear(cleanup exceptionHandlerCleanup) error {
 	if err := compiler.emit(
 		bytecode.LoadConst,
 		compiler.constantIndex(bytecode.None()),

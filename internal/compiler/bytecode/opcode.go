@@ -155,6 +155,8 @@ const (
 	LoadFromDictOrGlobals
 	LoadFromDictOrDeref
 	CheckExceptionMatch
+	CheckExceptionGroupMatch
+	PrepareReraiseStar
 	Reraise
 	EnterExcept
 	LeaveExcept
@@ -231,6 +233,8 @@ var opcodeNames = [...]string{
 	"LOAD_FROM_DICT_OR_GLOBALS",
 	"LOAD_FROM_DICT_OR_DEREF",
 	"CHECK_EXC_MATCH",
+	"CHECK_EG_MATCH",
+	"PREP_RERAISE_STAR",
 	"RERAISE",
 	"ENTER_EXCEPT",
 	"LEAVE_EXCEPT",
@@ -274,8 +278,8 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
-		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, Reraise,
-		EnterExcept:
+		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, PrepareReraiseStar,
+		Reraise, EnterExcept:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript:
 		return -2

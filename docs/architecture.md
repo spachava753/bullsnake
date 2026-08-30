@@ -415,7 +415,13 @@ preserved value. Break and continue use the same cleanup stack, discard pending
 exceptions or temporary values down to the target loop's recorded stack depth,
 and then jump. A return, raise, or loop transfer in a final suite replaces the
 earlier transfer. Combined `try/except/finally` places the complete handler and
-`else` construct inside that same outer finalization region.
+`else` construct inside that same outer finalization region. Exception-group
+handlers keep the original exception, one result list, and the remaining
+subgroup on the operand stack. `CHECK_EG_MATCH` recursively splits each clause's
+match while preserving nested group shape. Clause-body exception ranges append
+new failures and bare reraises to the result list before dispatch continues.
+`PREP_RERAISE_STAR` projects reraised leaves back through the original shape,
+adds unmatched leaves, and combines genuinely new failures in source order.
 
 Bytecode currently remains in memory and evolves with the compiler and runtime.
 If cached compiled files are added, their format must include a Bullsnake magic
@@ -465,10 +471,18 @@ exception instances. They retain the children in one immutable tuple.
 `Exception`; `ExceptionGroup` rejects a base-only child and follows both the
 `BaseExceptionGroup` and `Exception` ancestry paths. Single-base user subclasses
 retain their class while enforcing the same child restriction. Ordinary typed
-handlers can catch these values. `except*` splitting and result merging remain
-future work. A final miss reraises the same exception and retains its original
-frame and instruction. Normal completion can run `else`; exceptions there
-bypass this statement's handlers.
+handlers can catch these values. An `except*` clause accepts ordinary exception
+classes or flat tuples but rejects group classes. Matching recursively derives
+matching and remaining groups with the original message, shape, and leaf
+identity. The built-in `BaseExceptionGroup.derive` rule selects the subgroup
+class from its retained children; user-defined `derive` overrides require later
+exception-instance method dispatch. A matching naked exception receives the
+empty-message wrapper required by Python. Dispatch continues after every clause,
+even when a clause raises. The final merge restores bare-reraised and unmatched
+leaves to the original shape, then combines newly raised exceptions in source
+order. A final ordinary handler miss reraises the same exception and retains its
+original frame and instruction. Normal completion can run `else`; exceptions
+there bypass this statement's handlers.
 Selected handlers push frame-owned scopes with exclusive instruction ends.
 Dispatch removes a scope after a jump leaves it, and normal handler completion
 removes it explicitly. Bare `raise` searches these scopes through caller

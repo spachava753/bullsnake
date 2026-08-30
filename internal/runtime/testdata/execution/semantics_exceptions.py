@@ -833,3 +833,138 @@ try:
 except CustomBaseGroup as caught:
     caught_custom_base_group = caught is custom_base_group
 assert caught_custom_base_group is True
+# ---
+# case: except star splits nested groups and runs every matching clause
+outer_value = ValueError('outer value')
+inner_type = TypeError('inner type')
+inner_value = ValueError('inner value')
+inner_group = ExceptionGroup('inner', [inner_type, inner_value])
+original_group = ExceptionGroup('outer', [outer_value, inner_group])
+value_match = None
+type_match = None
+try:
+    raise original_group
+except* ValueError as caught:
+    value_match = caught
+except* TypeError as caught:
+    type_match = caught
+assert value_match.message == 'outer'
+assert value_match.exceptions[0] is outer_value
+assert value_match.exceptions[1].message == 'inner'
+assert value_match.exceptions[1].exceptions[0] is inner_value
+assert type_match.message == 'outer'
+assert type_match.exceptions[0].message == 'inner'
+assert type_match.exceptions[0].exceptions[0] is inner_type
+# ---
+# case: except star wraps a naked exception and runs else only without failure
+naked = ValueError('naked')
+wrapped = None
+try:
+    raise naked
+except* ValueError as caught:
+    wrapped = caught
+assert wrapped.message == ''
+assert wrapped.exceptions[0] is naked
+
+else_ran = False
+try:
+    completed = True
+except* Exception:
+    completed = False
+else:
+    else_ran = True
+assert completed is True
+assert else_ran is True
+# ---
+# case: except star keeps dispatching after a handler raises
+value_leaf = ValueError('value')
+type_leaf = TypeError('type')
+source_group = ExceptionGroup('source', [value_leaf, type_leaf])
+replacement = KeyError('replacement')
+type_handler_ran = False
+replacement_identity = False
+try:
+    try:
+        raise source_group
+    except* ValueError:
+        raise replacement
+    except* TypeError:
+        type_handler_ran = True
+except KeyError as caught:
+    replacement_identity = caught is replacement
+assert type_handler_ran is True
+assert replacement_identity is True
+# ---
+# case: except star propagates unmatched leaves and recombines bare reraises
+unmatched_value = ValueError('handled')
+unmatched_type = TypeError('unmatched')
+unmatched_source = ExceptionGroup('unmatched source', [unmatched_value, unmatched_type])
+handled_value = False
+try:
+    try:
+        raise unmatched_source
+    except* ValueError:
+        handled_value = True
+except ExceptionGroup as rest:
+    assert rest.message == 'unmatched source'
+    assert rest.exceptions[0] is unmatched_type
+assert handled_value is True
+
+reraised_value = ValueError('reraised')
+handled_type = TypeError('handled')
+reraise_source = ExceptionGroup('reraise source', [reraised_value, handled_type])
+type_was_handled = False
+try:
+    try:
+        raise reraise_source
+    except* ValueError:
+        raise
+    except* TypeError:
+        type_was_handled = True
+except ExceptionGroup as reraised:
+    assert reraised.message == 'reraise source'
+    assert reraised.exceptions[0] is reraised_value
+assert type_was_handled is True
+# ---
+# case: except star composes with finally and base exception groups
+base_leaf = BaseException('base')
+base_source = BaseExceptionGroup('base source', [base_leaf])
+base_was_handled = False
+finalized = False
+try:
+    try:
+        raise base_source
+    except* BaseException as caught:
+        base_was_handled = caught.exceptions[0] is base_leaf
+finally:
+    finalized = True
+assert base_was_handled is True
+assert finalized is True
+
+ordinary_leaf = ValueError('ordinary')
+base_only_leaf = BaseException('base only')
+mixed_source = BaseExceptionGroup('mixed source', [ordinary_leaf, base_only_leaf])
+ordinary_part = None
+base_part = None
+try:
+    raise mixed_source
+except* Exception as caught:
+    ordinary_part = caught
+except* BaseException as caught:
+    base_part = caught
+assert ordinary_part.exceptions[0] is ordinary_leaf
+assert base_part.exceptions[0] is base_only_leaf
+ordinary_part_is_exception_group = False
+try:
+    raise ordinary_part
+except ExceptionGroup:
+    ordinary_part_is_exception_group = True
+assert ordinary_part_is_exception_group is True
+base_part_is_exception_group = False
+try:
+    raise base_part
+except ExceptionGroup:
+    base_part_is_exception_group = True
+except BaseExceptionGroup:
+    pass
+assert base_part_is_exception_group is False

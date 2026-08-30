@@ -729,6 +729,10 @@ func executeInstruction(
 			result = trueSingleton
 		}
 		return pushOutcome(frame, index, result)
+	case bytecode.CheckExceptionGroupMatch:
+		return executeExceptionGroupMatch(frame, index)
+	case bytecode.PrepareReraiseStar:
+		return executePrepareReraiseStar(frame, index)
 	case bytecode.EnterExcept:
 		value, ok := frame.pop()
 		if !ok {
@@ -764,7 +768,11 @@ func executeInstruction(
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "RERAISE value is not an exception")
 		}
-		return instructionOutcome{kind: raised, exception: exception, reraise: true}, nil
+		return instructionOutcome{
+			kind:      raised,
+			exception: exception,
+			reraise:   exception.originFrame != nil,
+		}, nil
 	case bytecode.RaiseVarargs:
 		if instruction.Operand == 0 {
 			exception := activeHandledException(frame, index)

@@ -405,13 +405,21 @@ pops to the loop's recorded base depth before skipping `else`. This depth rule
 preserves outer iterators in nested loops. A suite stops emitting after an
 unconditional jump, and a join with no reachable input remains unreachable.
 Constants and referenced names use deterministic indexed tables. Stable code
-dumps support compiler tests and future diagnostics.
+dumps support compiler tests and future diagnostics. Exception handling records
+the innermost active handler and restore depth for each protected instruction,
+then combines adjacent records into immutable ranges. Ordinary clauses dispatch
+in source order. Exception-group clauses keep the original exception, one result
+list, and the current remainder on the stack; handler-body ranges collect raised
+exceptions before later clauses run. `CHECK_EG_MATCH` performs each split and
+`PREP_RERAISE_STAR` produces the final exception or `None`. The same outer
+finally cleanup can enclose either handler form.
 
 The instruction representation remains decoded rather than serialized.
 Template strings, class annotated assignments, future annotations, generic and
 async functions, class docstrings, static-attribute metadata, `async for`,
-exception handling, and suspended execution are not yet compiled.
-Unsupported AST nodes fail with a source-located compiler error.
+`with` statements, structural matching, comprehensions, and suspended execution
+are not yet compiled. Unsupported AST nodes fail with a source-located compiler
+error.
 
 ## Virtual machine and frames
 
@@ -434,9 +442,9 @@ currently accepts `NOP`,
 positional-default, keyword-default, closure, and annotation
 `SET_FUNCTION_ATTRIBUTE` variants, `CALL`, both `CALL_EX` forms,
 `IMPORT_NAME`, `IMPORT_FROM`, `IMPORT_STAR`, zero- or one-argument
-`RAISE_VARARGS`, `CHECK_EXC_MATCH`, `RERAISE`, `ENTER_EXCEPT`, `LEAVE_EXCEPT`,
-`POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
-`BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
+`RAISE_VARARGS`, `CHECK_EXC_MATCH`, `CHECK_EG_MATCH`, `PREP_RERAISE_STAR`,
+`RERAISE`, `ENTER_EXCEPT`, `LEAVE_EXCEPT`, `POP_TOP`, `COPY`, `SWAP`, fixed
+`BUILD_TUPLE`, `BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
 `LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
 `MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
 `FOR_ITER`, integer or slice `BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and
@@ -554,15 +562,21 @@ exception instances, retain one immutable child tuple, and expose read-only
 and follows both required ancestry paths. Single-base user subclasses retain
 their class and the corresponding child restriction. Typed handlers accept one
 supported exception class or a flat tuple, validate every tuple member before
-matching, and follow user ancestry into the built-in hierarchy. Multiple clauses
-run in source order; an unmatched `RERAISE` retains the original raising frame
-and source span. Group values work with these ordinary handlers; `except*`
-splitting and merge semantics remain unsupported. Bare `raise` uses the active
-handled exception or raises `RuntimeError` when none exists. An exceptional
-final suite temporarily makes its pending exception active, including while
-nested final suites run. Plain and combined `try/finally` run before normal
-completion, exception propagation, return, break, or continue; a newer
-transfer from the final suite replaces the pending one.
+matching, and follow user ancestry into the built-in hierarchy. Multiple ordinary
+clauses run in source order; an unmatched `RERAISE` retains the original raising
+frame and source span. Exception-group clauses reject group classes, recursively
+split nested children, apply the built-in `BaseExceptionGroup.derive` class
+selection, wrap a matching naked exception, and run every clause against the
+remaining subgroup. Custom `derive` overrides await general exception-instance
+method dispatch. Handler failures enter a result list instead of skipping later
+clauses. Final preparation projects bare reraises and unmatched leaves through
+the original nested shape, then combines new failures in source order. Named
+bindings clear on both normal and raised clause exits. Bare `raise` uses the
+active handled exception or raises `RuntimeError` when none exists.
+An exceptional final suite temporarily makes its pending exception active,
+including while nested final suites run. Plain and combined `try/finally` run
+before normal completion, exception propagation, return, break, or continue; a
+newer transfer from the final suite replaces the pending one.
 Explicit causes accept an exception class, instance, or `None`; invalid causes
 raise `TypeError`. The raised exception exposes read-only `__cause__`,
 `__context__`, and `__suppress_context__` attributes. Fresh raises link the
@@ -760,7 +774,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains ninety-three successful
+The compiler corpus currently contains ninety-four successful
 parse-resolve-compile cases for the supported compiler subset. Cases record
 stable Bullsnake code-object dumps. Focused tests cover instruction source
 positions, stack effects, code-object copying, opcode formatting, literal
@@ -774,7 +788,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has sixty-nine successful chunks and one hundred sixteen expected
+currently has seventy-four successful chunks and one hundred nineteen expected
 runtime errors; it requires no Python installation, external checkout, network
 access, or generation step.
 
@@ -784,7 +798,7 @@ cross-module mutation, exported value metadata and singleton identity, uncaught
 traceback snapshots, direct annotation-format bytecode, and class-builder
 argument checks. A separate table
 in `validation_test.go` constructs malformed code objects directly. Its
-eighty-two cases cover unsupported instructions, operands, and constant kinds;
+eighty-eight cases cover unsupported instructions, operands, and constant kinds;
 invalid integer and string descriptors; table and jump bounds; stack underflow,
 overflow, and merge mismatches; unreachable returns; and fallthrough. This
 keeps bytecode invariants out of source fixtures without mixing them into

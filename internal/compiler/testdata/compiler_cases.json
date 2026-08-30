@@ -468,6 +468,11 @@
       "name": "bare reraise in finally",
       "source": "try:\n    missing\nfinally:\n    raise\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[], names=[\"missing\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=3, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, RAISE_VARARGS 0, COPY 1, ENTER_EXCEPT 6, RAISE_VARARGS 0])"
+    },
+    {
+      "name": "exception group handlers",
+      "source": "try:\n    source\nexcept* ValueError as error:\n    handled = error\nexcept* TypeError:\n    raise KeyError('replacement')\nelse:\n    clean = True\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=6, constants=[True, None, String(\"replacement\")], names=[\"source\", \"clean\", \"ValueError\", \"error\", \"handled\", \"TypeError\", \"KeyError\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0), Handler(start=18, end=20, target=25, depth=3), Handler(start=41, end=45, target=45, depth=3)], instructions=[LOAD_NAME 0, POP_TOP, LOAD_CONST 0, STORE_NAME 1, JUMP 64, COPY 1, ENTER_EXCEPT 64, BUILD_LIST 0, COPY 2, LOAD_NAME 2, CHECK_EG_MATCH, COPY 1, LOAD_CONST 1, COMPARE_OP 8, POP_JUMP_IF_TRUE 33, COPY 1, ENTER_EXCEPT 25, STORE_NAME 3, LOAD_NAME 3, STORE_NAME 4, LEAVE_EXCEPT, LOAD_CONST 1, STORE_NAME 3, DELETE_NAME 3, JUMP 34, LOAD_CONST 1, STORE_NAME 3, DELETE_NAME 3, COPY 3, SWAP 2, LIST_APPEND, POP_TOP, JUMP 34, POP_TOP, LOAD_NAME 5, CHECK_EG_MATCH, COPY 1, LOAD_CONST 1, COMPARE_OP 8, POP_JUMP_IF_TRUE 50, ENTER_EXCEPT 45, LOAD_NAME 6, LOAD_CONST 2, CALL 1, RAISE_VARARGS 1, COPY 3, SWAP 2, LIST_APPEND, POP_TOP, JUMP 51, POP_TOP, COPY 2, SWAP 2, LIST_APPEND, POP_TOP, PREP_RERAISE_STAR, COPY 1, LOAD_CONST 1, COMPARE_OP 8, POP_JUMP_IF_TRUE 62, LEAVE_EXCEPT, RERAISE, POP_TOP, LEAVE_EXCEPT, LOAD_CONST 1, RETURN_VALUE])"
     }
   ]
 }

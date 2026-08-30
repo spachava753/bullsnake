@@ -452,7 +452,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
 		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar,
-		bytecode.CheckExceptionMatch, bytecode.Reraise, bytecode.LeaveExcept:
+		bytecode.CheckExceptionMatch, bytecode.CheckExceptionGroupMatch,
+		bytecode.PrepareReraiseStar, bytecode.Reraise, bytecode.LeaveExcept:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -707,8 +708,10 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.SetAdd, bytecode.SetUpdate,
 		bytecode.MapUpdate, bytecode.MapMerge:
 		return 2, 1
-	case bytecode.CheckExceptionMatch:
+	case bytecode.CheckExceptionMatch, bytecode.CheckExceptionGroupMatch:
 		return 2, 2
+	case bytecode.PrepareReraiseStar:
+		return 2, 1
 	case bytecode.MapSet:
 		return 3, 1
 	case bytecode.SetFunctionAttribute:

@@ -105,3 +105,28 @@ raise ExceptionGroup
 # error: ExceptionGroup
 # message: "batch (2 sub-exceptions)"
 raise ExceptionGroup('batch', [ValueError('bad'), TypeError('wrong')])
+# ---
+# case: except star rejects non-exception handler values
+# error: TypeError
+# message: "catching classes that do not inherit from BaseException is not allowed"
+try:
+    raise ValueError('bad handler')
+except* 42:
+    pass
+# ---
+# case: except star rejects exception group handler classes
+# error: TypeError
+# message: "catching ExceptionGroup with except* is not allowed. Use except instead."
+try:
+    raise ExceptionGroup('group', [ValueError('leaf')])
+except* ExceptionGroup:
+    pass
+# ---
+# case: except star clears a bound handler name
+# error: NameError
+# message: "name 'caught' is not defined"
+try:
+    raise ExceptionGroup('group', [ValueError('leaf')])
+except* ValueError as caught:
+    saved = caught
+caught

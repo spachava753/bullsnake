@@ -141,6 +141,98 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "CHECK_EXC_MATCH left operand is not an exception",
 		},
 		{
+			name: "exception group match underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.CheckExceptionGroupMatch},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "exception group match left operand",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadGlobal},
+					{Opcode: bytecode.CheckExceptionGroupMatch},
+					{Opcode: bytecode.PopTop},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.Integer("1")},
+				[]string{"Exception"},
+			),
+			wantFragment: "CHECK_EG_MATCH left operand is not an exception or None",
+		},
+		{
+			name: "exception group merge underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.PrepareReraiseStar},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "exception group merge original value",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildList},
+					{Opcode: bytecode.PrepareReraiseStar},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "PREP_RERAISE_STAR original value is not an exception",
+		},
+		{
+			name: "exception group merge result value",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadGlobal},
+					{Opcode: bytecode.Call},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.PrepareReraiseStar},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				[]string{"Exception"},
+			),
+			wantFragment: "PREP_RERAISE_STAR result value is not a list",
+		},
+		{
+			name: "exception group merge result item",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadGlobal},
+					{Opcode: bytecode.Call},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildList, Operand: 1},
+					{Opcode: bytecode.PrepareReraiseStar},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.Integer("1")},
+				[]string{"Exception"},
+			),
+			wantFragment: "PREP_RERAISE_STAR result item 0 is not an exception or None",
+		},
+		{
 			name: "reraise value",
 			code: testCode(
 				1,
