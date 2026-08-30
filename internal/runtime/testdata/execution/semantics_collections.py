@@ -263,6 +263,26 @@ assert f'{list_left!r}' == "15", "list_left"
 assert f'{list_middle!r}' == "[16, 17]", "list_middle"
 assert f'{list_right!r}' == "18", "list_right"
 # ---
+# case: list comprehensions
+outer = (1, 2, 3)
+values = [outer * 10 for outer in outer if outer != 2]
+pairs = [(1, 2), (0, 3), (4, 5)]
+sums = [left + right for left, right in pairs if left]
+nested = [(left, right) for left in (1, 2) for right in (3, 4) if left + right != 5]
+assert f'{values!r}' == "[10, 30]", "values"
+assert f'{outer!r}' == "(1, 2, 3)", "outer"
+assert f'{sums!r}' == "[3, 9]", "sums"
+assert f'{nested!r}' == "[(1, 3), (2, 4)]", "nested"
+# ---
+# case: list comprehension closures and assignment expressions
+def build(groups, offset):
+    last = 0
+    values = [item + offset for group in groups if group for item in group if (last := item)]
+    return values, last
+
+result = build(((1, 2), (), (3,)), 10)
+assert f'{result!r}' == "([11, 12, 13], 3)", "result"
+# ---
 # case: dictionary item assignment and deletion
 mapping = {'first': 1, 'second': 2}
 mapping['first'] = 10

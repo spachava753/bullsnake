@@ -75,6 +75,8 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		)
 	case *compilerast.DictExpr:
 		return compiler.compileDictDisplay(expression)
+	case *compilerast.ListComprehensionExpr:
+		return compiler.compileListComprehension(expression)
 	case *compilerast.UnaryExpr:
 		return compiler.compileUnary(expression)
 	case *compilerast.BinaryExpr:

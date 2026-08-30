@@ -225,3 +225,14 @@ first, second = (1, 2, 3)
 # error: TypeError
 # message: "cannot unpack non-iterable int object"
 first, second = 1
+# ---
+# case: non-iterable list comprehension
+# error: TypeError
+# message: "'int' object is not iterable"
+values = [item for item in 1]
+# ---
+# case: list comprehension target does not leak
+# error: NameError
+# message: "name 'item' is not defined"
+values = [item for item in ()]
+item
