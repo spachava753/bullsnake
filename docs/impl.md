@@ -178,6 +178,8 @@ The current compiler translates:
 - `if`, synchronous `while` and `for`, loop `else`, `break`, and `continue`
 - synchronous `with`, including multiple managers, exception suppression, and
   cleanup during return or loop transfer
+- basic structural matching with literal and dotted-value tests, capture,
+  wildcard, AS and OR patterns, and guards
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, and lazy function annotations
 - synchronous generator functions with lazy calls, `yield`, `yield from`,
@@ -205,9 +207,9 @@ ordinary function definition or call.
 
 The compiler rejects template-string execution, annotated class attributes,
 `from __future__ import annotations`, generic and async definitions,
-asynchronous comprehensions, `async for`, `async with`, pattern matching, and
-coroutines. Unsupported AST forms return compiler errors; they are not
-approximated with similar bytecode.
+asynchronous comprehensions, `async for`, `async with`, sequence, mapping, and
+class patterns, and coroutines. Unsupported AST forms return compiler errors;
+they are not approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -452,7 +454,7 @@ The largest current gaps are:
   collection
 - no asynchronous comprehensions, coroutines, async execution, or Python
   threads
-- no asynchronous context managers or structural matching
+- no asynchronous context managers or sequence, mapping, and class patterns
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

@@ -157,6 +157,13 @@ The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches
 compiler mistakes before the VM runs them.
 
+Basic structural matching keeps one evaluated subject across case tests.
+Literal and dotted-value patterns compare copies of that subject. The compiler
+stores capture names only after the complete pattern succeeds, then evaluates
+the guard. A false guard leaves those names bound, as Python specifies. Later
+sequence, mapping, and class-pattern support will add extraction before this
+same commit-and-guard step.
+
 Exceptions use protected instruction ranges. A range says where the handler
 starts and how much of the operand stack to keep when an instruction raises.
 Normal execution pays no setup cost for entering a `try` block. `finally`,
