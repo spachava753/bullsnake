@@ -21,7 +21,7 @@ execute every instruction. Each stage rejects behavior it does not yet own.
 | Resolver | Name scopes, closures, contextual checks, annotations, generics, and comprehensions |
 | Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
 | Runtime | Modules, values, collections, functions, basic classes, and structured exceptions |
-| Imports | Lazy flat absolute modules from host-supplied immutable code |
+| Imports | Flat absolute `.py` modules from configured filesystem roots |
 | Go API, standard library, async, and REPL | Not implemented |
 
 The parser and resolver intentionally cover more language forms than the
@@ -43,6 +43,9 @@ parser.Parse
 
 Raw file bytes first pass through `internal/compiler/source`. No public package
 combines these calls yet. Tests and internal callers compose them directly.
+`internal/importer.FileSystem` uses the same sequence for module files found
+under configured roots, then supplies the resulting code through the runtime's
+loader callback.
 
 Errors belong to the stage that can explain them. The source loader reports
 encoding failures. The lexer and parser report malformed syntax. The resolver
@@ -320,20 +323,24 @@ removes every module frame still initializing. An explicit `ExecuteModule`
 failure restores any older module that the execution temporarily replaced.
 
 The callback returns code, not source, so `internal/runtime` remains independent
-of source decoding and compilation. A missing callback or missing name raises
-`ModuleNotFoundError`. Callback errors remain Go host errors in this first
-loading slice.
+of source decoding and compilation. `internal/importer.FileSystem` implements
+that callback shape. It searches configured roots in order for `name.py`, uses
+the ordinary source loader, parser, resolver, and compiler, and preserves typed
+frontend errors under a module-loading wrapper.
 
-There is no built-in filesystem or source loader yet. Dotted packages, relative
-imports, package metadata, `sys.modules`, `__all__`, finder and loader hooks,
-reload, import locks, and a standard library remain unimplemented.
+A missing callback, missing file, or missing callback result raises
+`ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
+until the runtime has the corresponding Python exception values. Dotted
+packages, relative imports, package metadata, `sys.modules`, `__all__`, finder
+and loader hooks, reload, import locks, and a standard library remain
+unimplemented.
 
 ## Deliberate boundaries
 
 The largest current gaps are:
 
 - no public Go embedding or extension API
-- no standard library, filesystem package loader, or native extension loading
+- no packages, standard library, or native extension loading
 - no generators, coroutines, async execution, or Python threads
 - no comprehensions, context-manager execution, or structural matching
 - no complete Python object protocol, descriptors, user hashing, or multiple

@@ -235,12 +235,13 @@ reuse one object. Because the cache entry exists before execution, circular
 imports see the names assigned so far. If execution fails, the runtime removes
 only that module; dependencies that finished successfully remain cached.
 
-A complete loader will later find source modules and packages, compile them
-outside the runtime, and supply package metadata. Source modules and statically
-linked Go modules should enter through the same loading path. Dotted and
-relative names, filesystem search, Python-visible `sys.modules`, advanced
-`importlib` hooks, zip imports, reload, and bytecode caches should be added only
-when package tests require their observable behavior.
+The first filesystem loader searches configured roots for `name.py`, decodes
+and compiles the file outside the runtime, and returns its code object. A later
+loader will add packages and the metadata needed for dotted and relative names.
+Source modules and statically linked Go modules should enter through the same
+runtime loading path. Python-visible `sys.modules`, advanced `importlib` hooks,
+zip imports, reload, and bytecode caches should be added only when package tests
+require their observable behavior.
 
 ## Go embedding and extensions
 
@@ -331,13 +332,17 @@ internal/compiler/ast/      syntax tree
 internal/compiler/parser/   grammar
 internal/compiler/resolver/ scopes and name meaning
 internal/compiler/bytecode/ immutable code objects
+internal/importer/          source module discovery and compilation
 internal/runtime/           values, validation, frames, VM, and current imports
 experiments/                disposable design probes
 ```
 
 The compiler depends on syntax and resolution, but not on the runtime. The
-runtime consumes immutable code objects, but it does not parse source. A future
-public package will compose the two without making internal packages public.
+runtime consumes immutable code objects, but it does not parse source. The
+importer composes source loading and compilation, then supplies code through a
+callback shape that does not create a compiler-to-runtime dependency. A future
+public package will configure these pieces without making internal packages
+public.
 
 The runtime should remain one coarse internal package until imports, scheduling,
 or builtins have an independent API or dependency reason to split.
