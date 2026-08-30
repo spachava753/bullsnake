@@ -634,6 +634,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		case bytecode.BinaryAdd,
 			bytecode.BinarySubtract,
 			bytecode.BinaryMultiply,
+			bytecode.BinaryDivide,
 			bytecode.BinaryFloorDivide,
 			bytecode.BinaryModulo,
 			bytecode.BinaryLeftShift,

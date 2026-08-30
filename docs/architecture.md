@@ -249,6 +249,11 @@ Python-visible `sys.modules`, advanced `importlib` hooks, zip imports, reload,
 and bytecode caches should be added only when package tests require their
 observable behavior.
 
+Selected CPython standard-library modules are copied unchanged into the
+versioned `stdlib` directory. Bullsnake copies only the upstream public test
+cases it intends to run and records any adaptation beside the test. These tests
+use the same Go runner and interpreter path as other source execution tests.
+
 ## Go embedding and extensions
 
 A public Go API is not implemented yet. Its intended shape is small:
@@ -362,6 +367,7 @@ Bullsnake uses several kinds of evidence:
 - negative fixtures for Python errors and unsupported behavior
 - direct malformed-bytecode tests for the runtime validator
 - CPython-derived conformance cases for selected behavior
+- selected vendored CPython standard-library sources and public tests
 - fuzz tests for parsers and other input boundaries
 - future package tests against pinned package and dependency versions
 
@@ -375,7 +381,7 @@ promises them.
 The project still needs concrete decisions about:
 
 - the first package compatibility set
-- the first standard-library modules needed by that set
+- which standard-library module to vendor next
 - the public Go embedding and extension API
 - namespace-package and extended import-hook behavior
 - generator, coroutine, and scheduler behavior

@@ -127,15 +127,43 @@ func executeBinary(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
+	if leftFloat, leftOK := left.(*floatValue); leftOK {
+		if rightFloat, rightOK := right.(*floatValue); rightOK {
+			var result float64
+			switch operand {
+			case bytecode.BinaryAdd:
+				result = leftFloat.value + rightFloat.value
+			case bytecode.BinarySubtract:
+				result = leftFloat.value - rightFloat.value
+			case bytecode.BinaryMultiply:
+				result = leftFloat.value * rightFloat.value
+			case bytecode.BinaryDivide:
+				if rightFloat.value == 0 {
+					return instructionOutcome{
+						kind:      raised,
+						exception: newException("ZeroDivisionError", "division by zero"),
+					}, nil
+				}
+				result = leftFloat.value / rightFloat.value
+			default:
+				leftOK = false
+			}
+			if leftOK {
+				return pushOutcome(frame, index, &floatValue{value: result})
+			}
+		}
+	}
 	leftInteger, leftOK := integerOperand(left)
 	rightInteger, rightOK := integerOperand(right)
-	if !leftOK || !rightOK {
+	if !leftOK || !rightOK || operand == bytecode.BinaryDivide {
 		operator := "+"
 		switch operand {
 		case bytecode.BinarySubtract:
 			operator = "-"
 		case bytecode.BinaryMultiply:
 			operator = "*"
+		case bytecode.BinaryDivide:
+			operator = "/"
 		case bytecode.BinaryFloorDivide:
 			operator = "//"
 		case bytecode.BinaryModulo:

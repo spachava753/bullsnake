@@ -128,3 +128,13 @@ assert bool_right == 4
 assert huge_right == 0
 assert huge_negative_right == -1
 assert huge_zero_left == 0
+# ---
+# case: float arithmetic
+addition = 1.25 + 2.5
+subtraction = 3.5 - 1.25
+multiplication = 1.5 * 4.0
+division = 5.0 / 2.0
+assert addition == 3.75
+assert subtraction == 2.25
+assert multiplication == 6.0
+assert division == 2.5

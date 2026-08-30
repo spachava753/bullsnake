@@ -64,3 +64,8 @@ answer = +'text'
 # error: TypeError
 # message: "bad operand type for unary ~: 'float'"
 answer = ~1.5
+# ---
+# case: float division by zero
+# error: ZeroDivisionError
+# message: "division by zero"
+answer = 1.0 / 0.0

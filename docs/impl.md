@@ -22,7 +22,7 @@ execute every instruction. Each stage rejects behavior it does not yet own.
 | Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
 | Runtime | Modules, values, collections, functions, basic classes, and structured exceptions |
 | Imports | Regular packages and modules from configured filesystem roots |
-| Go API, standard library, async, and REPL | Not implemented |
+| Go API, broad standard library, async, and REPL | Not implemented |
 
 The parser and resolver intentionally cover more language forms than the
 compiler. The compiler also defines some bytecode that the runtime still
@@ -259,6 +259,10 @@ clipping and positive or negative steps. Dictionary iteration detects key-set
 changes; replacing an existing value is allowed. Set display and iteration
 order is stable for Bullsnake tests but is not a Python compatibility promise.
 
+Current float arithmetic covers float-to-float addition, subtraction,
+multiplication, and true division. Other numeric combinations remain
+unsupported.
+
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and
 keyword unpacking. Defaults retain the objects created when the definition ran.
@@ -360,14 +364,20 @@ A missing callback, missing file, or missing callback result raises
 `ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
 until the runtime has the corresponding Python exception values. Namespace
 packages, dynamic `__path__` changes, `sys.modules`, finder and loader hooks,
-reload, import locks, and a standard library remain unimplemented.
+reload, import locks, and a general standard-library distribution remain
+unimplemented.
+
+Bullsnake vendors selected CPython 3.14.7 standard-library modules under
+`stdlib/3.14`. The first module is the unchanged `colorsys.py`. Its Go test
+executes a selected upstream public-behavior case through the filesystem loader
+and complete interpreter pipeline.
 
 ## Deliberate boundaries
 
 The largest current gaps are:
 
 - no public Go embedding or extension API
-- no namespace packages, standard library, or native extension loading
+- no namespace packages, broad standard library, or native extension loading
 - no generators, coroutines, async execution, or Python threads
 - no comprehensions, context-manager execution, or structural matching
 - no complete Python object protocol, descriptors, user hashing, or multiple
@@ -397,6 +407,7 @@ The repository uses several test layers:
 
 - focused Go tests for package APIs, spans, dumps, copying, and invariants
 - CPython-derived lexer and parser cases pinned to Python 3.14.7
+- selected vendored CPython standard-library modules and public test cases
 - resolver cases that compare complete deterministic scope dumps
 - compiler cases that compare complete deterministic code-object dumps
 - chunked Python execution fixtures that pass through parser, resolver,
