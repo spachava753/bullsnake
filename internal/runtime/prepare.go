@@ -99,11 +99,15 @@ func (code *preparedCode) validateMetadata() error {
 			"keyword-only parameter range exceeds local table length",
 		)
 	}
-	if flags&bytecode.VarKeywords != 0 {
-		return code.failure(-1, "variadic keyword parameters are not supported")
+	if flags&bytecode.VarKeywords != 0 && keywordStart+keywordOnly >= len(code.locals) {
+		return code.failure(
+			-1,
+			"variadic keyword parameter index %d out of range",
+			keywordStart+keywordOnly,
+		)
 	}
 	supportedFlags := bytecode.Optimized | bytecode.NewLocals | bytecode.Nested |
-		bytecode.VarArgs
+		bytecode.VarArgs | bytecode.VarKeywords
 	if unsupported := flags &^ supportedFlags; unsupported != 0 {
 		return code.failure(-1, "unsupported code flags %s", unsupported)
 	}

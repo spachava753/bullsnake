@@ -145,7 +145,13 @@ func bindFunctionArguments(
 	keywordStart, keywordEnd := keywordOnlyRange(function.code)
 	required := positionalCount - len(function.defaults)
 	variadic := code.Flags()&bytecode.VarArgs != 0
+	variadicKeywords := code.Flags()&bytecode.VarKeywords != 0
 	locals := make([]Value, len(function.code.locals))
+	var keywordArguments *dictValue
+	if variadicKeywords {
+		keywordArguments = &dictValue{}
+		locals[keywordEnd] = keywordArguments
+	}
 
 	positionalGiven := min(len(arguments), positionalCount)
 	copy(locals[:positionalGiven], arguments[:positionalGiven])
@@ -167,10 +173,12 @@ func bindFunctionArguments(
 				)
 			}
 			keywordNames[index] = name.value
-			for parameter := 0; parameter < positionalOnly; parameter++ {
-				if function.code.locals[parameter] == name.value {
-					positionalOnlyNames = append(positionalOnlyNames, name.value)
-					break
+			if !variadicKeywords {
+				for parameter := 0; parameter < positionalOnly; parameter++ {
+					if function.code.locals[parameter] == name.value {
+						positionalOnlyNames = append(positionalOnlyNames, name.value)
+						break
+					}
 				}
 			}
 		}
@@ -200,6 +208,12 @@ func bindFunctionArguments(
 				}
 			}
 			if parameterIndex < 0 {
+				if variadicKeywords {
+					if exception := keywordArguments.set(entry.key, entry.value); exception != nil {
+						return nil, exception
+					}
+					continue
+				}
 				return nil, newException(
 					"TypeError",
 					code.QualifiedName()+

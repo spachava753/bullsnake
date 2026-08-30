@@ -321,6 +321,43 @@ func TestNamedOnlyParameters(t *testing.T) {
 	}
 }
 
+func TestCatchAllKeywordBinding(t *testing.T) {
+	code := compileSource(t, "def collect(first=1, **options):\n"+
+		"    return first, options\n"+
+		"empty = collect()\n"+
+		"filled = collect(2, mode='fast', retries=3)\n"+
+		"def mixed(first, *items, flag='default', **options):\n"+
+		"    return first, items, flag, options\n"+
+		"combined = mixed(10, 20, flag='set', extra=30)\n"+
+		"def preserve(name, /, **options):\n"+
+		"    return name, options\n"+
+		"preserved = preserve('bound', name='extra')\n"+
+		"def fresh(**options):\n"+
+		"    return options\n"+
+		"distinct = fresh() is not fresh()\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("variadic keywords", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"empty":     "(1, {})",
+		"filled":    "(2, {'mode': 'fast', 'retries': 3})",
+		"combined":  "(10, (20,), 'set', {'extra': 30})",
+		"preserved": "('bound', {'name': 'extra'})",
+		"distinct":  "True",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -2056,6 +2093,19 @@ func TestBytecodeValidation(t *testing.T) {
 				nil,
 			),
 			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "variadic keyword local range",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.VarKeywords,
+			}),
+			wantFragment: "variadic keyword parameter index 0 out of range",
 		},
 		{
 			name: "keyword-only local range",

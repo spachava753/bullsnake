@@ -423,9 +423,11 @@ positional tuple plus an optional ordered keyword dictionary assembled by
 `MAP_MERGE`. Function attributes retain positional defaults and sparse
 keyword-only defaults as Python values evaluated when the definition executes.
 The binder fills those defaults, packs surplus arguments into `*args`, and
-assigns ordinary and keyword-only names after rejecting positional-only,
-duplicate, non-string, and unexpected names. It then replaces the active frame
-with a child whose `previous` link names the caller.
+matches ordinary and keyword-only names. When `**kwargs` is present, it stores
+unmatched names in a fresh dictionary in call order. The binder rejects
+positional-only, duplicate, non-string, and unexpected names when the signature
+does not provide a legal destination. It then replaces the active frame with a
+child whose `previous` link names the caller.
 Return restores that caller and pushes the result. Nested and recursive Python
 calls therefore remain in the iterative dispatcher. A suspended async task or
 generator will eventually own the same frame state needed to resume it.

@@ -438,13 +438,16 @@ loop.
 
 The current call binder supports positional-only, ordinary positional, and
 keyword-only parameters; trailing positional defaults; sparse keyword-only
-defaults; `*args`; and named values supplied by keyword or `**dict`. Defaults
-remain the same Python objects captured when the definition executes. The binder
-rejects positional-only names, duplicate bindings, non-string keys, unexpected
+defaults; `*args`; `**kwargs`; and named values supplied by keyword or `**dict`.
+Defaults remain the same Python objects captured when the definition executes.
+Every call creates a fresh variadic-keyword dictionary after the keyword-only
+fast locals, then inserts unmatched names in call order. A positional-only name
+is unmatched and therefore enters that dictionary when the function declares
+`**kwargs`. The binder rejects duplicate bindings, non-string keys, unexpected
 names, and missing required positional or keyword-only arguments with Python
-exceptions. Variadic keyword parameters, closures, decorators at execution time,
-callable native values, suspension, exception handlers, traceback chains,
-cancellation, recursion limits, and execution budgets are not yet implemented.
+exceptions. Closures, decorators at execution time, callable native values,
+suspension, exception handlers, traceback chains, cancellation, recursion
+limits, and execution budgets are not yet implemented.
 
 ## Object model and runtime
 
