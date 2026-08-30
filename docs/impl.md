@@ -555,10 +555,13 @@ causes raise `TypeError`. The raised exception exposes read-only `__cause__`,
 `__context__`, and `__suppress_context__` attributes. Fresh raises link the
 active handled exception as context, including across function calls and final
 suites. Reraises preserve the existing chain, and cycle prevention cuts a
-back-link before assigning context. Callable native values, multiple
-inheritance, C3 linearization, metaclasses, `super`, `__new__`, general
-descriptors, suspension, traceback rendering, cancellation, recursion limits, and
-execution budgets are not yet implemented.
+back-link before assigning context. Every unwind records its Python frame and
+instruction. `UncaughtException.Traceback` returns an outermost-first copy;
+`Backtrace` formats the chain while `Error` retains its short location form.
+Python `__traceback__` objects, frame introspection, callable native values,
+multiple inheritance, C3 linearization, metaclasses, `super`, `__new__`, general
+descriptors, suspension, cancellation, recursion limits, and execution budgets
+are not yet implemented.
 
 ## Object model and runtime
 
@@ -764,8 +767,9 @@ or generation step.
 
 Focused Go tests retain only behavior that crosses the language/host boundary
 or cannot be expressed by supported Python source: module cache identity and
-cross-module mutation, exported value metadata and singleton identity, direct
-annotation-format bytecode, and class-builder argument checks. A separate table
+cross-module mutation, exported value metadata and singleton identity, uncaught
+traceback snapshots, direct annotation-format bytecode, and class-builder
+argument checks. A separate table
 in `validation_test.go` constructs malformed code objects directly. Its
 eighty-two cases cover unsupported instructions, operands, and constant kinds;
 invalid integer and string descriptors; table and jump bounds; stack underflow,

@@ -203,6 +203,112 @@ func TestExplicitRaiseMovesOrigin(t *testing.T) {
 	}
 }
 
+func TestUncaughtTracebackAPI(t *testing.T) {
+	type wantFrame struct {
+		name string
+		line int
+	}
+	tests := []struct {
+		name          string
+		source        string
+		wantFrames    []wantFrame
+		wantBacktrace string
+	}{
+		{
+			name: "nested calls",
+			source: "def inner():\n" +
+				"    missing_name\n" +
+				"def middle():\n" +
+				"    inner()\n" +
+				"def outer():\n" +
+				"    middle()\n" +
+				"outer()\n",
+			wantFrames: []wantFrame{
+				{name: "<module>", line: 7},
+				{name: "outer", line: 6},
+				{name: "middle", line: 4},
+				{name: "inner", line: 2},
+			},
+			wantBacktrace: "Traceback (most recent call last):\n" +
+				"  File \"<test>\", line 7, in <module>\n" +
+				"  File \"<test>\", line 6, in outer\n" +
+				"  File \"<test>\", line 4, in middle\n" +
+				"  File \"<test>\", line 2, in inner\n" +
+				"NameError: name 'missing_name' is not defined",
+		},
+		{
+			name: "bare reraise",
+			source: "def inner():\n" +
+				"    try:\n" +
+				"        missing_name\n" +
+				"    except NameError:\n" +
+				"        raise\n" +
+				"inner()\n",
+			wantFrames: []wantFrame{
+				{name: "<module>", line: 6},
+				{name: "inner", line: 3},
+			},
+		},
+		{
+			name: "explicit reraise",
+			source: "def inner():\n" +
+				"    try:\n" +
+				"        missing_name\n" +
+				"    except NameError as error:\n" +
+				"        raise error\n" +
+				"inner()\n",
+			wantFrames: []wantFrame{
+				{name: "<module>", line: 6},
+				{name: "inner", line: 5},
+				{name: "inner", line: 3},
+			},
+		},
+		{
+			name: "called bare reraise",
+			source: "def reraiser():\n" +
+				"    raise\n" +
+				"def outer():\n" +
+				"    try:\n" +
+				"        missing_name\n" +
+				"    except NameError:\n" +
+				"        reraiser()\n" +
+				"outer()\n",
+			wantFrames: []wantFrame{
+				{name: "<module>", line: 8},
+				{name: "outer", line: 7},
+				{name: "outer", line: 5},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := bullruntime.New().ExecuteModule("traceback", compileSource(t, test.source))
+			var raised *bullruntime.UncaughtException
+			if !errors.As(err, &raised) {
+				t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+			}
+			frames := raised.Traceback()
+			if len(frames) != len(test.wantFrames) {
+				t.Fatalf("traceback has %d frames, want %d: %#v", len(frames), len(test.wantFrames), frames)
+			}
+			for index, want := range test.wantFrames {
+				frame := frames[index]
+				if frame.Filename != "<test>" || frame.Name != want.name || frame.Span.Start.Line != want.line {
+					t.Errorf("frame %d = %#v, want <test>:%d in %s", index, frame, want.line, want.name)
+				}
+			}
+			if test.wantBacktrace != "" && raised.Backtrace() != test.wantBacktrace {
+				t.Errorf("backtrace = %q, want %q", raised.Backtrace(), test.wantBacktrace)
+			}
+			frames[0].Name = "changed"
+			if raised.Traceback()[0].Name == "changed" {
+				t.Fatal("Traceback returned mutable internal storage")
+			}
+		})
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+

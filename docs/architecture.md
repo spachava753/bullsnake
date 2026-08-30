@@ -475,7 +475,11 @@ Exception values expose read-only `__cause__`, `__context__`, and
 `__suppress_context__` attributes. A fresh raise links the active handled
 exception as context across frame calls and exceptional final suites; reraises
 keep their existing chain. Context assignment removes a back-link before it can
-form a cycle. Traceback rendering remains future runtime work.
+form a cycle. Each unwind records the current Python frame and instruction;
+reraises skip their own instruction while callers still record call sites.
+`UncaughtException.Traceback` returns an outermost-first copy, and `Backtrace`
+formats it without changing the short `Error` message. Python `__traceback__`
+objects and frame introspection remain future runtime work.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one

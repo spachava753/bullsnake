@@ -63,6 +63,7 @@ func (runtime *Runtime) ExecuteModule(name string, code *bytecode.Code) (*Module
 			exception: raised.exception,
 			filename:  raised.frame.code.code.Filename(),
 			span:      raised.frame.position(raised.instruction),
+			traceback: raised.exception.tracebackFrames(),
 		}
 	}
 	runtime.modules[name] = module

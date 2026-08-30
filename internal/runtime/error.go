@@ -2,7 +2,9 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
@@ -106,6 +108,19 @@ func executeExceptionTypeCall(
 	return pushOutcome(caller, instruction, newExceptionOfType(exceptionType, message))
 }
 
+type tracebackEntry struct {
+	frame       *frame
+	instruction int
+}
+
+// TracebackFrame describes one Python frame crossed while an exception unwinds.
+type TracebackFrame struct {
+	Filename      string
+	Name          string
+	QualifiedName string
+	Span          lexer.Span
+}
+
 // Exception is a Python exception value raised by bytecode execution.
 type Exception struct {
 	class             *exceptionTypeValue
@@ -115,6 +130,7 @@ type Exception struct {
 	suppressContext   bool
 	originFrame       *frame
 	originInstruction int
+	traceback         []tracebackEntry
 }
 
 func newException(typeName, message string) *Exception {
@@ -159,6 +175,20 @@ func (exception *Exception) chainContext(context *Exception) {
 		}
 	}
 	exception.context = context
+}
+
+func (exception *Exception) tracebackFrames() []TracebackFrame {
+	frames := make([]TracebackFrame, len(exception.traceback))
+	for index, entry := range exception.traceback {
+		code := entry.frame.code.code
+		frames[len(frames)-1-index] = TracebackFrame{
+			Filename:      code.Filename(),
+			Name:          code.Name(),
+			QualifiedName: code.QualifiedName(),
+			Span:          entry.frame.position(entry.instruction),
+		}
+	}
+	return frames
 }
 
 // attribute returns the three chain fields exposed by current exception values,
@@ -232,10 +262,40 @@ type UncaughtException struct {
 	exception *Exception
 	filename  string
 	span      lexer.Span
+	traceback []TracebackFrame
 }
 
 // Exception returns the raised Python value.
 func (raised *UncaughtException) Exception() *Exception { return raised.exception }
+
+// Traceback returns an outermost-first copy of the Python frame chain.
+func (raised *UncaughtException) Traceback() []TracebackFrame {
+	return slices.Clone(raised.traceback)
+}
+
+// Backtrace formats the complete Python frame chain and final exception.
+func (raised *UncaughtException) Backtrace() string {
+	var output strings.Builder
+	if len(raised.traceback) != 0 {
+		output.WriteString("Traceback (most recent call last):\n")
+	}
+	for _, frame := range raised.traceback {
+		fmt.Fprintf(
+			&output,
+			"  File %q, line %d, in %s\n",
+			frame.Filename,
+			frame.Span.Start.Line,
+			frame.Name,
+		)
+	}
+	fmt.Fprintf(
+		&output,
+		"%s: %s",
+		raised.exception.TypeName(),
+		raised.exception.Message(),
+	)
+	return output.String()
+}
 
 // Error formats the uncaught exception at the instruction that raised it.
 func (raised *UncaughtException) Error() string {

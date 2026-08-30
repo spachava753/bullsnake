@@ -20,6 +20,7 @@ type instructionOutcome struct {
 	value     Value
 	exception *Exception
 	frame     *frame
+	reraise   bool
 }
 
 type raisedOutcome struct {
@@ -67,6 +68,7 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 							"__init__() should return None, not '"+
 								result.TypeName()+"'",
 						),
+						false,
 					)
 					if routeErr != nil {
 						return nil, nil, routeErr
@@ -91,7 +93,13 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 				)
 			}
 		case raised:
-			unhandled, routeErr := routeException(thread, active, index, outcome.exception)
+			unhandled, routeErr := routeException(
+				thread,
+				active,
+				index,
+				outcome.exception,
+				outcome.reraise,
+			)
 			if routeErr != nil {
 				return nil, nil, routeErr
 			}
@@ -112,6 +120,7 @@ func routeException(
 	origin *frame,
 	instruction int,
 	exception *Exception,
+	reraise bool,
 ) (*raisedOutcome, error) {
 	if origin == nil {
 		return nil, &BytecodeError{Instruction: instruction, Message: "exception has no frame"}
@@ -131,7 +140,16 @@ func routeException(
 	}
 	current := origin
 	currentInstruction := instruction
+	skipTraceback := reraise
 	for current != nil {
+		if skipTraceback {
+			skipTraceback = false
+		} else {
+			exception.traceback = append(exception.traceback, tracebackEntry{
+				frame:       current,
+				instruction: currentInstruction,
+			})
+		}
 		if handler, ok := current.code.exceptionHandler(currentInstruction); ok {
 			depth := handler.StackDepth
 			if len(current.stack) < depth {
@@ -746,14 +764,16 @@ func executeInstruction(
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "RERAISE value is not an exception")
 		}
-		return instructionOutcome{kind: raised, exception: exception}, nil
+		return instructionOutcome{kind: raised, exception: exception, reraise: true}, nil
 	case bytecode.RaiseVarargs:
 		if instruction.Operand == 0 {
 			exception := activeHandledException(frame, index)
+			reraise := true
 			if exception == nil {
 				exception = newException("RuntimeError", "No active exception to reraise")
+				reraise = false
 			}
-			return instructionOutcome{kind: raised, exception: exception}, nil
+			return instructionOutcome{kind: raised, exception: exception, reraise: reraise}, nil
 		}
 		var causeValue Value
 		if instruction.Operand == 2 {
