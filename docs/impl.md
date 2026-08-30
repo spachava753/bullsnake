@@ -440,17 +440,19 @@ dictionary assembled by duplicate-checking `MAP_MERGE`. Both return a
 child-frame outcome. The dispatch loop switches to that frame without a Go call;
 `RETURN_VALUE` restores the predecessor and pushes the result. Repeated, nested,
 and recursive Python calls therefore remain in one iterative loop.
-`LOAD_BUILD_CLASS` uses the same transition to run a no-base class body with a
-fresh local namespace. A class-build record on that body frame converts return
-into a basic type value, retains the namespace, and fills a returned `__class__`
-cell before resuming the defining frame. Module execution seeds `__name__` so
-class bodies can initialize `__module__`. Type calls allocate fresh instances.
-If a class defines a plain `__init__`, construction invokes it as a bound method
-and a frame-return continuation requires `None` before pushing the instance.
-Without `__init__`, only an empty call is accepted. `LOAD_ATTR` checks instance
-storage before the retained class namespace and binds class-level plain
-functions; type lookup still returns raw namespace entries. `STORE_ATTR` and
-`DELETE_ATTR` mutate the selected instance or type namespace directly.
+`LOAD_BUILD_CLASS` uses the same transition to run a zero- or single-base class
+body with a fresh local namespace. The builder requires any base to be a
+Bullsnake type. A class-build record on the body frame converts return into a
+basic type value, retains the namespace and optional base, and fills a returned
+`__class__` cell before resuming the defining frame. Module execution seeds
+`__name__` so class bodies can initialize `__module__`. Type calls allocate fresh
+instances. If a class defines or inherits a plain `__init__`, construction
+invokes it as a bound method and a frame-return continuation requires `None`
+before pushing the instance. Without `__init__`, only an empty call is accepted.
+`LOAD_ATTR` checks instance storage before walking the class base chain and binds
+class-level plain functions; type lookup still returns raw namespace entries.
+`STORE_ATTR` and `DELETE_ATTR` mutate only the selected instance or type
+namespace.
 
 The current call binder supports positional-only, ordinary positional, and
 keyword-only parameters; trailing positional defaults; sparse keyword-only
@@ -470,10 +472,10 @@ from bottom to top. Annotation attributes retain the compiler-generated callable
 without evaluating annotation expressions during definition or ordinary calls.
 Its internal format guard can raise `NotImplementedError`; Python attribute
 lookup and `annotationlib` integration cannot request annotation maps yet.
-Callable native values, other raise forms, class bases, metaclasses, `__new__`,
-inherited lookup, general descriptors, suspension, exception handlers, traceback
-chains, cancellation, recursion limits, and execution budgets are not yet
-implemented.
+Callable native values, other raise forms, multiple inheritance, C3
+linearization, metaclasses, `super`, `__new__`, general descriptors, suspension,
+exception handlers, traceback chains, cancellation, recursion limits, and
+execution budgets are not yet implemented.
 
 ## Object model and runtime
 
@@ -488,9 +490,10 @@ the compiler's deliberate WTF-8 encoding for lone surrogates; bytes objects
 retain arbitrary payloads. Stable representations escape non-printable text and
 bytes without losing their contents. Basic type objects retain their class-body
 namespace; instances own a separate namespace and use stable module-qualified
-representations. `LOAD_ATTR` implements instance-first lookup and plain-function
-binding; `STORE_ATTR` and `DELETE_ATTR` directly mutate instance or type
-namespaces. Inheritance and general descriptors remain deferred.
+representations. `LOAD_ATTR` implements instance-first lookup, then walks the
+single-base class chain and binds plain functions. `STORE_ATTR` and `DELETE_ATTR`
+directly mutate instance or type namespaces. Multiple inheritance and general
+descriptors remain deferred.
 
 Fixed tuple and list displays consume their elements in source order and
 allocate heap-backed sequence values. Exact and starred unpacking arrange stack

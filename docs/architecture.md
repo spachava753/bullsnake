@@ -439,18 +439,21 @@ signature does not provide a legal destination. It then replaces the active
 frame with a child whose `previous` link names the caller.
 Return restores that caller and pushes the result. Nested and recursive Python
 calls therefore remain in the iterative dispatcher. `LOAD_BUILD_CLASS` pushes
-an internal class builder. For a no-base class, it runs the body function in a
-fresh namespace and records a class-build continuation on that frame. Return
-turns the retained namespace into a type value, fills a returned `__class__`
-cell when present, and then resumes the defining frame. Type calls allocate a
-fresh instance when no arguments are supplied. `LOAD_ATTR` checks instance
-storage, falls back to the type namespace, and binds plain class functions by
-prepending the instance through the ordinary call binder. If the class defines a
-plain `__init__` function, construction runs it as another Python frame and a
-return continuation requires `None` before exposing the allocated instance.
+an internal class builder. For a class with at most one Bullsnake type base, it
+runs the body function in a fresh namespace and records a class-build
+continuation on that frame. Return turns the retained namespace into a type
+value, fills a returned `__class__` cell when present, and then resumes the
+defining frame. Type calls allocate a fresh instance when no arguments are
+supplied. `LOAD_ATTR` checks instance storage, falls back through the type's base
+chain, and binds plain class functions by prepending the instance through the
+ordinary call binder. If the class defines or inherits a plain `__init__`
+function, construction runs it as another Python frame and a return continuation
+requires `None` before exposing the allocated instance.
 `STORE_ATTR` and `DELETE_ATTR` mutate instance or class namespaces directly.
-Bases, metaclasses, `__new__`, inherited lookup, and general descriptors require
-later object-model slices.
+The class builder accepts one existing Bullsnake type as a base; class,
+instance, and initializer lookup walk that base chain with child entries taking
+precedence. Multiple inheritance, C3 linearization, metaclasses, `super`,
+`__new__`, and general descriptors require later object-model slices.
 A suspended async task or generator will eventually own the same frame state
 needed to resume it.
 

@@ -775,6 +775,47 @@ func TestConstructorStateMutation(t *testing.T) {
 	}
 }
 
+func TestSingleInheritance(t *testing.T) {
+	code := compileSource(t, "class Base:\n"+
+		"    value = 40\n"+
+		"    def __init__(self, start):\n"+
+		"        self.start = start\n"+
+		"    def total(self, extra):\n"+
+		"        return self.start + self.value + extra\n"+
+		"class Child(Base):\n"+
+		"    value = 1\n"+
+		"class Override(Base):\n"+
+		"    def total(self, extra):\n"+
+		"        return 99\n"+
+		"child = Child(10)\n"+
+		"inherited_value = Child.value\n"+
+		"inherited_method = child.total(2)\n"+
+		"class_method = Child.total(child, 3)\n"+
+		"initialized = child.start\n"+
+		"overridden = Override(5).total(8)\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("inheritance", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"inherited_value":  "1",
+		"inherited_method": "13",
+		"class_method":     "14",
+		"initialized":      "10",
+		"overridden":       "99",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1827,6 +1868,24 @@ func TestPythonExceptions(t *testing.T) {
 		wantType    string
 		wantMessage string
 	}{
+		{
+			name: "non-type class base",
+			source: "class Broken(1):\n" +
+				"    pass\n",
+			wantType:    "TypeError",
+			wantMessage: "class base is not a type",
+		},
+		{
+			name: "multiple inheritance",
+			source: "class Left:\n" +
+				"    pass\n" +
+				"class Right:\n" +
+				"    pass\n" +
+				"class Child(Left, Right):\n" +
+				"    pass\n",
+			wantType:    "TypeError",
+			wantMessage: "multiple inheritance is not supported",
+		},
 		{
 			name: "initializer return value",
 			source: "class Broken:\n" +

@@ -169,7 +169,7 @@ func executeInstruction(
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
 		case *typeValue:
-			value, found := owner.namespace.get(name)
+			value, found := owner.lookup(name)
 			if !found {
 				return instructionOutcome{
 					kind: raised,
@@ -184,7 +184,7 @@ func executeInstruction(
 			value, found := owner.attributes.get(name)
 			fromClass := !found
 			if !found {
-				value, found = owner.class.namespace.get(name)
+				value, found = owner.class.lookup(name)
 			}
 			if !found {
 				return instructionOutcome{

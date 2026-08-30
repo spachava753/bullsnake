@@ -13,6 +13,7 @@ type typeValue struct {
 	qualifiedName string
 	module        string
 	namespace     *Namespace
+	bases         []*typeValue
 }
 
 func (*typeValue) TypeName() string { return "type" }
@@ -23,6 +24,19 @@ func (class *typeValue) Repr() string {
 	return "<class '" + class.module + "." + class.qualifiedName + "'>"
 }
 func (*typeValue) isValue() {}
+
+func (class *typeValue) lookup(name string) (Value, bool) {
+	for current := class; current != nil; {
+		if value, found := current.namespace.get(name); found {
+			return value, true
+		}
+		if len(current.bases) == 0 {
+			break
+		}
+		current = current.bases[0]
+	}
+	return nil, false
+}
 
 type instanceValue struct {
 	class      *typeValue
@@ -55,6 +69,7 @@ type classBuild struct {
 	qualifiedName string
 	module        string
 	namespace     *Namespace
+	bases         []*typeValue
 }
 
 func (build *classBuild) finish(bodyResult Value) Value {
@@ -63,6 +78,7 @@ func (build *classBuild) finish(bodyResult Value) Value {
 		qualifiedName: build.qualifiedName,
 		module:        build.module,
 		namespace:     build.namespace,
+		bases:         build.bases,
 	}
 	if classCell, ok := bodyResult.(*cellValue); ok {
 		classCell.value = class
@@ -99,11 +115,28 @@ func executeBuildClassCall(
 			exception: newException("TypeError", "__build_class__: name is not a string"),
 		}, nil
 	}
-	if len(arguments) != 2 || (keywords != nil && len(keywords.entries) != 0) {
+	if keywords != nil && len(keywords.entries) != 0 {
 		return instructionOutcome{
 			kind:      raised,
-			exception: newException("TypeError", "class bases and keywords are not supported"),
+			exception: newException("TypeError", "class keyword arguments are not supported"),
 		}, nil
+	}
+	if len(arguments) > 3 {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "multiple inheritance is not supported"),
+		}, nil
+	}
+	var bases []*typeValue
+	if len(arguments) == 3 {
+		classBase, isType := arguments[2].(*typeValue)
+		if !isType {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("TypeError", "class base is not a type"),
+			}, nil
+		}
+		bases = []*typeValue{classBase}
 	}
 	locals, exception := bindFunctionArguments(body, nil, nil)
 	if exception != nil {
@@ -141,6 +174,7 @@ func executeBuildClassCall(
 			qualifiedName: body.code.code.QualifiedName(),
 			module:        module,
 			namespace:     namespace,
+			bases:         bases,
 		},
 	}
 	return instructionOutcome{kind: called, frame: child}, nil
@@ -163,7 +197,7 @@ func executeTypeCall(
 	keywords *dictValue,
 ) (instructionOutcome, error) {
 	instance := &instanceValue{class: class, attributes: newNamespace()}
-	initializerValue, hasInitializer := class.namespace.get("__init__")
+	initializerValue, hasInitializer := class.lookup("__init__")
 	if !hasInitializer {
 		if len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0) {
 			return instructionOutcome{
