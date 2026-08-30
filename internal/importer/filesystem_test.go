@@ -14,12 +14,38 @@ import (
 func TestFileSystem(t *testing.T) {
 	first := t.TempDir()
 	second := t.TempDir()
-	writeSource(t, first, "main.py", "import library\nimport package.child\nfrom package import sibling\ntry:\n    from package import absent\nexcept ImportError:\n    missing_member = True\ntry:\n    from package import broken\nexcept ModuleNotFoundError:\n    nested_missing = True\nanswer = library.value + 1\npackage_answer = package.child.value\nsibling_answer = sibling.value\n")
+	writeSource(t, first, "main.py",
+		"import library\n"+
+			"import package.child\n"+
+			"import package.sub.module\n"+
+			"from package import sibling\n"+
+			"try:\n"+
+			"    from package import absent\n"+
+			"except ImportError:\n"+
+			"    missing_member = True\n"+
+			"try:\n"+
+			"    from package import broken\n"+
+			"except ModuleNotFoundError:\n"+
+			"    nested_missing = True\n"+
+			"answer = library.value + 1\n"+
+			"package_answer = package.child.value\n"+
+			"relative_answer = package.sub.module.answer\n"+
+			"sibling_answer = sibling.value\n")
 	writeSource(t, second, "library.py", "value = 41\n")
 	writeSource(t, second, "package/__init__.py", "marker = 'package'\n")
 	writeSource(t, second, "package/child.py", "value = 42\n")
 	writeSource(t, second, "package/sibling.py", "value = 43\n")
 	writeSource(t, second, "package/broken.py", "import hidden_dependency\n")
+	writeSource(t, second, "package/sub/__init__.py", "")
+	writeSource(t, second, "package/sub/peer.py", "value = 1\n")
+	writeSource(t, second, "package/sub/module.py",
+		"from . import peer\n"+
+			"from .. import sibling\n"+
+			"from ..child import value as child_value\n"+
+			"answer = peer.value + sibling.value + child_value\n")
+	writeSource(t, second, "package/beyond.py", "from .. import nowhere\n")
+	writeSource(t, first, "beyond_entry.py", "import package.beyond\n")
+	writeSource(t, first, "relative_entry.py", "from . import nowhere\n")
 	writeSource(t, first, "package/child.py", "value = -1\n")
 	writeSource(t, first, "choice.py", "kind = 'module'\n")
 	writeSource(t, first, "choice/__init__.py", "kind = 'package'\n")
@@ -48,6 +74,7 @@ func TestFileSystem(t *testing.T) {
 			t.Fatalf("package_answer = %v, %t, want 42", packageAnswer, found)
 		}
 		assertImportValue(t, module, "sibling_answer", "43")
+		assertImportValue(t, module, "relative_answer", "86")
 		assertImportValue(t, module, "missing_member", "True")
 		assertImportValue(t, module, "nested_missing", "True")
 		if _, found := runtime.Module("library"); !found {
@@ -70,6 +97,41 @@ func TestFileSystem(t *testing.T) {
 		}
 		if _, found := runtime.Module("package.broken"); found {
 			t.Fatal("failing from-list submodule remained cached")
+		}
+	})
+
+	t.Run("reports relative import errors", func(t *testing.T) {
+		tests := []struct {
+			module  string
+			message string
+		}{
+			{
+				module:  "relative_entry",
+				message: "attempted relative import with no known parent package",
+			},
+			{
+				module:  "beyond_entry",
+				message: "attempted relative import beyond top-level package",
+			},
+		}
+		for _, test := range tests {
+			t.Run(test.module, func(t *testing.T) {
+				spec, found, err := loader.Load(bullruntime.ModuleRequest{Name: test.module})
+				if err != nil || !found {
+					t.Fatalf("Load(%s) = %#v, %t, %v", test.module, spec, found, err)
+				}
+				_, err = bullruntime.NewWithLoader(loader.Load).ExecuteModule(test.module, spec.Code)
+				var raised *bullruntime.UncaughtException
+				if !errors.As(err, &raised) {
+					t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+				}
+				if got := raised.Exception().TypeName(); got != "ImportError" {
+					t.Fatalf("exception type = %q, want ImportError", got)
+				}
+				if got := raised.Exception().Message(); got != test.message {
+					t.Fatalf("message = %q, want %q", got, test.message)
+				}
+			})
 		}
 	})
 

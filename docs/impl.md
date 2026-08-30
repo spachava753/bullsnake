@@ -328,6 +328,12 @@ attribute is tried as a child module. An exact missing child is left for
 found child propagates normally. Modules initialize `__name__` and
 `__package__`; loader metadata adds `__file__` and a package `__path__` list.
 
+`IMPORT_NAME` resolves a positive relative level against the executing frame's
+`__package__` global, then uses the same absolute loading path. Level one keeps
+the complete package name; each additional level removes one component. An
+empty package name raises the no-known-parent `ImportError`, while removing too
+many components raises the beyond-top-level form.
+
 If a Python exception leaves an imported module, the frame unwind removes its
 cache entry before checking the importer's handler. A later import may retry it.
 Modules that completed as side effects remain cached. A host loader error also
@@ -344,9 +350,8 @@ compiler, and preserve typed frontend errors under a module-loading wrapper.
 A missing callback, missing file, or missing callback result raises
 `ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
 until the runtime has the corresponding Python exception values. Namespace
-packages, relative imports, dynamic `__path__` changes, `sys.modules`,
-`__all__`, finder and loader hooks, reload, import locks, and a standard library
-remain unimplemented.
+packages, dynamic `__path__` changes, `sys.modules`, `__all__`, finder and
+loader hooks, reload, import locks, and a standard library remain unimplemented.
 
 ## Deliberate boundaries
 

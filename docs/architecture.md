@@ -231,21 +231,22 @@ parallel without silently sharing modules or mutable Python values.
 The current importer asks a host-supplied loader for a module description with
 immutable code and package metadata. For a dotted absolute name, the runtime
 loads each parent first, verifies that it is a package, and publishes each child
-on that parent. A from-import also tries a missing package attribute as a child
-module. Modules execute in the existing frame loop. Repeated imports reuse one
-object. Because the cache entry exists before execution, circular imports see
-the names assigned so far. If execution fails, the runtime removes only that
-module; dependencies that finished successfully remain cached.
+on that parent. Relative from-imports resolve their level against the executing
+module's package name. A from-import also tries a missing package attribute as a
+child module. Modules execute in the existing frame loop. Repeated imports reuse
+one object. Because the cache entry exists before execution, circular imports
+see the names assigned so far. If execution fails, the runtime removes only
+that module; dependencies that finished successfully remain cached.
 
 The filesystem loader searches configured roots for top-level modules and
 regular packages. Within one location it prefers `name/__init__.py` over
 `name.py`. Child lookup uses the parent package's recorded search locations
 rather than restarting at global roots. The loader decodes and compiles files
 outside the runtime. Source modules and statically linked Go modules should
-enter through the same runtime loading path. Namespace packages, relative
-names, Python-visible `sys.modules`, advanced `importlib` hooks, zip imports,
-reload, and bytecode caches should be added only when package tests require
-their observable behavior.
+enter through the same runtime loading path. Namespace packages,
+Python-visible `sys.modules`, advanced `importlib` hooks, zip imports, reload,
+and bytecode caches should be added only when package tests require their
+observable behavior.
 
 ## Go embedding and extensions
 

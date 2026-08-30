@@ -14,7 +14,7 @@ func executeImportName(
 ) (instructionOutcome, error) {
 	if request := frame.pendingImport; request != nil {
 		frame.pendingImport = nil
-		if request.requestedName != name {
+		if request.instructionName != name {
 			return instructionOutcome{}, frame.failure(index, "pending import name changed")
 		}
 		return advanceImport(frame, index, request)
@@ -31,14 +31,19 @@ func executeImportName(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "import level is not an integer")
 	}
-	if levelValue.value.Sign() != 0 {
+	absoluteName := name
+	if levelValue.value.Sign() < 0 {
 		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"ImportError",
-				"attempted relative import with no known parent package",
-			),
+			kind:      raised,
+			exception: newException("ValueError", "level must be >= 0"),
 		}, nil
+	}
+	if levelValue.value.Sign() > 0 {
+		resolved, exception := resolveRelativeImport(frame, name, levelValue)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		absoluteName = resolved
 	}
 	if err := validateFromList(frame, index, fromList); err != nil {
 		return instructionOutcome{}, err
@@ -46,10 +51,38 @@ func executeImportName(
 	if frame.runtime == nil {
 		return instructionOutcome{}, frame.failure(index, "frame has no owning runtime")
 	}
-	return advanceImport(frame, index, newImportRequest(name, fromList))
+	return advanceImport(frame, index, newImportRequest(name, absoluteName, fromList))
 }
 
-func newImportRequest(name string, fromList Value) *importRequest {
+// resolveRelativeImport applies the requested parent count to the executing
+// module's package name and returns the absolute name used by ordinary loading.
+func resolveRelativeImport(frame *frame, name string, level *intValue) (string, *Exception) {
+	packageValue, found := frame.globals.get("__package__")
+	packageName, ok := packageValue.(*stringValue)
+	if found && !ok {
+		return "", newException("TypeError", "__package__ not set to a string")
+	}
+	if !found || packageName.value == "" {
+		return "", newException(
+			"ImportError",
+			"attempted relative import with no known parent package",
+		)
+	}
+	parts := strings.Split(packageName.value, ".")
+	if !level.value.IsInt64() || level.value.Int64() > int64(len(parts)) {
+		return "", newException(
+			"ImportError",
+			"attempted relative import beyond top-level package",
+		)
+	}
+	base := strings.Join(parts[:len(parts)-int(level.value.Int64())+1], ".")
+	if name == "" {
+		return base, nil
+	}
+	return base + "." + name, nil
+}
+
+func newImportRequest(instructionName, name string, fromList Value) *importRequest {
 	names := qualifiedImportNames(name)
 	returnName := names[0]
 	var fromNames []string
@@ -61,10 +94,11 @@ func newImportRequest(name string, fromList Value) *importRequest {
 		}
 	}
 	return &importRequest{
-		requestedName: name,
-		names:         names,
-		returnName:    returnName,
-		fromNames:     fromNames,
+		instructionName: instructionName,
+		requestedName:   name,
+		names:           names,
+		returnName:      returnName,
+		fromNames:       fromNames,
 	}
 }
 
