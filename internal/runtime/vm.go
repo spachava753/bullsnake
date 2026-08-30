@@ -152,8 +152,39 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		name := frame.code.names[instruction.Operand]
-		class, isType := owner.(*typeValue)
-		if !isType {
+		switch owner := owner.(type) {
+		case *typeValue:
+			value, found := owner.namespace.get(name)
+			if !found {
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"type object '"+owner.name+"' has no attribute '"+name+"'",
+					),
+				}, nil
+			}
+			return pushOutcome(frame, index, value)
+		case *instanceValue:
+			value, found := owner.attributes.get(name)
+			fromClass := !found
+			if !found {
+				value, found = owner.class.namespace.get(name)
+			}
+			if !found {
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"'"+owner.class.name+"' object has no attribute '"+name+"'",
+					),
+				}, nil
+			}
+			if function, bind := value.(*functionValue); fromClass && bind {
+				value = &boundMethodValue{function: function, self: owner}
+			}
+			return pushOutcome(frame, index, value)
+		default:
 			return instructionOutcome{
 				kind: raised,
 				exception: newException(
@@ -162,17 +193,6 @@ func executeInstruction(
 				),
 			}, nil
 		}
-		value, found := class.namespace.get(name)
-		if !found {
-			return instructionOutcome{
-				kind: raised,
-				exception: newException(
-					"AttributeError",
-					"type object '"+class.name+"' has no attribute '"+name+"'",
-				),
-			}, nil
-		}
-		return pushOutcome(frame, index, value)
 	case bytecode.StoreName:
 		value, ok := frame.pop()
 		if !ok {

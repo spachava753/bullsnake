@@ -443,9 +443,11 @@ and recursive Python calls therefore remain in one iterative loop.
 fresh local namespace. A class-build record on that body frame converts return
 into a basic type value, retains the namespace, and fills a returned `__class__`
 cell before resuming the defining frame. Module execution seeds `__name__` so
-class bodies can initialize `__module__`. `LOAD_ATTR` reads retained namespace
-entries from basic type objects; class-level functions remain raw functions
-because descriptor binding is not implemented.
+class bodies can initialize `__module__`. Zero-argument type calls allocate fresh
+instances. `LOAD_ATTR` checks instance storage before the retained class
+namespace and turns class-level plain functions into bound methods that prepend
+the instance through the ordinary binder. Type lookup still returns raw
+namespace entries.
 
 The current call binder supports positional-only, ordinary positional, and
 keyword-only parameters; trailing positional defaults; sparse keyword-only
@@ -465,10 +467,10 @@ from bottom to top. Annotation attributes retain the compiler-generated callable
 without evaluating annotation expressions during definition or ordinary calls.
 Its internal format guard can raise `NotImplementedError`; Python attribute
 lookup and `annotationlib` integration cannot request annotation maps yet.
-Callable native values, other raise forms, class bases, metaclasses, instances,
-descriptor binding, attribute mutation, suspension, exception handlers,
-traceback chains, cancellation, recursion limits, and execution budgets are not
-yet implemented.
+Callable native values, other raise forms, class bases, metaclasses, `__new__`,
+`__init__`, general descriptors, attribute mutation, suspension, exception
+handlers, traceback chains, cancellation, recursion limits, and execution
+budgets are not yet implemented.
 
 ## Object model and runtime
 
@@ -477,13 +479,14 @@ interface or pointer. Process-wide immutable singletons represent `None`,
 `False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
 precision integers, binary64 floats, complex values, strings, bytes, tuples,
 lists, dictionaries, sets, slices, collection iterators, functions, basic type
-objects, and exceptions. Code preparation materializes each constant once per
-runtime and code object. String objects accept UTF-8 plus the compiler's
-deliberate WTF-8 encoding for lone surrogates; bytes objects retain arbitrary
-payloads. Stable representations escape non-printable text and bytes without
-losing their contents. Basic type objects retain their class-body namespace and
-use module-qualified class representations. `LOAD_ATTR` exposes raw namespace
-entries; mutation, inheritance, and descriptors remain deferred.
+objects, instances, bound methods, and exceptions. Code preparation materializes
+each constant once per runtime and code object. String objects accept UTF-8 plus
+the compiler's deliberate WTF-8 encoding for lone surrogates; bytes objects
+retain arbitrary payloads. Stable representations escape non-printable text and
+bytes without losing their contents. Basic type objects retain their class-body
+namespace; instances own a separate namespace and use stable module-qualified
+representations. `LOAD_ATTR` implements instance-first lookup and plain-function
+binding. Mutation, inheritance, and general descriptors remain deferred.
 
 Fixed tuple and list displays consume their elements in source order and
 allocate heap-backed sequence values. Exact and starred unpacking arrange stack

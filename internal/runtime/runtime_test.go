@@ -687,6 +687,43 @@ func TestTypeAttributeReads(t *testing.T) {
 	}
 }
 
+func TestInstanceMethodBinding(t *testing.T) {
+	code := compileSource(t, "class Counter:\n"+
+		"    value = 40\n"+
+		"    def add(self, amount):\n"+
+		"        return self.value + amount\n"+
+		"    def owner(self):\n"+
+		"        return __class__\n"+
+		"first = Counter()\n"+
+		"second = Counter()\n"+
+		"class_value = first.value\n"+
+		"called = first.add(2)\n"+
+		"owner = first.owner()\n"+
+		"distinct = first is not second\n"+
+		"instance = first\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("instances", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"class_value": "40",
+		"called":      "42",
+		"owner":       "<class 'instances.Counter'>",
+		"distinct":    "True",
+		"instance":    "<instances.Counter object>",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1739,6 +1776,22 @@ func TestPythonExceptions(t *testing.T) {
 		wantType    string
 		wantMessage string
 	}{
+		{
+			name: "constructor arguments without init",
+			source: "class Empty:\n" +
+				"    pass\n" +
+				"answer = Empty(1)\n",
+			wantType:    "TypeError",
+			wantMessage: "Empty() takes no arguments",
+		},
+		{
+			name: "missing instance attribute",
+			source: "class Empty:\n" +
+				"    pass\n" +
+				"answer = Empty().missing\n",
+			wantType:    "AttributeError",
+			wantMessage: "'Empty' object has no attribute 'missing'",
+		},
 		{
 			name: "missing type attribute",
 			source: "class Empty:\n" +

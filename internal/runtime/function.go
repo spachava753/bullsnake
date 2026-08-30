@@ -96,12 +96,34 @@ func executeFunctionCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
-	if _, buildClass := callable.(*buildClassValue); buildClass {
+	switch callable := callable.(type) {
+	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,
 			instruction,
 			base,
 			arguments,
+			keywords,
+		)
+	case *typeValue:
+		return executeTypeCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
+	case *boundMethodValue:
+		boundArguments := make([]Value, len(arguments)+1)
+		boundArguments[0] = callable.self
+		copy(boundArguments[1:], arguments)
+		return executeFunctionCall(
+			caller,
+			instruction,
+			base,
+			callable.function,
+			boundArguments,
 			keywords,
 		)
 	}

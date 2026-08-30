@@ -442,9 +442,12 @@ calls therefore remain in the iterative dispatcher. `LOAD_BUILD_CLASS` pushes
 an internal class builder. For a no-base class, it runs the body function in a
 fresh namespace and records a class-build continuation on that frame. Return
 turns the retained namespace into a type value, fills a returned `__class__`
-cell when present, and then resumes the defining frame. `LOAD_ATTR` can read raw
-entries from that type namespace. Bases, metaclasses, instances, descriptor
-binding, and class attribute mutation require later object-model slices.
+cell when present, and then resumes the defining frame. Type calls allocate a
+fresh instance when no arguments are supplied. `LOAD_ATTR` checks instance
+storage, falls back to the type namespace, and binds plain class functions by
+prepending the instance through the ordinary call binder. Bases, metaclasses,
+`__new__`, `__init__`, general descriptors, and attribute mutation require later
+object-model slices.
 A suspended async task or generator will eventually own the same frame state
 needed to resume it.
 
@@ -459,22 +462,24 @@ The runtime has a sealed internal `Value` interface. Immutable singleton
 objects represent `None`, both booleans, and ellipsis. Heap-backed objects
 represent arbitrary-precision integers, binary64 floats, complex numbers,
 strings, bytes, fixed tuples and lists, dictionaries, sets, slices, collection
-iterators, Python functions, basic type objects, and Python exceptions. Every
-live reference remains in a typed pointer or interface visible to Go's collector.
-Module bindings and basic class bodies use string-keyed namespaces; Python
-dictionaries use their own value type and insertion-ordered entries.
+iterators, Python functions, basic type objects, instances, bound methods, and
+Python exceptions. Every live reference remains in a typed pointer or interface
+visible to Go's collector. Module bindings, instance attributes, and basic class
+bodies use string-keyed namespaces; Python dictionaries use their own value type
+and insertion-ordered entries.
 
 The current object operations cover fixed scalar truth, numeric unary
 operators, selected arbitrary-precision integer binary operators, scalar and
 tuple equality, object identity, fixed and starred tuple/list construction and
 unpacking, tuple/list/dictionary/set/text/bytes iteration, tuple/list/text/bytes
-subscription, raw basic-type namespace reads, fixed and unpacked dictionary
-displays, fixed and starred set displays, dictionary subscription and item
-mutation, and tuple/list/dict/set/text/bytes membership. Dictionary key and set
-element matching are linear until user-defined hash and equality protocols
-justify hash tables. Dictionary iterators detect key insertion and deletion
-while allowing value replacement. Text indexes count decoded Python code points
-over UTF-8/WTF-8 storage; bytes indexes count raw bytes.
+subscription, basic type and instance attribute reads with plain-function
+binding, fixed and unpacked dictionary displays, fixed and starred set displays,
+dictionary subscription and item mutation, and
+tuple/list/dict/set/text/bytes membership. Dictionary key and set element
+matching are linear until user-defined hash and equality protocols justify hash
+tables. Dictionary iterators detect key insertion and deletion while allowing
+value replacement. Text indexes count decoded Python code points over UTF-8/WTF-8
+storage; bytes indexes count raw bytes.
 Later user-defined protocols must reuse the VM's outcome and exception paths.
 
 The object model can become the largest compatibility component, so it should

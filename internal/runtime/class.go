@@ -24,6 +24,32 @@ func (class *typeValue) Repr() string {
 }
 func (*typeValue) isValue() {}
 
+type instanceValue struct {
+	class      *typeValue
+	attributes *Namespace
+}
+
+func (instance *instanceValue) TypeName() string { return instance.class.name }
+func (instance *instanceValue) Repr() string {
+	name := instance.class.qualifiedName
+	if instance.class.module != "" {
+		name = instance.class.module + "." + name
+	}
+	return "<" + name + " object>"
+}
+func (*instanceValue) isValue() {}
+
+type boundMethodValue struct {
+	function *functionValue
+	self     *instanceValue
+}
+
+func (*boundMethodValue) TypeName() string { return "method" }
+func (method *boundMethodValue) Repr() string {
+	return "<bound method " + method.function.code.code.QualifiedName() + ">"
+}
+func (*boundMethodValue) isValue() {}
+
 type classBuild struct {
 	name          string
 	qualifiedName string
@@ -120,5 +146,29 @@ func executeBuildClassCall(
 	return instructionOutcome{kind: called, frame: child}, nil
 }
 
+func executeTypeCall(
+	caller *frame,
+	instruction int,
+	base int,
+	class *typeValue,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0) {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", class.name+"() takes no arguments"),
+		}, nil
+	}
+	for index := base; index < len(caller.stack); index++ {
+		caller.stack[index] = nil
+	}
+	caller.stack = caller.stack[:base]
+	instance := &instanceValue{class: class, attributes: newNamespace()}
+	return pushOutcome(caller, instruction, instance)
+}
+
 var _ Value = (*buildClassValue)(nil)
 var _ Value = (*typeValue)(nil)
+var _ Value = (*instanceValue)(nil)
+var _ Value = (*boundMethodValue)(nil)
