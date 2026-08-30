@@ -602,6 +602,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 				instruction.Operand,
 			)
 		}
+	case bytecode.MatchClass:
+		if uint64(instruction.Operand) > uint64(code.stackSize) {
+			return code.failure(
+				index,
+				"class positional pattern count %d exceeds stack size",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.BuildTuple, bytecode.BuildList:
 		if uint64(instruction.Operand) > uint64(code.stackSize) {
 			return code.failure(
@@ -773,6 +782,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 1, 1
 	case bytecode.MatchMappingKey:
 		return 2, 2
+	case bytecode.MatchClass:
+		return 3, 2
 	case bytecode.BuildString, bytecode.BuildTuple, bytecode.BuildList,
 		bytecode.BuildSet, bytecode.BuildSlice:
 		return int(instruction.Operand), 1

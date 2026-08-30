@@ -904,6 +904,8 @@ func executeInstruction(
 		return executeCopyMapping(frame, index)
 	case bytecode.CheckMappingKey:
 		return executeCheckMappingKey(frame, index)
+	case bytecode.MatchClass:
+		return executeMatchClass(frame, index, int(instruction.Operand))
 	case bytecode.ForIter:
 		return executeForIter(frame, index, int(instruction.Operand))
 	case bytecode.Send:

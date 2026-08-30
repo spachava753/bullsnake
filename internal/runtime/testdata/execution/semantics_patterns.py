@@ -267,3 +267,119 @@ match {'value': 6, 'extra': 7}:
 assert mapping_guard_result == 'clean'
 assert kept_value == 6
 assert kept_rest['extra'] == 7
+# ---
+# case: match class keyword and positional attributes
+
+class Point:
+    __match_args__ = ('x', 'y')
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+point = Point(3, 4)
+match point:
+    case Point(x=keyword_x, y=keyword_y):
+        keyword_result = keyword_x * 10 + keyword_y
+assert keyword_result == 34
+
+match point:
+    case Point(positional_x, positional_y):
+        positional_result = positional_x * 10 + positional_y
+assert positional_result == 34
+# ---
+# case: match class accepts subclasses and nested patterns
+
+class Point:
+    __match_args__ = ('x', 'y')
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+class ColoredPoint(Point):
+    pass
+
+class Box:
+    def __init__(self, value):
+        self.value = value
+
+colored = ColoredPoint(5, 6)
+boxed = Box(colored)
+match boxed:
+    case Box(value=Point(x, y)):
+        nested_class_result = x * 10 + y
+assert nested_class_result == 56
+
+match colored:
+    case Point(first, second):
+        inherited_class_result = first + second
+assert inherited_class_result == 11
+# ---
+# case: match class missing attributes and noninstances fail normally
+
+class Point:
+    pass
+
+class Incomplete:
+    pass
+
+match Incomplete():
+    case Incomplete(required=missing_attribute):
+        missing_attribute_result = 'wrong'
+    case _:
+        missing_attribute_result = 'clean'
+assert missing_attribute_result == 'clean'
+try:
+    missing_attribute
+except NameError:
+    class_capture_absent = True
+assert class_capture_absent
+
+match 7:
+    case Point(x=not_a_point):
+        noninstance_result = 'wrong'
+    case _:
+        noninstance_result = 'clean'
+assert noninstance_result == 'clean'
+# ---
+# case: match class guard keeps captures
+
+class Point:
+    __match_args__ = ('x', 'y')
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+point = Point(3, 4)
+match point:
+    case Point(guarded_x, guarded_y) as guarded_point if False:
+        class_guard_result = 'wrong'
+    case _:
+        class_guard_result = 'clean'
+assert class_guard_result == 'clean'
+assert guarded_x == 3
+assert guarded_y == 4
+assert guarded_point is point
+# ---
+# case: match class supports exception classes
+error = ValueError('bad')
+match error:
+    case ValueError():
+        builtin_exception_result = True
+assert builtin_exception_result
+
+class Problem(ValueError):
+    pass
+
+problem = Problem('custom')
+match problem:
+    case Problem():
+        user_exception_result = True
+assert user_exception_result
+
+match problem:
+    case ValueError():
+        exception_parent_result = True
+assert exception_parent_result

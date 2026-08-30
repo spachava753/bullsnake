@@ -248,6 +248,13 @@ func (compiler *compilerState) compileExtractingPattern(
 			failureDepth,
 			captureTemps,
 		)
+	case *compilerast.ClassPattern:
+		return compiler.compileClassPattern(
+			pattern,
+			failed,
+			failureDepth,
+			captureTemps,
+		)
 	default:
 		return compiler.unsupported(pattern)
 	}
@@ -484,6 +491,75 @@ func (compiler *compilerState) compileMappingPattern(
 	return compiler.storePatternCapture(pattern.Rest, pattern.Span(), captureTemps)
 }
 
+// compileClassPattern asks the runtime to validate the class and extract the
+// requested attributes, then applies each nested pattern in source order.
+func (compiler *compilerState) compileClassPattern(
+	pattern *compilerast.ClassPattern,
+	failed *jumpLabel,
+	failureDepth int,
+	captureTemps map[string]uint32,
+) error {
+	if err := compiler.compileExpr(pattern.Class); err != nil {
+		return err
+	}
+	for _, keyword := range pattern.Keywords {
+		if err := compiler.emit(
+			bytecode.LoadConst,
+			compiler.constantIndex(bytecode.TextString(keyword.Name)),
+			keyword.Range,
+		); err != nil {
+			return err
+		}
+	}
+	if err := compiler.emit(
+		bytecode.BuildTuple,
+		uint32(len(pattern.Keywords)),
+		pattern.Span(),
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.MatchClass,
+		uint32(len(pattern.Positional)),
+		pattern.Span(),
+	); err != nil {
+		return err
+	}
+	if err := compiler.compilePatternCondition(
+		failed,
+		failureDepth,
+		pattern.Span(),
+	); err != nil {
+		return err
+	}
+
+	count := len(pattern.Positional) + len(pattern.Keywords)
+	if err := compiler.emit(bytecode.UnpackSequence, uint32(count), pattern.Span()); err != nil {
+		return err
+	}
+	for _, child := range pattern.Positional {
+		if err := compiler.compileExtractingPattern(
+			child,
+			failed,
+			failureDepth,
+			captureTemps,
+		); err != nil {
+			return err
+		}
+	}
+	for _, keyword := range pattern.Keywords {
+		if err := compiler.compileExtractingPattern(
+			keyword.Pattern,
+			failed,
+			failureDepth,
+			captureTemps,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (compiler *compilerState) compilePatternCondition(
 	failed *jumpLabel,
 	failureDepth int,
@@ -579,6 +655,23 @@ func (compiler *compilerState) patternCaptures(
 			})
 		}
 		return captures, nil
+	case *compilerast.ClassPattern:
+		var captures []matchCapture
+		for _, child := range pattern.Positional {
+			childCaptures, err := compiler.patternCaptures(child)
+			if err != nil {
+				return nil, err
+			}
+			captures = append(captures, childCaptures...)
+		}
+		for _, keyword := range pattern.Keywords {
+			childCaptures, err := compiler.patternCaptures(keyword.Pattern)
+			if err != nil {
+				return nil, err
+			}
+			captures = append(captures, childCaptures...)
+		}
+		return captures, nil
 	case *compilerast.AsPattern:
 		var captures []matchCapture
 		var err error
@@ -615,7 +708,7 @@ func (compiler *compilerState) patternCaptures(
 func patternNeedsExtraction(pattern compilerast.Pattern) bool {
 	switch pattern := pattern.(type) {
 	case *compilerast.SequencePattern, *compilerast.MappingPattern,
-		*compilerast.StarPattern:
+		*compilerast.ClassPattern, *compilerast.StarPattern:
 		return true
 	case *compilerast.AsPattern:
 		return pattern.Pattern != nil && patternNeedsExtraction(pattern.Pattern)

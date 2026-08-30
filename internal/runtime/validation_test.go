@@ -1096,6 +1096,35 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "operand stack underflow",
 		},
 		{
+			name: "class match underflow",
+			code: testCode(
+				3,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MatchClass},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "class positional pattern count",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.MatchClass, Operand: 2},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "class positional pattern count 2 exceeds stack size",
+		},
+		{
 			name: "sequence match underflow",
 			code: testCode(
 				1,

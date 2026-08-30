@@ -386,6 +386,13 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := CheckMappingKey.StackEffect(0); got != -2 {
 		t.Fatalf("CHECK_MAPPING_KEY stack effect = %d, want -2", got)
 	}
+	matchClass := Instruction{Opcode: MatchClass, Operand: 2}
+	if got := matchClass.String(); got != "MATCH_CLASS 2" {
+		t.Fatalf("match class instruction = %q", got)
+	}
+	if got := MatchClass.StackEffect(2); got != -1 {
+		t.Fatalf("MATCH_CLASS stack effect = %d, want -1", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

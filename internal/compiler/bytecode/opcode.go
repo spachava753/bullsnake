@@ -170,6 +170,7 @@ const (
 	MatchMappingKey
 	CopyMapping
 	CheckMappingKey
+	MatchClass
 )
 
 var opcodeNames = [...]string{
@@ -258,6 +259,7 @@ var opcodeNames = [...]string{
 	"MATCH_MAPPING_KEY",
 	"COPY_MAPPING",
 	"CHECK_MAPPING_KEY",
+	"MATCH_CLASS",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -279,7 +281,7 @@ func (opcode Opcode) HasOperand() bool {
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
 		DeleteDeref, LoadClosure, ImportName, ImportFrom, LoadFromDictOrGlobals,
-		LoadFromDictOrDeref, EnterExcept, LoadSpecial:
+		LoadFromDictOrDeref, EnterExcept, LoadSpecial, MatchClass:
 		return true
 	default:
 		return false
@@ -300,7 +302,7 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
 		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, PrepareReraiseStar,
-		Reraise, EnterExcept:
+		Reraise, EnterExcept, MatchClass:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript, CheckMappingKey:
 		return -2
