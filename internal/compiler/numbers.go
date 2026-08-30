@@ -21,7 +21,9 @@ func parseNumberLiteral(text string) (bytecode.Constant, error) {
 		}
 		return bytecode.Imaginary(value), nil
 	}
-	if strings.ContainsAny(clean, ".eE") {
+	prefixedInteger := len(clean) >= 2 && clean[0] == '0' &&
+		strings.ContainsRune("bBoOxX", rune(clean[1]))
+	if !prefixedInteger && strings.ContainsAny(clean, ".eE") {
 		value, err := parseFloatLiteral(clean)
 		if err != nil {
 			return bytecode.Constant{}, err

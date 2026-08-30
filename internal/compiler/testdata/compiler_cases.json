@@ -35,6 +35,11 @@
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Int(1000), Int(10), Int(15), Int(255), Int(123456789012345678901234567890), None], names=[\"decimal\", \"binary\", \"octal\", \"hexadecimal\", \"big\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_CONST 2, STORE_NAME 2, LOAD_CONST 3, STORE_NAME 3, LOAD_CONST 4, STORE_NAME 4, LOAD_CONST 5, RETURN_VALUE])"
     },
     {
+      "name": "prefixed integers containing exponent letters",
+      "source": "lower = 0xdead_beef\nupper = 0XDEAD_BEEF\nbig = 0x123456789abcdef0123456789abcdef\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Int(3735928559), Int(1512366075204170929049582354406559215), None], names=[\"lower\", \"upper\", \"big\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 0, STORE_NAME 1, LOAD_CONST 1, STORE_NAME 2, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
       "name": "float and imaginary literals",
       "source": "fraction = 1.25\nexponent = 1e3\nimaginary = 3.5j\nwhole_imaginary = 2j\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Float(1.25), Float(1000), Imag(3.5), Imag(2), None], names=[\"fraction\", \"exponent\", \"imaginary\", \"whole_imaginary\"], locals=[], cells=[], free=[], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, LOAD_CONST 2, STORE_NAME 2, LOAD_CONST 3, STORE_NAME 3, LOAD_CONST 4, RETURN_VALUE])"

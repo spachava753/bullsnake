@@ -461,7 +461,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains eighty-two successful
+The compiler corpus currently contains eighty-three successful
 parse-resolve-compile cases for the initial module instruction set and
 expression evaluation. Cases record stable Bullsnake code-object dumps;
 focused tests cover instruction source positions, stack effects, code-object
