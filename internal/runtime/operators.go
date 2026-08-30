@@ -143,6 +143,8 @@ func executeBinary(
 			operator = "-"
 		case bytecode.BinaryMultiply:
 			operator = "*"
+		case bytecode.BinaryPower:
+			operator = "**"
 		case bytecode.BinaryDivide:
 			operator = "/"
 		case bytecode.BinaryFloorDivide:
@@ -175,6 +177,14 @@ func executeBinary(
 				),
 			),
 		}, nil
+	}
+
+	if operand == bytecode.BinaryPower {
+		result, exception := integerPower(&leftInteger, &rightInteger)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		return pushOutcome(frame, index, result)
 	}
 
 	if operand == bytecode.BinaryLeftShift || operand == bytecode.BinaryRightShift {

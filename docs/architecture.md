@@ -197,6 +197,12 @@ scalars, collections, functions, classes, modules, and exceptions needed by the
 executable subset. More of Python's data model will be added when language
 features or packages require it.
 
+Integers use arbitrary precision, but one exact power operation may produce at
+most 1,048,576 bits. Larger results raise `OverflowError` before Go's allocator
+can terminate the process. CPython has no matching fixed limit and relies on
+allocation failure. A runtime-wide resource budget may replace this local limit
+later.
+
 A future Go-defined type must use the same attribute, call, iteration, equality,
 and exception paths as a Python-defined type. A smaller second object model for
 native values would create two subtly different languages.

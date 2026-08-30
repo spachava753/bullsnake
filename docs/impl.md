@@ -265,6 +265,13 @@ clipping and positive or negative steps. Dictionary iteration detects key-set
 changes; replacing an existing value is allowed. Set display and iteration
 order is stable for Bullsnake tests but is not a Python compatibility promise.
 
+Integer arithmetic includes exact addition, subtraction, multiplication,
+floor division, modulo, shifts, bitwise operations, and power. A nonnegative
+integer exponent returns an integer, subject to the documented 1,048,576-bit
+result limit. A negative integer exponent follows Python's real-number behavior
+and returns a binary64 float. Integer and boolean operands share these rules;
+float and complex power remain unsupported.
+
 Current float arithmetic covers addition, subtraction, multiplication, true
 division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.

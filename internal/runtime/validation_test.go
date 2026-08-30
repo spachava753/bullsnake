@@ -1217,19 +1217,19 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "unsupported opcode LOAD_LOCALS",
 		},
 		{
-			name: "unsupported binary operation",
+			name: "unsupported matrix binary operation",
 			code: testCode(
 				2,
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.LoadConst},
-					{Opcode: bytecode.BinaryOp, Operand: bytecode.BinaryPower},
+					{Opcode: bytecode.BinaryOp, Operand: bytecode.BinaryMatrixMultiply},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
 				nil,
 			),
-			wantFragment: "unsupported BINARY_OP operand 7",
+			wantFragment: "unsupported BINARY_OP operand 3",
 		},
 		{
 			name: "unsupported unary operation",

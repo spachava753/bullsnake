@@ -85,6 +85,49 @@ assert f'{bitwise_or!r}' == "15", "bitwise_or"
 assert f'{bitwise_xor!r}' == "9", "bitwise_xor"
 assert f'{bitwise_and!r}' == "2", "bitwise_and"
 # ---
+# case: integer powers
+positive = 2 ** 10
+large = 10 ** 50
+negative_odd = (-3) ** 3
+negative_even = (-3) ** 4
+zero_zero = 0 ** 0
+bool_base = True ** 100
+bool_exponent = 7 ** False
+negative_exponent = 2 ** -3
+negative_base_exponent = (-2) ** -3
+bool_negative_exponent = True ** -4
+precedence = -2 ** 2
+parenthesized = (-2) ** 2
+right_associative = 2 ** 3 ** 2
+augmented = 3
+augmented **= 4
+huge_exponent = 100000000000000000000000000000000000000000000000001
+zero_huge = 0 ** huge_exponent
+one_huge = 1 ** huge_exponent
+negative_one_huge = (-1) ** huge_exponent
+bounded = 2 ** 1048575
+huge_base = 1 << 1048576
+huge_base_zero = huge_base ** 0
+assert positive == 1024
+assert f'{large!r}' == "100000000000000000000000000000000000000000000000000"
+assert negative_odd == -27
+assert negative_even == 81
+assert zero_zero == 1
+assert bool_base == 1
+assert bool_exponent == 1
+assert negative_exponent == 0.125
+assert negative_base_exponent == -0.125
+assert bool_negative_exponent == 1.0
+assert precedence == -4
+assert parenthesized == 4
+assert right_associative == 512
+assert augmented == 81
+assert zero_huge == 0
+assert one_huge == 1
+assert negative_one_huge == -1
+assert bounded > 0
+assert huge_base_zero == 1
+# ---
 # case: floor division and modulo
 positive_floor = 5 // 2
 left_negative_floor = -5 // 2

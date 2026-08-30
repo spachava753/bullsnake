@@ -74,3 +74,23 @@ answer = 1.0 / 0.0
 # error: ZeroDivisionError
 # message: "division by zero"
 answer = 1.0 % 0.0
+# ---
+# case: zero to negative integer power
+# error: ZeroDivisionError
+# message: "zero to a negative power"
+answer = 0 ** -1
+# ---
+# case: oversized integer power
+# error: OverflowError
+# message: "integer power result exceeds 1048576-bit limit"
+answer = 2 ** 1048576
+# ---
+# case: unsupported float power
+# error: TypeError
+# message: "unsupported operand type(s) for **: 'float' and 'int'"
+answer = 2.0 ** 2
+# ---
+# case: unsupported power exponent
+# error: TypeError
+# message: "unsupported operand type(s) for **: 'int' and 'float'"
+answer = 2 ** 2.0
