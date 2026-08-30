@@ -77,6 +77,9 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		if len(compiler.loops) == 0 {
 			return compiler.error(statement.Span(), "break has no enclosing loop")
 		}
+		if compiler.finallyDepth != 0 {
+			return compiler.error(statement.Span(), "break through finally is not compiled")
+		}
 		loop := compiler.loops[len(compiler.loops)-1]
 		if compiler.stackDepth < loop.breakDepth {
 			return compiler.error(statement.Span(), "break is below its loop stack depth")
@@ -98,6 +101,9 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 	case *compilerast.ContinueStmt:
 		if len(compiler.loops) == 0 {
 			return compiler.error(statement.Span(), "continue has no enclosing loop")
+		}
+		if compiler.finallyDepth != 0 {
+			return compiler.error(statement.Span(), "continue through finally is not compiled")
 		}
 		loop := compiler.loops[len(compiler.loops)-1]
 		savedHandlers := compiler.suspendCleanedExceptionHandlers(loop.cleanupDepth)

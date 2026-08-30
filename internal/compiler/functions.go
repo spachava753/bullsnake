@@ -248,6 +248,9 @@ func (compiler *compilerState) compileReturnStatement(statement *compilerast.Ret
 	if compiler.scope.Kind != resolver.FunctionScope {
 		return compiler.error(statement.Span(), "return has no enclosing function")
 	}
+	if compiler.finallyDepth != 0 {
+		return compiler.error(statement.Span(), "return through finally is not compiled")
+	}
 	if statement.Value == nil {
 		if err := compiler.emit(
 			bytecode.LoadConst,

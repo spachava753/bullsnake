@@ -241,3 +241,34 @@ except NameError:
     secondary_cleared = True
 assert secondary_raised is True
 assert secondary_cleared is True
+# ---
+# case: finally runs on normal and exceptional paths
+normal_finally = False
+try:
+    value = 42
+finally:
+    normal_finally = True
+assert value == 42
+assert normal_finally is True
+
+exception_finally = False
+caught_after_finally = False
+try:
+    try:
+        missing_before_finally
+    finally:
+        exception_finally = True
+except NameError:
+    caught_after_finally = True
+assert exception_finally is True
+assert caught_after_finally is True
+
+replacement_caught = False
+try:
+    try:
+        1 // 0
+    finally:
+        missing_from_finally
+except NameError:
+    replacement_caught = True
+assert replacement_caught is True

@@ -70,7 +70,7 @@ func (compiler *compilerState) compileAssertStatement(statement *compilerast.Ass
 // dispatch and bodies outside the statement's own protected range.
 func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStmt) error {
 	if len(statement.Finally) != 0 {
-		return compiler.error(statement.Span(), "try/finally is not compiled")
+		return compiler.compileTryFinally(statement)
 	}
 	if len(statement.Handlers) == 0 {
 		return compiler.error(statement.Span(), "try statement has no exception handlers")
@@ -210,6 +210,63 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 		if err := compiler.markLabel(next, handler.Range); err != nil {
 			return err
 		}
+	}
+	if compiler.reachable {
+		if err := compiler.emitTerminator(bytecode.Reraise, 0, statement.Span()); err != nil {
+			return err
+		}
+	}
+	return compiler.markLabel(end, statement.Span())
+}
+
+// compileTryFinally duplicates the final suite for normal fallthrough and for
+// an exceptional entry that keeps the pending exception below temporary values.
+func (compiler *compilerState) compileTryFinally(statement *compilerast.TryStmt) error {
+	if len(statement.Handlers) != 0 || len(statement.Else) != 0 {
+		return compiler.error(statement.Span(), "combined try/except/finally is not compiled")
+	}
+	baseDepth := compiler.stackDepth
+	handler := compiler.newLabel()
+	end := compiler.newLabel()
+	compiler.activeHandlers = append(compiler.activeHandlers, instructionExceptionHandler{
+		target:     handler,
+		stackDepth: baseDepth,
+	})
+	compiler.finallyDepth++
+	err := compiler.compileStatements(statement.Body)
+	compiler.finallyDepth--
+	compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
+	if err != nil {
+		return err
+	}
+	if compiler.reachable {
+		compiler.finallyDepth++
+		err = compiler.compileStatements(statement.Finally)
+		compiler.finallyDepth--
+		if err != nil {
+			return err
+		}
+	}
+	if compiler.reachable {
+		if err := compiler.emitJump(bytecode.Jump, end, statement.Span()); err != nil {
+			return err
+		}
+	}
+
+	if err := compiler.mergeLabelDepth(handler, baseDepth+1, statement.Span()); err != nil {
+		return err
+	}
+	if baseDepth+1 > compiler.maxStack {
+		compiler.maxStack = baseDepth + 1
+	}
+	if err := compiler.markLabel(handler, statement.Span()); err != nil {
+		return err
+	}
+	compiler.finallyDepth++
+	err = compiler.compileStatements(statement.Finally)
+	compiler.finallyDepth--
+	if err != nil {
+		return err
 	}
 	if compiler.reachable {
 		if err := compiler.emitTerminator(bytecode.Reraise, 0, statement.Span()); err != nil {
