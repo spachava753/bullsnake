@@ -498,6 +498,11 @@
       "name": "generator function suspension",
       "source": "def produce(limit):\n    yield\n    received = yield limit\n    return received\nstream = produce\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"produce\", \"stream\"], locals=[], cells=[], free=[], children=[Code(name=\"produce\", qualname=\"produce\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals, Generator], args=(posonly=0, positional=1, kwonly=0), stack=1, constants=[None], names=[], locals=[\"limit\", \"received\"], cells=[], free=[], instructions=[LOAD_CONST 0, YIELD_VALUE, POP_TOP, LOAD_FAST 0, YIELD_VALUE, STORE_FAST 1, LOAD_FAST 1, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
+    },
+    {
+      "name": "delegated generator expression",
+      "source": "def outer(source):\n    result = yield from source\n    return result\nstream = outer\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"outer\", \"stream\"], locals=[], cells=[], free=[], children=[Code(name=\"outer\", qualname=\"outer\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals, Generator], args=(posonly=0, positional=1, kwonly=0), stack=2, constants=[None], names=[], locals=[\"source\", \"result\"], cells=[], free=[], instructions=[LOAD_FAST 0, GET_ITER, LOAD_CONST 0, SEND 6, YIELD_VALUE, JUMP 3, STORE_FAST 1, LOAD_FAST 1, RETURN_VALUE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }

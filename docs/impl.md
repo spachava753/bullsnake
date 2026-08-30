@@ -179,8 +179,8 @@ The current compiler translates:
   cleanup during return or loop transfer
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, and lazy function annotations
-- synchronous generator functions with lazy calls, `yield`, iteration, closure
-  captures, and cleanup across suspension
+- synchronous generator functions with lazy calls, `yield`, `yield from`,
+  iteration, sent values, closure captures, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
   closures, and the cells used by class-visible annotations and `__class__`
 - ordinary imports and assertions
@@ -203,9 +203,9 @@ an ordinary function definition or call.
 
 The compiler rejects template-string execution, annotated class attributes,
 `from __future__ import annotations`, generic and async definitions, generator
-expressions, `yield from`, asynchronous comprehensions, `async for`, `async
-with`, pattern matching, and coroutines. Unsupported AST forms return compiler
-errors; they are not approximated with similar bytecode.
+expressions, asynchronous comprehensions, `async for`, `async with`, pattern
+matching, and coroutines. Unsupported AST forms return compiler errors; they
+are not approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -255,6 +255,14 @@ default. Re-entering a running generator raises `ValueError`. The legacy
 three-argument `throw` form accepts only `None` for its traceback until Python
 traceback objects exist. Garbage collection does not implicitly close abandoned
 generators.
+
+`yield from` keeps the delegate below each yielded value on the outer frame's
+operand stack. `SEND` forwards `None` or a sent value, falls through when the
+delegate yields, and jumps with the delegate's return value when it completes.
+Delegate exceptions enter the outer generator's ordinary protected ranges.
+`throw` and `close` forwarding through an active delegation are not implemented;
+those calls raise `NotImplementedError` without changing the suspended outer
+generator.
 
 A raised Python exception follows protected ranges in the current code. If a
 range matches, the VM trims the operand stack to its recorded depth, pushes the
@@ -432,7 +440,7 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no general `iter` builtin or delegated `yield from`
+- no general `iter` builtin or `throw` and `close` forwarding through `yield from`
 - no generator expressions, asynchronous comprehensions, coroutines, async
   execution, or Python threads
 - no asynchronous context managers or structural matching

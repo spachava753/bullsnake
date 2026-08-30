@@ -24,6 +24,12 @@ type moduleImport struct {
 	request *importRequest
 }
 
+type delegationState struct {
+	sendInstruction  int
+	yieldInstruction int
+	target           int
+}
+
 type frame struct {
 	runtime           *Runtime
 	code              *preparedCode
@@ -40,6 +46,7 @@ type frame struct {
 	moduleImport      *moduleImport
 	pendingImport     *importRequest
 	generator         *generatorValue
+	delegation        *delegationState
 	handledExceptions []handledException
 }
 

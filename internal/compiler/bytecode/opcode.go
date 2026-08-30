@@ -163,6 +163,7 @@ const (
 	LoadSpecial
 	LoadHandledExceptionType
 	YieldValue
+	Send
 )
 
 var opcodeNames = [...]string{
@@ -244,6 +245,7 @@ var opcodeNames = [...]string{
 	"LOAD_SPECIAL",
 	"LOAD_HANDLED_EXCEPTION_TYPE",
 	"YIELD_VALUE",
+	"SEND",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -260,7 +262,7 @@ func (opcode Opcode) HasOperand() bool {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
 		CompareOp, Jump, PopJumpIfFalse, PopJumpIfTrue, JumpIfFalseOrPop,
-		JumpIfTrueOrPop, LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr,
+		JumpIfTrueOrPop, Send, LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr,
 		UnpackSequence, UnpackEx, InplaceOp, DeleteName, DeleteAttr,
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,

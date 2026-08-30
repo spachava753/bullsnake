@@ -247,6 +247,11 @@ func routeException(
 			})
 		}
 		if handler, ok := current.code.exceptionHandler(currentInstruction); ok {
+			if current.delegation != nil &&
+				(currentInstruction == current.delegation.sendInstruction ||
+					currentInstruction == current.delegation.yieldInstruction) {
+				current.delegation = nil
+			}
 			depth := handler.StackDepth
 			if len(current.stack) < depth {
 				return nil, current.failure(
@@ -843,6 +848,8 @@ func executeInstruction(
 		return executeGetIter(frame, index)
 	case bytecode.ForIter:
 		return executeForIter(frame, index, int(instruction.Operand))
+	case bytecode.Send:
+		return executeSend(frame, index, int(instruction.Operand))
 	case bytecode.BinarySubscript:
 		return executeBinarySubscript(frame, index)
 	case bytecode.StoreSubscript:

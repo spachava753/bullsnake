@@ -303,3 +303,83 @@ except RuntimeError as error:
     ignored = error
 assert f'{ignored!r}' == 'RuntimeError("generator ignored GeneratorExit")'
 assert next(stream, 8) == 8
+# ---
+# case: yield from delegates iterable values
+def flatten(source):
+    result = yield from source
+    return result
+
+stream = flatten((1, 2, 3))
+seen = 0
+for value in stream:
+    seen = seen * 10 + value
+assert seen == 123
+stream = flatten([])
+try:
+    next(stream)
+except StopIteration as error:
+    empty_result = error.value
+assert empty_result is None
+# ---
+# case: yield from forwards send and return value
+def inner():
+    received = yield 1
+    yield received
+    return 9
+
+def outer():
+    result = yield from inner()
+    return result + 1
+
+stream = outer()
+assert next(stream) == 1
+assert stream.send(7) == 7
+try:
+    next(stream)
+except StopIteration as error:
+    delegated_result = error.value
+assert delegated_result == 10
+# ---
+# case: yield from propagates delegate exception to outer handler
+def failing_inner():
+    yield 1
+    raise ValueError('delegate failed')
+
+def recovering_outer():
+    try:
+        yield from failing_inner()
+    except ValueError as error:
+        caught = error
+        yield 2
+    return caught
+
+stream = recovering_outer()
+assert next(stream) == 1
+assert next(stream) == 2
+try:
+    next(stream)
+except StopIteration as error:
+    caught = error.value
+assert f'{caught!r}' == 'ValueError("delegate failed")'
+# ---
+# case: yield from rejects throw and close forwarding explicitly
+def delegated_values():
+    yield from (1, 2)
+
+stream = delegated_values()
+assert next(stream) == 1
+try:
+    stream.throw(ValueError('pending'))
+except NotImplementedError as error:
+    throw_error = error
+assert f'{throw_error!r}' == 'NotImplementedError("throw through yield from is not implemented")'
+assert next(stream) == 2
+
+stream = delegated_values()
+assert next(stream) == 1
+try:
+    stream.close()
+except NotImplementedError as error:
+    close_error = error
+assert f'{close_error!r}' == 'NotImplementedError("close through yield from is not implemented")'
+assert next(stream) == 2

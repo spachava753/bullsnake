@@ -430,6 +430,14 @@ func (code *preparedCode) instructionEdges(
 			{target: next, depth: depth + 1},
 			{target: target, depth: depth - 1},
 		}, false, nil
+	case bytecode.Send:
+		if err := require(2); err != nil {
+			return nil, false, err
+		}
+		return []stackEdge{
+			{target: next, depth: depth},
+			{target: target, depth: depth - 1},
+		}, false, nil
 	case bytecode.PopJumpIfFalse, bytecode.PopJumpIfTrue:
 		if err := require(1); err != nil {
 			return nil, false, err
@@ -483,6 +491,14 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 	case bytecode.Swap:
 		if instruction.Operand < 2 {
 			return code.failure(index, "SWAP depth must be at least 2")
+		}
+		return nil
+	case bytecode.Send:
+		if code.code.Flags()&bytecode.Generator == 0 {
+			return code.failure(index, "SEND requires generator code")
+		}
+		if uint64(instruction.Operand) >= uint64(len(code.instructions)) {
+			return code.failure(index, "jump target %d out of range", instruction.Operand)
 		}
 		return nil
 	case bytecode.Jump,

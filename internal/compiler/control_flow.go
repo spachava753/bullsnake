@@ -40,6 +40,8 @@ func (compiler *compilerState) emitJump(opcode bytecode.Opcode, label *jumpLabel
 	case bytecode.ForIter:
 		targetDepth--
 		fallthroughDepth++
+	case bytecode.Send:
+		targetDepth--
 	default:
 		return compiler.error(span, "instruction %s is not a supported jump", opcode)
 	}

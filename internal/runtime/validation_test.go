@@ -501,6 +501,50 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "YIELD_VALUE requires generator code",
 		},
 		{
+			name: "send outside generator code",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Send, Operand: 3},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "SEND requires generator code",
+		},
+		{
+			name: "send target",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Send, Operand: 99},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.Generator,
+			}),
+			wantFragment: "jump target 99 out of range",
+		},
+		{
+			name: "send stack underflow",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Send, Operand: 2},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.Generator,
+			}),
+			wantFragment: "operand stack underflow",
+		},
+		{
 			name: "generator module code",
 			code: testCodeSpec(bytecode.CodeSpec{
 				StackSize: 1,

@@ -343,6 +343,13 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := YieldValue.StackEffect(0); got != 0 {
 		t.Fatalf("YIELD_VALUE stack effect = %d, want 0", got)
 	}
+	send := Instruction{Opcode: Send, Operand: 8}
+	if got := send.String(); got != "SEND 8" {
+		t.Fatalf("send instruction = %q", got)
+	}
+	if got := Send.StackEffect(8); got != 0 {
+		t.Fatalf("SEND stack effect = %d, want 0", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

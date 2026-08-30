@@ -238,3 +238,21 @@ def values():
 stream = values()
 next(stream)
 stream.throw(GeneratorExit())
+# ---
+# case: yield from rejects non-iterable
+# error: TypeError
+# message: "'int' object is not iterable"
+def outer():
+    yield from 1
+
+next(outer())
+# ---
+# case: yield from native iterator rejects sent value
+# error: AttributeError
+# message: "'tuple_iterator' object has no attribute 'send'"
+def outer():
+    yield from (1, 2)
+
+stream = outer()
+next(stream)
+stream.send(9)

@@ -18,6 +18,7 @@ const (
 	generatorIteration generatorResumeKind = iota
 	generatorCall
 	generatorClose
+	generatorDelegate
 )
 
 type generatorResume struct {
@@ -276,6 +277,16 @@ func executeGeneratorThrowCall(
 		return instructionOutcome{kind: raised, exception: failure}, nil
 	}
 	generator := method.generator
+	if generator.state == generatorSuspended && generator.frame != nil &&
+		generator.frame.delegation != nil {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"NotImplementedError",
+				"throw through yield from is not implemented",
+			),
+		}, nil
+	}
 	if generator.state != generatorRunning {
 		injected.originFrame = nil
 		injected.originInstruction = 0
@@ -390,6 +401,16 @@ func executeGeneratorCloseCall(
 	}
 	discardCallSegment(caller, base)
 	generator := method.generator
+	if generator.state == generatorSuspended && generator.frame != nil &&
+		generator.frame.delegation != nil {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"NotImplementedError",
+				"close through yield from is not implemented",
+			),
+		}, nil
+	}
 	switch generator.state {
 	case generatorRunning:
 		return instructionOutcome{
@@ -415,6 +436,102 @@ func executeGeneratorCloseCall(
 	}
 }
 
+// executeSend advances one yield-from delegate. A yielded value falls through
+// to YIELD_VALUE, while completion replaces the delegate with its return value
+// and jumps to the expression exit.
+func executeSend(
+	frame *frame,
+	instruction int,
+	target int,
+) (instructionOutcome, error) {
+	if len(frame.stack) < 2 {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	sent, _ := frame.pop()
+	delegate := frame.stack[len(frame.stack)-1]
+	state := &delegationState{
+		sendInstruction:  instruction,
+		yieldInstruction: instruction + 1,
+		target:           target,
+	}
+
+	switch delegate := delegate.(type) {
+	case *generatorValue:
+		if delegate.state == generatorCompleted {
+			return finishDelegation(frame, instruction, target, None)
+		}
+		if delegate.state == generatorCreated && sent != None {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"TypeError",
+					"can't send non-None value to a just-started generator",
+				),
+			}, nil
+		}
+		outcome, err := resumeGenerator(
+			frame,
+			instruction,
+			delegate,
+			sent,
+			generatorResume{
+				kind:        generatorDelegate,
+				target:      target,
+				instruction: instruction,
+			},
+		)
+		if err == nil && outcome.kind == called {
+			frame.delegation = state
+		}
+		return outcome, err
+	case valueIterator:
+		if sent != None {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"AttributeError",
+					"'"+delegate.TypeName()+"' object has no attribute 'send'",
+				),
+			}, nil
+		}
+		value, ok, exception := delegate.next()
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if !ok {
+			return finishDelegation(frame, instruction, target, None)
+		}
+		frame.delegation = state
+		return pushOutcome(frame, instruction, value)
+	default:
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+delegate.TypeName()+"' object is not an iterator",
+			),
+		}, nil
+	}
+}
+
+func finishDelegation(
+	frame *frame,
+	instruction int,
+	target int,
+	result Value,
+) (instructionOutcome, error) {
+	frame.pop()
+	frame.delegation = nil
+	if !frame.push(result) {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"operand stack overflow while returning delegate result",
+		)
+	}
+	frame.instruction = target
+	return instructionOutcome{kind: advance}, nil
+}
+
 // suspendGenerator verifies the active frame and its resumption contract,
 // detaches the frame, and returns the yielded value to the caller.
 func suspendGenerator(
@@ -430,7 +547,8 @@ func suspendGenerator(
 	if caller == nil {
 		return nil, nil, active.failure(instruction, "generator has no resuming caller")
 	}
-	if generator.resume.kind == generatorIteration &&
+	if (generator.resume.kind == generatorIteration ||
+		generator.resume.kind == generatorDelegate) &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
 		return nil, nil, active.failure(
 			instruction,
@@ -499,6 +617,24 @@ func finishGenerator(
 				"operand stack overflow while returning close result",
 			)
 		}
+		return caller, nil, nil
+	case generatorDelegate:
+		if len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator {
+			return nil, nil, active.failure(
+				instruction,
+				"delegated generator is not retained by caller",
+			)
+		}
+		caller.pop()
+		generator.complete()
+		caller.delegation = nil
+		if !caller.push(result) {
+			return nil, nil, caller.failure(
+				resume.instruction,
+				"operand stack overflow while returning delegate result",
+			)
+		}
+		caller.instruction = resume.target
 		return caller, nil, nil
 	default:
 		return nil, nil, active.failure(instruction, "invalid generator resumption")

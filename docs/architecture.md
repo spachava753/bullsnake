@@ -199,9 +199,16 @@ loop; explicit resumption exposes its value through `StopIteration.value`, while
 the generator, and later iteration remains exhausted. The runtime rejects
 re-entry and converts an explicit `StopIteration` escaping generator code into
 `RuntimeError`. The deprecated three-argument `throw` form accepts `None` as its
-traceback because Python traceback objects do not exist yet. The protocol does
-not yet expose `iter` or delegated `yield from`, and garbage collection does not
-implicitly close an abandoned generator.
+traceback because Python traceback objects do not exist yet.
+
+`yield from` uses a send loop in the outer generator frame. It delegates ordinary
+iteration and sent values, exposes a generator delegate's return value, and
+routes delegate failures through the outer generator's handlers. Throwing or
+closing the outer generator while delegation is active currently raises
+`NotImplementedError` and leaves it suspended; later slices must forward those
+operations to the delegate. The protocol does not yet expose a general `iter`
+builtin, and garbage collection does not implicitly close an abandoned
+generator.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
