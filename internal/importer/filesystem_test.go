@@ -14,10 +14,12 @@ import (
 func TestFileSystem(t *testing.T) {
 	first := t.TempDir()
 	second := t.TempDir()
-	writeSource(t, first, "main.py", "import library\nimport package.child\nanswer = library.value + 1\npackage_answer = package.child.value\n")
+	writeSource(t, first, "main.py", "import library\nimport package.child\nfrom package import sibling\ntry:\n    from package import absent\nexcept ImportError:\n    missing_member = True\ntry:\n    from package import broken\nexcept ModuleNotFoundError:\n    nested_missing = True\nanswer = library.value + 1\npackage_answer = package.child.value\nsibling_answer = sibling.value\n")
 	writeSource(t, second, "library.py", "value = 41\n")
 	writeSource(t, second, "package/__init__.py", "marker = 'package'\n")
 	writeSource(t, second, "package/child.py", "value = 42\n")
+	writeSource(t, second, "package/sibling.py", "value = 43\n")
+	writeSource(t, second, "package/broken.py", "import hidden_dependency\n")
 	writeSource(t, first, "package/child.py", "value = -1\n")
 	writeSource(t, first, "choice.py", "kind = 'module'\n")
 	writeSource(t, first, "choice/__init__.py", "kind = 'package'\n")
@@ -45,6 +47,9 @@ func TestFileSystem(t *testing.T) {
 		if !found || packageAnswer.Repr() != "42" {
 			t.Fatalf("package_answer = %v, %t, want 42", packageAnswer, found)
 		}
+		assertImportValue(t, module, "sibling_answer", "43")
+		assertImportValue(t, module, "missing_member", "True")
+		assertImportValue(t, module, "nested_missing", "True")
 		if _, found := runtime.Module("library"); !found {
 			t.Fatal("imported library was not cached")
 		}
@@ -60,6 +65,12 @@ func TestFileSystem(t *testing.T) {
 			t.Fatal("imported package child was not cached")
 		}
 		assertImportValue(t, child, "__package__", "'package'")
+		if _, found := runtime.Module("package.sibling"); !found {
+			t.Fatal("from-list submodule was not cached")
+		}
+		if _, found := runtime.Module("package.broken"); found {
+			t.Fatal("failing from-list submodule remained cached")
+		}
 	})
 
 	t.Run("prefers a package directory", func(t *testing.T) {

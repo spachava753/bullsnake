@@ -322,8 +322,11 @@ must be a package. After a child returns, the runtime publishes it on its parent
 and resumes the suspended `IMPORT_NAME` instruction for the next component. An
 ordinary `import package.child` returns the top package. A nonempty from-list
 returns the requested child module, matching the stack contract used by the
-compiler. Modules initialize `__name__` and `__package__`; loader metadata adds
-`__file__` and a package `__path__` list.
+compiler. When that requested module is a package, each missing from-list
+attribute is tried as a child module. An exact missing child is left for
+`IMPORT_FROM` to report as `ImportError`; a failure raised while executing a
+found child propagates normally. Modules initialize `__name__` and
+`__package__`; loader metadata adds `__file__` and a package `__path__` list.
 
 If a Python exception leaves an imported module, the frame unwind removes its
 cache entry before checking the importer's handler. A later import may retry it.
@@ -341,9 +344,9 @@ compiler, and preserve typed frontend errors under a module-loading wrapper.
 A missing callback, missing file, or missing callback result raises
 `ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
 until the runtime has the corresponding Python exception values. Namespace
-packages, relative imports, from-list submodule fallback, dynamic `__path__`
-changes, `sys.modules`, `__all__`, finder and loader hooks, reload, import locks,
-and a standard library remain unimplemented.
+packages, relative imports, dynamic `__path__` changes, `sys.modules`,
+`__all__`, finder and loader hooks, reload, import locks, and a standard library
+remain unimplemented.
 
 ## Deliberate boundaries
 

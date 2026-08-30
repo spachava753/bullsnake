@@ -14,7 +14,7 @@ func executeImportName(
 ) (instructionOutcome, error) {
 	if request := frame.pendingImport; request != nil {
 		frame.pendingImport = nil
-		if request.names[len(request.names)-1] != name {
+		if request.requestedName != name {
 			return instructionOutcome{}, frame.failure(index, "pending import name changed")
 		}
 		return advanceImport(frame, index, request)
@@ -46,20 +46,35 @@ func executeImportName(
 	if frame.runtime == nil {
 		return instructionOutcome{}, frame.failure(index, "frame has no owning runtime")
 	}
-	return advanceImport(frame, index, newImportRequest(name, fromList != None))
+	return advanceImport(frame, index, newImportRequest(name, fromList))
 }
 
-func newImportRequest(name string, fromList bool) *importRequest {
+func newImportRequest(name string, fromList Value) *importRequest {
+	names := qualifiedImportNames(name)
+	returnName := names[0]
+	var fromNames []string
+	if values, ok := fromList.(*tupleValue); ok {
+		returnName = name
+		fromNames = make([]string, len(values.elements))
+		for index, value := range values.elements {
+			fromNames[index] = value.(*stringValue).value
+		}
+	}
+	return &importRequest{
+		requestedName: name,
+		names:         names,
+		returnName:    returnName,
+		fromNames:     fromNames,
+	}
+}
+
+func qualifiedImportNames(name string) []string {
 	parts := strings.Split(name, ".")
 	names := make([]string, len(parts))
 	for index := range parts {
 		names[index] = strings.Join(parts[:index+1], ".")
 	}
-	returnName := names[0]
-	if fromList {
-		returnName = name
-	}
-	return &importRequest{names: names, returnName: returnName}
+	return names
 }
 
 // advanceImport walks cached or loader-provided path components until it must
@@ -69,59 +84,99 @@ func advanceImport(
 	index int,
 	request *importRequest,
 ) (instructionOutcome, error) {
-	for request.next < len(request.names) {
-		name := request.names[request.next]
-		var parent *Module
-		if request.next != 0 {
-			parent = frame.runtime.modules[request.names[request.next-1]]
-			if parent == nil {
-				return instructionOutcome{}, frame.failure(index, "import parent is not cached")
+	for {
+		for request.next < len(request.names) {
+			name := request.names[request.next]
+			var parent *Module
+			if request.next != 0 {
+				parent = frame.runtime.modules[request.names[request.next-1]]
+				if parent == nil {
+					return instructionOutcome{}, frame.failure(index, "import parent is not cached")
+				}
+				if !parent.isPackage {
+					return instructionOutcome{
+						kind: raised,
+						exception: newException(
+							"ModuleNotFoundError",
+							"No module named '"+name+"'; '"+parent.name+"' is not a package",
+						),
+					}, nil
+				}
 			}
-			if !parent.isPackage {
-				return instructionOutcome{
-					kind: raised,
-					exception: newException(
-						"ModuleNotFoundError",
-						"No module named '"+name+"'; '"+parent.name+"' is not a package",
-					),
-				}, nil
+			if module, found := frame.runtime.modules[name]; found {
+				if parent != nil {
+					child := name[strings.LastIndexByte(name, '.')+1:]
+					parent.globals.values[child] = module
+				}
+				request.next++
+				continue
 			}
-		}
-		if module, found := frame.runtime.modules[name]; found {
+			if frame.runtime.loader == nil {
+				if name == request.fallbackName {
+					request.next++
+					continue
+				}
+				return missingModuleOutcome(name), nil
+			}
+			loadRequest := ModuleRequest{Name: name}
 			if parent != nil {
-				child := name[strings.LastIndexByte(name, '.')+1:]
-				parent.globals.values[child] = module
+				loadRequest.SearchLocations = slices.Clone(parent.searchLocations)
 			}
-			request.next++
+			spec, found, err := frame.runtime.loader(loadRequest)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if !found {
+				if name == request.fallbackName {
+					request.next++
+					continue
+				}
+				return missingModuleOutcome(name), nil
+			}
+			module, imported, err := frame.runtime.newModuleFrame(name, spec, frame)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			frame.runtime.modules[name] = module
+			imported.moduleImport = &moduleImport{module: module, request: request}
+			return instructionOutcome{kind: called, frame: imported}, nil
+		}
+
+		module := frame.runtime.modules[request.requestedName]
+		if module == nil {
+			return instructionOutcome{}, frame.failure(index, "completed import is not cached")
+		}
+		request.fallbackName = ""
+		if startNextFromImport(module, request) {
 			continue
 		}
-		if frame.runtime.loader == nil {
-			return missingModuleOutcome(name), nil
+		result := frame.runtime.modules[request.returnName]
+		if result == nil {
+			return instructionOutcome{}, frame.failure(index, "import result is not cached")
 		}
-		loadRequest := ModuleRequest{Name: name}
-		if parent != nil {
-			loadRequest.SearchLocations = slices.Clone(parent.searchLocations)
-		}
-		spec, found, err := frame.runtime.loader(loadRequest)
-		if err != nil {
-			return instructionOutcome{}, err
-		}
-		if !found {
-			return missingModuleOutcome(name), nil
-		}
-		module, imported, err := frame.runtime.newModuleFrame(name, spec, frame)
-		if err != nil {
-			return instructionOutcome{}, err
-		}
-		frame.runtime.modules[name] = module
-		imported.moduleImport = &moduleImport{module: module, request: request}
-		return instructionOutcome{kind: called, frame: imported}, nil
+		return pushOutcome(frame, index, result)
 	}
-	module := frame.runtime.modules[request.returnName]
-	if module == nil {
-		return instructionOutcome{}, frame.failure(index, "completed import is not cached")
+}
+
+func startNextFromImport(module *Module, request *importRequest) bool {
+	if !module.isPackage {
+		return false
 	}
-	return pushOutcome(frame, index, module)
+	for request.fromIndex < len(request.fromNames) {
+		name := request.fromNames[request.fromIndex]
+		request.fromIndex++
+		if name == "*" {
+			continue
+		}
+		if _, found := module.globals.get(name); found {
+			continue
+		}
+		request.fallbackName = request.requestedName + "." + name
+		request.names = qualifiedImportNames(request.fallbackName)
+		request.next = strings.Count(request.requestedName, ".") + 1
+		return true
+	}
+	return false
 }
 
 func missingModuleOutcome(name string) instructionOutcome {

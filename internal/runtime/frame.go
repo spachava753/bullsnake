@@ -9,9 +9,13 @@ type handledException struct {
 }
 
 type importRequest struct {
-	names      []string
-	next       int
-	returnName string
+	requestedName string
+	names         []string
+	next          int
+	returnName    string
+	fromNames     []string
+	fromIndex     int
+	fallbackName  string
 }
 
 type moduleImport struct {

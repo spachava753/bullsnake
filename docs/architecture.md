@@ -231,10 +231,11 @@ parallel without silently sharing modules or mutable Python values.
 The current importer asks a host-supplied loader for a module description with
 immutable code and package metadata. For a dotted absolute name, the runtime
 loads each parent first, verifies that it is a package, and publishes each child
-on that parent. Modules execute in the existing frame loop. Repeated imports
-reuse one object. Because the cache entry exists before execution, circular
-imports see the names assigned so far. If execution fails, the runtime removes
-only that module; dependencies that finished successfully remain cached.
+on that parent. A from-import also tries a missing package attribute as a child
+module. Modules execute in the existing frame loop. Repeated imports reuse one
+object. Because the cache entry exists before execution, circular imports see
+the names assigned so far. If execution fails, the runtime removes only that
+module; dependencies that finished successfully remain cached.
 
 The filesystem loader searches configured roots for top-level modules and
 regular packages. Within one location it prefers `name/__init__.py` over
