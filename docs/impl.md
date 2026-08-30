@@ -451,9 +451,11 @@ names, and missing required positional or keyword-only arguments with Python
 exceptions. Closure cells use the compiler's cells-first dereference indexes;
 `LOAD_DEREF`, `STORE_DEREF`, and `DELETE_DEREF` share updates and report empty
 local or free cells with Python's distinct exception families and messages.
-Decorators at execution time, callable native values, suspension, exception
-handlers, traceback chains, cancellation, recursion limits, and execution
-budgets are not yet implemented.
+Decorators require no VM-only state: their expressions and defaults execute in
+the compiler-selected order, and ordinary calls apply the resulting decorators
+from bottom to top. Callable native values, suspension, exception handlers,
+traceback chains, cancellation, recursion limits, and execution budgets are not
+yet implemented.
 
 ## Object model and runtime
 

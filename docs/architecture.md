@@ -426,13 +426,15 @@ keyword-only defaults, and an ordered tuple of captured cells. Frame creation
 allocates one cell for each locally captured name, moves captured parameter
 values into those cells, then appends the function's captured free cells.
 Function objects retain the cell pointers, so escaped and sibling closures share
-bindings after the defining frame returns. The binder fills defaults, packs
-surplus arguments into `*args`, and matches ordinary and keyword-only names.
-When `**kwargs` is present, it stores unmatched names in a fresh dictionary in
-call order. The binder rejects positional-only, duplicate, non-string, and
-unexpected names when the signature does not provide a legal destination. It
-then replaces the active frame with a child whose `previous` link names the
-caller.
+bindings after the defining frame returns. Function decorators use this same
+call machinery. Decorator expressions evaluate top to bottom before defaults;
+the resulting callables apply bottom to top after function creation. The binder
+fills defaults, packs surplus arguments into `*args`, and matches ordinary and
+keyword-only names. When `**kwargs` is present, it stores unmatched names in a
+fresh dictionary in call order. The binder rejects positional-only, duplicate,
+non-string, and unexpected names when the signature does not provide a legal
+destination. It then replaces the active frame with a child whose `previous`
+link names the caller.
 Return restores that caller and pushes the result. Nested and recursive Python
 calls therefore remain in the iterative dispatcher. A suspended async task or
 generator will eventually own the same frame state needed to resume it.

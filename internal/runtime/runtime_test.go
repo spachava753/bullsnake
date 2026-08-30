@@ -413,6 +413,55 @@ func TestLexicalClosures(t *testing.T) {
 	}
 }
 
+func TestDecoratedDefinitions(t *testing.T) {
+	code := compileSource(t, "order = 0\n"+
+		"def record(value):\n"+
+		"    global order\n"+
+		"    order = order * 10 + value\n"+
+		"    return value\n"+
+		"def decorate(label):\n"+
+		"    record(label)\n"+
+		"    def apply(function):\n"+
+		"        record(label + 2)\n"+
+		"        def wrapped(value):\n"+
+		"            return function(value) + label\n"+
+		"        return wrapped\n"+
+		"    return apply\n"+
+		"@decorate(1)\n"+
+		"@decorate(2)\n"+
+		"def target(value=record(5)):\n"+
+		"    return value\n"+
+		"observed_order = order\n"+
+		"decorated = target(10)\n"+
+		"def replace(function):\n"+
+		"    def replacement():\n"+
+		"        return 42\n"+
+		"    return replacement\n"+
+		"@replace\n"+
+		"def ignored():\n"+
+		"    return 0\n"+
+		"replaced = ignored()\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("decorators", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"observed_order": "12543",
+		"decorated":      "13",
+		"replaced":       "42",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
