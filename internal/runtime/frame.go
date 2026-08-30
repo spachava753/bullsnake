@@ -39,6 +39,7 @@ type frame struct {
 	instanceInit      *instanceInit
 	moduleImport      *moduleImport
 	pendingImport     *importRequest
+	generator         *generatorValue
 	handledExceptions []handledException
 }
 

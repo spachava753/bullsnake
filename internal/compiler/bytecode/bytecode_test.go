@@ -79,8 +79,8 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := (Instruction{Opcode: LoadName, Operand: 3}).String(); got != "LOAD_NAME 3" {
 		t.Fatalf("instruction = %q", got)
 	}
-	flags := Optimized | NewLocals | VarArgs | Nested
-	if got := flags.String(); got != "Optimized, NewLocals, VarArgs, Nested" {
+	flags := Optimized | NewLocals | VarArgs | Nested | Generator
+	if got := flags.String(); got != "Optimized, NewLocals, VarArgs, Nested, Generator" {
 		t.Fatalf("code flags = %q", got)
 	}
 	function := Instruction{Opcode: MakeFunction, Operand: 2}
@@ -336,6 +336,12 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	}
 	if got := LoadHandledExceptionType.StackEffect(0); got != 1 {
 		t.Fatalf("LOAD_HANDLED_EXCEPTION_TYPE stack effect = %d, want 1", got)
+	}
+	if got := (Instruction{Opcode: YieldValue}).String(); got != "YIELD_VALUE" {
+		t.Fatalf("yield instruction = %q", got)
+	}
+	if got := YieldValue.StackEffect(0); got != 0 {
+		t.Fatalf("YIELD_VALUE stack effect = %d, want 0", got)
 	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {

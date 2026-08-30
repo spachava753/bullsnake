@@ -87,6 +87,9 @@ func (compiler *compilerState) newFunctionCompiler(
 	if scope.Flags&resolver.Nested != 0 {
 		flags |= bytecode.Nested
 	}
+	if scope.Flags&resolver.Generator != 0 {
+		flags |= bytecode.Generator
+	}
 	child := &compilerState{
 		filename:            compiler.filename,
 		module:              compiler.module,

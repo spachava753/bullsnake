@@ -162,6 +162,7 @@ const (
 	LeaveExcept
 	LoadSpecial
 	LoadHandledExceptionType
+	YieldValue
 )
 
 var opcodeNames = [...]string{
@@ -242,6 +243,7 @@ var opcodeNames = [...]string{
 	"LEAVE_EXCEPT",
 	"LOAD_SPECIAL",
 	"LOAD_HANDLED_EXCEPTION_TYPE",
+	"YIELD_VALUE",
 }
 
 // String returns the disassembly spelling of an opcode.

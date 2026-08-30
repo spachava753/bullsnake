@@ -12,6 +12,7 @@ const (
 	advance outcomeKind = iota
 	called
 	returned
+	yielded
 	raised
 )
 
@@ -61,7 +62,21 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				return nil, nil, active.failure(index, "invalid call frame transition")
 			}
 			thread.current = outcome.frame
+		case yielded:
+			caller, suspendErr := suspendGenerator(active, index, outcome.value)
+			if suspendErr != nil {
+				return nil, nil, suspendErr
+			}
+			thread.current = caller
 		case returned:
+			if active.generator != nil {
+				caller, finishErr := finishGenerator(active, index)
+				if finishErr != nil {
+					return nil, nil, finishErr
+				}
+				thread.current = caller
+				continue
+			}
 			thread.current = active.previous
 			result := outcome.value
 			if active.instanceInit != nil {
@@ -199,6 +214,15 @@ func routeException(
 		}
 		current.discardImportedModule()
 		caller := current.previous
+		if current.generator != nil {
+			if current.generator.state != generatorRunning {
+				return nil, current.failure(
+					currentInstruction,
+					"exception left a generator that is not running",
+				)
+			}
+			current.generator.complete()
+		}
 		if caller == nil {
 			thread.current = nil
 			return unhandled, nil
@@ -846,6 +870,12 @@ func executeInstruction(
 		exception.originFrame = nil
 		exception.originInstruction = 0
 		return instructionOutcome{kind: raised, exception: exception}, nil
+	case bytecode.YieldValue:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		return instructionOutcome{kind: yielded, value: value}, nil
 	case bytecode.ReturnValue:
 		value, ok := frame.pop()
 		if !ok {

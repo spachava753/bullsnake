@@ -124,6 +124,8 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		return compiler.compileConditional(expression)
 	case *compilerast.NamedExpr:
 		return compiler.compileNamedExpression(expression)
+	case *compilerast.YieldExpr:
+		return compiler.compileYieldExpression(expression)
 	case *compilerast.LambdaExpr:
 		return compiler.compileLambdaExpression(expression)
 	case *compilerast.AttributeExpr:

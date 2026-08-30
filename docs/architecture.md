@@ -140,9 +140,9 @@ instructions, constants, local-variable positions, closure positions, jump
 targets, and source locations.
 
 The result is an immutable code object. A code object contains the information
-the VM needs to run one module, function, class body, annotation body, or hidden
-comprehension body. Child functions and current eager comprehensions have child
-code objects rather than hidden Go closures.
+the VM needs to run one module, function, generator, class body, annotation
+body, or hidden comprehension body. Child functions and current eager
+comprehensions have child code objects rather than hidden Go closures.
 
 CPython 3.14 inlines eager comprehensions into the enclosing frame. Bullsnake
 currently runs each eager comprehension in a hidden child frame. The first
@@ -183,7 +183,14 @@ not use Go recursion as the Python call stack. This choice has several benefits:
 - recursive Python code does not require one Go call per Python frame
 - exception unwinding can walk Python frames directly
 - tracebacks use the same frame chain as calls
-- generators and coroutines can later keep a frame and resume it
+- suspended generators retain the same frame representation used by calls
+
+A generator call binds arguments and creates a generator that owns a detached
+frame. Iteration attaches that frame to the caller. `yield` detaches it again
+and returns one value to the loop. The next iteration resumes the expression
+with `None`. Return or an escaping exception completes the generator, and later
+iteration remains exhausted. This first protocol does not yet expose `next`,
+`send`, `throw`, or `close`.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
@@ -222,8 +229,8 @@ when the protocols are added.
 ## Exceptions
 
 Python exceptions are runtime values, not Go errors. An instruction can
-advance, call another Python frame, return, or raise. Go errors are reserved for
-invalid bytecode and host-level failures.
+advance, call another Python frame, yield, return, or raise. Go errors are
+reserved for invalid bytecode and host-level failures.
 
 The VM finds an exception handler from the protected ranges in the current code
 object. If no range applies, it moves to the caller frame. An uncaught exception
@@ -299,11 +306,13 @@ but they must not mutate Python objects directly.
 Async execution and Python threads are design directions, not implemented
 features.
 
-A future generator or coroutine will own a suspended Python frame. `await` and
-async iteration will be VM operations over explicit Python protocols. An event
-loop will manage ready tasks, timers, I/O completion, cancellation, and task
-context. Async tasks will not be modeled as one goroutine each because Python
-task scheduling and cancellation need explicit interpreter state.
+Synchronous generators already retain suspended Python frames and resume through
+the VM's ordinary frame loop. Future coroutine and async-generator work should
+extend that state model with `send`, delegated iteration, awaiting, cancellation,
+and asynchronous iteration. An event loop will manage ready tasks, timers, I/O
+completion, cancellation, and task context. Async tasks will not be modeled as
+one goroutine each because Python task scheduling and cancellation need explicit
+interpreter state.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread

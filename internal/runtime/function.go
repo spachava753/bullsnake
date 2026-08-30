@@ -185,6 +185,16 @@ func executeFunctionCall(
 		builtins:   caller.builtins,
 		previous:   caller,
 	}
+	if function.code.code.Flags()&bytecode.Generator != 0 {
+		generator := &generatorValue{
+			frame:         child,
+			qualifiedName: function.code.code.QualifiedName(),
+			state:         generatorCreated,
+		}
+		child.previous = nil
+		child.generator = generator
+		return pushOutcome(caller, instruction, generator)
+	}
 	return instructionOutcome{kind: called, frame: child}, nil
 }
 

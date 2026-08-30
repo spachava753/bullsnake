@@ -127,8 +127,12 @@ func (code *preparedCode) validateMetadata() error {
 			keywordStart+keywordOnly,
 		)
 	}
+	if flags&bytecode.Generator != 0 &&
+		flags&(bytecode.Optimized|bytecode.NewLocals) != bytecode.Optimized|bytecode.NewLocals {
+		return code.failure(-1, "generator code requires optimized new locals")
+	}
 	supportedFlags := bytecode.Optimized | bytecode.NewLocals | bytecode.Nested |
-		bytecode.VarArgs | bytecode.VarKeywords
+		bytecode.VarArgs | bytecode.VarKeywords | bytecode.Generator
 	if unsupported := flags &^ supportedFlags; unsupported != 0 {
 		return code.failure(-1, "unsupported code flags %s", unsupported)
 	}
@@ -455,6 +459,11 @@ func (code *preparedCode) instructionEdges(
 // behavior implemented by the current runtime slice.
 func (code *preparedCode) validateOperand(index int, instruction bytecode.Instruction) error {
 	switch instruction.Opcode {
+	case bytecode.YieldValue:
+		if code.code.Flags()&bytecode.Generator == 0 {
+			return code.failure(index, "YIELD_VALUE requires generator code")
+		}
+		return nil
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
 		bytecode.BinarySubscript, bytecode.StoreSubscript, bytecode.DeleteSubscript,
 		bytecode.FormatSimple, bytecode.FormatWithSpec, bytecode.BuildString,
@@ -702,6 +711,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue,
 		bytecode.ImportStar:
 		return 1, 0
+	case bytecode.YieldValue:
+		return 1, 1
 	case bytecode.DeleteName, bytecode.DeleteFast, bytecode.DeleteGlobal,
 		bytecode.DeleteDeref:
 		return 0, 0

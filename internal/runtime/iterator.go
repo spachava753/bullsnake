@@ -153,9 +153,9 @@ func (iterator *collectionIterator) next() (Value, bool, *Exception) {
 
 // newIterator returns self-iterators unchanged and selects the concrete iterator
 // whose element contract matches each currently iterable built-in value.
-func newIterator(value Value) (valueIterator, bool) {
+func newIterator(value Value) (Value, bool) {
 	switch value := value.(type) {
-	case valueIterator:
+	case valueIterator, *generatorValue:
 		return value, true
 	case *tupleValue, *listValue:
 		return &sequenceIterator{sequence: value}, true
@@ -206,6 +206,9 @@ func executeForIter(
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
 	value := frame.stack[len(frame.stack)-1]
+	if generator, ok := value.(*generatorValue); ok {
+		return resumeGenerator(frame, index, target, generator)
+	}
 	iterator, ok := value.(valueIterator)
 	if !ok {
 		return instructionOutcome{

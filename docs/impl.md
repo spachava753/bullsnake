@@ -179,6 +179,8 @@ The current compiler translates:
   cleanup during return or loop transfer
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, and lazy function annotations
+- synchronous generator functions with lazy calls, `yield`, iteration, closure
+  captures, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
   closures, and the cells used by class-visible annotations and `__class__`
 - ordinary imports and assertions
@@ -191,18 +193,19 @@ WTF-8-compatible form, while bytes constants preserve arbitrary bytes.
 Formatted-string compilation retains conversion, format-specification, raw
 prefix, and debug-field behavior needed by the current runtime formatter.
 
-Functions, class bodies, and eager comprehensions are child code objects.
-Closures contain explicit cell references instead of Go closures. For an eager
-comprehension, the enclosing code evaluates the first iterable and passes its
-iterator to the child; the child owns its target names and result collection.
-Deferred annotation bodies are also children and do not run during an ordinary
-function definition or call.
+Functions, generator functions, class bodies, and eager comprehensions are child
+code objects. Closures contain explicit cell references instead of Go closures.
+Calling a generator creates its runtime object without executing its child code.
+For an eager comprehension, the enclosing code evaluates the first iterable and
+passes its iterator to the child; the child owns its target names and result
+collection. Deferred annotation bodies are also children and do not run during
+an ordinary function definition or call.
 
 The compiler rejects template-string execution, annotated class attributes,
 `from __future__ import annotations`, generic and async definitions, generator
-expressions, asynchronous comprehensions, `async for`, `async with`, pattern
-matching, generators, and coroutines. Unsupported AST forms return compiler errors; they
-are not approximated with similar bytecode.
+expressions, `yield from`, asynchronous comprehensions, `async for`, `async
+with`, pattern matching, and coroutines. Unsupported AST forms return compiler
+errors; they are not approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -230,9 +233,17 @@ frame stores prepared code, the next instruction, operand stack, fast locals,
 closure cells, local and global namespaces, builtins, active handled
 exceptions, and its caller.
 
-An instruction can advance, call another Python frame, return, or raise. A call
-switches the loop to a new frame. A return restores the caller and pushes the
-result. Python recursion therefore does not recurse through the Go call stack.
+An instruction can advance, call another Python frame, yield, return, or raise.
+A call switches the loop to a new frame. A return restores the caller and pushes
+the result. Python recursion therefore does not recurse through the Go call
+stack.
+
+A generator owns a frame that is detached while created or suspended. `FOR_ITER`
+attaches it to the caller and starts or resumes execution. `YIELD_VALUE` removes
+the yielded value, detaches the frame, and gives the value to the caller. A later
+iteration resumes the yield expression with `None`. Return and escaping
+exceptions complete the generator; repeated iteration then stays exhausted.
+Re-entering a running generator raises `ValueError`.
 
 A raised Python exception follows protected ranges in the current code. If a
 range matches, the VM trims the operand stack to its recorded depth, pushes the
@@ -250,8 +261,8 @@ return, loop transfer, or exception work across nested calls and cleanup.
 Runtime values implement a sealed `Value` interface. Current concrete values
 include the Python singletons, arbitrary-precision integers, binary64 floats,
 complex numbers, strings, bytes, tuples, lists, dictionaries, sets, slices,
-iterators, modules, functions, classes, instances, bound methods, and
-exceptions.
+iterators, generators, modules, functions, classes, instances, bound methods,
+and exceptions.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
@@ -287,7 +298,8 @@ The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and
 keyword unpacking. Defaults retain the objects created when the definition ran.
 Calls reject duplicate, missing, unexpected, or non-string keyword arguments
-with Python exceptions.
+with Python exceptions. Generator calls use the same binding path but retain the
+new frame without running its body.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, and user exception
@@ -402,8 +414,10 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no generators, coroutines, async execution, or Python threads
-- no generator expressions or asynchronous comprehensions
+- no `next`, `send`, `throw`, or `close` generator operations or delegated
+  `yield from`
+- no generator expressions, asynchronous comprehensions, coroutines, async
+  execution, or Python threads
 - no asynchronous context managers or structural matching
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance

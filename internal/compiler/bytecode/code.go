@@ -17,6 +17,7 @@ const (
 	VarArgs
 	VarKeywords
 	Nested
+	Generator
 )
 
 var codeFlagNames = [...]struct {
@@ -28,6 +29,7 @@ var codeFlagNames = [...]struct {
 	{VarArgs, "VarArgs"},
 	{VarKeywords, "VarKeywords"},
 	{Nested, "Nested"},
+	{Generator, "Generator"},
 }
 
 // String returns the stable dump spelling of code flags.

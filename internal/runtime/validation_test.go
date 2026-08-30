@@ -474,6 +474,61 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "unsupported opcode LOAD_LOCALS",
 		},
 		{
+			name: "generator metadata",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Generator,
+			}),
+			wantFragment: "generator code requires optimized new locals",
+		},
+		{
+			name: "yield outside generator code",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.YieldValue},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "YIELD_VALUE requires generator code",
+		},
+		{
+			name: "generator module code",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.YieldValue},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.Generator,
+			}),
+			wantFragment: "module code cannot be a generator",
+		},
+		{
+			name: "yield stack underflow",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.YieldValue},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.Generator,
+			}),
+			wantFragment: "operand stack underflow",
+		},
+		{
 			name: "function parameters exceed locals",
 			code: testCodeSpec(bytecode.CodeSpec{
 				StackSize: 1,

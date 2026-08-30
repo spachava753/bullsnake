@@ -1,5 +1,7 @@
 package runtime
 
+import "github.com/spachava753/bullsnake/internal/compiler/bytecode"
+
 type buildClassValue struct{}
 
 func (*buildClassValue) TypeName() string { return "builtin_function_or_method" }
@@ -279,6 +281,31 @@ func executeTypeCall(
 		arguments,
 		keywords,
 	)
+	if err == nil && outcome.kind == advance &&
+		initializer.code.code.Flags()&bytecode.Generator != 0 {
+		result, ok := caller.pop()
+		if !ok {
+			return instructionOutcome{}, caller.failure(
+				instruction,
+				"generator initializer produced no result",
+			)
+		}
+		generator, ok := result.(*generatorValue)
+		if !ok {
+			return instructionOutcome{}, caller.failure(
+				instruction,
+				"generator initializer result is not a generator",
+			)
+		}
+		generator.complete()
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"__init__() should return None, not 'generator'",
+			),
+		}, nil
+	}
 	if err == nil && outcome.kind == called {
 		outcome.frame.instanceInit = &instanceInit{
 			instance:    instance,
