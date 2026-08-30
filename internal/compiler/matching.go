@@ -37,7 +37,10 @@ func (compiler *compilerState) compileMatchStatement(
 		extracting := patternNeedsExtraction(matchCase.Pattern)
 		var captureTemps map[string]uint32
 		if extracting {
-			captureTemps = compiler.allocateMatchTemps(captures)
+			captureTemps = make(map[string]uint32, len(captures))
+			for _, capture := range captures {
+				captureTemps[capture.name] = compiler.allocateMatchTemp()
+			}
 			failureDepth := compiler.stackDepth
 			if err := compiler.emit(bytecode.Copy, 1, matchCase.Pattern.Span()); err != nil {
 				return err
@@ -238,6 +241,13 @@ func (compiler *compilerState) compileExtractingPattern(
 			failureDepth,
 			captureTemps,
 		)
+	case *compilerast.MappingPattern:
+		return compiler.compileMappingPattern(
+			pattern,
+			failed,
+			failureDepth,
+			captureTemps,
+		)
 	default:
 		return compiler.unsupported(pattern)
 	}
@@ -377,6 +387,103 @@ func (compiler *compilerState) compileSequencePattern(
 	return nil
 }
 
+// compileMappingPattern evaluates each key once, matches found values, and
+// removes selected keys from a shallow copy when the pattern captures rest.
+func (compiler *compilerState) compileMappingPattern(
+	pattern *compilerast.MappingPattern,
+	failed *jumpLabel,
+	failureDepth int,
+	captureTemps map[string]uint32,
+) error {
+	if len(pattern.Keys) != len(pattern.Patterns) {
+		return compiler.error(pattern.Span(), "mapping pattern key count differs from value count")
+	}
+	if err := compiler.emit(bytecode.MatchMapping, 0, pattern.Span()); err != nil {
+		return err
+	}
+	if err := compiler.compilePatternCondition(failed, failureDepth, pattern.Span()); err != nil {
+		return err
+	}
+
+	var restTemp uint32
+	if pattern.Rest != "" {
+		if err := compiler.emit(bytecode.Copy, 1, pattern.Span()); err != nil {
+			return err
+		}
+		if err := compiler.emit(bytecode.CopyMapping, 0, pattern.Span()); err != nil {
+			return err
+		}
+		restTemp = compiler.allocateMatchTemp()
+		if err := compiler.emit(bytecode.StoreFast, restTemp, pattern.Span()); err != nil {
+			return err
+		}
+	}
+
+	keyTemps := make([]uint32, 0, len(pattern.Keys))
+	for index, key := range pattern.Keys {
+		if err := compiler.emit(bytecode.Copy, 1, key.Span()); err != nil {
+			return err
+		}
+		if err := compiler.compileExpr(key); err != nil {
+			return err
+		}
+		keyTemp := compiler.allocateMatchTemp()
+		if err := compiler.emit(bytecode.Copy, 1, key.Span()); err != nil {
+			return err
+		}
+		if err := compiler.emit(bytecode.StoreFast, keyTemp, key.Span()); err != nil {
+			return err
+		}
+		for _, previous := range keyTemps {
+			if err := compiler.emit(bytecode.LoadFast, previous, key.Span()); err != nil {
+				return err
+			}
+			if err := compiler.emit(bytecode.LoadFast, keyTemp, key.Span()); err != nil {
+				return err
+			}
+			if err := compiler.emit(bytecode.CheckMappingKey, 0, key.Span()); err != nil {
+				return err
+			}
+		}
+		keyTemps = append(keyTemps, keyTemp)
+		if err := compiler.emit(bytecode.MatchMappingKey, 0, key.Span()); err != nil {
+			return err
+		}
+		if err := compiler.compilePatternCondition(failed, failureDepth, key.Span()); err != nil {
+			return err
+		}
+		if err := compiler.compileExtractingPattern(
+			pattern.Patterns[index],
+			failed,
+			failureDepth,
+			captureTemps,
+		); err != nil {
+			return err
+		}
+		if pattern.Rest != "" {
+			if err := compiler.emit(bytecode.LoadFast, restTemp, key.Span()); err != nil {
+				return err
+			}
+			if err := compiler.emit(bytecode.LoadFast, keyTemp, key.Span()); err != nil {
+				return err
+			}
+			if err := compiler.emit(bytecode.DeleteSubscript, 0, key.Span()); err != nil {
+				return err
+			}
+		}
+	}
+	if err := compiler.emit(bytecode.PopTop, 0, pattern.Span()); err != nil {
+		return err
+	}
+	if pattern.Rest == "" {
+		return nil
+	}
+	if err := compiler.emit(bytecode.LoadFast, restTemp, pattern.Span()); err != nil {
+		return err
+	}
+	return compiler.storePatternCapture(pattern.Rest, pattern.Span(), captureTemps)
+}
+
 func (compiler *compilerState) compilePatternCondition(
 	failed *jumpLabel,
 	failureDepth int,
@@ -450,6 +557,28 @@ func (compiler *compilerState) patternCaptures(
 			captures = append(captures, elementCaptures...)
 		}
 		return captures, nil
+	case *compilerast.MappingPattern:
+		if len(pattern.Keys) != len(pattern.Patterns) {
+			return nil, compiler.error(
+				pattern.Span(),
+				"mapping pattern key count differs from value count",
+			)
+		}
+		var captures []matchCapture
+		for _, child := range pattern.Patterns {
+			childCaptures, err := compiler.patternCaptures(child)
+			if err != nil {
+				return nil, err
+			}
+			captures = append(captures, childCaptures...)
+		}
+		if pattern.Rest != "" {
+			captures = append(captures, matchCapture{
+				name: pattern.Rest,
+				span: pattern.Span(),
+			})
+		}
+		return captures, nil
 	case *compilerast.AsPattern:
 		var captures []matchCapture
 		var err error
@@ -485,7 +614,8 @@ func (compiler *compilerState) patternCaptures(
 // than the complete match subject and therefore needs hidden temporary locals.
 func patternNeedsExtraction(pattern compilerast.Pattern) bool {
 	switch pattern := pattern.(type) {
-	case *compilerast.SequencePattern, *compilerast.StarPattern:
+	case *compilerast.SequencePattern, *compilerast.MappingPattern,
+		*compilerast.StarPattern:
 		return true
 	case *compilerast.AsPattern:
 		return pattern.Pattern != nil && patternNeedsExtraction(pattern.Pattern)
@@ -499,14 +629,8 @@ func patternNeedsExtraction(pattern compilerast.Pattern) bool {
 	return false
 }
 
-func (compiler *compilerState) allocateMatchTemps(
-	captures []matchCapture,
-) map[string]uint32 {
-	temps := make(map[string]uint32, len(captures))
-	for _, capture := range captures {
-		name := fmt.Sprintf(".match.%d", len(compiler.locals))
-		compiler.addLocal(name)
-		temps[capture.name] = compiler.localIDs[name]
-	}
-	return temps
+func (compiler *compilerState) allocateMatchTemp() uint32 {
+	name := fmt.Sprintf(".match.%d", len(compiler.locals))
+	compiler.addLocal(name)
+	return compiler.localIDs[name]
 }

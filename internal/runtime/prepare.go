@@ -481,7 +481,9 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar,
 		bytecode.CheckExceptionMatch, bytecode.CheckExceptionGroupMatch,
 		bytecode.PrepareReraiseStar, bytecode.Reraise, bytecode.LeaveExcept,
-		bytecode.LoadHandledExceptionType, bytecode.MatchSequence, bytecode.GetLen:
+		bytecode.LoadHandledExceptionType, bytecode.MatchSequence, bytecode.GetLen,
+		bytecode.MatchMapping, bytecode.MatchMappingKey, bytecode.CopyMapping,
+		bytecode.CheckMappingKey:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -740,7 +742,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return int(instruction.Operand), 0
 	case bytecode.Reraise, bytecode.EnterExcept:
 		return 1, 0
-	case bytecode.DeleteSubscript:
+	case bytecode.DeleteSubscript, bytecode.CheckMappingKey:
 		return 2, 0
 	case bytecode.StoreSubscript:
 		return 3, 0
@@ -765,8 +767,12 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		bytecode.GetIter, bytecode.ListToTuple, bytecode.LoadAttr,
 		bytecode.LoadSpecial:
 		return 1, 1
-	case bytecode.MatchSequence, bytecode.GetLen:
+	case bytecode.MatchSequence, bytecode.GetLen, bytecode.MatchMapping:
 		return 1, 2
+	case bytecode.CopyMapping:
+		return 1, 1
+	case bytecode.MatchMappingKey:
+		return 2, 2
 	case bytecode.BuildString, bytecode.BuildTuple, bytecode.BuildList,
 		bytecode.BuildSet, bytecode.BuildSlice:
 		return int(instruction.Operand), 1

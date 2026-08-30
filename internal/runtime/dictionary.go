@@ -75,6 +75,97 @@ func (dictionary *dictValue) delete(key Value) (bool, *Exception) {
 	return false, nil
 }
 
+// executeMatchMapping retains one candidate and reports whether it is a
+// concrete dictionary accepted by the current mapping-pattern subset.
+func executeMatchMapping(frame *frame, instruction int) (instructionOutcome, error) {
+	if len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	_, matched := frame.stack[len(frame.stack)-1].(*dictValue)
+	result := falseSingleton
+	if matched {
+		result = trueSingleton
+	}
+	return pushOutcome(frame, instruction, result)
+}
+
+// executeMatchMappingKey turns a missing key into a false result instead of
+// KeyError, while retaining unhashable-key failures as Python exceptions.
+func executeMatchMappingKey(frame *frame, instruction int) (instructionOutcome, error) {
+	key, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	candidate, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	dictionary, ok := candidate.(*dictValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"MATCH_MAPPING_KEY candidate is not a dictionary",
+		)
+	}
+	value, found, exception := dictionary.get(key)
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	if !found {
+		value = None
+	}
+	if !frame.push(value) {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack overflow")
+	}
+	result := falseSingleton
+	if found {
+		result = trueSingleton
+	}
+	return pushOutcome(frame, instruction, result)
+}
+
+// executeCopyMapping replaces one dictionary with a shallow, independently
+// mutable copy used while constructing a mapping pattern's rest capture.
+func executeCopyMapping(frame *frame, instruction int) (instructionOutcome, error) {
+	candidate, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	dictionary, ok := candidate.(*dictValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"COPY_MAPPING candidate is not a dictionary",
+		)
+	}
+	entries := make([]dictEntry, len(dictionary.entries))
+	copy(entries, dictionary.entries)
+	return pushOutcome(frame, instruction, &dictValue{entries: entries})
+}
+
+// executeCheckMappingKey rejects keys that compare equal after their source
+// expressions have each been evaluated exactly once.
+func executeCheckMappingKey(frame *frame, instruction int) (instructionOutcome, error) {
+	current, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	previous, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	if valuesEqual(previous, current) {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"ValueError",
+				"mapping pattern checks duplicate key ("+current.Repr()+")",
+			),
+		}, nil
+	}
+	return instructionOutcome{kind: advance}, nil
+}
+
 func validateDictKey(key Value) *Exception {
 	if unhashable, found := unhashableComponent(key); found {
 		return newException(

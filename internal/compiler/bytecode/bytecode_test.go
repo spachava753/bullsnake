@@ -362,6 +362,30 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := GetLen.StackEffect(0); got != 1 {
 		t.Fatalf("GET_LEN stack effect = %d, want 1", got)
 	}
+	if got := (Instruction{Opcode: MatchMapping}).String(); got != "MATCH_MAPPING" {
+		t.Fatalf("match mapping instruction = %q", got)
+	}
+	if got := MatchMapping.StackEffect(0); got != 1 {
+		t.Fatalf("MATCH_MAPPING stack effect = %d, want 1", got)
+	}
+	if got := (Instruction{Opcode: MatchMappingKey}).String(); got != "MATCH_MAPPING_KEY" {
+		t.Fatalf("match mapping key instruction = %q", got)
+	}
+	if got := MatchMappingKey.StackEffect(0); got != 0 {
+		t.Fatalf("MATCH_MAPPING_KEY stack effect = %d, want 0", got)
+	}
+	if got := (Instruction{Opcode: CopyMapping}).String(); got != "COPY_MAPPING" {
+		t.Fatalf("copy mapping instruction = %q", got)
+	}
+	if got := CopyMapping.StackEffect(0); got != 0 {
+		t.Fatalf("COPY_MAPPING stack effect = %d, want 0", got)
+	}
+	if got := (Instruction{Opcode: CheckMappingKey}).String(); got != "CHECK_MAPPING_KEY" {
+		t.Fatalf("check mapping key instruction = %q", got)
+	}
+	if got := CheckMappingKey.StackEffect(0); got != -2 {
+		t.Fatalf("CHECK_MAPPING_KEY stack effect = %d, want -2", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

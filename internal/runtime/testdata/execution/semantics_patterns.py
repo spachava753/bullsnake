@@ -197,3 +197,73 @@ def sequence_guard(value):
 
 reader = sequence_guard([11])
 assert reader() == 11
+# ---
+# case: match mapping keys and rest capture
+record = {'name': 'Ada', 'age': 37, 'city': 'London'}
+match record:
+    case {'name': name, 'age': age, **rest}:
+        mapping_result = name, age
+
+matched_name, matched_age = mapping_result
+assert matched_name == 'Ada'
+assert matched_age == 37
+assert rest['city'] == 'London'
+assert 'name' not in rest
+assert 'age' not in rest
+rest['country'] = 'UK'
+assert 'country' not in record
+# ---
+# case: match mapping nested and dotted keys
+
+class MappingKeys:
+    pass
+
+MappingKeys.point = 'point'
+match {'point': [4, 5], 'extra': 9}:
+    case {MappingKeys.point: [x, y]}:
+        nested_mapping_result = x * 10 + y
+
+assert nested_mapping_result == 45
+
+match {'right': 8}:
+    case {'left': mapping_choice} | {'right': mapping_choice}:
+        mapping_or_result = mapping_choice
+
+assert mapping_or_result == 8
+# ---
+# case: match mapping failures do not bind captures
+match {'name': 'Ada'}:
+    case {'name': failed_name, 'age': failed_age}:
+        mapping_rollback = 'wrong'
+    case {}:
+        mapping_rollback = 'clean'
+
+assert mapping_rollback == 'clean'
+try:
+    failed_name
+except NameError:
+    failed_name_absent = True
+try:
+    failed_age
+except NameError:
+    failed_age_absent = True
+assert failed_name_absent
+assert failed_age_absent
+
+match []:
+    case {}:
+        non_mapping_result = 'wrong'
+    case _:
+        non_mapping_result = 'clean'
+assert non_mapping_result == 'clean'
+# ---
+# case: match mapping guard keeps committed captures
+match {'value': 6, 'extra': 7}:
+    case {'value': kept_value, **kept_rest} if False:
+        mapping_guard_result = 'wrong'
+    case _:
+        mapping_guard_result = 'clean'
+
+assert mapping_guard_result == 'clean'
+assert kept_value == 6
+assert kept_rest['extra'] == 7

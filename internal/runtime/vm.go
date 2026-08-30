@@ -896,6 +896,14 @@ func executeInstruction(
 		return executeMatchSequence(frame, index)
 	case bytecode.GetLen:
 		return executeGetLen(frame, index)
+	case bytecode.MatchMapping:
+		return executeMatchMapping(frame, index)
+	case bytecode.MatchMappingKey:
+		return executeMatchMappingKey(frame, index)
+	case bytecode.CopyMapping:
+		return executeCopyMapping(frame, index)
+	case bytecode.CheckMappingKey:
+		return executeCheckMappingKey(frame, index)
 	case bytecode.ForIter:
 		return executeForIter(frame, index, int(instruction.Operand))
 	case bytecode.Send:

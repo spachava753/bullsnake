@@ -163,11 +163,13 @@ stores capture names only after the complete pattern succeeds, then evaluates
 the guard. A false guard leaves those names bound, as Python specifies.
 
 Sequence patterns currently accept tuples and lists. They check the candidate
-kind and length before unpacking fixed or starred elements. Tentative nested and
-OR-pattern captures use hidden frame locals, so a failed pattern exposes none of
-them. A successful pattern commits those values before its guard. Mapping and
-class patterns will use the same commit-and-guard step after their extraction
-rules exist.
+kind and length before unpacking fixed or starred elements. Mapping patterns
+currently accept dictionaries. They evaluate each literal or dotted key once,
+reject duplicate values, and can capture a shallow `**rest` copy. Tentative
+nested and OR-pattern captures use hidden frame locals, so a failed pattern
+exposes none of them. A successful pattern commits those values before its
+guard. Class patterns will use the same commit-and-guard step after their
+extraction rules exist.
 
 Exceptions use protected instruction ranges. A range says where the handler
 starts and how much of the operand stack to keep when an instruction raises.

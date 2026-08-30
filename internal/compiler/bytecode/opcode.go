@@ -166,6 +166,10 @@ const (
 	Send
 	MatchSequence
 	GetLen
+	MatchMapping
+	MatchMappingKey
+	CopyMapping
+	CheckMappingKey
 )
 
 var opcodeNames = [...]string{
@@ -250,6 +254,10 @@ var opcodeNames = [...]string{
 	"SEND",
 	"MATCH_SEQUENCE",
 	"GET_LEN",
+	"MATCH_MAPPING",
+	"MATCH_MAPPING_KEY",
+	"COPY_MAPPING",
+	"CHECK_MAPPING_KEY",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -285,7 +293,7 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError,
 		LoadNotImplementedError, LoadFast, LoadGlobal, MakeFunction, LoadDeref,
 		LoadClosure, ImportFrom, LoadBuildClass, LoadLocals,
-		LoadHandledExceptionType, MatchSequence, GetLen:
+		LoadHandledExceptionType, MatchSequence, MatchMapping, GetLen:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
@@ -294,7 +302,7 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, PrepareReraiseStar,
 		Reraise, EnterExcept:
 		return -1
-	case MapSet, StoreAttr, DeleteSubscript:
+	case MapSet, StoreAttr, DeleteSubscript, CheckMappingKey:
 		return -2
 	case StoreSubscript:
 		return -3
