@@ -481,7 +481,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			)
 		}
 		return nil
-	case bytecode.BinaryOp:
+	case bytecode.BinaryOp, bytecode.InplaceOp:
 		switch instruction.Operand {
 		case bytecode.BinaryAdd,
 			bytecode.BinarySubtract,
@@ -497,7 +497,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		default:
 			return code.failure(
 				index,
-				"unsupported BINARY_OP operand %d",
+				"unsupported %s operand %d",
+				instruction.Opcode,
 				instruction.Operand,
 			)
 		}
@@ -550,9 +551,9 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 2, 0
 	case bytecode.StoreSubscript:
 		return 3, 0
-	case bytecode.BinaryOp, bytecode.CompareOp, bytecode.BinarySubscript,
-		bytecode.ListAppend, bytecode.ListExtend, bytecode.SetAdd,
-		bytecode.SetUpdate, bytecode.MapUpdate, bytecode.MapMerge:
+	case bytecode.BinaryOp, bytecode.InplaceOp, bytecode.CompareOp,
+		bytecode.BinarySubscript, bytecode.ListAppend, bytecode.ListExtend,
+		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapUpdate, bytecode.MapMerge:
 		return 2, 1
 	case bytecode.MapSet:
 		return 3, 1

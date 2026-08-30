@@ -522,7 +522,9 @@ func executeInstruction(
 	case bytecode.UnaryOp:
 		return executeUnary(frame, index, instruction.Operand)
 	case bytecode.BinaryOp:
-		return executeBinary(frame, index, instruction.Operand)
+		return executeBinary(frame, index, instruction.Operand, false)
+	case bytecode.InplaceOp:
+		return executeBinary(frame, index, instruction.Operand, true)
 	case bytecode.CompareOp:
 		return executeComparison(frame, index, instruction.Operand)
 	case bytecode.RaiseVarargs:

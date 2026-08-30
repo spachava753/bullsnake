@@ -406,14 +406,14 @@ the complete code tree before execution. Validation currently accepts `NOP`,
 `LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
 `MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
 `FOR_ITER`, integer or slice `BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and
-`DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP`; scalar
-`COMPARE_OP` variants; absolute `JUMP`; both pop-and-test jumps; both
-short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks constant, name, local,
-and child indexes, code metadata, operation operands, jump targets, stack
-underflow, the declared maximum stack size, return stack balance, and reachable
-termination. Any unsupported constant, instruction, operand, or nested code
-object fails with a source-located `BytecodeError` before a module can observe
-side effects.
+`DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP` and
+`INPLACE_OP` variants; scalar `COMPARE_OP` variants; absolute `JUMP`; both
+pop-and-test jumps; both short-circuit-or-pop jumps; and `RETURN_VALUE`. It checks
+constant, name, local, and child indexes, code metadata, operation operands, jump
+targets, stack underflow, the declared maximum stack size, return stack balance,
+and reachable termination. Any unsupported constant, instruction, operand, or
+nested code object fails with a source-located `BytecodeError` before a module can
+observe side effects.
 
 Stack validation uses a worklist over instruction indexes. Each reachable edge
 carries its operand-stack depth. Conditional jumps propagate their distinct

@@ -478,12 +478,12 @@ bodies use string-keyed namespaces; Python dictionaries use their own value type
 and insertion-ordered entries.
 
 The current object operations cover fixed scalar truth, numeric unary
-operators, selected arbitrary-precision integer binary operators, scalar and
-tuple equality, object identity, fixed and starred tuple/list construction and
-unpacking, tuple/list/dictionary/set/text/bytes iteration, tuple/list/text/bytes
-subscription, basic type and instance attribute reads with plain-function
-binding, direct class and instance attribute mutation, fixed and unpacked
-dictionary displays, fixed and starred set displays, dictionary subscription
+operators, selected arbitrary-precision integer binary and in-place operators,
+scalar and tuple equality, object identity, fixed and starred tuple/list
+construction and unpacking, tuple/list/dictionary/set/text/bytes iteration,
+tuple/list/text/bytes subscription, basic type and instance attribute reads with
+plain-function binding, direct class and instance attribute mutation, fixed and
+unpacked dictionary displays, fixed and starred set displays, dictionary
 and item mutation, and tuple/list/dict/set/text/bytes membership. Dictionary key
 and set element matching are linear until user-defined hash and equality
 protocols justify hash tables. Dictionary iterators detect key insertion and

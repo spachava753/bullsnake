@@ -111,11 +111,13 @@ func truthValue(value Value) bool {
 }
 
 // executeBinary applies the selected arbitrary-precision integer operations.
-// Booleans enter this path as the integer values zero and one.
+// Booleans enter this path as the integer values zero and one. In-place calls
+// share immutable results but retain their diagnostic operator spelling.
 func executeBinary(
 	frame *frame,
 	index int,
 	operand uint32,
+	inPlace bool,
 ) (instructionOutcome, error) {
 	right, ok := frame.pop()
 	if !ok {
@@ -148,6 +150,9 @@ func executeBinary(
 			operator = "^"
 		case bytecode.BinaryAnd:
 			operator = "&"
+		}
+		if inPlace {
+			operator += "="
 		}
 		return instructionOutcome{
 			kind: raised,

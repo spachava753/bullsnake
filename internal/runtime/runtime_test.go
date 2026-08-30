@@ -831,6 +831,51 @@ func TestPassingAssertion(t *testing.T) {
 	}
 }
 
+func TestAugmentedIntegerAssignments(t *testing.T) {
+	code := compileSource(t, "value = 20\n"+
+		"value += 5\n"+
+		"value *= 2\n"+
+		"value -= 8\n"+
+		"value //= 3\n"+
+		"value %= 5\n"+
+		"value <<= 3\n"+
+		"value >>= 2\n"+
+		"value |= 2\n"+
+		"value ^= 3\n"+
+		"value &= 7\n"+
+		"class Box:\n"+
+		"    value = 10\n"+
+		"Box.value += 5\n"+
+		"class_value = Box.value\n"+
+		"box = Box()\n"+
+		"box.value = 20\n"+
+		"box.value += 2\n"+
+		"instance_value = box.value\n"+
+		"mapping = {'count': 40}\n"+
+		"mapping['count'] += 2\n"+
+		"mapping_value = mapping['count']\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("augmented", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"value":          "1",
+		"class_value":    "15",
+		"instance_value": "22",
+		"mapping_value":  "42",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1883,6 +1928,18 @@ func TestPythonExceptions(t *testing.T) {
 		wantType    string
 		wantMessage string
 	}{
+		{
+			name:        "augmented zero division",
+			source:      "value = 1\nvalue //= 0\n",
+			wantType:    "ZeroDivisionError",
+			wantMessage: "integer division or modulo by zero",
+		},
+		{
+			name:        "augmented operand types",
+			source:      "value = 'x'\nvalue += 1\n",
+			wantType:    "TypeError",
+			wantMessage: "unsupported operand type(s) for +=: 'str' and 'int'",
+		},
 		{
 			name:        "assertion without message",
 			source:      "assert False\n",
