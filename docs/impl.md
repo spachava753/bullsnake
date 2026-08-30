@@ -692,32 +692,27 @@ focused tests cover instruction source positions, stack effects, code-object
 copying, opcode formatting, literal decoding, formatted-string errors, and
 compiler input errors.
 
-Runtime tests compile source through the complete front end before executing
-it. The initial cases cover module globals, discarded expressions, scalar
-values, fixed and starred tuple/list and set displays, fixed and unpacked
-dictionary displays, and integer and slice tuple/list subscription. Dictionary
-cases cover insertion order, duplicate scalar and tuple keys, nesting, truth,
-unpack replacement, subscription, assignment, deletion, missing keys,
-contextual unhashable-key errors, and non-mapping unpack failures. Set cases
-cover first-seen order, numeric and tuple deduplication, starred expansion,
-truth, contextual unhashable-element errors, and non-iterable expansion.
-Collection membership cases cover all current collection types, `not in`,
-unhashable keys or elements, and non-container failures.
-Fixed and starred destructuring cases include nested targets.
-Other cases cover singleton identity, scalar and sequence truth testing, numeric
-unary operations, selected arbitrary-precision integer binary
-operations, boolean short-circuiting, conditional expressions and statements,
-chained scalar comparisons, `while` loops, and tuple/list `for` loops. Loop
-cases cover normal exhaustion, `else`, `break`, `continue`, empty inputs,
-destructuring targets, and nesting.
-Floor-division cases pin quotient rounding, remainder signs, and zero-divisor
-errors. Shift cases cover signed values, booleans, negative counts, and huge
-counts that cannot fit a machine word. Python `NameError`, `TypeError`,
-`IndexError`, `ValueError`, `OverflowError`, and `ZeroDivisionError` cases cover
-language failures. Focused malformed-code cases cover unsupported instructions,
+Runtime language semantics use checked-in chunked Python files under
+`internal/runtime/testdata/execution`. The generic runner sends every chunk
+through the parser, resolver, compiler, bytecode validator, and VM in a fresh
+runtime. Successful chunks contain ordinary Python `assert` statements.
+Expected-failure chunks declare an exact exception family and message in
+`# error:` and `# message:` comments. `# case:` names subtests, `# module:`
+preserves module-qualified representations when needed, and `# ---` separates
+isolated programs while retaining physical fixture line numbers. The suite
+currently has forty successful chunks and ninety-six expected runtime errors;
+it requires no Python installation, external checkout, network access, or
+generation step.
+
+Focused Go tests retain behavior that crosses the language/host boundary:
+module caching and mutation, exposed value types and representations, deferred
+annotation callables, absent bindings after empty loops, and selected frame and
+class metadata. A separate table in `validation_test.go` constructs malformed
+code objects directly. Its sixty-seven cases cover unsupported instructions,
 operands, and constant kinds; invalid integer and string descriptors; table and
 jump bounds; stack underflow, overflow, and merge mismatches; unreachable
-returns; and fallthrough.
+returns; and fallthrough. This keeps bytecode invariants out of source fixtures
+without mixing them into ordinary execution tests.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.
