@@ -422,17 +422,22 @@
     {
       "name": "bare exception handler",
       "source": "caught = False\ntry:\n    assert False, 'handled'\nexcept:\n    caught = True\nresult = caught\n",
-      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[False, String(\"handled\"), True, None], names=[\"caught\", \"result\"], locals=[], cells=[], free=[], handlers=[Handler(start=2, end=8, target=9, depth=0)], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 0, POP_JUMP_IF_TRUE 8, LOAD_ASSERTION_ERROR, LOAD_CONST 1, CALL 1, RAISE_VARARGS 1, JUMP 12, POP_TOP, LOAD_CONST 2, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 3, RETURN_VALUE])"
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[False, String(\"handled\"), True, None], names=[\"caught\", \"result\"], locals=[], cells=[], free=[], handlers=[Handler(start=2, end=8, target=9, depth=0)], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 0, POP_JUMP_IF_TRUE 8, LOAD_ASSERTION_ERROR, LOAD_CONST 1, CALL 1, RAISE_VARARGS 1, JUMP 13, ENTER_EXCEPT 13, LOAD_CONST 2, STORE_NAME 0, LEAVE_EXCEPT, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 3, RETURN_VALUE])"
     },
     {
       "name": "typed exception handlers",
       "source": "try:\n    value\nexcept TypeError:\n    result = 1\nexcept (NameError, KeyError):\n    result = 2\nexcept:\n    result = 3\n",
-      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(1), Int(2), Int(3), None], names=[\"value\", \"TypeError\", \"result\", \"NameError\", \"KeyError\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=3, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, JUMP 22, LOAD_NAME 1, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 10, POP_TOP, LOAD_CONST 0, STORE_NAME 2, JUMP 22, LOAD_NAME 3, LOAD_NAME 4, BUILD_TUPLE 2, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 19, POP_TOP, LOAD_CONST 1, STORE_NAME 2, JUMP 22, POP_TOP, LOAD_CONST 2, STORE_NAME 2, LOAD_CONST 3, RETURN_VALUE])"
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=3, constants=[Int(1), Int(2), Int(3), None], names=[\"value\", \"TypeError\", \"result\", \"NameError\", \"KeyError\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=3, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, JUMP 25, LOAD_NAME 1, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 11, ENTER_EXCEPT 25, LOAD_CONST 0, STORE_NAME 2, LEAVE_EXCEPT, JUMP 25, LOAD_NAME 3, LOAD_NAME 4, BUILD_TUPLE 2, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 21, ENTER_EXCEPT 25, LOAD_CONST 1, STORE_NAME 2, LEAVE_EXCEPT, JUMP 25, ENTER_EXCEPT 25, LOAD_CONST 2, STORE_NAME 2, LEAVE_EXCEPT, LOAD_CONST 3, RETURN_VALUE])"
     },
     {
       "name": "exception handler else suite",
       "source": "try:\n    value = 1\nexcept:\n    value = 2\nelse:\n    value = 3\nresult = value\n",
-      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Int(1), Int(3), Int(2), None], names=[\"value\", \"result\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0)], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 0, JUMP 8, POP_TOP, LOAD_CONST 2, STORE_NAME 0, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 3, RETURN_VALUE])"
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[Int(1), Int(3), Int(2), None], names=[\"value\", \"result\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0)], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 0, JUMP 9, ENTER_EXCEPT 9, LOAD_CONST 2, STORE_NAME 0, LEAVE_EXCEPT, LOAD_NAME 0, STORE_NAME 1, LOAD_CONST 3, RETURN_VALUE])"
+    },
+    {
+      "name": "bare exception reraise",
+      "source": "try:\n    missing\nexcept NameError:\n    raise\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[None], names=[\"missing\", \"NameError\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=3, depth=0)], instructions=[LOAD_NAME 0, POP_TOP, JUMP 9, LOAD_NAME 1, CHECK_EXC_MATCH, POP_JUMP_IF_FALSE 8, ENTER_EXCEPT 9, RAISE_VARARGS 0, RERAISE, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }

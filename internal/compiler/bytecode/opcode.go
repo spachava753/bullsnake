@@ -156,6 +156,8 @@ const (
 	LoadFromDictOrDeref
 	CheckExceptionMatch
 	Reraise
+	EnterExcept
+	LeaveExcept
 )
 
 var opcodeNames = [...]string{
@@ -230,6 +232,8 @@ var opcodeNames = [...]string{
 	"LOAD_FROM_DICT_OR_DEREF",
 	"CHECK_EXC_MATCH",
 	"RERAISE",
+	"ENTER_EXCEPT",
+	"LEAVE_EXCEPT",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -251,7 +255,7 @@ func (opcode Opcode) HasOperand() bool {
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
 		DeleteDeref, LoadClosure, ImportName, ImportFrom, LoadFromDictOrGlobals,
-		LoadFromDictOrDeref:
+		LoadFromDictOrDeref, EnterExcept:
 		return true
 	default:
 		return false
@@ -270,7 +274,8 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
-		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, Reraise:
+		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, Reraise,
+		EnterExcept:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript:
 		return -2

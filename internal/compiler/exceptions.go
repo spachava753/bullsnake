@@ -127,11 +127,16 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 				return err
 			}
 		}
-		if err := compiler.emit(bytecode.PopTop, 0, handler.Range); err != nil {
+		if err := compiler.emitLabelOperand(bytecode.EnterExcept, end, handler.Range); err != nil {
 			return err
 		}
 		if err := compiler.compileStatements(handler.Body); err != nil {
 			return err
+		}
+		if compiler.reachable {
+			if err := compiler.emit(bytecode.LeaveExcept, 0, handler.Range); err != nil {
+				return err
+			}
 		}
 		if next == nil {
 			return compiler.markLabel(end, statement.Span())

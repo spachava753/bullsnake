@@ -397,8 +397,10 @@ handler on each protected instruction and combines adjacent records into
 immutable, non-overlapping ranges. Each range gives the handler target and the
 stack depth to restore after a raise. The runtime can therefore skip handler
 bookkeeping on normal execution. Handler dispatch checks classes or flat tuples
-in source order and reraises when no clause matches. A normal protected body
-runs an optional `else` outside its own range before it jumps over dispatch.
+in source order and reraises when no clause matches. A selected clause enters a
+frame-owned handled-exception scope, which supports bare re-raise without
+keeping setup state on the operand stack. A normal protected body runs an
+optional `else` outside its own range before it jumps over dispatch.
 
 Bytecode currently remains in memory and evolves with the compiler and runtime.
 If cached compiled files are added, their format must include a Bullsnake magic
@@ -414,22 +416,25 @@ added after semantic conformance and profiling.
 The current VM executes module, function, and basic class-body code with
 heap-allocated frames. A frame contains prepared immutable code, the next
 instruction index, an operand stack, indexed fast locals, one cell/free-variable
-dereference array, local, global, and builtin namespaces, and a link to its
-logical caller. A thread state points to the active frame. The iterative
-dispatcher handles normal progress, Python calls, return, and Python exception
-outcomes without using a Go call as the definition of a Python frame.
+dereference array, nested handled-exception scopes, local, global, and builtin
+namespaces, and a link to its logical caller. A thread state points to the active
+frame. The iterative dispatcher handles normal progress, Python calls, return,
+and Python exception outcomes without using a Go call as the definition of a
+Python frame.
 
 Before execution, the runtime copies the code tables it consumes, materializes
 compiler constants as runtime values, and recursively prepares every child code
 object. It validates each instruction, operand, table index, code-metadata
 constraint, jump target, exception range, and reachable stack transition. A
 worklist requires all control-flow edges into an instruction to agree on stack
-depth. `FOR_ITER` has separate yield and exhaustion depths because it retains
-the iterator and pushes an item only on the yield edge. A protected instruction
-adds an exception edge at the range's restore depth plus one exception value.
-Unsupported or malformed bytecode anywhere in the code tree fails before the
-module body can produce side effects. Prepared code and its materialized
-constants are cached per runtime and immutable code-object identity.
+depth and active handled-exception scopes. `FOR_ITER` has separate yield and
+exhaustion depths because it retains the iterator and pushes an item only on the
+yield edge. A protected instruction adds an exception edge at the range's
+restore depth plus one exception value. Jumps remove scope entries whose
+instruction ranges they leave. Unsupported or malformed bytecode anywhere in
+the code tree fails before the module body can produce side effects. Prepared
+code and its materialized constants are cached per runtime and immutable
+code-object identity.
 
 When an instruction raises, the dispatcher searches the active frame's prepared
 ranges. A match truncates the operand stack to the recorded depth, pushes the
@@ -440,8 +445,12 @@ the exception or it crosses the host boundary. Typed clauses match immutable
 builtin exception classes through their CPython inheritance links and accept a
 flat tuple after validating every member. A final miss reraises the same
 exception and retains its original frame and instruction. Normal completion can
-run `else`; exceptions there bypass this statement's handlers. Handler bindings,
-`finally`, and handled-exception state remain later slices.
+run `else`; exceptions there bypass this statement's handlers. Selected handlers
+push frame-owned scopes with exclusive instruction ends. Dispatch removes a
+scope after a jump leaves it, and normal handler completion removes it
+explicitly. Bare `raise` searches these scopes through caller frames and raises
+`RuntimeError` when none is active. Handler bindings and `finally` remain later
+slices.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one
@@ -511,7 +520,7 @@ A suspended async task or generator will eventually own the same frame state
 needed to resume it.
 
 As more execution forms enter the supported subset, the VM must add outcomes
-for yield, await suspension, handled-exception state, final cleanup, traceback
+for yield, await suspension, final cleanup, exception chaining, traceback
 construction, scheduler safe points, host cancellation, and execution-budget
 stops. A call into a synchronous Go extension will run on the Python thread's
 current Go stack.

@@ -37,3 +37,18 @@ try:
     missing_for_invalid_tuple
 except (NameError, 1):
     pass
+# ---
+# case: bare raise without active exception
+# error: RuntimeError
+# message: "No active exception to reraise"
+raise
+# ---
+# case: handler continue clears active exception
+# error: RuntimeError
+# message: "No active exception to reraise"
+for item in (1,):
+    try:
+        missing_before_continue
+    except NameError:
+        continue
+raise

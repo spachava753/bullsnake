@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
@@ -229,8 +230,13 @@ type stackEdge struct {
 	depth  int
 }
 
+type exceptionScopeState struct {
+	start int
+	end   int
+}
+
 // validateInstructions validates every operand before propagating stack depths
-// through reachable fallthrough and jump edges with a worklist.
+// and handled-exception scopes through reachable edges with a worklist.
 func (code *preparedCode) validateInstructions() error {
 	for index, instruction := range code.instructions {
 		if err := code.validateOperand(index, instruction); err != nil {
@@ -242,6 +248,7 @@ func (code *preparedCode) validateInstructions() error {
 	}
 
 	depths := make([]int, len(code.instructions))
+	scopes := make([][]exceptionScopeState, len(code.instructions))
 	for index := range depths {
 		depths[index] = -1
 	}
@@ -251,11 +258,12 @@ func (code *preparedCode) validateInstructions() error {
 	for len(worklist) != 0 {
 		index := worklist[0]
 		worklist = worklist[1:]
-		edges, returns, err := code.instructionEdges(
-			index,
-			depths[index],
-			code.instructions[index],
-		)
+		instruction := code.instructions[index]
+		nextScopes, err := code.instructionExceptionScopes(index, scopes[index], instruction)
+		if err != nil {
+			return err
+		}
+		edges, returns, err := code.instructionEdges(index, depths[index], instruction)
 		if err != nil {
 			return err
 		}
@@ -287,10 +295,14 @@ func (code *preparedCode) validateInstructions() error {
 					code.stackSize,
 				)
 			}
+			edgeScopes := pruneExceptionScopes(nextScopes, edge.target)
 			if depths[edge.target] < 0 {
 				depths[edge.target] = edge.depth
+				scopes[edge.target] = slices.Clone(edgeScopes)
 				worklist = append(worklist, edge.target)
-			} else if depths[edge.target] != edge.depth {
+				continue
+			}
+			if depths[edge.target] != edge.depth {
 				return code.failure(
 					index,
 					"stack depth mismatch at instruction %d: %d and %d",
@@ -299,12 +311,52 @@ func (code *preparedCode) validateInstructions() error {
 					edge.depth,
 				)
 			}
+			if !slices.Equal(scopes[edge.target], edgeScopes) {
+				return code.failure(
+					index,
+					"exception scope mismatch at instruction %d",
+					edge.target,
+				)
+			}
 		}
 	}
 	if !reachableReturn {
 		return code.failure(len(code.instructions), "code has no reachable RETURN_VALUE")
 	}
 	return nil
+}
+
+func (code *preparedCode) instructionExceptionScopes(
+	index int,
+	scopes []exceptionScopeState,
+	instruction bytecode.Instruction,
+) ([]exceptionScopeState, error) {
+	switch instruction.Opcode {
+	case bytecode.EnterExcept:
+		next := slices.Clone(scopes)
+		return append(next, exceptionScopeState{
+			start: index + 1,
+			end:   int(instruction.Operand),
+		}), nil
+	case bytecode.LeaveExcept:
+		if len(scopes) == 0 {
+			return nil, code.failure(index, "LEAVE_EXCEPT has no active handler")
+		}
+		return scopes[:len(scopes)-1], nil
+	default:
+		return scopes, nil
+	}
+}
+
+func pruneExceptionScopes(scopes []exceptionScopeState, instruction int) []exceptionScopeState {
+	for len(scopes) != 0 {
+		last := scopes[len(scopes)-1]
+		if instruction >= last.start && instruction < last.end {
+			break
+		}
+		scopes = scopes[:len(scopes)-1]
+	}
+	return scopes
 }
 
 // instructionEdges applies one instruction's stack contract and returns its
@@ -400,7 +452,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
 		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar,
-		bytecode.CheckExceptionMatch, bytecode.Reraise:
+		bytecode.CheckExceptionMatch, bytecode.Reraise, bytecode.LeaveExcept:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -420,6 +472,16 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.JumpIfTrueOrPop:
 		if uint64(instruction.Operand) >= uint64(len(code.instructions)) {
 			return code.failure(index, "jump target %d out of range", instruction.Operand)
+		}
+		return nil
+	case bytecode.EnterExcept:
+		if uint64(instruction.Operand) <= uint64(index) ||
+			uint64(instruction.Operand) > uint64(len(code.instructions)) {
+			return code.failure(
+				index,
+				"exception scope end %d must follow its entry and stay within code",
+				instruction.Operand,
+			)
 		}
 		return nil
 	case bytecode.ConvertValue:
@@ -481,7 +543,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.RaiseVarargs:
-		if instruction.Operand != 1 {
+		if instruction.Operand > 1 {
 			return code.failure(
 				index,
 				"unsupported RAISE_VARARGS operand %d",
@@ -634,7 +696,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 1, 0
 	case bytecode.RaiseVarargs:
 		return int(instruction.Operand), 0
-	case bytecode.Reraise:
+	case bytecode.Reraise, bytecode.EnterExcept:
 		return 1, 0
 	case bytecode.DeleteSubscript:
 		return 2, 0

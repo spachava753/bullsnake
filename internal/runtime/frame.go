@@ -2,19 +2,26 @@ package runtime
 
 import "github.com/spachava753/bullsnake/internal/compiler/lexer"
 
+type handledException struct {
+	exception *Exception
+	start     int
+	end       int
+}
+
 type frame struct {
-	runtime      *Runtime
-	code         *preparedCode
-	instruction  int
-	stack        []Value
-	fastLocals   []Value
-	deref        []*cellValue
-	locals       *Namespace
-	globals      *Namespace
-	builtins     *Namespace
-	previous     *frame
-	classBuild   *classBuild
-	instanceInit *instanceInit
+	runtime           *Runtime
+	code              *preparedCode
+	instruction       int
+	stack             []Value
+	fastLocals        []Value
+	deref             []*cellValue
+	locals            *Namespace
+	globals           *Namespace
+	builtins          *Namespace
+	previous          *frame
+	classBuild        *classBuild
+	instanceInit      *instanceInit
+	handledExceptions []handledException
 }
 
 type threadState struct {
@@ -38,6 +45,32 @@ func (frame *frame) pop() (Value, bool) {
 	frame.stack[index] = nil
 	frame.stack = frame.stack[:index]
 	return value, true
+}
+
+func (frame *frame) pruneHandledExceptions(instruction int) {
+	for len(frame.handledExceptions) != 0 {
+		last := len(frame.handledExceptions) - 1
+		handled := frame.handledExceptions[last]
+		if instruction >= handled.start && instruction < handled.end {
+			return
+		}
+		frame.handledExceptions[last].exception = nil
+		frame.handledExceptions = frame.handledExceptions[:last]
+	}
+}
+
+func activeHandledException(current *frame, instruction int) *Exception {
+	for current != nil {
+		current.pruneHandledExceptions(instruction)
+		if count := len(current.handledExceptions); count != 0 {
+			return current.handledExceptions[count-1].exception
+		}
+		current = current.previous
+		if current != nil {
+			instruction = current.instruction - 1
+		}
+	}
+	return nil
 }
 
 func (frame *frame) lookupName(name string) (Value, bool) {

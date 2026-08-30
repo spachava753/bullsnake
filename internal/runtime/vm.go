@@ -37,6 +37,7 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 		if index < 0 || index >= len(active.code.instructions) {
 			return nil, nil, active.failure(index, "instruction index out of range")
 		}
+		active.pruneHandledExceptions(index)
 		instruction := active.code.instructions[index]
 		active.instruction++
 		outcome, err := executeInstruction(active, index, instruction)
@@ -697,6 +698,32 @@ func executeInstruction(
 			result = trueSingleton
 		}
 		return pushOutcome(frame, index, result)
+	case bytecode.EnterExcept:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		exception, ok := value.(*Exception)
+		if !ok {
+			return instructionOutcome{}, frame.failure(
+				index,
+				"ENTER_EXCEPT value is not an exception",
+			)
+		}
+		frame.handledExceptions = append(frame.handledExceptions, handledException{
+			exception: exception,
+			start:     frame.instruction,
+			end:       int(instruction.Operand),
+		})
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.LeaveExcept:
+		if len(frame.handledExceptions) == 0 {
+			return instructionOutcome{}, frame.failure(index, "LEAVE_EXCEPT has no active handler")
+		}
+		last := len(frame.handledExceptions) - 1
+		frame.handledExceptions[last].exception = nil
+		frame.handledExceptions = frame.handledExceptions[:last]
+		return instructionOutcome{kind: advance}, nil
 	case bytecode.Reraise:
 		value, ok := frame.pop()
 		if !ok {
@@ -708,6 +735,13 @@ func executeInstruction(
 		}
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	case bytecode.RaiseVarargs:
+		if instruction.Operand == 0 {
+			exception := activeHandledException(frame, index)
+			if exception == nil {
+				exception = newException("RuntimeError", "No active exception to reraise")
+			}
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
 		value, ok := frame.pop()
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")

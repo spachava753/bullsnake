@@ -154,6 +154,97 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "RERAISE value is not an exception",
 		},
 		{
+			name: "exception scope target",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.EnterExcept},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "exception scope end 0 must follow its entry and stay within code",
+		},
+		{
+			name: "exception scope underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.EnterExcept, Operand: 1},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "exception scope value",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.EnterExcept, Operand: 3},
+					{Opcode: bytecode.LeaveExcept},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "ENTER_EXCEPT value is not an exception",
+		},
+		{
+			name: "exception scope leave",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LeaveExcept},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "LEAVE_EXCEPT has no active handler",
+		},
+		{
+			name: "unsupported raise cause operand",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.RaiseVarargs, Operand: 2},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "unsupported RAISE_VARARGS operand 2",
+		},
+		{
+			name: "exception scope merge",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.PopJumpIfFalse, Operand: 4},
+					{Opcode: bytecode.LoadNotImplementedError},
+					{Opcode: bytecode.EnterExcept, Operand: 6},
+					{Opcode: bytecode.Nop},
+					{Opcode: bytecode.LeaveExcept},
+					{Opcode: bytecode.LoadConst, Operand: 1},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.Bool(false), bytecode.None()},
+				nil,
+			),
+			wantFragment: "exception scope mismatch at instruction 4",
+		},
+		{
 			name: "function child index",
 			code: testCode(
 				1,

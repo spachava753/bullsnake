@@ -140,3 +140,41 @@ def returns_from_body():
         return 3
 
 assert returns_from_body() == 1
+# ---
+# case: bare raise uses the active handled exception
+reraised = False
+try:
+    try:
+        missing_for_reraise
+    except NameError:
+        raise
+except NameError:
+    reraised = True
+assert reraised is True
+
+def reraiser():
+    raise
+
+called = False
+try:
+    missing_for_called_reraise
+except NameError:
+    try:
+        reraiser()
+    except NameError:
+        called = True
+assert called is True
+
+restored = False
+try:
+    missing_outer_exception
+except NameError:
+    try:
+        try:
+            1 // 0
+        except ZeroDivisionError:
+            pass
+        raise
+    except NameError:
+        restored = True
+assert restored is True

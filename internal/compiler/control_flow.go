@@ -66,6 +66,28 @@ func (compiler *compilerState) emitJump(opcode bytecode.Opcode, label *jumpLabel
 	return nil
 }
 
+// emitLabelOperand records an absolute label operand without creating a
+// control-flow edge to that label.
+func (compiler *compilerState) emitLabelOperand(
+	opcode bytecode.Opcode,
+	label *jumpLabel,
+	span lexer.Span,
+) error {
+	if label == nil {
+		return compiler.error(span, "%s has no label operand", opcode)
+	}
+	if err := compiler.emit(opcode, 0, span); err != nil {
+		return err
+	}
+	instruction := len(compiler.instructions) - 1
+	if label.marked {
+		compiler.instructions[instruction].Operand = label.position
+	} else {
+		label.references = append(label.references, instruction)
+	}
+	return nil
+}
+
 func (compiler *compilerState) mergeLabelDepth(label *jumpLabel, depth int, span lexer.Span) error {
 	if !label.depthSet {
 		label.depth = depth

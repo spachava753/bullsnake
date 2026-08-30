@@ -291,9 +291,12 @@ current stack depth on every protected instruction. `finish` combines adjacent
 records into sorted, non-overlapping ranges. Normal execution jumps over the
 handler dispatch. A typed clause evaluates its class or tuple and uses
 `CHECK_EXC_MATCH`; false checks continue in source order, a bare clause catches
-unconditionally, and a final miss uses `RERAISE`. A normal protected body runs
-its `else` suite outside that range before jumping over handler dispatch, so an
-exception from `else` continues to an enclosing handler.
+unconditionally, and a final miss uses `RERAISE`. A selected clause enters a
+frame-owned handled-exception scope whose end is the statement's exit. Normal
+completion leaves that scope; return discards its frame, and jumps outside the
+scope become inactive at their target. A normal protected body runs its `else`
+suite outside that range before jumping over handler dispatch, so an exception
+from `else` continues to an enclosing handler.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -412,8 +415,9 @@ currently accepts `NOP`,
 `LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`, `MAKE_FUNCTION`,
 positional-default, keyword-default, closure, and annotation
 `SET_FUNCTION_ATTRIBUTE` variants, `CALL`, both `CALL_EX` forms,
-`IMPORT_NAME`, `IMPORT_FROM`, `IMPORT_STAR`, one-argument `RAISE_VARARGS`,
-`CHECK_EXC_MATCH`, `RERAISE`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
+`IMPORT_NAME`, `IMPORT_FROM`, `IMPORT_STAR`, zero- or one-argument
+`RAISE_VARARGS`, `CHECK_EXC_MATCH`, `RERAISE`, `ENTER_EXCEPT`, `LEAVE_EXCEPT`,
+`POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
 `BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
 `LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
 `MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
@@ -428,14 +432,15 @@ unsupported constant, instruction, operand, or nested code object fails with a
 source-located `BytecodeError` before a module can observe side effects.
 
 Stack validation uses a worklist over instruction indexes. Each reachable edge
-carries its operand-stack depth. Conditional jumps propagate their distinct
-fallthrough and taken-edge effects. `FOR_ITER` adds an item on its fallthrough
-edge and removes the iterator on its exhaustion edge. Every protected
-instruction also contributes an edge to its handler at the recorded restore
-depth plus one exception value. Loops terminate through already-seen instruction
-depths, and a merge with different depths is invalid. The validator allows
-well-formed unreachable instructions but still checks their opcodes, operands,
-and table indexes before execution. The compiler uses
+carries its operand-stack depth and active handled-exception scope ends.
+Conditional jumps propagate their distinct fallthrough and taken-edge effects.
+`FOR_ITER` adds an item on its fallthrough edge and removes the iterator on its
+exhaustion edge. Every protected instruction also contributes an edge to its
+handler at the recorded restore depth plus one exception value. Jumps prune
+scopes whose instruction range they leave. Loops terminate through already-seen
+instruction states, and a merge with different depths or scopes is invalid. The
+validator allows well-formed unreachable instructions but still checks their
+opcodes, operands, and table indexes before execution. The compiler uses
 these validated jumps for boolean short-circuit expressions, conditional
 expressions, `if` statements, and `while` and synchronous `for` loops. Loop
 `else`, `break`, and `continue` require no separate runtime mechanism; their
@@ -472,7 +477,12 @@ outcome searches the current frame's protected ranges. A match truncates the
 operand stack to the recorded depth, pushes the exception, and resumes at the
 handler. Without a match, the same loop removes the frame and checks its
 caller's `CALL` instruction. This continues to a handler or the host boundary;
-an uncaught error retains the original raising frame and source span.
+an uncaught error retains the original raising frame and source span. Frames
+also retain nested handled-exception scopes. `ENTER_EXCEPT` records the selected
+exception and exclusive scope end, while `LEAVE_EXCEPT` removes it on normal
+completion. Before each instruction, dispatch removes scopes left by a jump.
+Bare `raise` searches the active frame and its callers, which lets a function
+called inside a handler re-raise that handler's exception.
 `LOAD_BUILD_CLASS` uses the same transition to run a zero- or single-base class
 body with a fresh local namespace. The builder requires any base to be a
 Bullsnake type. A class-build record on the body frame converts return into a
@@ -517,11 +527,12 @@ exception classes and their CPython inheritance links. Typed handlers accept one
 class or a flat tuple of classes, validate every tuple member before matching,
 and select subclasses through those links. Multiple clauses run in source
 order; an unmatched `RERAISE` retains the original raising frame and source
-span. Handler bindings, `finally`, bare re-raise, explicit causes, exception
-exception state and chaining, callable native values, multiple inheritance, C3
-linearization, metaclasses, `super`, `__new__`, general descriptors, suspension,
-traceback chains, cancellation, recursion limits, and execution budgets are not
-yet implemented.
+span. Bare `raise` uses the active handled exception or raises `RuntimeError`
+when none exists. Handler bindings, `finally`, explicit causes, exception
+chaining, callable native values, multiple inheritance, C3 linearization,
+metaclasses, `super`, `__new__`, general descriptors, suspension, traceback
+chains, cancellation, recursion limits, and execution budgets are not yet
+implemented.
 
 ## Object model and runtime
 
@@ -707,7 +718,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains eighty-six successful
+The compiler corpus currently contains eighty-seven successful
 parse-resolve-compile cases for the supported compiler subset. Cases record
 stable Bullsnake code-object dumps. Focused tests cover instruction source
 positions, stack effects, code-object copying, opcode formatting, literal
@@ -721,7 +732,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has fifty-seven successful chunks and one hundred four expected runtime
+currently has fifty-eight successful chunks and one hundred six expected runtime
 errors; it requires no Python installation, external checkout, network access,
 or generation step.
 
@@ -730,7 +741,7 @@ or cannot be expressed by supported Python source: module cache identity and
 cross-module mutation, exported value metadata and singleton identity, direct
 annotation-format bytecode, and class-builder argument checks. A separate table
 in `validation_test.go` constructs malformed code objects directly. Its
-seventy-six cases cover unsupported instructions, operands, and constant kinds;
+eighty-two cases cover unsupported instructions, operands, and constant kinds;
 invalid integer and string descriptors; table and jump bounds; stack underflow,
 overflow, and merge mismatches; unreachable returns; and fallthrough. This
 keeps bytecode invariants out of source fixtures without mixing them into

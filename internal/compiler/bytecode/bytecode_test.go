@@ -302,6 +302,16 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := Reraise.StackEffect(0); got != -1 {
 		t.Fatalf("RERAISE stack effect = %d, want -1", got)
 	}
+	enterExcept := Instruction{Opcode: EnterExcept, Operand: 12}
+	if got := enterExcept.String(); got != "ENTER_EXCEPT 12" {
+		t.Fatalf("exception entry instruction = %q", got)
+	}
+	if got := EnterExcept.StackEffect(12); got != -1 {
+		t.Fatalf("ENTER_EXCEPT stack effect = %d, want -1", got)
+	}
+	if got := LeaveExcept.StackEffect(0); got != 0 {
+		t.Fatalf("LEAVE_EXCEPT stack effect = %d, want 0", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)
