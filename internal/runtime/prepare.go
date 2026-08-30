@@ -279,6 +279,11 @@ func (code *preparedCode) instructionEdges(
 			)
 		}
 		return nil, true, nil
+	case bytecode.RaiseVarargs:
+		if err := require(int(instruction.Operand)); err != nil {
+			return nil, false, err
+		}
+		return nil, true, nil
 	case bytecode.Jump:
 		return []stackEdge{{target: target, depth: depth}}, false, nil
 	case bytecode.ForIter:
@@ -322,7 +327,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.BinarySubscript, bytecode.StoreSubscript, bytecode.DeleteSubscript,
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
-		bytecode.MapMerge:
+		bytecode.MapMerge, bytecode.LoadNotImplementedError:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -388,10 +393,19 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			)
 		}
 		return nil
+	case bytecode.RaiseVarargs:
+		if instruction.Operand != 1 {
+			return code.failure(
+				index,
+				"unsupported RAISE_VARARGS operand %d",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.SetFunctionAttribute:
 		switch bytecode.FunctionAttribute(instruction.Operand) {
 		case bytecode.FunctionDefaults, bytecode.FunctionKeywordDefaults,
-			bytecode.FunctionClosure:
+			bytecode.FunctionClosure, bytecode.FunctionAnnotate:
 			return nil
 		default:
 			return code.failure(
@@ -516,13 +530,15 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	switch instruction.Opcode {
 	case bytecode.LoadConst, bytecode.LoadName, bytecode.LoadFast,
 		bytecode.LoadGlobal, bytecode.LoadDeref, bytecode.LoadClosure,
-		bytecode.MakeFunction:
+		bytecode.LoadNotImplementedError, bytecode.MakeFunction:
 		return 0, 1
 	case bytecode.StoreName, bytecode.StoreFast, bytecode.StoreGlobal,
 		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue:
 		return 1, 0
 	case bytecode.DeleteDeref:
 		return 0, 0
+	case bytecode.RaiseVarargs:
+		return int(instruction.Operand), 0
 	case bytecode.DeleteSubscript:
 		return 2, 0
 	case bytecode.StoreSubscript:

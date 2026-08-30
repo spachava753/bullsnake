@@ -13,6 +13,7 @@ type functionValue struct {
 	defaults        []Value
 	keywordDefaults map[string]Value
 	closure         []*cellValue
+	annotate        *functionValue
 }
 
 func (*functionValue) TypeName() string { return "function" }

@@ -462,6 +462,67 @@ func TestDecoratedDefinitions(t *testing.T) {
 	}
 }
 
+func TestDeferredFunctionAnnotations(t *testing.T) {
+	code := compileSource(t, "events = 0\n"+
+		"def mark():\n"+
+		"    global events\n"+
+		"    events = events + 1\n"+
+		"    return 99\n"+
+		"def identity(value: mark()) -> mark():\n"+
+		"    return value\n"+
+		"before = events\n"+
+		"result = identity(42)\n"+
+		"after = events\n"+
+		"def outer(annotation):\n"+
+		"    def nested(value: annotation) -> annotation:\n"+
+		"        return value\n"+
+		"    return nested\n"+
+		"nested_result = outer('kind')(7)\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("annotations", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"before":        "0",
+		"result":        "42",
+		"after":         "0",
+		"nested_result": "7",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
+func TestAnnotationFormatRejection(t *testing.T) {
+	code := testCode(
+		1,
+		[]bytecode.Instruction{
+			{Opcode: bytecode.LoadNotImplementedError},
+			{Opcode: bytecode.RaiseVarargs, Operand: 1},
+		},
+		nil,
+		nil,
+	)
+	_, err := bullruntime.New().ExecuteModule("annotation format", code)
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Exception().TypeName(); got != "NotImplementedError" {
+		t.Errorf("exception type = %q, want NotImplementedError", got)
+	}
+	if got := raised.Exception().Message(); got != "" {
+		t.Errorf("exception message = %q, want empty", got)
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -2360,19 +2421,47 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "function closure has 0 cells for 1 free variables",
 		},
 		{
+			name: "invalid annotate payload",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeFunction},
+					{
+						Opcode:  bytecode.SetFunctionAttribute,
+						Operand: uint32(bytecode.FunctionAnnotate),
+					},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children: []*bytecode.Code{
+					testCode(
+						1,
+						[]bytecode.Instruction{
+							{Opcode: bytecode.LoadConst},
+							{Opcode: bytecode.ReturnValue},
+						},
+						[]bytecode.Constant{bytecode.None()},
+						nil,
+					),
+				},
+			}),
+			wantFragment: "function annotate payload is not a function",
+		},
+		{
 			name: "unsupported function attribute",
 			code: testCode(
 				0,
 				[]bytecode.Instruction{
 					{
 						Opcode:  bytecode.SetFunctionAttribute,
-						Operand: uint32(bytecode.FunctionAnnotate),
+						Operand: 32,
 					},
 				},
 				nil,
 				nil,
 			),
-			wantFragment: "unsupported SET_FUNCTION_ATTRIBUTE operand 16",
+			wantFragment: "unsupported SET_FUNCTION_ATTRIBUTE operand 32",
 		},
 		{
 			name: "function defaults underflow",

@@ -88,6 +88,8 @@ func executeInstruction(
 	case bytecode.LoadConst:
 		value := frame.code.constants[instruction.Operand]
 		return pushOutcome(frame, index, value)
+	case bytecode.LoadNotImplementedError:
+		return pushOutcome(frame, index, newException("NotImplementedError", ""))
 	case bytecode.LoadName:
 		name := frame.code.names[instruction.Operand]
 		value, ok := frame.lookupName(name)
@@ -346,6 +348,15 @@ func executeInstruction(
 				}
 				function.closure[closureIndex] = cell
 			}
+		case bytecode.FunctionAnnotate:
+			annotation, annotationOK := payload.(*functionValue)
+			if !annotationOK {
+				return instructionOutcome{}, frame.failure(
+					index,
+					"function annotate payload is not a function",
+				)
+			}
+			function.annotate = annotation
 		}
 		return pushOutcome(frame, index, function)
 	case bytecode.Call:
@@ -389,6 +400,16 @@ func executeInstruction(
 		return executeBinary(frame, index, instruction.Operand)
 	case bytecode.CompareOp:
 		return executeComparison(frame, index, instruction.Operand)
+	case bytecode.RaiseVarargs:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		exception, ok := value.(*Exception)
+		if !ok {
+			exception = newException("TypeError", "exceptions must derive from BaseException")
+		}
+		return instructionOutcome{kind: raised, exception: exception}, nil
 	case bytecode.ReturnValue:
 		value, ok := frame.pop()
 		if !ok {
