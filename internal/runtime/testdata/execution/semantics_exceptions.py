@@ -349,3 +349,96 @@ def handler_inside_final():
 
 assert handler_inside_final() == 8
 assert binding_cleared is True
+# ---
+# case: loop control unwinds final suites from inner to outer
+break_order = 0
+for item in (1, 2):
+    try:
+        break_order = break_order * 10 + item
+        break
+    finally:
+        break_order = break_order * 10 + 9
+else:
+    break_order = -1
+assert break_order == 19
+
+continue_order = 0
+for item in (1, 2):
+    try:
+        continue_order = continue_order * 10 + item
+        continue
+    finally:
+        continue_order = continue_order * 10 + 9
+else:
+    continue_order = continue_order * 10 + 8
+assert continue_order == 19298
+
+nested_order = 0
+for item in (1,):
+    try:
+        try:
+            break
+        finally:
+            nested_order = nested_order * 10 + 1
+    finally:
+        nested_order = nested_order * 10 + 2
+assert nested_order == 12
+
+visits = 0
+for item in (1, 2):
+    try:
+        break
+    finally:
+        visits += 1
+        if item == 1:
+            continue
+assert visits == 2
+
+break_suppressed_exception = False
+for item in (1,):
+    try:
+        missing_before_break_from_finally
+    finally:
+        break
+else:
+    missing_break_else
+break_suppressed_exception = True
+assert break_suppressed_exception is True
+
+continued = 0
+continue_else = False
+for item in (1, 2):
+    try:
+        missing_before_continue_from_finally
+    finally:
+        continued += 1
+        continue
+else:
+    continue_else = True
+assert continued == 2
+assert continue_else is True
+
+binding_seen_during_break = False
+for item in (1,):
+    try:
+        missing_before_bound_break
+    except NameError as error:
+        try:
+            break
+        finally:
+            binding_seen_during_break = error is error
+assert binding_seen_during_break is True
+
+binding_cleared_before_final = False
+for item in (1,):
+    try:
+        try:
+            missing_before_outer_loop_final
+        except NameError as error:
+            break
+    finally:
+        try:
+            error
+        except NameError:
+            binding_cleared_before_final = True
+assert binding_cleared_before_final is True

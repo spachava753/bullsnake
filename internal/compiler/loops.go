@@ -3,13 +3,45 @@ package compiler
 import (
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
 
 type loopContext struct {
 	continueLabel *jumpLabel
 	breakLabel    *jumpLabel
+	continueDepth int
 	breakDepth    int
 	cleanupDepth  int
+}
+
+// compileLoopTransfer emits cleanups inside the target loop, removes temporary
+// stack values, and jumps unless a cleanup suite replaced the transfer.
+func (compiler *compilerState) compileLoopTransfer(
+	loop loopContext,
+	target *jumpLabel,
+	targetDepth int,
+	span lexer.Span,
+) error {
+	cleanupState, err := compiler.emitControlCleanupsFrom(loop.cleanupDepth, span)
+	if err != nil {
+		compiler.restoreControlCleanups(cleanupState)
+		return err
+	}
+	if compiler.reachable {
+		if compiler.stackDepth < targetDepth {
+			compiler.restoreControlCleanups(cleanupState)
+			return compiler.error(span, "loop control is below its target stack depth")
+		}
+		for compiler.stackDepth > targetDepth {
+			if err := compiler.emit(bytecode.PopTop, 0, span); err != nil {
+				compiler.restoreControlCleanups(cleanupState)
+				return err
+			}
+		}
+		err = compiler.emitJump(bytecode.Jump, target, span)
+	}
+	compiler.restoreControlCleanups(cleanupState)
+	return err
 }
 
 // compileWhileStatement keeps normal condition failure separate from break so
@@ -34,6 +66,7 @@ func (compiler *compilerState) compileWhileStatement(statement *compilerast.Whil
 	compiler.loops = append(compiler.loops, loopContext{
 		continueLabel: start,
 		breakLabel:    end,
+		continueDepth: compiler.stackDepth,
 		breakDepth:    compiler.stackDepth,
 		cleanupDepth:  len(compiler.controlCleanups),
 	})
@@ -92,6 +125,7 @@ func (compiler *compilerState) compileForStatement(statement *compilerast.ForStm
 	compiler.loops = append(compiler.loops, loopContext{
 		continueLabel: start,
 		breakLabel:    end,
+		continueDepth: compiler.stackDepth,
 		breakDepth:    baseDepth,
 		cleanupDepth:  len(compiler.controlCleanups),
 	})

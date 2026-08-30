@@ -409,7 +409,10 @@ exceptional entry that retains and reraises the pending exception. Returns use
 one ordered compiler cleanup stack shared with named-handler cleanup. The
 compiler keeps the return value on the operand stack, emits active final suites
 from inner to outer outside their own protected ranges, then returns the
-preserved value. A return or raise in a final suite replaces the earlier return.
+preserved value. Break and continue use the same cleanup stack, discard pending
+exceptions or temporary values down to the target loop's recorded stack depth,
+and then jump. A return, raise, or loop transfer in a final suite replaces the
+earlier transfer.
 
 Bytecode currently remains in memory and evolves with the compiler and runtime.
 If cached compiled files are added, their format must include a Bullsnake magic
@@ -460,9 +463,9 @@ scope after a jump leaves it, and normal handler completion removes it
 explicitly. Bare `raise` searches these scopes through caller frames and raises
 `RuntimeError` when none is active. Bound handler names clear through the same
 compiler-selected storage on normal, nonlocal, and exceptional exits. Plain
-`try/finally` runs its final suite after normal or exceptional completion and
-before a pending return leaves the function. Break and continue through
-`finally`, and combined `try/except/finally`, remain later slices.
+`try/finally` runs its final suite before normal completion, exception
+propagation, return, break, or continue. Combined `try/except/finally` remains a
+later slice.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one

@@ -77,43 +77,24 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		if len(compiler.loops) == 0 {
 			return compiler.error(statement.Span(), "break has no enclosing loop")
 		}
-		if compiler.finallyDepth != 0 {
-			return compiler.error(statement.Span(), "break through finally is not compiled")
-		}
 		loop := compiler.loops[len(compiler.loops)-1]
-		if compiler.stackDepth < loop.breakDepth {
-			return compiler.error(statement.Span(), "break is below its loop stack depth")
-		}
-		cleanupState, err := compiler.emitControlCleanupsFrom(loop.cleanupDepth, statement.Span())
-		if err != nil {
-			compiler.restoreControlCleanups(cleanupState)
-			return err
-		}
-		for compiler.stackDepth > loop.breakDepth {
-			if err := compiler.emit(bytecode.PopTop, 0, statement.Span()); err != nil {
-				compiler.restoreControlCleanups(cleanupState)
-				return err
-			}
-		}
-		err = compiler.emitJump(bytecode.Jump, loop.breakLabel, statement.Span())
-		compiler.restoreControlCleanups(cleanupState)
-		return err
+		return compiler.compileLoopTransfer(
+			loop,
+			loop.breakLabel,
+			loop.breakDepth,
+			statement.Span(),
+		)
 	case *compilerast.ContinueStmt:
 		if len(compiler.loops) == 0 {
 			return compiler.error(statement.Span(), "continue has no enclosing loop")
 		}
-		if compiler.finallyDepth != 0 {
-			return compiler.error(statement.Span(), "continue through finally is not compiled")
-		}
 		loop := compiler.loops[len(compiler.loops)-1]
-		cleanupState, err := compiler.emitControlCleanupsFrom(loop.cleanupDepth, statement.Span())
-		if err != nil {
-			compiler.restoreControlCleanups(cleanupState)
-			return err
-		}
-		err = compiler.emitJump(bytecode.Jump, loop.continueLabel, statement.Span())
-		compiler.restoreControlCleanups(cleanupState)
-		return err
+		return compiler.compileLoopTransfer(
+			loop,
+			loop.continueLabel,
+			loop.continueDepth,
+			statement.Span(),
+		)
 	default:
 		return compiler.unsupported(statement)
 	}

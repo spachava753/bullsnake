@@ -258,18 +258,14 @@ func (compiler *compilerState) compileTryFinally(statement *compilerast.TryStmt)
 		handlerDepth: handlerDepth,
 		finalBody:    statement.Finally,
 	})
-	compiler.finallyDepth++
 	err := compiler.compileStatements(statement.Body)
-	compiler.finallyDepth--
 	compiler.controlCleanups = compiler.controlCleanups[:len(compiler.controlCleanups)-1]
 	compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
 	if err != nil {
 		return err
 	}
 	if compiler.reachable {
-		compiler.finallyDepth++
 		err = compiler.compileStatements(statement.Finally)
-		compiler.finallyDepth--
 		if err != nil {
 			return err
 		}
@@ -289,9 +285,7 @@ func (compiler *compilerState) compileTryFinally(statement *compilerast.TryStmt)
 	if err := compiler.markLabel(handler, statement.Span()); err != nil {
 		return err
 	}
-	compiler.finallyDepth++
 	err = compiler.compileStatements(statement.Finally)
-	compiler.finallyDepth--
 	if err != nil {
 		return err
 	}

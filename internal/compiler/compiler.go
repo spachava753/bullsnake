@@ -42,7 +42,6 @@ type compilerState struct {
 	exceptionHandlers   []instructionExceptionHandler
 	activeHandlers      []instructionExceptionHandler
 	controlCleanups     []controlCleanup
-	finallyDepth        int
 }
 
 // emit appends a fallthrough instruction after validating reachability,
