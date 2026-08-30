@@ -7,6 +7,7 @@ type frame struct {
 	instruction int
 	stack       []Value
 	fastLocals  []Value
+	deref       []*cellValue
 	locals      *Namespace
 	globals     *Namespace
 	builtins    *Namespace

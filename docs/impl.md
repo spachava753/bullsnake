@@ -392,11 +392,12 @@ new module namespace, and caches the module by name only after normal return.
 `Runtime.Module` and `Module.Get` expose successful executions to internal
 callers and tests. There is not yet a public Go embedding API.
 
-Preparation copies the instruction, name, local, and child-code tables,
-materializes code constants as runtime values, and validates the complete code
-tree before execution. Validation currently accepts `NOP`, `LOAD_CONST`,
-`LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`, `LOAD_GLOBAL`,
-`STORE_GLOBAL`, `MAKE_FUNCTION`, positional- and keyword-default
+Preparation copies the instruction, name, local, cell, free-variable, and
+child-code tables, materializes code constants as runtime values, and validates
+the complete code tree before execution. Validation currently accepts `NOP`,
+`LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`,
+`LOAD_GLOBAL`, `STORE_GLOBAL`, `LOAD_DEREF`, `STORE_DEREF`, `DELETE_DEREF`,
+`LOAD_CLOSURE`, `MAKE_FUNCTION`, positional-default, keyword-default, and closure
 `SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms, `POP_TOP`, `COPY`,
 `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`,
 `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`,
@@ -425,16 +426,18 @@ statements, and `while` and synchronous `for` loops. Loop `else`, `break`, and
 targets preserve the same frame and operand stack.
 
 A heap-allocated frame contains prepared code, the next instruction index, a
-preallocated operand stack, indexed fast locals, local, global, and builtin
-namespaces, and its logical predecessor. A thread state points at the active
-frame. `MAKE_FUNCTION` captures prepared child code and the defining globals.
-`CALL` binds inline positional arguments. `CALL_EX` consumes a compiler-built
-positional tuple and, for operand one, an ordered keyword dictionary assembled
-by duplicate-checking `MAP_MERGE`. Both create a fresh fast-local array and
-return a child-frame outcome. The dispatch loop switches to that frame without
-a Go call; `RETURN_VALUE` restores the predecessor and pushes the result.
-Repeated, nested, and recursive Python calls therefore remain in one iterative
-loop.
+preallocated operand stack, indexed fast locals, an ordered cell/free-variable
+array, local, global, and builtin namespaces, and its logical predecessor. A
+thread state points at the active frame. `MAKE_FUNCTION` captures prepared child
+code and the defining globals; its closure attribute retains the exact cells
+requested by the child's free-variable table. Calls allocate local cells, seed
+captured parameters from the bound fast locals, and append the captured free
+cells. `CALL` binds inline positional arguments. `CALL_EX` consumes a
+compiler-built positional tuple and, for operand one, an ordered keyword
+dictionary assembled by duplicate-checking `MAP_MERGE`. Both return a
+child-frame outcome. The dispatch loop switches to that frame without a Go call;
+`RETURN_VALUE` restores the predecessor and pushes the result. Repeated, nested,
+and recursive Python calls therefore remain in one iterative loop.
 
 The current call binder supports positional-only, ordinary positional, and
 keyword-only parameters; trailing positional defaults; sparse keyword-only
@@ -445,9 +448,12 @@ fast locals, then inserts unmatched names in call order. A positional-only name
 is unmatched and therefore enters that dictionary when the function declares
 `**kwargs`. The binder rejects duplicate bindings, non-string keys, unexpected
 names, and missing required positional or keyword-only arguments with Python
-exceptions. Closures, decorators at execution time, callable native values,
-suspension, exception handlers, traceback chains, cancellation, recursion
-limits, and execution budgets are not yet implemented.
+exceptions. Closure cells use the compiler's cells-first dereference indexes;
+`LOAD_DEREF`, `STORE_DEREF`, and `DELETE_DEREF` share updates and report empty
+local or free cells with Python's distinct exception families and messages.
+Decorators at execution time, callable native values, suspension, exception
+handlers, traceback chains, cancellation, recursion limits, and execution
+budgets are not yet implemented.
 
 ## Object model and runtime
 

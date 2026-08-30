@@ -15,6 +15,9 @@ type preparedCode struct {
 	constants    []Value
 	names        []string
 	locals       []string
+	cells        []string
+	freeVars     []string
+	cellLocals   []int
 	childCodes   []*bytecode.Code
 	children     []*preparedCode
 	stackSize    int
@@ -31,8 +34,20 @@ func prepareCode(code *bytecode.Code) (*preparedCode, error) {
 		instructions: code.Instructions(),
 		names:        code.Names(),
 		locals:       code.Locals(),
+		cells:        code.Cells(),
+		freeVars:     code.FreeVars(),
 		childCodes:   code.Children(),
 		stackSize:    code.StackSize(),
+	}
+	prepared.cellLocals = make([]int, len(prepared.cells))
+	for cellIndex, name := range prepared.cells {
+		prepared.cellLocals[cellIndex] = -1
+		for localIndex, localName := range prepared.locals {
+			if localName == name {
+				prepared.cellLocals[cellIndex] = localIndex
+				break
+			}
+		}
 	}
 	if prepared.stackSize < 0 {
 		return nil, prepared.failure(-1, "negative operand stack size %d", prepared.stackSize)
@@ -111,8 +126,14 @@ func (code *preparedCode) validateMetadata() error {
 	if unsupported := flags &^ supportedFlags; unsupported != 0 {
 		return code.failure(-1, "unsupported code flags %s", unsupported)
 	}
-	if len(code.code.Cells()) != 0 || len(code.code.FreeVars()) != 0 {
-		return code.failure(-1, "closure variables are not supported")
+	seenDeref := make(map[string]struct{}, len(code.cells)+len(code.freeVars))
+	for _, names := range [][]string{code.cells, code.freeVars} {
+		for _, name := range names {
+			if _, exists := seenDeref[name]; exists {
+				return code.failure(-1, "duplicate dereference name %q", name)
+			}
+			seenDeref[name] = struct{}{}
+		}
 	}
 	return nil
 }
@@ -338,6 +359,12 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "local index %d out of range", instruction.Operand)
 		}
 		return nil
+	case bytecode.LoadDeref, bytecode.StoreDeref, bytecode.DeleteDeref,
+		bytecode.LoadClosure:
+		if uint64(instruction.Operand) >= uint64(len(code.cells)+len(code.freeVars)) {
+			return code.failure(index, "deref index %d out of range", instruction.Operand)
+		}
+		return nil
 	case bytecode.MakeFunction:
 		if uint64(instruction.Operand) >= uint64(len(code.childCodes)) {
 			return code.failure(
@@ -363,7 +390,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		return nil
 	case bytecode.SetFunctionAttribute:
 		switch bytecode.FunctionAttribute(instruction.Operand) {
-		case bytecode.FunctionDefaults, bytecode.FunctionKeywordDefaults:
+		case bytecode.FunctionDefaults, bytecode.FunctionKeywordDefaults,
+			bytecode.FunctionClosure:
 			return nil
 		default:
 			return code.failure(
@@ -487,11 +515,14 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	switch instruction.Opcode {
 	case bytecode.LoadConst, bytecode.LoadName, bytecode.LoadFast,
-		bytecode.LoadGlobal, bytecode.MakeFunction:
+		bytecode.LoadGlobal, bytecode.LoadDeref, bytecode.LoadClosure,
+		bytecode.MakeFunction:
 		return 0, 1
 	case bytecode.StoreName, bytecode.StoreFast, bytecode.StoreGlobal,
-		bytecode.PopTop, bytecode.ReturnValue:
+		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue:
 		return 1, 0
+	case bytecode.DeleteDeref:
+		return 0, 0
 	case bytecode.DeleteSubscript:
 		return 2, 0
 	case bytecode.StoreSubscript:

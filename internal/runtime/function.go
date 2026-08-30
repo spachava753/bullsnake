@@ -12,6 +12,7 @@ type functionValue struct {
 	globals         *Namespace
 	defaults        []Value
 	keywordDefaults map[string]Value
+	closure         []*cellValue
 }
 
 func (*functionValue) TypeName() string { return "function" }
@@ -108,6 +109,17 @@ func executeFunctionCall(
 	if exception != nil {
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
+	deref, ok := initializeDeref(function.code, locals, function.closure)
+	if !ok {
+		return instructionOutcome{}, caller.failure(
+			instruction,
+			fmt.Sprintf(
+				"function closure has %d cells for %d free variables",
+				len(function.closure),
+				len(function.code.freeVars),
+			),
+		)
+	}
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil
 	}
@@ -116,6 +128,7 @@ func executeFunctionCall(
 		code:       function.code,
 		stack:      make([]Value, 0, function.code.stackSize),
 		fastLocals: locals,
+		deref:      deref,
 		locals:     newNamespace(),
 		globals:    function.globals,
 		builtins:   caller.builtins,

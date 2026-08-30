@@ -28,10 +28,20 @@ func (runtime *Runtime) ExecuteModule(name string, code *bytecode.Code) (*Module
 	}
 	globals := newNamespace()
 	module := &Module{name: name, globals: globals}
+	fastLocals := make([]Value, len(prepared.locals))
+	deref, ok := initializeDeref(prepared, fastLocals, nil)
+	if !ok {
+		return nil, prepared.failure(
+			-1,
+			"module closure has 0 cells for %d free variables",
+			len(prepared.freeVars),
+		)
+	}
 	frame := &frame{
 		code:       prepared,
 		stack:      make([]Value, 0, prepared.stackSize),
-		fastLocals: make([]Value, len(prepared.locals)),
+		fastLocals: fastLocals,
+		deref:      deref,
 		locals:     globals,
 		globals:    globals,
 		builtins:   runtime.builtins,

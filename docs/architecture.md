@@ -401,10 +401,11 @@ added after semantic conformance and profiling.
 
 The current VM executes module and basic function code with heap-allocated
 frames. A frame contains prepared immutable code, the next instruction index,
-an operand stack, indexed fast locals, local, global, and builtin namespaces,
-and a link to its logical caller. A thread state points to the active frame. The
-iterative dispatcher handles normal progress, Python calls, return, and Python
-exception outcomes without using a Go call as the definition of a Python frame.
+an operand stack, indexed fast locals, one cell/free-variable dereference array,
+local, global, and builtin namespaces, and a link to its logical caller. A
+thread state points to the active frame. The iterative dispatcher handles normal
+progress, Python calls, return, and Python exception outcomes without using a Go
+call as the definition of a Python frame.
 
 Before execution, the runtime copies the code tables it consumes, materializes
 compiler constants as runtime values, and recursively prepares every child code
@@ -420,14 +421,18 @@ code-object identity.
 `MAKE_FUNCTION` captures one prepared child and its defining global namespace.
 `CALL` reads inline positional arguments. `CALL_EX` reads a compiler-built
 positional tuple plus an optional ordered keyword dictionary assembled by
-`MAP_MERGE`. Function attributes retain positional defaults and sparse
-keyword-only defaults as Python values evaluated when the definition executes.
-The binder fills those defaults, packs surplus arguments into `*args`, and
-matches ordinary and keyword-only names. When `**kwargs` is present, it stores
-unmatched names in a fresh dictionary in call order. The binder rejects
-positional-only, duplicate, non-string, and unexpected names when the signature
-does not provide a legal destination. It then replaces the active frame with a
-child whose `previous` link names the caller.
+`MAP_MERGE`. Function attributes retain positional defaults, sparse
+keyword-only defaults, and an ordered tuple of captured cells. Frame creation
+allocates one cell for each locally captured name, moves captured parameter
+values into those cells, then appends the function's captured free cells.
+Function objects retain the cell pointers, so escaped and sibling closures share
+bindings after the defining frame returns. The binder fills defaults, packs
+surplus arguments into `*args`, and matches ordinary and keyword-only names.
+When `**kwargs` is present, it stores unmatched names in a fresh dictionary in
+call order. The binder rejects positional-only, duplicate, non-string, and
+unexpected names when the signature does not provide a legal destination. It
+then replaces the active frame with a child whose `previous` link names the
+caller.
 Return restores that caller and pushes the result. Nested and recursive Python
 calls therefore remain in the iterative dispatcher. A suspended async task or
 generator will eventually own the same frame state needed to resume it.

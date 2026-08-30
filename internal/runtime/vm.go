@@ -113,6 +113,18 @@ func executeInstruction(
 			}, nil
 		}
 		return pushOutcome(frame, index, value)
+	case bytecode.LoadDeref:
+		derefIndex := int(instruction.Operand)
+		value := frame.deref[derefIndex].value
+		if value == nil {
+			return instructionOutcome{
+				kind:      raised,
+				exception: unboundDerefException(frame.code, derefIndex),
+			}, nil
+		}
+		return pushOutcome(frame, index, value)
+	case bytecode.LoadClosure:
+		return pushOutcome(frame, index, frame.deref[instruction.Operand])
 	case bytecode.LoadGlobal:
 		name := frame.code.names[instruction.Operand]
 		value, ok := frame.globals.get(name)
@@ -139,6 +151,24 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		frame.fastLocals[instruction.Operand] = value
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.StoreDeref:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		frame.deref[instruction.Operand].value = value
+		return instructionOutcome{kind: advance}, nil
+	case bytecode.DeleteDeref:
+		derefIndex := int(instruction.Operand)
+		cell := frame.deref[derefIndex]
+		if cell.value == nil {
+			return instructionOutcome{
+				kind:      raised,
+				exception: unboundDerefException(frame.code, derefIndex),
+			}, nil
+		}
+		cell.value = nil
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.StoreGlobal:
 		value, ok := frame.pop()
@@ -283,6 +313,38 @@ func executeInstruction(
 					)
 				}
 				function.keywordDefaults[name.value] = entry.value
+			}
+		case bytecode.FunctionClosure:
+			closure, closureOK := payload.(*tupleValue)
+			if !closureOK {
+				return instructionOutcome{}, frame.failure(
+					index,
+					"function closure payload is not a tuple",
+				)
+			}
+			if len(closure.elements) != len(function.code.freeVars) {
+				return instructionOutcome{}, frame.failure(
+					index,
+					fmt.Sprintf(
+						"function closure has %d cells for %d free variables",
+						len(closure.elements),
+						len(function.code.freeVars),
+					),
+				)
+			}
+			function.closure = make([]*cellValue, len(closure.elements))
+			for closureIndex, value := range closure.elements {
+				cell, cellOK := value.(*cellValue)
+				if !cellOK {
+					return instructionOutcome{}, frame.failure(
+						index,
+						fmt.Sprintf(
+							"function closure item %d is not a cell",
+							closureIndex,
+						),
+					)
+				}
+				function.closure[closureIndex] = cell
 			}
 		}
 		return pushOutcome(frame, index, function)

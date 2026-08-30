@@ -358,6 +358,61 @@ func TestCatchAllKeywordBinding(t *testing.T) {
 	}
 }
 
+func TestLexicalClosures(t *testing.T) {
+	code := compileSource(t, "def make(value):\n"+
+		"    offset = 2\n"+
+		"    def apply(item):\n"+
+		"        return value + offset + item\n"+
+		"    return apply\n"+
+		"captured = make(40)(0)\n"+
+		"def counter(start):\n"+
+		"    value = start\n"+
+		"    def set_value(new):\n"+
+		"        nonlocal value\n"+
+		"        value = new\n"+
+		"    def read():\n"+
+		"        return value\n"+
+		"    return set_value, read\n"+
+		"set_value, read = counter(3)\n"+
+		"before = read()\n"+
+		"set_result = set_value(9)\n"+
+		"after = read()\n"+
+		"def outer():\n"+
+		"    a = 1\n"+
+		"    z = 2\n"+
+		"    def middle():\n"+
+		"        def inner():\n"+
+		"            return z, a\n"+
+		"        return inner\n"+
+		"    return middle\n"+
+		"transitive = outer()()()\n"+
+		"def make_lambda(offset, default):\n"+
+		"    return lambda value=default: offset + value\n"+
+		"lambda_result = make_lambda(10, 32)()\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("closures", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"captured":      "42",
+		"before":        "3",
+		"set_result":    "None",
+		"after":         "9",
+		"transitive":    "(2, 1)",
+		"lambda_result": "42",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1411,6 +1466,43 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name: "unbound local cell",
+			source: "def outer():\n" +
+				"    def read():\n" +
+				"        return value\n" +
+				"    current = value\n" +
+				"    value = 1\n" +
+				"    return current\n" +
+				"answer = outer()\n",
+			wantType:    "UnboundLocalError",
+			wantMessage: "cannot access local variable 'value' where it is not associated with a value",
+		},
+		{
+			name: "unbound free cell",
+			source: "def outer():\n" +
+				"    def read():\n" +
+				"        return value\n" +
+				"    result = read()\n" +
+				"    value = 1\n" +
+				"    return result\n" +
+				"answer = outer()\n",
+			wantType:    "NameError",
+			wantMessage: "cannot access free variable 'value' where it is not associated with a value in enclosing scope",
+		},
+		{
+			name: "delete empty free cell",
+			source: "def outer():\n" +
+				"    value = 1\n" +
+				"    def clear():\n" +
+				"        nonlocal value\n" +
+				"        del value\n" +
+				"        del value\n" +
+				"    clear()\n" +
+				"answer = outer()\n",
+			wantType:    "NameError",
+			wantMessage: "cannot access free variable 'value' where it is not associated with a value in enclosing scope",
+		},
+		{
 			name: "missing keyword-only arguments",
 			source: "def configure(*, required, mode='safe', verbose):\n" +
 				"    return required, mode, verbose\n" +
@@ -2150,19 +2242,88 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "function keyword defaults payload is not a dictionary",
 		},
 		{
+			name: "deref index",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadDeref, Operand: 1},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Flags:  bytecode.Optimized | bytecode.NewLocals,
+				Locals: []string{"value"},
+				Cells:  []string{"value"},
+			}),
+			wantFragment: "deref index 1 out of range",
+		},
+		{
+			name: "invalid closure payload",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeFunction},
+					{
+						Opcode:  bytecode.SetFunctionAttribute,
+						Operand: uint32(bytecode.FunctionClosure),
+					},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children: []*bytecode.Code{
+					testCodeSpec(bytecode.CodeSpec{
+						StackSize: 1,
+						Instructions: []bytecode.Instruction{
+							{Opcode: bytecode.LoadDeref},
+							{Opcode: bytecode.ReturnValue},
+						},
+						Flags:    bytecode.Optimized | bytecode.NewLocals | bytecode.Nested,
+						FreeVars: []string{"captured"},
+					}),
+				},
+			}),
+			wantFragment: "function closure payload is not a tuple",
+		},
+		{
+			name: "closure cell count",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.BuildTuple},
+					{Opcode: bytecode.MakeFunction},
+					{
+						Opcode:  bytecode.SetFunctionAttribute,
+						Operand: uint32(bytecode.FunctionClosure),
+					},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Children: []*bytecode.Code{
+					testCodeSpec(bytecode.CodeSpec{
+						StackSize: 1,
+						Instructions: []bytecode.Instruction{
+							{Opcode: bytecode.LoadDeref},
+							{Opcode: bytecode.ReturnValue},
+						},
+						Flags:    bytecode.Optimized | bytecode.NewLocals | bytecode.Nested,
+						FreeVars: []string{"captured"},
+					}),
+				},
+			}),
+			wantFragment: "function closure has 0 cells for 1 free variables",
+		},
+		{
 			name: "unsupported function attribute",
 			code: testCode(
 				0,
 				[]bytecode.Instruction{
 					{
 						Opcode:  bytecode.SetFunctionAttribute,
-						Operand: uint32(bytecode.FunctionClosure),
+						Operand: uint32(bytecode.FunctionAnnotate),
 					},
 				},
 				nil,
 				nil,
 			),
-			wantFragment: "unsupported SET_FUNCTION_ATTRIBUTE operand 8",
+			wantFragment: "unsupported SET_FUNCTION_ATTRIBUTE operand 16",
 		},
 		{
 			name: "function defaults underflow",
