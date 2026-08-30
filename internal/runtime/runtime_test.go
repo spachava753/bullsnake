@@ -816,6 +816,21 @@ func TestSingleInheritance(t *testing.T) {
 	}
 }
 
+func TestPassingAssertion(t *testing.T) {
+	code := compileSource(t, "assert True\nanswer = 42\n")
+	module, err := bullruntime.New().ExecuteModule("assertions", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer, ok := module.Get("answer")
+	if !ok {
+		t.Fatal("module has no answer binding")
+	}
+	if got := answer.Repr(); got != "42" {
+		t.Fatalf("answer = %s, want 42", got)
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1869,6 +1884,24 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name:        "assertion without message",
+			source:      "assert False\n",
+			wantType:    "AssertionError",
+			wantMessage: "",
+		},
+		{
+			name:        "assertion with message",
+			source:      "assert False, 'broken'\n",
+			wantType:    "AssertionError",
+			wantMessage: "broken",
+		},
+		{
+			name:        "invalid explicit raise",
+			source:      "raise None\n",
+			wantType:    "TypeError",
+			wantMessage: "exceptions must derive from BaseException",
+		},
+		{
 			name: "non-type class base",
 			source: "class Broken(1):\n" +
 				"    pass\n",
@@ -2541,7 +2574,7 @@ func TestBytecodeValidation(t *testing.T) {
 						1,
 						[]bytecode.Instruction{
 							{Opcode: bytecode.LoadConst},
-							{Opcode: bytecode.LoadAssertionError},
+							{Opcode: bytecode.LoadLocals},
 							{Opcode: bytecode.ReturnValue},
 						},
 						[]bytecode.Constant{bytecode.None()},
@@ -2549,7 +2582,7 @@ func TestBytecodeValidation(t *testing.T) {
 					),
 				},
 			}),
-			wantFragment: "unsupported opcode LOAD_ASSERTION_ERROR",
+			wantFragment: "unsupported opcode LOAD_LOCALS",
 		},
 		{
 			name: "function parameters exceed locals",
@@ -3286,13 +3319,13 @@ func TestBytecodeValidation(t *testing.T) {
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.StoreName},
-					{Opcode: bytecode.LoadAssertionError},
+					{Opcode: bytecode.LoadLocals},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
 				[]string{"changed"},
 			),
-			wantFragment: "unsupported opcode LOAD_ASSERTION_ERROR",
+			wantFragment: "unsupported opcode LOAD_LOCALS",
 		},
 		{
 			name: "unsupported binary operation",

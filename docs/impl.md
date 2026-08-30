@@ -398,8 +398,8 @@ the complete code tree before execution. Validation currently accepts `NOP`,
 `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`,
 `LOAD_GLOBAL`, `STORE_GLOBAL`, `LOAD_ATTR`, `STORE_ATTR`, `DELETE_ATTR`,
 `LOAD_DEREF`, `STORE_DEREF`, `DELETE_DEREF`, `LOAD_CLOSURE`,
-`LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`, `MAKE_FUNCTION`,
-positional-default, keyword-default, closure, and annotation
+`LOAD_ASSERTION_ERROR`, `LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`,
+`MAKE_FUNCTION`, positional-default, keyword-default, closure, and annotation
 `SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms, one-argument
 `RAISE_VARARGS`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
 `BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
@@ -472,10 +472,13 @@ from bottom to top. Annotation attributes retain the compiler-generated callable
 without evaluating annotation expressions during definition or ordinary calls.
 Its internal format guard can raise `NotImplementedError`; Python attribute
 lookup and `annotationlib` integration cannot request annotation maps yet.
-Callable native values, other raise forms, multiple inheritance, C3
-linearization, metaclasses, `super`, `__new__`, general descriptors, suspension,
-exception handlers, traceback chains, cancellation, recursion limits, and
-execution budgets are not yet implemented.
+Assertions load a callable internal `AssertionError` class and use the supported
+one-argument raise path with either that class or a constructed exception.
+Invalid raised values become `TypeError`. Callable native values, bare re-raise,
+explicit causes, multiple inheritance, C3 linearization, metaclasses, `super`,
+`__new__`, general descriptors, suspension, exception handlers, traceback
+chains, cancellation, recursion limits, and execution budgets are not yet
+implemented.
 
 ## Object model and runtime
 

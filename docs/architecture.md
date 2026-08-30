@@ -428,15 +428,18 @@ name, moves captured parameter values into those cells, then appends the
 function's captured free cells. Function objects retain the cell pointers, so
 escaped and sibling closures share bindings after the defining frame returns.
 Definition and ordinary call execution do not invoke the annotation callable;
-a later attribute and `annotationlib` slice will request its map. Function
-decorators use the ordinary call machinery. Decorator expressions evaluate top
-to bottom before defaults; the resulting callables apply bottom to top after
-function creation. The binder fills defaults, packs surplus arguments into
-`*args`, and matches ordinary and keyword-only names. When `**kwargs` is present,
-it stores unmatched names in a fresh dictionary in call order. The binder
-rejects positional-only, duplicate, non-string, and unexpected names when the
-signature does not provide a legal destination. It then replaces the active
-frame with a child whose `previous` link names the caller.
+a later attribute and `annotationlib` slice will request its map. Assertions load
+an internal callable `AssertionError` class, optionally construct an instance
+with one message, and terminate through one-argument raise. That raise path also
+instantiates a directly raised internal exception class. Function decorators use
+the ordinary call machinery. Decorator expressions evaluate top to bottom before
+defaults; the resulting callables apply bottom to top after function creation.
+The binder fills defaults, packs surplus arguments into `*args`, and matches
+ordinary and keyword-only names. When `**kwargs` is present, it stores unmatched
+names in a fresh dictionary in call order. The binder rejects positional-only,
+duplicate, non-string, and unexpected names when the signature does not provide
+a legal destination. It then replaces the active frame with a child whose
+`previous` link names the caller.
 Return restores that caller and pushes the result. Nested and recursive Python
 calls therefore remain in the iterative dispatcher. `LOAD_BUILD_CLASS` pushes
 an internal class builder. For a class with at most one Bullsnake type base, it

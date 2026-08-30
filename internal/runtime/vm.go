@@ -109,6 +109,8 @@ func executeInstruction(
 		return pushOutcome(frame, index, value)
 	case bytecode.LoadNotImplementedError:
 		return pushOutcome(frame, index, newException("NotImplementedError", ""))
+	case bytecode.LoadAssertionError:
+		return pushOutcome(frame, index, assertionErrorType)
 	case bytecode.LoadBuildClass:
 		return pushOutcome(frame, index, buildClassSingleton)
 	case bytecode.LoadName:
@@ -528,8 +530,13 @@ func executeInstruction(
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
-		exception, ok := value.(*Exception)
-		if !ok {
+		var exception *Exception
+		switch raised := value.(type) {
+		case *Exception:
+			exception = raised
+		case *exceptionTypeValue:
+			exception = newException(raised.name, "")
+		default:
 			exception = newException("TypeError", "exceptions must derive from BaseException")
 		}
 		return instructionOutcome{kind: raised, exception: exception}, nil

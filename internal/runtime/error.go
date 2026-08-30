@@ -7,6 +7,55 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 )
 
+type exceptionTypeValue struct {
+	name string
+}
+
+func (*exceptionTypeValue) TypeName() string { return "type" }
+func (exceptionType *exceptionTypeValue) Repr() string {
+	return "<class '" + exceptionType.name + "'>"
+}
+func (*exceptionTypeValue) isValue() {}
+
+var assertionErrorType = &exceptionTypeValue{name: "AssertionError"}
+
+// executeExceptionTypeCall validates an internal exception-class call, converts
+// its positional arguments into the current message representation, consumes
+// the caller segment, and pushes the new exception instance.
+func executeExceptionTypeCall(
+	caller *frame,
+	instruction int,
+	base int,
+	exceptionType *exceptionTypeValue,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				exceptionType.name+"() takes no keyword arguments",
+			),
+		}, nil
+	}
+	message := ""
+	if len(arguments) == 1 {
+		if text, ok := arguments[0].(*stringValue); ok {
+			message = text.value
+		} else {
+			message = arguments[0].Repr()
+		}
+	} else if len(arguments) > 1 {
+		message = (&tupleValue{elements: arguments}).Repr()
+	}
+	for index := base; index < len(caller.stack); index++ {
+		caller.stack[index] = nil
+	}
+	caller.stack = caller.stack[:base]
+	return pushOutcome(caller, instruction, newException(exceptionType.name, message))
+}
+
 // Exception is a Python exception value raised by bytecode execution.
 type Exception struct {
 	typeName string
