@@ -101,6 +101,17 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 				return child.appendComprehensionValue(expression.Element, bytecode.SetAdd)
 			},
 		)
+	case *compilerast.DictComprehensionExpr:
+		return compiler.compileEagerComprehension(
+			expression,
+			expression.Clauses,
+			"<dictcomp>",
+			resolver.DictComprehension,
+			bytecode.BuildMap,
+			func(child *compilerState) error {
+				return child.appendDictComprehensionEntry(expression.Key, expression.Value)
+			},
+		)
 	case *compilerast.UnaryExpr:
 		return compiler.compileUnary(expression)
 	case *compilerast.BinaryExpr:

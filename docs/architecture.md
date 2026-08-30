@@ -141,11 +141,11 @@ targets, and source locations.
 
 The result is an immutable code object. A code object contains the information
 the VM needs to run one module, function, class body, annotation body, or hidden
-comprehension body. Child functions and current list and set comprehensions have
-child code objects rather than hidden Go closures.
+comprehension body. Child functions and current eager comprehensions have child
+code objects rather than hidden Go closures.
 
 CPython 3.14 inlines eager comprehensions into the enclosing frame. Bullsnake
-currently runs each list or set comprehension in a hidden child frame. The first
+currently runs each eager comprehension in a hidden child frame. The first
 iterable is still evaluated in the enclosing scope, while targets, filters, and
 the result expression use the comprehension scope. This simpler compiler model
 preserves name isolation and closure behavior. The extra frame may change when

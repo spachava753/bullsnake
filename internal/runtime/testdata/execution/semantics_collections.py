@@ -300,6 +300,27 @@ def unique(groups, offset):
 result = unique(((1, 2, 1), (), (3,)), 10)
 assert f'{result!r}' == "{11, 12, 13}", "result"
 # ---
+# case: dictionary comprehensions
+outer = (1, 2, 3)
+values = {outer: outer * 10 for outer in outer if outer != 2}
+empty = {item: item for item in ()}
+replaced = {item % 2: item for item in (1, 3, 2, 4)}
+marker = 0
+ordered = {(marker := item): marker + 10 for item in (5, 6)}
+assert f'{values!r}' == "{1: 10, 3: 30}", "values"
+assert f'{outer!r}' == "(1, 2, 3)", "outer"
+assert f'{empty!r}' == "{}", "empty"
+assert f'{replaced!r}' == "{1: 3, 0: 4}", "replaced"
+assert f'{ordered!r}' == "{5: 15, 6: 16}", "ordered"
+assert f'{marker!r}' == "6", "marker"
+# ---
+# case: dictionary comprehension closure
+def index(groups, offset):
+    return {item: item + offset for group in groups if group for item in group if item}
+
+result = index(((1, 2), (), (3,)), 10)
+assert f'{result!r}' == "{1: 11, 2: 12, 3: 13}", "result"
+# ---
 # case: dictionary item assignment and deletion
 mapping = {'first': 1, 'second': 2}
 mapping['first'] = 10

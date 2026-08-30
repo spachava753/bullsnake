@@ -191,3 +191,26 @@ func (compiler *compilerState) appendComprehensionValue(
 	}
 	return compiler.emit(bytecode.PopTop, 0, expression.Span())
 }
+
+func (compiler *compilerState) appendDictComprehensionEntry(
+	key compilerast.Expr,
+	value compilerast.Expr,
+) error {
+	if err := compiler.emit(
+		bytecode.LoadFast,
+		compiler.localIDs[comprehensionResultLocal],
+		key.Span(),
+	); err != nil {
+		return err
+	}
+	if err := compiler.compileExpr(key); err != nil {
+		return err
+	}
+	if err := compiler.compileExpr(value); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.MapSet, 0, value.Span()); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.PopTop, 0, value.Span())
+}

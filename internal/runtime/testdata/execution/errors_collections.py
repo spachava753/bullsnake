@@ -246,3 +246,13 @@ values = {item for item in 1}
 # error: TypeError
 # message: "cannot use 'list' as a set element (unhashable type: 'list')"
 values = {item for item in ([1],)}
+# ---
+# case: non-iterable dictionary comprehension
+# error: TypeError
+# message: "'int' object is not iterable"
+values = {item: item for item in 1}
+# ---
+# case: unhashable dictionary comprehension key
+# error: TypeError
+# message: "cannot use 'list' as a dict key (unhashable type: 'list')"
+values = {[item]: item for item in (1,)}
