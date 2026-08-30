@@ -2,7 +2,9 @@ package runtime
 
 import (
 	"fmt"
+	"math"
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
@@ -77,6 +79,8 @@ func executeFormatWithSpec(frame *frame, index int) (instructionOutcome, error) 
 			integer.SetInt64(1)
 		}
 		formatted, exception = formatIntegerValue(&integer, spec.value, "bool")
+	case *floatValue:
+		formatted, exception = formatFloatValue(value.value, spec.value)
 	default:
 		return instructionOutcome{
 			kind: raised,
@@ -147,6 +151,211 @@ func asciiRepresentation(representation string) string {
 		}
 	}
 	return builder.String()
+}
+
+type floatFormatSpec struct {
+	fill               string
+	alignment          byte
+	explicitAlignment  bool
+	sign               byte
+	coerceNegativeZero bool
+	alternate          bool
+	zero               bool
+	width              int
+	grouping           byte
+	precision          int
+	typeCode           byte
+}
+
+// formatFloatValue renders finite and special binary64 values for explicit
+// fixed, scientific, percent, or width-only float specifications.
+func formatFloatValue(value float64, specification string) (string, *Exception) {
+	spec, exception := parseFloatFormatSpec(specification)
+	if exception != nil {
+		return "", exception
+	}
+	negative := math.Signbit(value)
+	absolute := math.Abs(value)
+	typeCode := spec.typeCode
+	precision := spec.precision
+	if precision < 0 && typeCode != 0 {
+		precision = 6
+	}
+	body := ""
+	suffix := ""
+	special := math.IsInf(absolute, 1) || math.IsNaN(absolute)
+	if special {
+		if math.IsNaN(absolute) {
+			body = "nan"
+		} else {
+			body = "inf"
+		}
+	} else {
+		switch typeCode {
+		case 0:
+			if precision >= 0 {
+				return "", newException(
+					"ValueError",
+					"format precision without a presentation type is not implemented",
+				)
+			}
+			body = formatFloat(absolute, true)
+		case 'f', 'F':
+			body = strconv.FormatFloat(absolute, 'f', precision, 64)
+		case 'e', 'E':
+			body = strconv.FormatFloat(absolute, 'e', precision, 64)
+		case '%':
+			body = strconv.FormatFloat(absolute*100, 'f', precision, 64)
+			suffix = "%"
+		default:
+			return "", newException(
+				"ValueError",
+				"Unknown format code '"+string(typeCode)+"' for object of type 'float'",
+			)
+		}
+		if spec.alternate && precision == 0 {
+			body = addFloatDecimalPoint(body)
+		}
+	}
+	if typeCode == 'E' || typeCode == 'F' {
+		body = strings.ToUpper(body)
+	}
+	if spec.coerceNegativeZero && negative && formattedFloatIsZero(body) {
+		negative = false
+	}
+	if spec.grouping != 0 {
+		body = groupFloatIntegral(body, spec.grouping)
+	}
+	sign := integerSign(negative, spec.sign)
+	padding := integerFormatSpec{
+		fill:              spec.fill,
+		alignment:         spec.alignment,
+		explicitAlignment: spec.explicitAlignment,
+		zero:              spec.zero,
+		width:             spec.width,
+	}
+	return padInteger(sign, "", body+suffix, padding)
+}
+
+// parseFloatFormatSpec accepts sign, z, alternate, zero, width, grouping,
+// precision, alignment, and the supported binary64 presentation types.
+func parseFloatFormatSpec(text string) (floatFormatSpec, *Exception) {
+	spec := floatFormatSpec{fill: " ", alignment: '>', width: -1, precision: -1}
+	position := 0
+	if text != "" {
+		_, firstSize, _ := decodeStringRune(text)
+		if firstSize < len(text) && isFormatAlignment(text[firstSize]) {
+			spec.fill = text[:firstSize]
+			spec.alignment = text[firstSize]
+			spec.explicitAlignment = true
+			position = firstSize + 1
+		} else if firstSize == 1 && isFormatAlignment(text[0]) {
+			spec.alignment = text[0]
+			spec.explicitAlignment = true
+			position = 1
+		}
+	}
+	if position < len(text) && strings.ContainsRune("+- ", rune(text[position])) {
+		spec.sign = text[position]
+		position++
+	}
+	if position < len(text) && text[position] == 'z' {
+		spec.coerceNegativeZero = true
+		position++
+	}
+	if position < len(text) && text[position] == '#' {
+		spec.alternate = true
+		position++
+	}
+	if position < len(text) && text[position] == '0' {
+		spec.zero = true
+		position++
+		if spec.fill == " " {
+			spec.fill = "0"
+			if !spec.explicitAlignment {
+				spec.alignment = '='
+			}
+		}
+	}
+	var exception *Exception
+	spec.width, position, exception = parseFormatNumber(text, position)
+	if exception != nil {
+		return floatFormatSpec{}, exception
+	}
+	if position < len(text) && (text[position] == ',' || text[position] == '_') {
+		spec.grouping = text[position]
+		position++
+	}
+	if position < len(text) && text[position] == '.' {
+		position++
+		spec.precision, position, exception = parseFormatNumber(text, position)
+		if exception != nil {
+			return floatFormatSpec{}, exception
+		}
+		if spec.precision < 0 {
+			return floatFormatSpec{}, newException(
+				"ValueError",
+				"Format specifier missing precision",
+			)
+		}
+	}
+	remaining := text[position:]
+	if remaining == "" {
+		return spec, nil
+	}
+	_, size, _ := decodeStringRune(remaining)
+	if size != len(remaining) {
+		return floatFormatSpec{}, newException(
+			"ValueError",
+			"Invalid format specifier "+quoteString(text)+" for object of type 'float'",
+		)
+	}
+	if size != 1 {
+		return floatFormatSpec{}, newException(
+			"ValueError",
+			"Unknown format code '"+remaining+"' for object of type 'float'",
+		)
+	}
+	spec.typeCode = remaining[0]
+	return spec, nil
+}
+
+func addFloatDecimalPoint(body string) string {
+	if strings.Contains(body, ".") {
+		return body
+	}
+	if exponent := strings.IndexAny(body, "eE"); exponent >= 0 {
+		return body[:exponent] + "." + body[exponent:]
+	}
+	return body + "."
+}
+
+func formattedFloatIsZero(body string) bool {
+	if exponent := strings.IndexAny(body, "eE"); exponent >= 0 {
+		body = body[:exponent]
+	}
+	for _, current := range body {
+		if current >= '1' && current <= '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func groupFloatIntegral(body string, separator byte) string {
+	exponent := ""
+	if position := strings.IndexAny(body, "eE"); position >= 0 {
+		exponent = body[position:]
+		body = body[:position]
+	}
+	integer, fraction, point := strings.Cut(body, ".")
+	integer = groupIntegerDigits(integer, separator, 3)
+	if point {
+		body = integer + "." + fraction
+	} else {
+		body = integer
+	}
+	return body + exponent
 }
 
 type integerFormatSpec struct {

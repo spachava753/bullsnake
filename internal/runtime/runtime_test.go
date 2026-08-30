@@ -1045,6 +1045,49 @@ func TestFormattedIntegers(t *testing.T) {
 	}
 }
 
+func TestBinary64Formatting(t *testing.T) {
+	code := compileSource(t, "value = 12.5\n"+
+		"precision = 3\n"+
+		"fixed = f'{value:.2f}'\n"+
+		"default_precision = f'{value:f}'\n"+
+		"signed_zero = f'{value:+08.2f}'\n"+
+		"negative_zero = f'{-12.5:08.1f}'\n"+
+		"scientific = f'{1234.0:.2e}'\n"+
+		"upper_scientific = f'{1234.0:.2E}'\n"+
+		"percent = f'{0.125:.1%}'\n"+
+		"grouped = f'{12345.5:,.2f}'\n"+
+		"unicode_pad = f'{value:🐍>8.1f}'\n"+
+		"nested = f'{value:.{precision}f}'\n"+
+		"coerced_zero = f'{-0.0:z.1f}'\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("float_formats", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"fixed":             "'12.50'",
+		"default_precision": "'12.500000'",
+		"signed_zero":       "'+0012.50'",
+		"negative_zero":     "'-00012.5'",
+		"scientific":        "'1.23e+03'",
+		"upper_scientific":  "'1.23E+03'",
+		"percent":           "'12.5%'",
+		"grouped":           "'12,345.50'",
+		"unicode_pad":       "'🐍🐍🐍🐍12.5'",
+		"nested":            "'12.500'",
+		"coerced_zero":      "'0.0'",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -2119,6 +2162,12 @@ func TestPythonExceptions(t *testing.T) {
 				"clear()\n",
 			wantType:    "NameError",
 			wantMessage: "name 'absent' is not defined",
+		},
+		{
+			name:        "unknown float format code",
+			source:      "value = f'{1.5:q}'\n",
+			wantType:    "ValueError",
+			wantMessage: "Unknown format code 'q' for object of type 'float'",
 		},
 		{
 			name:        "integer precision",
