@@ -17,6 +17,7 @@ type generatorResumeKind uint8
 const (
 	generatorIteration generatorResumeKind = iota
 	generatorCall
+	generatorClose
 )
 
 type generatorResume struct {
@@ -42,6 +43,10 @@ type generatorThrowMethod struct {
 	generator *generatorValue
 }
 
+type generatorCloseMethod struct {
+	generator *generatorValue
+}
+
 func (*generatorSendMethod) TypeName() string { return "builtin_function_or_method" }
 func (method *generatorSendMethod) Repr() string {
 	return "<built-in method send of " + method.generator.Repr() + ">"
@@ -53,6 +58,12 @@ func (method *generatorThrowMethod) Repr() string {
 	return "<built-in method throw of " + method.generator.Repr() + ">"
 }
 func (*generatorThrowMethod) isValue() {}
+
+func (*generatorCloseMethod) TypeName() string { return "builtin_function_or_method" }
+func (method *generatorCloseMethod) Repr() string {
+	return "<built-in method close of " + method.generator.Repr() + ">"
+}
+func (*generatorCloseMethod) isValue() {}
 
 func (*generatorValue) TypeName() string { return "generator" }
 func (generator *generatorValue) Repr() string {
@@ -349,34 +360,99 @@ func normalizeGeneratorThrow(arguments []Value) (*Exception, *Exception) {
 	}
 }
 
+// executeGeneratorCloseCall starts cleanup by injecting GeneratorExit into a
+// suspended generator, while new and completed generators close immediately.
+func executeGeneratorCloseCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *generatorCloseMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "generator.close() takes no keyword arguments"),
+		}, nil
+	}
+	if len(arguments) != 0 {
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"generator.close() takes no arguments ("+
+					strconv.Itoa(len(arguments))+" given)",
+			),
+		}, nil
+	}
+	discardCallSegment(caller, base)
+	generator := method.generator
+	switch generator.state {
+	case generatorRunning:
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("ValueError", "generator already executing"),
+		}, nil
+	case generatorCreated:
+		generator.complete()
+		return pushOutcome(caller, instruction, None)
+	case generatorCompleted:
+		return pushOutcome(caller, instruction, None)
+	case generatorSuspended:
+		generator.state = generatorRunning
+		generator.resume = generatorResume{kind: generatorClose, instruction: instruction}
+		generator.frame.previous = caller
+		return instructionOutcome{
+			kind:      called,
+			frame:     generator.frame,
+			exception: newException("GeneratorExit", ""),
+		}, nil
+	default:
+		return instructionOutcome{}, caller.failure(instruction, "invalid generator state")
+	}
+}
+
 // suspendGenerator verifies the active frame and its resumption contract,
 // detaches the frame, and returns the yielded value to the caller.
-func suspendGenerator(active *frame, instruction int, value Value) (*frame, error) {
+func suspendGenerator(
+	active *frame,
+	instruction int,
+	value Value,
+) (*frame, *Exception, error) {
 	generator := active.generator
 	if generator == nil || generator.state != generatorRunning {
-		return nil, active.failure(instruction, "yield has no running generator")
+		return nil, nil, active.failure(instruction, "yield has no running generator")
 	}
 	caller := active.previous
 	if caller == nil {
-		return nil, active.failure(instruction, "generator has no resuming caller")
+		return nil, nil, active.failure(instruction, "generator has no resuming caller")
 	}
 	if generator.resume.kind == generatorIteration &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
-		return nil, active.failure(instruction, "generator iterator is not retained by caller")
+		return nil, nil, active.failure(
+			instruction,
+			"generator iterator is not retained by caller",
+		)
 	}
 	active.previous = nil
 	generator.state = generatorSuspended
+	if generator.resume.kind == generatorClose {
+		return caller, newException("RuntimeError", "generator ignored GeneratorExit"), nil
+	}
 	if !caller.push(value) {
-		return nil, caller.failure(
+		return nil, nil, caller.failure(
 			generator.resume.instruction,
 			"operand stack overflow while receiving generator yield",
 		)
 	}
-	return caller, nil
+	return caller, nil, nil
 }
 
-// finishGenerator applies the saved FOR_ITER or next completion behavior and
-// releases the completed frame. It returns an exception only for bare next.
+// finishGenerator applies the saved iteration, explicit call, or close
+// completion behavior and releases the completed frame.
 func finishGenerator(
 	active *frame,
 	instruction int,
@@ -412,6 +488,15 @@ func finishGenerator(
 			return nil, nil, caller.failure(
 				resume.instruction,
 				"operand stack overflow while returning next default",
+			)
+		}
+		return caller, nil, nil
+	case generatorClose:
+		generator.complete()
+		if !caller.push(result) {
+			return nil, nil, caller.failure(
+				resume.instruction,
+				"operand stack overflow while returning close result",
 			)
 		}
 		return caller, nil, nil

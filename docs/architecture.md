@@ -191,14 +191,17 @@ and returns one value. `FOR_ITER` and `next` resume a suspended yield expression
 with `None`; `send` supplies its argument instead. A new generator accepts only
 `None` as its first sent value. `throw` routes an exception through the protected
 ranges surrounding the suspended `yield`; throwing into a new generator skips
-its body. A normal return exhausts a loop; explicit resumption exposes its value
-through `StopIteration.value`, while `next` may return a supplied default. An
-escaping exception also completes the generator, and later iteration remains
-exhausted. The runtime rejects re-entry and converts an explicit
-`StopIteration` escaping generator code into `RuntimeError`. The deprecated
-three-argument `throw` form accepts `None` as its traceback because Python
-traceback objects do not exist yet. The protocol does not yet expose `iter` or
-`close`.
+its body. `close` injects `GeneratorExit`, suppresses it if it escapes, and
+returns a value produced while handling it. Yielding during close raises
+`RuntimeError` but leaves the generator suspended. A normal return exhausts a
+loop; explicit resumption exposes its value through `StopIteration.value`, while
+`next` may return a supplied default. Any other escaping exception completes
+the generator, and later iteration remains exhausted. The runtime rejects
+re-entry and converts an explicit `StopIteration` escaping generator code into
+`RuntimeError`. The deprecated three-argument `throw` form accepts `None` as its
+traceback because Python traceback objects do not exist yet. The protocol does
+not yet expose `iter` or delegated `yield from`, and garbage collection does not
+implicitly close an abandoned generator.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table

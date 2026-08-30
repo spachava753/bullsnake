@@ -85,11 +85,30 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 			}
 		case yielded:
-			caller, suspendErr := suspendGenerator(active, index, outcome.value)
+			caller, suspensionException, suspendErr := suspendGenerator(
+				active,
+				index,
+				outcome.value,
+			)
 			if suspendErr != nil {
 				return nil, nil, suspendErr
 			}
 			thread.current = caller
+			if suspensionException != nil {
+				unhandled, routeErr := routeException(
+					thread,
+					caller,
+					caller.instruction-1,
+					suspensionException,
+					false,
+				)
+				if routeErr != nil {
+					return nil, nil, routeErr
+				}
+				if unhandled != nil {
+					return nil, unhandled, nil
+				}
+			}
 		case returned:
 			if active.generator != nil {
 				caller, completionException, finishErr := finishGenerator(
@@ -262,6 +281,24 @@ func routeException(
 					"exception left a generator that is not running",
 				)
 			}
+			if current.generator.resume.kind == generatorClose &&
+				exception.class != nil && exception.class.isSubclassOf(generatorExitType) {
+				current.generator.complete()
+				if caller == nil {
+					return nil, current.failure(
+						currentInstruction,
+						"generator close has no caller",
+					)
+				}
+				if !caller.push(None) {
+					return nil, caller.failure(
+						caller.instruction-1,
+						"operand stack overflow while completing generator close",
+					)
+				}
+				thread.current = caller
+				return nil, nil
+			}
 			if isStopIteration(exception) {
 				exception = transformGeneratorStopIteration(
 					exception,
@@ -387,6 +424,8 @@ func executeInstruction(
 				return pushOutcome(frame, index, &generatorSendMethod{generator: owner})
 			case "throw":
 				return pushOutcome(frame, index, &generatorThrowMethod{generator: owner})
+			case "close":
+				return pushOutcome(frame, index, &generatorCloseMethod{generator: owner})
 			default:
 				return instructionOutcome{
 					kind: raised,

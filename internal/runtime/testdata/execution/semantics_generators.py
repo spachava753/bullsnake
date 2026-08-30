@@ -247,3 +247,59 @@ except RuntimeError as error:
 assert transformed.__cause__ is injected
 assert transformed.__context__ is injected
 assert f'{transformed!r}' == 'RuntimeError("generator raised StopIteration")'
+# ---
+# case: close runs cleanup and returns generator value
+close_state = 0
+
+def cleanup():
+    global close_state
+    try:
+        yield 1
+    finally:
+        close_state = 1
+
+def returns_value():
+    try:
+        yield 2
+    except GeneratorExit:
+        return 9
+
+stream = cleanup()
+closer = stream.close
+assert next(stream) == 1
+assert closer() is None
+assert close_state == 1
+assert closer() is None
+stream = returns_value()
+assert next(stream) == 2
+assert stream.close() == 9
+assert stream.close() is None
+# ---
+# case: close skips new generator body
+close_state = 0
+
+def unopened():
+    global close_state
+    close_state = 1
+    yield 1
+
+stream = unopened()
+assert stream.close() is None
+assert close_state == 0
+assert next(stream, 7) == 7
+# ---
+# case: yielding during close leaves generator suspended
+def ignores_close():
+    try:
+        yield 1
+    except GeneratorExit:
+        yield 2
+
+stream = ignores_close()
+next(stream)
+try:
+    stream.close()
+except RuntimeError as error:
+    ignored = error
+assert f'{ignored!r}' == 'RuntimeError("generator ignored GeneratorExit")'
+assert next(stream, 8) == 8

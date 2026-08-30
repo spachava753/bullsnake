@@ -173,3 +173,68 @@ def recursive_throw():
 current = recursive_throw()
 next(current)
 current.send(None)
+# ---
+# case: close rejects arguments
+# error: TypeError
+# message: "generator.close() takes no arguments (1 given)"
+def values():
+    yield 1
+
+values().close(None)
+# ---
+# case: close rejects keywords
+# error: TypeError
+# message: "generator.close() takes no keyword arguments"
+def values():
+    yield 1
+
+values().close(value=None)
+# ---
+# case: close rejects yielded value
+# error: RuntimeError
+# message: "generator ignored GeneratorExit"
+def ignores_close():
+    try:
+        yield 1
+    except GeneratorExit:
+        yield 2
+
+stream = ignores_close()
+next(stream)
+stream.close()
+# ---
+# case: close propagates replacement exception
+# error: ValueError
+# message: "close failed"
+def close_failure():
+    try:
+        yield 1
+    finally:
+        raise ValueError('close failed')
+
+stream = close_failure()
+next(stream)
+stream.close()
+# ---
+# case: close rejects generator reentry
+# error: ValueError
+# message: "generator already executing"
+current = None
+
+def recursive_close():
+    yield 1
+    current.close()
+
+current = recursive_close()
+next(current)
+current.send(None)
+# ---
+# case: throw GeneratorExit is not close
+# error: GeneratorExit
+# message: ""
+def values():
+    yield 1
+
+stream = values()
+next(stream)
+stream.throw(GeneratorExit())

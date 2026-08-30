@@ -245,12 +245,16 @@ Iteration and `next` supply `None` as the yield expression's result; the bound
 `send` method supplies its argument. A newly created generator rejects a first
 sent value other than `None`. The bound `throw` method injects an exception at
 the suspended yield and lets the existing protected ranges catch it. Throwing
-into a new generator skips its body. Return and escaping exceptions complete
-the generator; repeated iteration then stays exhausted. Explicit resumption
-raises `StopIteration` with the return value, while `next` may return its
-optional default. Re-entering a running generator raises `ValueError`. The
-legacy three-argument `throw` form accepts only `None` for its traceback until
-Python traceback objects exist.
+into a new generator skips its body. The bound `close` method injects
+`GeneratorExit`; an uncaught exit returns `None`, while a caught return value
+becomes the close result. Yielding during close raises `RuntimeError` and leaves
+the generator suspended. Other returns and escaping exceptions complete the
+generator; repeated iteration then stays exhausted. Explicit resumption raises
+`StopIteration` with the return value, while `next` may return its optional
+default. Re-entering a running generator raises `ValueError`. The legacy
+three-argument `throw` form accepts only `None` for its traceback until Python
+traceback objects exist. Garbage collection does not implicitly close abandoned
+generators.
 
 A raised Python exception follows protected ranges in the current code. If a
 range matches, the VM trims the operand stack to its recorded depth, pushes the
@@ -428,7 +432,7 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no `iter` or `close` generator operations or delegated `yield from`
+- no general `iter` builtin or delegated `yield from`
 - no generator expressions, asynchronous comprehensions, coroutines, async
   execution, or Python threads
 - no asynchronous context managers or structural matching
