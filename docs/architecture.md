@@ -2,8 +2,6 @@
 
 Status: Living design
 
-Last updated: 2026-08-27
-
 ## Purpose
 
 Bullsnake is a Python interpreter implemented in Go. It deliberately targets a
@@ -147,11 +145,11 @@ behavior exposes CPython internals, depends on reference counting, creates a
 common correctness trap, or adds substantial complexity for little practical
 value.
 
-Every intentional divergence must be visible in the feature manifest,
-documented in user-facing behavior, and covered by tests. Unsupported features
-should fail at parse time, import time, or the narrowest practical runtime
-boundary. Bullsnake must not silently accept a feature and produce subtly
-incorrect results.
+Every intentional divergence must appear in the implementation notes. Once the
+feature manifest exists, it must record the divergence too. User-facing behavior
+and tests must cover it. Unsupported features should fail at parse time, import
+time, or the narrowest practical runtime boundary. Bullsnake must not silently
+accept a feature and produce subtly incorrect results.
 
 Examples of acceptable omissions include `dis`, `gc`, reference-count APIs,
 CPython bytecode caches, C extension loading, and exact finalizer timing. Other
@@ -163,9 +161,11 @@ desire to redesign Python.
 ### Language compatibility
 
 Bullsnake uses Python 3.14 as the grammar and semantic reference for its
-selected subset. A feature manifest records supported statements, expressions,
-built-ins, protocols, and intentional differences. Programs outside that
-manifest have no compatibility promise.
+selected subset. `docs/impl.md` is the current inventory of supported behavior
+and boundaries. A future feature manifest will record supported statements,
+expressions, built-ins, protocols, and intentional differences in a more
+structured form. Programs outside the documented subset have no compatibility
+promise.
 
 The reference version is still an architectural input. Grammar, AST nodes,
 annotation behavior, code metadata, and built-ins change across minor versions.
@@ -177,8 +177,8 @@ claiming unqualified "Python 3" compatibility.
 Packages depend on behavior beyond grammar. The possible runtime surface
 includes built-in types, descriptors, exceptions, imports, modules, I/O,
 encodings, paths, time, networking, and selected introspection. Bullsnake
-implements only the portions named in its feature manifest or required by its
-package corpus.
+implements only the portions documented in its current implementation inventory.
+The future feature manifest and package corpus will determine additions.
 
 CPython behavior is a differential-testing reference for those selected
 features. CPython implementation details remain excluded unless Bullsnake
@@ -213,17 +213,18 @@ Bullsnake-native installer and support for packaging tools can follow later.
 
 ## Runtime invariants
 
-The implementation should preserve these invariants from its first executable
-slice:
+The implementation should preserve these invariants as their corresponding
+features enter the supported subset:
 
 1. **The reference version and subset are explicit.** Parser behavior, runtime
-   behavior, tests, and documentation all refer to a Python 3.14-derived
-   feature manifest.
+   behavior, tests, and implementation notes identify the Python 3.14-derived
+   subset. A future feature manifest will make that inventory structured.
 2. **Bullsnake's documented behavior is the compatibility boundary.** Python
    behavior is the default for supported features. Intentional differences and
    omissions are part of the contract rather than hidden test exceptions.
 3. **Unsupported behavior fails clearly.** The parser, importer, or runtime
-   rejects behavior outside the manifest at the narrowest practical boundary.
+   rejects behavior outside the documented subset at the narrowest practical
+   boundary.
 4. **Every supported Python value has stable identity, type, and value
    semantics.** The implementation cannot use a movable or reusable Go address
    as the public definition of `id()` if `id()` is supported.
@@ -255,9 +256,10 @@ slice:
 12. **Runtime instances isolate mutable state.** Modules, built-ins, import
     paths, scheduler state, exception state, and extension registration belong
     to an instance. Process-global mutable Python state is avoided.
-13. **Import creates one module identity per cached name.** A module enters the
-    runtime's module cache before its body executes, which permits circular
-    imports and requires cleanup when loading fails.
+13. **The import cache owns one module identity per loaded name.** Current direct
+    execution publishes a module only after normal return. A future loader that
+    permits recursive imports must insert before the body and remove the entry
+    when loading fails.
 14. **Python code never runs on a Go finalizer or cleanup goroutine.** If a
     selected feature uses lifecycle notifications, the runtime queues and
     handles them later at a safe point.
@@ -336,10 +338,11 @@ Go host -> runtime -> thread registry -> goroutine -> ThreadState -> VM
               +-> timers, I/O poller, and completion queue
 ```
 
-The runtime composes the components and owns the execution token shared by its
-Python thread goroutines. The compiler does not know about active runtime
-instances. The VM does not know how source files are found. Native Go modules
-enter through the import system instead of receiving special import opcodes.
+The source-to-VM path in this diagram is implemented. The thread registry,
+execution token, async services, loaders, and Go modules show the target runtime,
+not current code. The compiler does not know about active runtime instances. The
+VM does not know how source files are found. Native Go modules will enter through
+the import system instead of receiving special import opcodes.
 
 ## Front end
 
@@ -358,11 +361,14 @@ contract and its CPython reference revision are recorded in the
    coroutines.
 4. Validate context-sensitive syntax before bytecode generation.
 
-The parser recognizes only the selected grammar. It is hand-written recursive
-descent that constructs AST nodes directly. Ordinary binary operators use
-precedence climbing; Python-specific forms use dedicated rules. A lazy buffered
-token cursor supports local rewinds for contextual ambiguities without a PEG
-runtime, generated parser, or general memoization.
+The parser recognizes the Python 3.14 syntax represented by the current AST,
+including forms outside the executable subset. The resolver performs contextual
+scope validation, and the compiler rejects AST forms it does not support. The
+parser is hand-written recursive descent that constructs AST nodes directly.
+Ordinary binary operators use precedence climbing; Python-specific forms use
+dedicated rules. A lazy buffered token cursor supports local rewinds for
+contextual ambiguities without a PEG runtime, generated parser, or general
+memoization.
 
 Every source unit parses to one `Module` containing statements. Eval requires
 one expression statement and preserves its value; a REPL displays
@@ -469,12 +475,12 @@ an internal class builder. For a class with at most one Bullsnake type base, it
 runs the body function in a fresh namespace and records a class-build
 continuation on that frame. Return turns the retained namespace into a type
 value, fills a returned `__class__` cell when present, and then resumes the
-defining frame. Type calls allocate a fresh instance when no arguments are
-supplied. `LOAD_ATTR` checks instance storage, falls back through the type's base
-chain, and binds plain class functions by prepending the instance through the
-ordinary call binder. If the class defines or inherits a plain `__init__`
-function, construction runs it as another Python frame and a return continuation
-requires `None` before exposing the allocated instance.
+defining frame. Type calls allocate a fresh instance. Without `__init__`, only an
+empty call is accepted. If the class defines or inherits a plain `__init__`,
+construction binds its arguments, runs it as another Python frame, and requires
+a `None` return before exposing the instance. `LOAD_ATTR` checks instance
+storage, falls back through the type's base chain, and binds plain class
+functions by prepending the instance through the ordinary call binder.
 `STORE_ATTR` and `DELETE_ATTR` mutate instance or class namespaces directly.
 The class builder accepts one existing Bullsnake type as a base; class,
 instance, and initializer lookup walk that base chain with child entries taking
@@ -549,8 +555,8 @@ languages.
 
 The initial `Runtime` owns a prepared-code cache, a builtin namespace, and
 successfully executed modules. Module execution creates a fresh namespace and
-publishes the module in the runtime cache only after normal return. Mutable
-state is instance-local; only the immutable `None` singleton is currently
+publishes the module in the runtime cache only after normal return. Mutable state
+is instance-local. Immutable `None`, boolean, and `Ellipsis` singletons are
 shared process-wide.
 
 As the supported subset grows, a runtime instance will also own:
@@ -1003,26 +1009,27 @@ Bullsnake does not need a `dis` module. Its bytecode is private and can be
 printed by a Go development tool or test helper without making instruction
 layout part of the Python runtime contract.
 
-## Proposed repository layout
+## Repository layout
 
-Start with a few coarse packages. The internal directories can split after
-real dependency or ownership pressure appears:
+The implementation keeps compiler stages in explicit subpackages and the young
+runtime in one coarse package:
 
 ```text
-cmd/bullsnake/          command-line interpreter and REPL
-py/                     public values and Go extension contracts
-internal/compiler/      lexer, parser, AST, symbols, bytecode, and compiler
-internal/runtime/       objects, frames, VM, imports, built-ins, and scheduler
-stdlib/                  selected Python modules shipped by Bullsnake
-experiments/             disposable architecture probes such as gcprobe
-tests/compat/           differential and package compatibility tests
-testdata/               compiler and runtime fixtures
+internal/compiler/      compiler plus source, lexer, parser, AST, resolver, and bytecode
+internal/runtime/       values, frames, VM, imports, and internal built-ins
+experiments/            disposable architecture probes such as gcprobe
 ```
 
-The root `bullsnake` package should provide the high-level embedding API and
-compose the compiler and runtime. The `py` package should be a dependency leaf
-so native modules can use it without importing internals. Internal packages may
-depend on `py`; `py` must not depend on them.
+Test fixtures live under the package that owns their runner. A command, public
+embedding packages, selected standard-library modules, and package-compatibility
+tests should be added only when those features are implemented. The intended
+future locations remain `cmd/bullsnake`, a root `bullsnake` package, a leaf
+public value package such as `py`, `stdlib`, and `tests/compat`.
+
+The root `bullsnake` package should eventually provide the high-level embedding
+API and compose the compiler and runtime. The public value package must remain a
+dependency leaf so native modules can use it without importing internals.
+Internal packages may depend on that leaf; it must not depend on them.
 
 The compiler produces immutable code objects consumed by the runtime. Import,
 scheduling, and built-ins can remain files within `internal/runtime` until one
@@ -1060,8 +1067,8 @@ Correctness work needs several test layers:
 
 Differential tests must account for valid implementation differences. Exact
 object IDs, hash values, finalization timing, memory statistics, error wording,
-and Bullsnake bytecode are compared only if the feature manifest promises that
-behavior.
+and Bullsnake bytecode are compared only when the documented contract or future
+feature manifest promises that behavior.
 
 The feature matrix should use precise states such as `supported`, `partial`,
 `unsupported`, `diverges`, and `implementation-specific`. Every `supported` or
@@ -1073,9 +1080,8 @@ The `go-python/gpython` project already demonstrates a Python parser, compiler,
 bytecode VM, embeddable runtime, and concurrent interpreter instances in Go.
 Its documented target is Python 3.4, and its README identifies missing
 C-backed standard-library modules as the main barrier to broader compatibility.
-Bullsnake should audit it for lessons and reusable ideas before implementation,
-while treating Python 3.14, async support, and Bullsnake's API as new design
-constraints.
+It remains useful prior art for compiler, runtime, and embedding tradeoffs, while
+Python 3.14, async support, and Bullsnake's API impose different constraints.
 
 Stackless Python demonstrates the value of separating logical Python frames
 from the host language call stack. Bullsnake can get that property at the
@@ -1083,8 +1089,8 @@ start, with less machinery, because its frame representation is new.
 
 ## Open decisions
 
-The following decisions should be resolved before their related implementation
-begins:
+The following decisions remain open and should be resolved before related
+public or runtime features depend on them:
 
 1. Define the initial feature manifest, including supported syntax, built-ins,
    protocols, modules, and intentional divergences.

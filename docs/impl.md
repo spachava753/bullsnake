@@ -2,8 +2,8 @@
 
 This document is a work in progress. It records implementation choices in the
 Go interpreter as they are made. The [runtime design](architecture.md) describes
-goals, compatibility boundaries, and proposed architecture; this document
-describes the code that exists.
+goals, compatibility boundaries, architecture decisions, and future direction;
+this document describes the code that exists.
 
 - [Pipeline status](#pipeline-status)
 - [Source loading](#source-loading)
@@ -29,7 +29,7 @@ describes the code that exists.
 | Compiler and bytecode | Initial Python 3.14-derived bytecode subset implemented |
 | Virtual machine and frames | Modules, functions, and basic classes execute |
 | Object model and runtime | Initial scalar, collection, function, and type values |
-| Import system and standard library | Initial runtime-cached absolute imports |
+| Import system and standard library | Cached flat absolute imports; standard library not implemented |
 | Go embedding API | Not implemented |
 | Async and scheduling | Not implemented |
 | REPL | Not implemented |
@@ -267,7 +267,7 @@ depth while emitting and records the maximum on the code object. Control-flow
 instructions use absolute instruction indexes. Labels patch forward jumps and
 require every incoming edge to have the same stack depth.
 
-The current bytecode implements the initial file-input module slices: empty
+The current bytecode implements the supported file-input subset: empty
 modules, `pass`, singleton, numeric, string, bytes, and formatted-string
 constants; module name loads and stores; simple, chained, destructuring,
 augmented, module-deferred, and function-local annotated assignments;
@@ -277,12 +277,10 @@ lambda, attribute, subscription, slice, and call expressions; ordinary,
 relative, aliased, and wildcard imports; assertions; bare and explicit raises;
 synchronous function definitions with decorators, required and defaulted
 parameters, lazy parameter and return annotations, closures, and returns;
-class definitions with decorators, ordinary
-and starred bases, class keywords, methods, zero-argument `super()`, and
-enclosing closure reads;
-`if`/`elif`/`else`
-statements;
-`while` loops; and synchronous `for` loops with name, tuple, or list targets,
+class definitions with decorators, ordinary and starred bases, class keywords,
+methods, enclosing closure reads, and the `__class__` cell requested by
+zero-argument `super()`; `if`/`elif`/`else` statements; `while` loops; and
+synchronous `for` loops with name, tuple, or list targets,
 including one starred target per sequence. Both loop forms support optional
 `else`, `break`, and `continue`.
 Reachable code-object fallthrough ends with a synthetic `None` return.
@@ -386,9 +384,9 @@ Unsupported AST nodes fail with a source-located compiler error.
 
 ## Virtual machine and frames
 
-`internal/runtime` contains the first executable VM slice. `Runtime.ExecuteModule`
-accepts an immutable code object, prepares it once per runtime, executes it in a
-new module namespace, and caches the module by name only after normal return.
+`internal/runtime` contains the executable VM. `Runtime.ExecuteModule` accepts an
+immutable code object, prepares it once per runtime, executes it in a new
+module namespace, and caches the module by name only after normal return.
 `Runtime.Module` and `Module.Get` expose successful executions to internal
 callers and tests. There is not yet a public Go embedding API.
 
@@ -424,10 +422,10 @@ fallthrough and taken-edge effects. `FOR_ITER` adds an item on its fallthrough
 edge and removes the iterator on its exhaustion edge. Loops terminate through
 already-seen instruction depths, and a merge with different depths is invalid.
 The validator allows well-formed unreachable instructions but still checks
-their opcodes, operands, and table indexes before execution. These instructions
-now execute boolean short-circuit expressions, conditional expressions, `if`
-statements, and `while` and synchronous `for` loops. Loop `else`, `break`, and
-`continue` require no separate runtime mechanism; their compiler-selected jump
+their opcodes, operands, and table indexes before execution. The compiler uses
+these validated jumps for boolean short-circuit expressions, conditional
+expressions, `if` statements, and `while` and synchronous `for` loops. Loop
+`else`, `break`, and `continue` require no separate runtime mechanism; their
 targets preserve the same frame and operand stack.
 
 Formatted strings apply `str`, `repr`, and ASCII-escaped `repr` conversions,
@@ -574,17 +572,17 @@ as a stable Bullsnake testing contract; Python guarantees neither order.
 Membership uses the same element validation and identity-or-equality matching.
 Set truth depends on element count.
 
-Scalar truth testing follows Python for the current fixed types: `None`, false
-booleans, numeric zero, and empty strings or bytes are false; other scalar
-values are true. Unary `not` returns a boolean singleton. Unary plus and minus
-support integers, booleans, floats, and complex values; invert supports
-integers and booleans. Booleans produce ordinary integer results for numeric
-unary and binary operations. Binary `+`, `-`, `*`, `|`, `^`, `&`, `//`, `%`,
-`<<`, and `>>` currently accept integers and booleans and produce arbitrary-
-precision integer results. Floor division rounds toward negative infinity, and
-modulo produces a remainder with the divisor's sign. Shifts reject negative
-counts; huge right shifts collapse by the left operand's sign, while a huge
-left shift of a nonzero value raises `OverflowError`. A zero divisor raises
+Truth testing follows Python for the current built-in values: `None`, false
+booleans, numeric zero, and empty strings, bytes, tuples, lists, dictionaries,
+or sets are false; other values are true. Unary `not` returns a boolean
+singleton. Unary plus and minus support integers, booleans, floats, and complex
+values; invert supports integers and booleans. Booleans produce ordinary integer
+results for numeric unary and binary operations. Binary `+`, `-`, `*`, `|`, `^`,
+`&`, `//`, `%`, `<<`, and `>>` currently accept integers and booleans and produce
+arbitrary-precision integer results. Floor division rounds toward negative
+infinity, and modulo produces a remainder with the divisor's sign. Shifts reject
+negative counts; huge right shifts collapse by the left operand's sign, while a
+huge left shift of a nonzero value raises `OverflowError`. A zero divisor raises
 `ZeroDivisionError`.
 
 Equality covers all current scalar values, including boolean/integer,
@@ -615,16 +613,17 @@ later names; `IMPORT_STAR` copies globals whose names do not begin with an
 underscore. Imports inside functions use the same owning runtime as their
 caller. Missing modules and members raise `ModuleNotFoundError` and `ImportError`.
 
-There is no source or filesystem loader yet. Dotted modules, packages, relative
-imports, insertion before execution, circular imports, `sys.modules`, `__all__`,
-finders, loaders, standard-library policy, and import locking remain future
-slices.
+There is no source or filesystem loader and no standard-library module set yet.
+Dotted modules, packages, relative imports, insertion before execution, circular
+imports, `sys.modules`, `__all__`, finders, loaders, standard-library policy,
+and import locking remain future slices.
 
 ## Go embedding
 
-Not implemented. This section will record runtime construction, value
-conversion, native callables, cancellation, resource limits, and host error
-boundaries.
+The public Go embedding API is not implemented. `internal/runtime.New` and the
+current execution methods are private implementation boundaries, not stable host
+contracts. This section will record value conversion, native callables,
+cancellation, resource limits, and host error boundaries.
 
 ## Async and scheduling
 
@@ -659,9 +658,9 @@ The lexer has checked-in Go conformance tables adapted from CPython 3.14.7,
 focused CPython-derived tests, malformed-input tests, span checks,
 Unicode-version checks, and fuzz seeds. The tables require no Python
 installation, CPython checkout, external test data, network access, or
-generation step. They port every direct `CTokenizeTest.check_tokenize` case;
-CPython tests that require parsing or execution remain deferred until those
-pipeline stages exist.
+generation step. They port every direct `CTokenizeTest.check_tokenize` case.
+CPython cases owned by parsing or execution are excluded from the lexer corpus;
+later-stage suites adopt only behavior Bullsnake supports.
 
 The parser follows the same offline model. Its checked-in corpus is pinned to
 CPython 3.14.7 at commit `823f0323ee6ec1402088b73bce1a38473cac36dc`.
@@ -686,11 +685,10 @@ cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
 The compiler corpus currently contains eighty-three successful
-parse-resolve-compile cases for the initial module instruction set and
-expression evaluation. Cases record stable Bullsnake code-object dumps;
-focused tests cover instruction source positions, stack effects, code-object
-copying, opcode formatting, literal decoding, formatted-string errors, and
-compiler input errors.
+parse-resolve-compile cases for the supported compiler subset. Cases record
+stable Bullsnake code-object dumps. Focused tests cover instruction source
+positions, stack effects, code-object copying, opcode formatting, literal
+decoding, formatted-string errors, and compiler input errors.
 
 Runtime language semantics use checked-in chunked Python files under
 `internal/runtime/testdata/execution`. The generic runner sends every chunk
