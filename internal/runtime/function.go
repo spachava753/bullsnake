@@ -6,8 +6,9 @@ import (
 )
 
 type functionValue struct {
-	code    *preparedCode
-	globals *Namespace
+	code     *preparedCode
+	globals  *Namespace
+	defaults []Value
 }
 
 func (*functionValue) TypeName() string { return "function" }
@@ -45,6 +46,10 @@ func executeCall(
 
 	locals := make([]Value, len(function.code.locals))
 	copy(locals, caller.stack[base+1:])
+	defaultStart := function.code.code.PositionalCount() - len(function.defaults)
+	for local := argumentCount; local < function.code.code.PositionalCount(); local++ {
+		locals[local] = function.defaults[local-defaultStart]
+	}
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil
 	}
@@ -65,14 +70,21 @@ func executeCall(
 // failures for the current required-positional-only call binder.
 func checkPositionalArity(function *functionValue, actual int) *Exception {
 	expected := function.code.code.PositionalCount()
+	required := expected - len(function.defaults)
 	name := function.code.code.QualifiedName()
-	if actual == expected {
+	if actual >= required && actual <= expected {
 		return nil
 	}
 	if actual > expected {
-		argument := "arguments"
-		if expected == 1 {
-			argument = "argument"
+		signature := fmt.Sprintf("%d", expected)
+		plural := expected != 1
+		if len(function.defaults) != 0 {
+			signature = fmt.Sprintf("from %d to %d", required, expected)
+			plural = true
+		}
+		argument := "argument"
+		if plural {
+			argument = "arguments"
 		}
 		given := "were"
 		if actual == 1 {
@@ -81,9 +93,9 @@ func checkPositionalArity(function *functionValue, actual int) *Exception {
 		return newException(
 			"TypeError",
 			fmt.Sprintf(
-				"%s() takes %d positional %s but %d %s given",
+				"%s() takes %s positional %s but %d %s given",
 				name,
-				expected,
+				signature,
 				argument,
 				actual,
 				given,
@@ -91,7 +103,7 @@ func checkPositionalArity(function *functionValue, actual int) *Exception {
 		)
 	}
 
-	missing := function.code.locals[actual:expected]
+	missing := function.code.locals[actual:required]
 	argument := "arguments"
 	if len(missing) == 1 {
 		argument = "argument"

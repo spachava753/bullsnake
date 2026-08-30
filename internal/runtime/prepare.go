@@ -332,6 +332,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "operand stack underflow")
 		}
 		return nil
+	case bytecode.SetFunctionAttribute:
+		if instruction.Operand != uint32(bytecode.FunctionDefaults) {
+			return code.failure(
+				index,
+				"unsupported SET_FUNCTION_ATTRIBUTE operand %d",
+				instruction.Operand,
+			)
+		}
+		return nil
 	case bytecode.BuildTuple, bytecode.BuildList:
 		if uint64(instruction.Operand) > uint64(code.stackSize) {
 			return code.failure(
@@ -462,6 +471,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 2, 1
 	case bytecode.MapSet:
 		return 3, 1
+	case bytecode.SetFunctionAttribute:
+		return 2, 1
 	case bytecode.Call:
 		return int(instruction.Operand) + 1, 1
 	case bytecode.UnaryOp, bytecode.GetIter, bytecode.ListToTuple:

@@ -140,6 +140,48 @@ func TestFunctionFrames(t *testing.T) {
 	}
 }
 
+func TestDefaultArgumentBinding(t *testing.T) {
+	code := compileSource(t, "seed = 10\n"+
+		"def choose(first=seed, second=seed + 1):\n"+
+		"    return first, second\n"+
+		"seed = 99\n"+
+		"both_defaulted = choose()\n"+
+		"second_defaulted = choose(20)\n"+
+		"none_defaulted = choose(20, 30)\n"+
+		"def combine(required, optional=5):\n"+
+		"    return required + optional\n"+
+		"combined = combine(7)\n"+
+		"def positional(first=1, /, second=2):\n"+
+		"    return first, second\n"+
+		"positional_defaults = positional()\n"+
+		"marker = []\n"+
+		"def retain(value=marker):\n"+
+		"    return value\n"+
+		"default_identity = retain() is marker\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("defaults", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"both_defaulted":      "(10, 11)",
+		"second_defaulted":    "(20, 11)",
+		"none_defaulted":      "(20, 30)",
+		"combined":            "12",
+		"positional_defaults": "(1, 2)",
+		"default_identity":    "True",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1193,6 +1235,22 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name: "missing required argument before defaults",
+			source: "def choose(required, optional=2):\n" +
+				"    return required + optional\n" +
+				"answer = choose()\n",
+			wantType:    "TypeError",
+			wantMessage: "choose() missing 1 required positional argument: 'required'",
+		},
+		{
+			name: "too many arguments with defaults",
+			source: "def choose(required, optional=2):\n" +
+				"    return required + optional\n" +
+				"answer = choose(1, 2, 3)\n",
+			wantType:    "TypeError",
+			wantMessage: "choose() takes from 1 to 2 positional arguments but 3 were given",
+		},
+		{
 			name:        "non-callable value",
 			source:      "answer = 1()\n",
 			wantType:    "TypeError",
@@ -1687,6 +1745,75 @@ func TestBytecodeValidation(t *testing.T) {
 				PositionalCount: 1,
 			}),
 			wantFragment: "positional parameter count 1 exceeds local table length 0",
+		},
+		{
+			name: "unsupported function attribute",
+			code: testCode(
+				0,
+				[]bytecode.Instruction{
+					{
+						Opcode:  bytecode.SetFunctionAttribute,
+						Operand: uint32(bytecode.FunctionKeywordDefaults),
+					},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "unsupported SET_FUNCTION_ATTRIBUTE operand 2",
+		},
+		{
+			name: "function defaults underflow",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.MakeFunction},
+					{
+						Opcode:  bytecode.SetFunctionAttribute,
+						Operand: uint32(bytecode.FunctionDefaults),
+					},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Children: []*bytecode.Code{
+					testCode(
+						1,
+						[]bytecode.Instruction{
+							{Opcode: bytecode.LoadConst},
+							{Opcode: bytecode.ReturnValue},
+						},
+						[]bytecode.Constant{bytecode.None()},
+						nil,
+					),
+				},
+			}),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "invalid function defaults payload",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeFunction},
+					{
+						Opcode:  bytecode.SetFunctionAttribute,
+						Operand: uint32(bytecode.FunctionDefaults),
+					},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children: []*bytecode.Code{
+					testCode(
+						1,
+						[]bytecode.Instruction{
+							{Opcode: bytecode.LoadConst},
+							{Opcode: bytecode.ReturnValue},
+						},
+						[]bytecode.Constant{bytecode.None()},
+						nil,
+					),
+				},
+			}),
+			wantFragment: "function defaults payload is not a tuple",
 		},
 		{
 			name: "set build underflow",

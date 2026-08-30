@@ -216,6 +216,38 @@ func executeInstruction(
 			globals: frame.globals,
 		}
 		return pushOutcome(frame, index, function)
+	case bytecode.SetFunctionAttribute:
+		target, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		payload, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		function, ok := target.(*functionValue)
+		if !ok {
+			return instructionOutcome{}, frame.failure(
+				index,
+				"SET_FUNCTION_ATTRIBUTE target is not a function",
+			)
+		}
+		defaults, ok := payload.(*tupleValue)
+		if !ok {
+			return instructionOutcome{}, frame.failure(
+				index,
+				"function defaults payload is not a tuple",
+			)
+		}
+		if len(defaults.elements) > function.code.code.PositionalCount() {
+			return instructionOutcome{}, frame.failure(
+				index,
+				"function default count exceeds positional parameter count",
+			)
+		}
+		function.defaults = make([]Value, len(defaults.elements))
+		copy(function.defaults, defaults.elements)
+		return pushOutcome(frame, index, function)
 	case bytecode.Call:
 		return executeCall(frame, index, int(instruction.Operand))
 	case bytecode.SetAdd:

@@ -418,7 +418,8 @@ code and its materialized constants are cached per runtime and immutable
 code-object identity.
 
 `MAKE_FUNCTION` captures one prepared child and its defining global namespace.
-A positional `CALL` binds required arguments into a fresh fast-local array and
+A positional `CALL` binds arguments into a fresh fast-local array and fills
+omitted trailing parameters from defaults captured at function creation. It
 replaces the active frame with a child whose `previous` link names the caller.
 Return restores that caller and pushes the result. Nested and recursive Python
 calls therefore remain in the iterative dispatcher. A suspended async task or
