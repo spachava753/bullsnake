@@ -448,6 +448,11 @@
       "name": "basic finally suite",
       "source": "try:\n    value = 40\nfinally:\n    added = 2\nresult = value + added\n",
       "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=2, constants=[Int(40), Int(2), None], names=[\"value\", \"added\", \"result\"], locals=[], cells=[], free=[], handlers=[Handler(start=0, end=2, target=5, depth=0)], instructions=[LOAD_CONST 0, STORE_NAME 0, LOAD_CONST 1, STORE_NAME 1, JUMP 8, LOAD_CONST 1, STORE_NAME 1, RERAISE, LOAD_NAME 0, LOAD_NAME 1, BINARY_OP 0, STORE_NAME 2, LOAD_CONST 2, RETURN_VALUE])"
+    },
+    {
+      "name": "return through finally",
+      "source": "def choose():\n    try:\n        return 1\n    finally:\n        marker = 2\nresult = choose()\n",
+      "want_code": "Code(name=\"<module>\", qualname=\"<module>\", filename=\"<test>\", first_line=1, flags=[], stack=1, constants=[None], names=[\"choose\", \"result\"], locals=[], cells=[], free=[], children=[Code(name=\"choose\", qualname=\"choose\", filename=\"<test>\", first_line=1, flags=[Optimized, NewLocals], args=(posonly=0, positional=0, kwonly=0), stack=2, constants=[Int(1), Int(2)], names=[], locals=[\"marker\"], cells=[], free=[], handlers=[Handler(start=0, end=1, target=4, depth=0)], instructions=[LOAD_CONST 0, LOAD_CONST 1, STORE_FAST 0, RETURN_VALUE, LOAD_CONST 1, STORE_FAST 0, RERAISE])], instructions=[MAKE_FUNCTION 0, STORE_NAME 0, LOAD_NAME 0, CALL 0, STORE_NAME 1, LOAD_CONST 0, RETURN_VALUE])"
     }
   ]
 }

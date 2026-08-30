@@ -284,8 +284,8 @@ zero-argument `super()`; `if`/`elif`/`else` statements; `while` loops;
 synchronous `for` loops with name, tuple, or list targets, including one starred
 target per sequence; and `try` with ordered typed or bare `except` clauses,
 optional `as` bindings, and an optional `else`; and plain `try/finally` for
-normal or exceptional completion. Both loop forms support optional `else`,
-`break`, and `continue`.
+normal, exceptional, or return completion. Both loop forms support optional
+`else`, `break`, and `continue`.
 Reachable code-object fallthrough ends with a synthetic `None` return.
 For supported handlers, the compiler records the innermost active handler and
 current stack depth on every protected instruction. `finish` combines adjacent
@@ -302,9 +302,13 @@ return, break, and continue. The handler body also has a protected cleanup range
 that performs the same clear/delete sequence before propagating a secondary
 exception. A normal protected body runs its `else` suite outside that range
 before jumping over handler dispatch, so an exception from `else` continues to
-an enclosing handler. Plain `try/finally` duplicates the final suite: normal
-fallthrough runs one copy, while an exception-range target runs the other with
-the pending exception below its temporary values and reraises afterward.
+an enclosing handler. One ordered control-cleanup stack interleaves bound-name
+cleanup and final suites in lexical order. Plain `try/finally` duplicates the
+final suite: normal fallthrough runs one copy, while an exception-range target
+runs the other with the pending exception below its temporary values and
+reraises afterward. A return keeps its value on the operand stack while the
+compiler emits active cleanup actions from inner to outer. If a final suite
+returns or raises, that newer transfer replaces the pending return.
 Integer literals are canonicalized at arbitrary precision; float and imaginary
 literals are converted to binary64. The compiler decodes Python string and
 bytes escapes, normalizes physical newlines in literal values, folds adjacent
@@ -536,10 +540,12 @@ class or a flat tuple of classes, validate every tuple member before matching,
 and select subclasses through those links. Multiple clauses run in source
 order; an unmatched `RERAISE` retains the original raising frame and source
 span. Bare `raise` uses the active handled exception or raises `RuntimeError`
-when none exists. Plain `try/finally` does not yet support return, break, or
-continue through the protected or final suite, or combination with `except`.
-Explicit causes, exception chaining, callable native values, multiple
-inheritance, C3 linearization, metaclasses, `super`, `__new__`, general
+when none exists. Plain `try/finally` preserves a pending return while its final
+suite runs; a return or exception from that suite replaces the pending result.
+Break and continue through a protected or final suite, and combination with
+`except`, remain unsupported. Explicit causes, exception chaining, callable
+native values, multiple inheritance, C3 linearization, metaclasses, `super`,
+`__new__`, general
 descriptors, suspension, traceback chains, cancellation, recursion limits, and
 execution budgets are not yet implemented.
 
@@ -727,7 +733,7 @@ exception family, message fragment, and selected exact spans. Focused tests
 cover table lookup, private-name rewriting, dump and diagnostic formatting,
 and resolver fuzz seeds.
 
-The compiler corpus currently contains eighty-nine successful
+The compiler corpus currently contains ninety successful
 parse-resolve-compile cases for the supported compiler subset. Cases record
 stable Bullsnake code-object dumps. Focused tests cover instruction source
 positions, stack effects, code-object copying, opcode formatting, literal
@@ -741,7 +747,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has sixty successful chunks and one hundred six expected runtime
+currently has sixty-one successful chunks and one hundred six expected runtime
 errors; it requires no Python installation, external checkout, network access,
 or generation step.
 

@@ -242,14 +242,11 @@ func (compiler *compilerState) compileFunctionDefaults(
 	return positionalCount != 0, keywordCount != 0, nil
 }
 
-// compileReturnStatement evaluates the result before unwinding handler bindings,
-// then removes lower loop state while preserving that result for RETURN_VALUE.
+// compileReturnStatement evaluates the result before unwinding lexical cleanup
+// blocks, then removes lower loop state while preserving the result.
 func (compiler *compilerState) compileReturnStatement(statement *compilerast.ReturnStmt) error {
 	if compiler.scope.Kind != resolver.FunctionScope {
 		return compiler.error(statement.Span(), "return has no enclosing function")
-	}
-	if compiler.finallyDepth != 0 {
-		return compiler.error(statement.Span(), "return through finally is not compiled")
 	}
 	if statement.Value == nil {
 		if err := compiler.emit(
@@ -262,23 +259,25 @@ func (compiler *compilerState) compileReturnStatement(statement *compilerast.Ret
 	} else if err := compiler.compileExpr(statement.Value); err != nil {
 		return err
 	}
-	savedHandlers := compiler.suspendCleanedExceptionHandlers(0)
-	if err := compiler.emitExceptionCleanupsFrom(0, statement.Span()); err != nil {
-		compiler.activeHandlers = savedHandlers
+	cleanupState, err := compiler.emitControlCleanupsFrom(0, statement.Span())
+	if err != nil {
+		compiler.restoreControlCleanups(cleanupState)
 		return err
 	}
-	for compiler.stackDepth > 1 {
-		if err := compiler.emit(bytecode.Swap, 2, statement.Span()); err != nil {
-			compiler.activeHandlers = savedHandlers
-			return err
+	if compiler.reachable {
+		for compiler.stackDepth > 1 {
+			if err := compiler.emit(bytecode.Swap, 2, statement.Span()); err != nil {
+				compiler.restoreControlCleanups(cleanupState)
+				return err
+			}
+			if err := compiler.emit(bytecode.PopTop, 0, statement.Span()); err != nil {
+				compiler.restoreControlCleanups(cleanupState)
+				return err
+			}
 		}
-		if err := compiler.emit(bytecode.PopTop, 0, statement.Span()); err != nil {
-			compiler.activeHandlers = savedHandlers
-			return err
-		}
+		err = compiler.emitTerminator(bytecode.ReturnValue, 0, statement.Span())
 	}
-	err := compiler.emitTerminator(bytecode.ReturnValue, 0, statement.Span())
-	compiler.activeHandlers = savedHandlers
+	compiler.restoreControlCleanups(cleanupState)
 	return err
 }
 

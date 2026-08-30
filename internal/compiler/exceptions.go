@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"slices"
+
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
@@ -12,9 +14,22 @@ type instructionExceptionHandler struct {
 }
 
 type exceptionHandlerCleanup struct {
-	name         string
-	span         lexer.Span
+	name string
+	span lexer.Span
+}
+
+type controlCleanupKind uint8
+
+const (
+	exceptionHandlerControlCleanup controlCleanupKind = iota
+	finallyControlCleanup
+)
+
+type controlCleanup struct {
+	kind         controlCleanupKind
 	handlerDepth int
+	exception    exceptionHandlerCleanup
+	finalBody    []compilerast.Stmt
 }
 
 // compileRaiseStatement evaluates an optional exception and cause before
@@ -134,15 +149,16 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 
 		var cleanupTarget *jumpLabel
 		var cleanup exceptionHandlerCleanup
+		cleanupHandlerDepth := 0
 		if handler.Name != "" {
 			if err := compiler.emit(bytecode.Copy, 1, handler.Range); err != nil {
 				return err
 			}
 			cleanup = exceptionHandlerCleanup{
-				name:         handler.Name,
-				span:         handler.Range,
-				handlerDepth: len(compiler.activeHandlers),
+				name: handler.Name,
+				span: handler.Range,
 			}
+			cleanupHandlerDepth = len(compiler.activeHandlers)
 			cleanupTarget = compiler.newLabel()
 		}
 		if err := compiler.emitLabelOperand(bytecode.EnterExcept, end, handler.Range); err != nil {
@@ -156,11 +172,15 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 				target:     cleanupTarget,
 				stackDepth: baseDepth,
 			})
-			compiler.exceptionCleanups = append(compiler.exceptionCleanups, cleanup)
+			compiler.controlCleanups = append(compiler.controlCleanups, controlCleanup{
+				kind:         exceptionHandlerControlCleanup,
+				handlerDepth: cleanupHandlerDepth,
+				exception:    cleanup,
+			})
 		}
 		err := compiler.compileStatements(handler.Body)
 		if handler.Name != "" {
-			compiler.exceptionCleanups = compiler.exceptionCleanups[:len(compiler.exceptionCleanups)-1]
+			compiler.controlCleanups = compiler.controlCleanups[:len(compiler.controlCleanups)-1]
 			compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
 		}
 		if err != nil {
@@ -228,13 +248,20 @@ func (compiler *compilerState) compileTryFinally(statement *compilerast.TryStmt)
 	baseDepth := compiler.stackDepth
 	handler := compiler.newLabel()
 	end := compiler.newLabel()
+	handlerDepth := len(compiler.activeHandlers)
 	compiler.activeHandlers = append(compiler.activeHandlers, instructionExceptionHandler{
 		target:     handler,
 		stackDepth: baseDepth,
 	})
+	compiler.controlCleanups = append(compiler.controlCleanups, controlCleanup{
+		kind:         finallyControlCleanup,
+		handlerDepth: handlerDepth,
+		finalBody:    statement.Finally,
+	})
 	compiler.finallyDepth++
 	err := compiler.compileStatements(statement.Body)
 	compiler.finallyDepth--
+	compiler.controlCleanups = compiler.controlCleanups[:len(compiler.controlCleanups)-1]
 	compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
 	if err != nil {
 		return err
@@ -295,27 +322,53 @@ func (compiler *compilerState) emitExceptionHandlerCleanup(cleanup exceptionHand
 	return compiler.emitNameDelete(cleanup.name, cleanup.span)
 }
 
-func (compiler *compilerState) emitExceptionCleanupsFrom(depth int, span lexer.Span) error {
-	if depth < 0 || depth > len(compiler.exceptionCleanups) {
-		return compiler.error(span, "exception cleanup depth %d out of range", depth)
-	}
-	for index := len(compiler.exceptionCleanups) - 1; index >= depth; index-- {
-		if err := compiler.emitExceptionHandlerCleanup(compiler.exceptionCleanups[index]); err != nil {
-			return err
-		}
-	}
-	return nil
+type controlCleanupState struct {
+	cleanups []controlCleanup
+	handlers []instructionExceptionHandler
 }
 
-func (compiler *compilerState) suspendCleanedExceptionHandlers(
+// emitControlCleanupsFrom emits lexical cleanups from inner to outer and leaves
+// their compiler state suspended so the caller can emit its transfer outside
+// those protected regions. The returned snapshot must always be restored.
+func (compiler *compilerState) emitControlCleanupsFrom(
 	depth int,
-) []instructionExceptionHandler {
-	saved := compiler.activeHandlers
-	if depth < len(compiler.exceptionCleanups) {
-		handlerDepth := compiler.exceptionCleanups[depth].handlerDepth
-		compiler.activeHandlers = compiler.activeHandlers[:handlerDepth]
+	span lexer.Span,
+) (controlCleanupState, error) {
+	state := controlCleanupState{
+		cleanups: slices.Clone(compiler.controlCleanups),
+		handlers: slices.Clone(compiler.activeHandlers),
 	}
-	return saved
+	if depth < 0 || depth > len(compiler.controlCleanups) {
+		return state, compiler.error(span, "control cleanup depth %d out of range", depth)
+	}
+	for len(compiler.controlCleanups) > depth && compiler.reachable {
+		index := len(compiler.controlCleanups) - 1
+		cleanup := compiler.controlCleanups[index]
+		compiler.controlCleanups = compiler.controlCleanups[:index]
+		if cleanup.handlerDepth < 0 || cleanup.handlerDepth > len(compiler.activeHandlers) {
+			return state, compiler.error(span, "control cleanup handler depth out of range")
+		}
+		compiler.activeHandlers = compiler.activeHandlers[:cleanup.handlerDepth]
+
+		var err error
+		switch cleanup.kind {
+		case exceptionHandlerControlCleanup:
+			err = compiler.emitExceptionHandlerCleanup(cleanup.exception)
+		case finallyControlCleanup:
+			err = compiler.compileStatements(cleanup.finalBody)
+		default:
+			err = compiler.error(span, "unknown control cleanup kind %d", cleanup.kind)
+		}
+		if err != nil {
+			return state, err
+		}
+	}
+	return state, nil
+}
+
+func (compiler *compilerState) restoreControlCleanups(state controlCleanupState) {
+	compiler.controlCleanups = state.cleanups
+	compiler.activeHandlers = state.handlers
 }
 
 // finishedExceptionHandlers combines adjacent instructions protected by the

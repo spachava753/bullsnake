@@ -272,3 +272,80 @@ try:
 except NameError:
     replacement_caught = True
 assert replacement_caught is True
+# ---
+# case: return unwinds final suites from inner to outer
+state = 1
+
+def preserve_return_value():
+    global state
+    try:
+        return state
+    finally:
+        state = 2
+
+assert preserve_return_value() == 1
+assert state == 2
+
+def replace_return_value():
+    try:
+        return 3
+    finally:
+        return 4
+
+assert replace_return_value() == 4
+
+order = 0
+
+def nested_return():
+    global order
+    try:
+        try:
+            return 5
+        finally:
+            order = order * 10 + 1
+    finally:
+        order = order * 10 + 2
+
+assert nested_return() == 5
+assert order == 12
+
+def suppress_exception():
+    try:
+        missing_before_return_from_finally
+    finally:
+        return 6
+
+assert suppress_exception() == 6
+
+binding_seen = False
+
+def final_inside_handler():
+    global binding_seen
+    try:
+        missing_before_bound_return
+    except NameError as error:
+        try:
+            return 7
+        finally:
+            binding_seen = error is error
+
+assert final_inside_handler() == 7
+assert binding_seen is True
+
+binding_cleared = False
+
+def handler_inside_final():
+    global binding_cleared
+    try:
+        try:
+            missing_before_outer_final
+        except NameError as error:
+            return 8
+    finally:
+        try:
+            error
+        except UnboundLocalError:
+            binding_cleared = True
+
+assert handler_inside_final() == 8
+assert binding_cleared is True

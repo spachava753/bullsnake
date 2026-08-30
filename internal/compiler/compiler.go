@@ -41,7 +41,7 @@ type compilerState struct {
 	loops               []loopContext
 	exceptionHandlers   []instructionExceptionHandler
 	activeHandlers      []instructionExceptionHandler
-	exceptionCleanups   []exceptionHandlerCleanup
+	controlCleanups     []controlCleanup
 	finallyDepth        int
 }
 

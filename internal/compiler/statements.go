@@ -84,19 +84,19 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		if compiler.stackDepth < loop.breakDepth {
 			return compiler.error(statement.Span(), "break is below its loop stack depth")
 		}
-		savedHandlers := compiler.suspendCleanedExceptionHandlers(loop.cleanupDepth)
-		if err := compiler.emitExceptionCleanupsFrom(loop.cleanupDepth, statement.Span()); err != nil {
-			compiler.activeHandlers = savedHandlers
+		cleanupState, err := compiler.emitControlCleanupsFrom(loop.cleanupDepth, statement.Span())
+		if err != nil {
+			compiler.restoreControlCleanups(cleanupState)
 			return err
 		}
 		for compiler.stackDepth > loop.breakDepth {
 			if err := compiler.emit(bytecode.PopTop, 0, statement.Span()); err != nil {
-				compiler.activeHandlers = savedHandlers
+				compiler.restoreControlCleanups(cleanupState)
 				return err
 			}
 		}
-		err := compiler.emitJump(bytecode.Jump, loop.breakLabel, statement.Span())
-		compiler.activeHandlers = savedHandlers
+		err = compiler.emitJump(bytecode.Jump, loop.breakLabel, statement.Span())
+		compiler.restoreControlCleanups(cleanupState)
 		return err
 	case *compilerast.ContinueStmt:
 		if len(compiler.loops) == 0 {
@@ -106,13 +106,13 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 			return compiler.error(statement.Span(), "continue through finally is not compiled")
 		}
 		loop := compiler.loops[len(compiler.loops)-1]
-		savedHandlers := compiler.suspendCleanedExceptionHandlers(loop.cleanupDepth)
-		if err := compiler.emitExceptionCleanupsFrom(loop.cleanupDepth, statement.Span()); err != nil {
-			compiler.activeHandlers = savedHandlers
+		cleanupState, err := compiler.emitControlCleanupsFrom(loop.cleanupDepth, statement.Span())
+		if err != nil {
+			compiler.restoreControlCleanups(cleanupState)
 			return err
 		}
-		err := compiler.emitJump(bytecode.Jump, loop.continueLabel, statement.Span())
-		compiler.activeHandlers = savedHandlers
+		err = compiler.emitJump(bytecode.Jump, loop.continueLabel, statement.Span())
+		compiler.restoreControlCleanups(cleanupState)
 		return err
 	default:
 		return compiler.unsupported(statement)
