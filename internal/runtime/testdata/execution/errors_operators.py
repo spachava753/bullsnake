@@ -1,0 +1,66 @@
+# Runtime exception cases for operators.
+# case: augmented zero division
+# error: ZeroDivisionError
+# message: "integer division or modulo by zero"
+value = 1
+value //= 0
+# ---
+# case: unsupported addition
+# error: TypeError
+# message: "unsupported operand type(s) for +: 'NoneType' and 'int'"
+answer = None + 1
+# ---
+# case: floor division by zero
+# error: ZeroDivisionError
+# message: "integer division or modulo by zero"
+answer = 1 // 0
+# ---
+# case: modulo by zero
+# error: ZeroDivisionError
+# message: "integer division or modulo by zero"
+answer = 1 % 0
+# ---
+# case: negative left shift
+# error: ValueError
+# message: "negative shift count"
+answer = 1 << -1
+# ---
+# case: negative right shift
+# error: ValueError
+# message: "negative shift count"
+answer = 1 >> -1
+# ---
+# case: oversized left shift
+# error: OverflowError
+# message: "too many digits in integer"
+answer = 1 << 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+# ---
+# case: unsupported shift count
+# error: TypeError
+# message: "unsupported operand type(s) for <<: 'int' and 'float'"
+answer = 1 << 1.0
+# ---
+# case: unsupported subtraction
+# error: TypeError
+# message: "unsupported operand type(s) for -: 'int' and 'NoneType'"
+answer = 1 - None
+# ---
+# case: unsupported bitwise and
+# error: TypeError
+# message: "unsupported operand type(s) for &: 'int' and 'float'"
+answer = 1 & 1.0
+# ---
+# case: unsupported ordering
+# error: TypeError
+# message: "'<' not supported between instances of 'int' and 'str'"
+answer = 1 < 'text'
+# ---
+# case: unsupported unary positive
+# error: TypeError
+# message: "bad operand type for unary +: 'str'"
+answer = +'text'
+# ---
+# case: unsupported unary invert
+# error: TypeError
+# message: "bad operand type for unary ~: 'float'"
+answer = ~1.5

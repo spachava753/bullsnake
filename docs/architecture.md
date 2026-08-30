@@ -1,8 +1,6 @@
 # Bullsnake runtime design
 
-Status: Draft
-
-Last updated: 2026-08-27
+Status: Living design
 
 ## Purpose
 
@@ -20,12 +18,11 @@ Bullsnake owns its compiler, bytecode, object representation, memory model, and
 extension API. CPython bytecode, reference counting, runtime inspection APIs,
 and C extension machinery do not constrain the design.
 
-The architecture should be the simplest one that can support the chosen
-features cleanly. The current recommendation is a small stack-based bytecode
-virtual machine with explicit Python frames stored on the Go heap. That design
-costs more than a tree-walking interpreter at the first milestone, but it gives
-ordinary calls, generators, coroutines, and tracebacks one execution model.
-Go goroutines provide the separate lightweight-thread mechanism.
+The implementation uses a small stack-based bytecode virtual machine with
+explicit Python frames stored on the Go heap. That design costs more than a
+tree-walking interpreter at the first milestone, but it gives ordinary calls,
+generators, coroutines, and tracebacks one execution model. Go goroutines
+provide the separate lightweight-thread mechanism.
 
 Correctness means that implemented features obey Bullsnake's documented
 semantics consistently. Python-compatible behavior is the default when it is
@@ -33,13 +30,13 @@ clear and useful. Deliberate, documented differences are acceptable when they
 remove a common pitfall, avoid CPython-specific behavior, or keep the
 implementation substantially simpler.
 
-## Proposed decisions
+## Decisions
 
-These decisions are the starting point for discussion:
+These decisions guide the implementation:
 
 1. Use Python 3.14 as the reference version for syntax and selected runtime
-   behavior. Maintain an explicit feature manifest instead of claiming full
-   Python 3.14 compatibility.
+   behavior. Document the supported subset instead of claiming full Python 3.14
+   compatibility.
 2. Prefer familiar Python semantics for supported features. Permit deliberate,
    documented divergences when they avoid a pitfall or remove complexity that
    does not serve the package corpus.
@@ -148,11 +145,11 @@ behavior exposes CPython internals, depends on reference counting, creates a
 common correctness trap, or adds substantial complexity for little practical
 value.
 
-Every intentional divergence must be visible in the feature manifest,
-documented in user-facing behavior, and covered by tests. Unsupported features
-should fail at parse time, import time, or the narrowest practical runtime
-boundary. Bullsnake must not silently accept a feature and produce subtly
-incorrect results.
+Every intentional divergence must appear in the implementation notes and
+user-facing documentation, and tests must cover it. Unsupported features should
+fail at parse time, import time, or the narrowest practical runtime boundary.
+Bullsnake must not silently accept a feature and produce subtly incorrect
+results.
 
 Examples of acceptable omissions include `dis`, `gc`, reference-count APIs,
 CPython bytecode caches, C extension loading, and exact finalizer timing. Other
@@ -164,9 +161,9 @@ desire to redesign Python.
 ### Language compatibility
 
 Bullsnake uses Python 3.14 as the grammar and semantic reference for its
-selected subset. A feature manifest records supported statements, expressions,
-built-ins, protocols, and intentional differences. Programs outside that
-manifest have no compatibility promise.
+selected subset. `docs/impl.md` is the current inventory of supported behavior
+and boundaries. Programs outside the documented subset have no compatibility
+promise.
 
 The reference version is still an architectural input. Grammar, AST nodes,
 annotation behavior, code metadata, and built-ins change across minor versions.
@@ -178,8 +175,8 @@ claiming unqualified "Python 3" compatibility.
 Packages depend on behavior beyond grammar. The possible runtime surface
 includes built-in types, descriptors, exceptions, imports, modules, I/O,
 encodings, paths, time, networking, and selected introspection. Bullsnake
-implements only the portions named in its feature manifest or required by its
-package corpus.
+implements only the portions documented in its current implementation inventory.
+The package corpus will determine additions.
 
 CPython behavior is a differential-testing reference for those selected
 features. CPython implementation details remain excluded unless Bullsnake
@@ -214,17 +211,18 @@ Bullsnake-native installer and support for packaging tools can follow later.
 
 ## Runtime invariants
 
-The implementation should preserve these invariants from its first executable
-slice:
+The implementation should preserve these invariants as their corresponding
+features enter the supported subset:
 
 1. **The reference version and subset are explicit.** Parser behavior, runtime
-   behavior, tests, and documentation all refer to a Python 3.14-derived
-   feature manifest.
+   behavior, tests, and implementation notes identify the Python 3.14-derived
+   subset.
 2. **Bullsnake's documented behavior is the compatibility boundary.** Python
    behavior is the default for supported features. Intentional differences and
    omissions are part of the contract rather than hidden test exceptions.
 3. **Unsupported behavior fails clearly.** The parser, importer, or runtime
-   rejects behavior outside the manifest at the narrowest practical boundary.
+   rejects behavior outside the documented subset at the narrowest practical
+   boundary.
 4. **Every supported Python value has stable identity, type, and value
    semantics.** The implementation cannot use a movable or reusable Go address
    as the public definition of `id()` if `id()` is supported.
@@ -256,9 +254,10 @@ slice:
 12. **Runtime instances isolate mutable state.** Modules, built-ins, import
     paths, scheduler state, exception state, and extension registration belong
     to an instance. Process-global mutable Python state is avoided.
-13. **Import creates one module identity per cached name.** A module enters the
-    runtime's module cache before its body executes, which permits circular
-    imports and requires cleanup when loading fails.
+13. **The import cache owns one module identity per loaded name.** Current direct
+    execution publishes a module only after normal return. A future loader that
+    permits recursive imports must insert before the body and remove the entry
+    when loading fails.
 14. **Python code never runs on a Go finalizer or cleanup goroutine.** If a
     selected feature uses lifecycle notifications, the runtime queues and
     handles them later at a safe point.
@@ -285,13 +284,13 @@ Four implementation styles are plausible:
 | Transpile Python to Go | Conflicts with `eval`, `exec`, dynamic classes, frame inspection, fast startup, and runtime compilation. Go compilation also becomes part of normal execution. |
 | Compile to Bullsnake bytecode | Separates syntax from execution, supports explicit frames, permits interpreter-specific instructions, and leaves room for later optimization. |
 
-Bullsnake should choose its own bytecode VM. It can borrow the proven compiler
-stages used by CPython and other interpreters without copying CPython's
-bytecode or memory architecture.
+Bullsnake uses its own bytecode VM. It borrows proven compiler stages from
+CPython and other interpreters without copying CPython's bytecode or memory
+architecture.
 
-A stack machine is the recommended first VM. Python expressions map naturally
-to an operand stack, the compiler stays small, and bytecode is easy to inspect
-in tests. A register VM may reduce dispatch and copying later, but that is a
+The initial VM is a stack machine. Python expressions map naturally to an
+operand stack, the compiler stays small, and bytecode is easy to inspect in
+tests. A register VM may reduce dispatch and copying later, but that is a
 performance decision to make from profiles.
 
 ## Simplicity rules
@@ -337,10 +336,11 @@ Go host -> runtime -> thread registry -> goroutine -> ThreadState -> VM
               +-> timers, I/O poller, and completion queue
 ```
 
-The runtime composes the components and owns the execution token shared by its
-Python thread goroutines. The compiler does not know about active runtime
-instances. The VM does not know how source files are found. Native Go modules
-enter through the import system instead of receiving special import opcodes.
+The source-to-VM path in this diagram is implemented. The thread registry,
+execution token, async services, loaders, and Go modules show the target runtime,
+not current code. The compiler does not know about active runtime instances. The
+VM does not know how source files are found. Native Go modules will enter through
+the import system instead of receiving special import opcodes.
 
 ## Front end
 
@@ -359,11 +359,14 @@ contract and its CPython reference revision are recorded in the
    coroutines.
 4. Validate context-sensitive syntax before bytecode generation.
 
-The parser recognizes only the selected grammar. It is hand-written recursive
-descent that constructs AST nodes directly. Ordinary binary operators use
-precedence climbing; Python-specific forms use dedicated rules. A lazy buffered
-token cursor supports local rewinds for contextual ambiguities without a PEG
-runtime, generated parser, or general memoization.
+The parser recognizes the Python 3.14 syntax represented by the current AST,
+including forms outside the executable subset. The resolver performs contextual
+scope validation, and the compiler rejects AST forms it does not support. The
+parser is hand-written recursive descent that constructs AST nodes directly.
+Ordinary binary operators use precedence climbing; Python-specific forms use
+dedicated rules. A lazy buffered token cursor supports local rewinds for
+contextual ambiguities without a PEG runtime, generated parser, or general
+memoization.
 
 Every source unit parses to one `Module` containing statements. Eval requires
 one expression statement and preserves its value; a REPL displays
@@ -389,10 +392,10 @@ code object should contain:
 - Exception and cleanup regions
 - Stack-size metadata if the VM needs it
 
-Bullsnake bytecode is private and versioned. Cached compiled files, if added,
-need a Bullsnake magic value, language version, bytecode version, source hash,
-and implementation cache tag. The runtime must reject stale or foreign cache
-files.
+Bytecode currently remains in memory and evolves with the compiler and runtime.
+If cached compiled files are added, their format must include a Bullsnake magic
+value, language version, bytecode version, source hash, and implementation cache
+tag. The runtime must reject stale or foreign cache files.
 
 The first instruction set should favor correctness and clarity. Specialized
 opcodes, inline caches, superinstructions, and adaptive optimization can be
@@ -400,44 +403,120 @@ added after semantic conformance and profiling.
 
 ## Virtual machine and frames
 
-A Python frame is a heap object containing at least:
+The current VM executes module, function, and basic class-body code with
+heap-allocated frames. A frame contains prepared immutable code, the next
+instruction index, an operand stack, indexed fast locals, one cell/free-variable
+dereference array, local, global, and builtin namespaces, and a link to its
+logical caller. A thread state points to the active frame. The iterative
+dispatcher handles normal progress, Python calls, return, and Python exception
+outcomes without using a Go call as the definition of a Python frame.
 
-- A code object and instruction pointer
-- An operand stack
-- Fast locals or another local storage representation
-- Global and built-in namespaces
-- Closure cells
-- Active exception and cleanup state
-- A link to the logical caller
-- Tracing, profiling, and source-position state
+Before execution, the runtime copies the code tables it consumes, materializes
+compiler constants as runtime values, and recursively prepares every child code
+object. It validates each instruction, operand, table index, code-metadata
+constraint, jump target, and reachable stack transition. A worklist requires all
+control-flow edges into an instruction to agree on stack depth. `FOR_ITER` has
+separate yield and exhaustion depths because it retains the iterator and pushes
+an item only on the yield edge. Unsupported or malformed bytecode anywhere in
+the code tree fails before the module body can produce side effects. Prepared
+code and its materialized constants are cached per runtime and immutable
+code-object identity.
 
-A `ThreadState` owns the active frame chain for its goroutine. A suspended async
-task or generator owns the frame state needed to resume it. The VM repeatedly
-executes the current frame. A Python call pushes a frame. Return and exception
-propagation pop frames. The Go dispatcher remains iterative.
+Name deletion follows the compiler-selected storage location. `DELETE_NAME`
+removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one
+from the module namespace, and `DELETE_FAST` clears an indexed local slot. An
+absent namespace binding raises `NameError`; an empty fast-local slot raises
+`UnboundLocalError`.
 
-The VM must represent these outcomes explicitly:
+Formatted-string instructions produce ordinary string values. `str` conversion
+uses unquoted text for existing strings and the current value text for other
+objects; `repr` shares each value's stable representation; `ascii` escapes every
+non-ASCII code point in that representation. Empty formatting preserves an
+exact string, and `BUILD_STRING` joins only verified string pieces. String
+format specifications support one-code-point fill, left, right, or center
+alignment, decimal width, code-point precision, and the optional `s` type.
+Arbitrary-precision integers and booleans keep sign and base prefixes separate
+from their digits, so zero and `=` padding occur after those prefixes. They
+support binary, character, decimal, octal, and hexadecimal presentation plus
+comma or underscore grouping. Binary64 floats support fixed, scientific,
+general, percent, and precision-without-type presentation while retaining sign,
+negative-zero, alternate, grouping, precision, and numeric-padding components
+separately. Float-style integer conversion, locale-aware formatting, complex
+formatting, and user-defined `__format__` dispatch require later value-type
+slices.
 
-- Normal instruction progress
-- Python call
-- Return
-- Yield
-- Await suspension
-- Exception propagation
-- Scheduler safe point
-- Host cancellation or execution-budget stop
+`MAKE_FUNCTION` captures one prepared child and its defining global namespace.
+`CALL` reads inline positional arguments. `CALL_EX` reads a compiler-built
+positional tuple plus an optional ordered keyword dictionary assembled by
+`MAP_MERGE`. Function attributes retain positional defaults, sparse
+keyword-only defaults, an ordered tuple of captured cells, and the deferred
+annotation callable. Frame creation allocates one cell for each locally captured
+name, moves captured parameter values into those cells, then appends the
+function's captured free cells. Function objects retain the cell pointers, so
+escaped and sibling closures share bindings after the defining frame returns.
+Definition and ordinary call execution do not invoke the annotation callable;
+a later attribute and `annotationlib` slice will request its map. Assertions load
+an internal callable `AssertionError` class, optionally construct an instance
+with one message, and terminate through one-argument raise. That raise path also
+instantiates a directly raised internal exception class. Function decorators use
+the ordinary call machinery. Decorator expressions evaluate top to bottom before
+defaults; the resulting callables apply bottom to top after function creation.
+The binder fills defaults, packs surplus arguments into `*args`, and matches
+ordinary and keyword-only names. When `**kwargs` is present, it stores unmatched
+names in a fresh dictionary in call order. The binder rejects positional-only,
+duplicate, non-string, and unexpected names when the signature does not provide
+a legal destination. It then replaces the active frame with a child whose
+`previous` link names the caller.
+Return restores that caller and pushes the result. Nested and recursive Python
+calls therefore remain in the iterative dispatcher. `LOAD_BUILD_CLASS` pushes
+an internal class builder. For a class with at most one Bullsnake type base, it
+runs the body function in a fresh namespace and records a class-build
+continuation on that frame. Return turns the retained namespace into a type
+value, fills a returned `__class__` cell when present, and then resumes the
+defining frame. Type calls allocate a fresh instance. Without `__init__`, only an
+empty call is accepted. If the class defines or inherits a plain `__init__`,
+construction binds its arguments, runs it as another Python frame, and requires
+a `None` return before exposing the instance. `LOAD_ATTR` checks instance
+storage, falls back through the type's base chain, and binds plain class
+functions by prepending the instance through the ordinary call binder.
+`STORE_ATTR` and `DELETE_ATTR` mutate instance or class namespaces directly.
+The class builder accepts one existing Bullsnake type as a base; class,
+instance, and initializer lookup walk that base chain with child entries taking
+precedence. Multiple inheritance, C3 linearization, metaclasses, `super`,
+`__new__`, and general descriptors require later object-model slices.
+A suspended async task or generator will eventually own the same frame state
+needed to resume it.
 
-This design supports ordinary calls, generators, native coroutines,
-asynchronous generators, tracebacks, and independent goroutine-backed Python
-threads with one frame representation.
-
-A call into a synchronous Go extension runs on the Python thread's current Go
-stack. If it blocks, it must release the runtime execution token so other
-Python thread goroutines can run. If it needs to suspend only the current async
-task while the same Python thread runs other tasks, it returns a Bullsnake
-awaitable or future instead. Neither path requires capturing a Go stack.
+As more execution forms enter the supported subset, the VM must add outcomes
+for yield, await suspension, exception propagation through handlers, scheduler
+safe points, host cancellation, and execution-budget stops. A call into a
+synchronous Go extension will run on the Python thread's current Go stack.
 
 ## Object model
+
+The runtime has a sealed internal `Value` interface. Immutable singleton
+objects represent `None`, both booleans, and ellipsis. Heap-backed objects
+represent arbitrary-precision integers, binary64 floats, complex numbers,
+strings, bytes, fixed tuples and lists, dictionaries, sets, slices, collection
+iterators, modules, Python functions, basic type objects, instances, bound
+methods, and Python exceptions. Every live reference remains in a typed pointer
+or interface visible to Go's collector. Module bindings, instance attributes,
+and basic class bodies use string-keyed namespaces; Python dictionaries use
+their own value type and insertion-ordered entries.
+
+The current object operations cover fixed scalar truth, numeric unary
+operators, selected arbitrary-precision integer binary and in-place operators,
+scalar and tuple equality, object identity, fixed and starred tuple/list
+construction and unpacking, tuple/list/dictionary/set/text/bytes iteration,
+tuple/list/text/bytes subscription, basic type and instance attribute reads with
+plain-function binding, direct class and instance attribute mutation, fixed and
+unpacked dictionary displays, fixed and starred set displays, dictionary
+and item mutation, and tuple/list/dict/set/text/bytes membership. Dictionary key
+and set element matching are linear until user-defined hash and equality
+protocols justify hash tables. Dictionary iterators detect key insertion and
+deletion while allowing value replacement. Text indexes count decoded Python
+code points over UTF-8/WTF-8 storage; bytes indexes count raw bytes.
+Later user-defined protocols must reuse the VM's outcome and exception paths.
 
 The object model can become the largest compatibility component, so it should
 remain feature-driven. It should be designed before a large instruction set
@@ -472,7 +551,13 @@ languages.
 
 ## Runtime instances
 
-A runtime instance owns:
+The initial `Runtime` owns a prepared-code cache, a builtin namespace, and
+successfully executed modules. Module execution creates a fresh namespace and
+publishes the module in the runtime cache only after normal return. Mutable state
+is instance-local. Immutable `None`, boolean, and `Ellipsis` singletons are
+shared process-wide.
+
+As the supported subset grows, a runtime instance will also own:
 
 - The built-in namespace and implementation-specific `sys` state
 - `sys.modules`, import paths, finders, loaders, and import locks
@@ -497,8 +582,17 @@ may not be shared implicitly between runtimes.
 
 ## Import system
 
-Imports are a runtime service, but the baseline does not need the complete
-`importlib` protocol. The smallest useful design supports:
+The current first slice resolves flat absolute names from modules that completed
+through `Runtime.ExecuteModule` in the same runtime. Frames retain their owning
+runtime, so imports inside functions share that cache. `IMPORT_NAME` consumes
+level and from-list values, `IMPORT_FROM` keeps the module below each selected
+global, and `IMPORT_STAR` copies public names. Module attribute reads, writes,
+and deletes use that same cached namespace. This is an execution mechanism, not
+a loader: it does not open files, execute a missing module, model packages, or
+insert modules before their bodies run.
+
+The next loader remains a runtime service, but the baseline does not need the
+complete `importlib` protocol. The smallest useful design supports:
 
 - A runtime-local module cache checked before loading
 - Absolute and relative names
@@ -913,26 +1007,27 @@ Bullsnake does not need a `dis` module. Its bytecode is private and can be
 printed by a Go development tool or test helper without making instruction
 layout part of the Python runtime contract.
 
-## Proposed repository layout
+## Repository layout
 
-Start with a few coarse packages. The internal directories can split after
-real dependency or ownership pressure appears:
+The implementation keeps compiler stages in explicit subpackages and the young
+runtime in one coarse package:
 
 ```text
-cmd/bullsnake/          command-line interpreter and REPL
-py/                     public values and Go extension contracts
-internal/compiler/      lexer, parser, AST, symbols, bytecode, and compiler
-internal/runtime/       objects, frames, VM, imports, built-ins, and scheduler
-stdlib/                  selected Python modules shipped by Bullsnake
-experiments/             disposable architecture probes such as gcprobe
-tests/compat/           differential and package compatibility tests
-testdata/               compiler and runtime fixtures
+internal/compiler/      compiler plus source, lexer, parser, AST, resolver, and bytecode
+internal/runtime/       values, frames, VM, imports, and internal built-ins
+experiments/            disposable architecture probes such as gcprobe
 ```
 
-The root `bullsnake` package should provide the high-level embedding API and
-compose the compiler and runtime. The `py` package should be a dependency leaf
-so native modules can use it without importing internals. Internal packages may
-depend on `py`; `py` must not depend on them.
+Test fixtures live under the package that owns their runner. A command, public
+embedding packages, selected standard-library modules, and package-compatibility
+tests should be added only when those features are implemented. The intended
+future locations remain `cmd/bullsnake`, a root `bullsnake` package, a leaf
+public value package such as `py`, `stdlib`, and `tests/compat`.
+
+The root `bullsnake` package should eventually provide the high-level embedding
+API and compose the compiler and runtime. The public value package must remain a
+dependency leaf so native modules can use it without importing internals.
+Internal packages may depend on that leaf; it must not depend on them.
 
 The compiler produces immutable code objects consumed by the runtime. Import,
 scheduling, and built-ins can remain files within `internal/runtime` until one
@@ -970,12 +1065,8 @@ Correctness work needs several test layers:
 
 Differential tests must account for valid implementation differences. Exact
 object IDs, hash values, finalization timing, memory statistics, error wording,
-and Bullsnake bytecode are compared only if the feature manifest promises that
-behavior.
-
-The feature matrix should use precise states such as `supported`, `partial`,
-`unsupported`, `diverges`, and `implementation-specific`. Every `supported` or
-`diverges` entry links to tests and a short contract.
+and Bullsnake bytecode are compared only when the documented contract promises
+that behavior.
 
 ## Prior art
 
@@ -983,9 +1074,8 @@ The `go-python/gpython` project already demonstrates a Python parser, compiler,
 bytecode VM, embeddable runtime, and concurrent interpreter instances in Go.
 Its documented target is Python 3.4, and its README identifies missing
 C-backed standard-library modules as the main barrier to broader compatibility.
-Bullsnake should audit it for lessons and reusable ideas before implementation,
-while treating Python 3.14, async support, and Bullsnake's API as new design
-constraints.
+It remains useful prior art for compiler, runtime, and embedding tradeoffs, while
+Python 3.14, async support, and Bullsnake's API impose different constraints.
 
 Stackless Python demonstrates the value of separating logical Python frames
 from the host language call stack. Bullsnake can get that property at the
@@ -993,26 +1083,24 @@ start, with less machinery, because its frame representation is new.
 
 ## Open decisions
 
-The following decisions should be resolved before their related implementation
-begins:
+The following decisions remain open and should be resolved before related
+public or runtime features depend on them:
 
-1. Define the initial feature manifest, including supported syntax, built-ins,
-   protocols, modules, and intentional divergences.
-2. Choose the first package corpus and define what passing each package means.
-3. Decide how much CPython standard-library source to vendor, and establish its
+1. Choose the first package corpus and define what passing each package means.
+2. Decide how much CPython standard-library source to vendor, and establish its
    update and licensing process.
-4. Decide whether the package corpus needs `weakref`. `__del__` and `gc` remain
+3. Decide whether the package corpus needs `weakref`. `__del__` and `gc` remain
    omitted unless a future decision explicitly reopens them.
-5. Define the first goroutine-backed `threading` subset and its safe-point
+4. Define the first goroutine-backed `threading` subset and its safe-point
    fairness policy. Candidate primitives are `Thread`, `Lock`, `RLock`,
    `Event`, `local`, `current_thread()`, and `join()`.
-6. Decide which frame and code-object introspection APIs are required by the
+5. Decide which frame and code-object introspection APIs are required by the
    first package corpus.
-7. Decide whether Go extensions remain statically linked or need a later
+6. Decide whether Go extensions remain statically linked or need a later
    process-based or plugin-based distribution mechanism.
-8. Validate whether goroutine-backed Python threads satisfy the intended
+7. Validate whether goroutine-backed Python threads satisfy the intended
    green-thread workloads before designing any separate tasklet API.
-9. Select initial host platforms and decide how unsupported OS, signal,
+8. Select initial host platforms and decide how unsupported OS, signal,
    subprocess, and networking behavior is reported.
 
 ## References

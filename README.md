@@ -10,7 +10,7 @@ name a nod to both Python and Go.
 ## Design
 
 The [runtime design](docs/architecture.md) describes Bullsnake's goals,
-compatibility boundaries, invariants, and proposed architecture. The living
+compatibility boundaries, invariants, and architecture. The living
 [implementation notes](docs/impl.md) record the decisions reflected in the Go
 code as the interpreter pipeline is built.
 

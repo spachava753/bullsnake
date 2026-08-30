@@ -4,9 +4,6 @@ package bytecode
 
 import "fmt"
 
-// Version identifies the current private Bullsnake bytecode format.
-const Version = 1
-
 // CONVERT_VALUE operands select the Python conversion applied before format.
 const (
 	ConversionString uint32 = iota + 1
