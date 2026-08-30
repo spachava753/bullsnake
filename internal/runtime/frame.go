@@ -21,6 +21,7 @@ type frame struct {
 	previous          *frame
 	classBuild        *classBuild
 	instanceInit      *instanceInit
+	importedModule    *Module
 	handledExceptions []handledException
 }
 
@@ -88,6 +89,17 @@ func (frame *frame) lookupName(name string) (Value, bool) {
 func (frame *frame) position(index int) lexer.Span {
 	position, _ := frame.code.code.Position(index)
 	return position
+}
+
+func (frame *frame) discardImportedModule() {
+	module := frame.importedModule
+	if module == nil || frame.runtime == nil {
+		return
+	}
+	if frame.runtime.modules[module.name] == module {
+		delete(frame.runtime.modules, module.name)
+	}
+	frame.importedModule = nil
 }
 
 func (frame *frame) failure(index int, message string) error {

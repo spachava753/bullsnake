@@ -21,7 +21,7 @@ execute every instruction. Each stage rejects behavior it does not yet own.
 | Resolver | Name scopes, closures, contextual checks, annotations, generics, and comprehensions |
 | Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
 | Runtime | Modules, values, collections, functions, basic classes, and structured exceptions |
-| Imports | Flat absolute lookup of modules already executed by the same runtime |
+| Imports | Lazy flat absolute modules from host-supplied immutable code |
 | Go API, standard library, async, and REPL | Not implemented |
 
 The parser and resolver intentionally cover more language forms than the
@@ -301,18 +301,32 @@ are not implemented.
 ## Modules and imports
 
 A module has one string-keyed namespace used as both locals and globals.
-`Runtime.ExecuteModule` adds it to the runtime's module cache only after normal
-completion. `Runtime.Module`, `Module.Get`, module attribute access, and imports
-all observe that namespace.
+`Runtime.ExecuteModule` creates and caches that module before its body starts.
+`Runtime.Module`, `Module.Get`, module attribute access, and imports all observe
+the same object and namespace, including names assigned during partial
+initialization.
 
-The current importer resolves only flat absolute names already present in that
-cache. `import`, `from ... import ...`, and wildcard imports work within that
-boundary. Missing modules and members raise Python import exceptions.
+`NewWithLoader` accepts a `ModuleLoader` callback that returns immutable code
+for one flat absolute name. A cache miss calls the loader, prepares the complete
+returned code tree, creates the module, and switches the existing dispatch loop
+to a module frame. Normal return leaves the module cached and pushes it into the
+importer. Repeated and circular imports reuse that identity without another
+loader call.
 
-There is no filesystem or source loader behind `import`. Dotted packages,
-relative imports, circular-import insertion, `sys.modules`, `__all__`, finder
-and loader hooks, reload, import locks, and a standard library remain
-unimplemented.
+If a Python exception leaves an imported module, the frame unwind removes its
+cache entry before checking the importer's handler. A later import may retry it.
+Modules that completed as side effects remain cached. A host loader error also
+removes every module frame still initializing. An explicit `ExecuteModule`
+failure restores any older module that the execution temporarily replaced.
+
+The callback returns code, not source, so `internal/runtime` remains independent
+of source decoding and compilation. A missing callback or missing name raises
+`ModuleNotFoundError`. Callback errors remain Go host errors in this first
+loading slice.
+
+There is no built-in filesystem or source loader yet. Dotted packages, relative
+imports, package metadata, `sys.modules`, `__all__`, finder and loader hooks,
+reload, import locks, and a standard library remain unimplemented.
 
 ## Deliberate boundaries
 

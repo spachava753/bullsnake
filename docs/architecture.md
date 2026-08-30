@@ -220,21 +220,27 @@ and future expansion.
 ## Runtime instances and imports
 
 Mutable interpreter state belongs to a `Runtime`. Today that includes builtins,
-prepared code, and successfully executed modules. The direction is for import
-state, scheduler state, thread state, configuration, and Go module registration
-to belong to the same runtime instance.
+prepared code, and the module cache, including modules whose bodies are still
+initializing. The direction is for scheduler state, thread state,
+configuration, and Go module registration to belong to the same runtime
+instance.
 
 This ownership makes isolation explicit. Separate runtimes may execute in
 parallel without silently sharing modules or mutable Python values.
 
-The current importer can retrieve a module that has already executed in the
-same runtime. A complete loader will later find source modules and packages,
-insert a module before executing its body so circular imports can work, and
-remove a newly inserted module when execution fails. Source modules and
-statically linked Go modules should enter through the same loader path.
+The current importer can ask a host-supplied loader for immutable code for a
+flat absolute module name. The runtime validates that code, creates and caches
+the module, then executes its body in the existing frame loop. Repeated imports
+reuse one object. Because the cache entry exists before execution, circular
+imports see the names assigned so far. If execution fails, the runtime removes
+only that module; dependencies that finished successfully remain cached.
 
-Advanced `importlib` hooks, zip imports, reload, and bytecode caches should be
-added only when package tests require their observable behavior.
+A complete loader will later find source modules and packages, compile them
+outside the runtime, and supply package metadata. Source modules and statically
+linked Go modules should enter through the same loading path. Dotted and
+relative names, filesystem search, Python-visible `sys.modules`, advanced
+`importlib` hooks, zip imports, reload, and bytecode caches should be added only
+when package tests require their observable behavior.
 
 ## Go embedding and extensions
 

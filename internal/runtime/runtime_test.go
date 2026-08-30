@@ -164,6 +164,147 @@ func TestPreloadedImportFailures(t *testing.T) {
 	}
 }
 
+func TestLoadedModuleIdentity(t *testing.T) {
+	loads := make(map[string]int)
+	sources := map[string]string{
+		"helper":  "value = 40\n",
+		"library": "import helper\nvalue = helper.value + 2\n",
+	}
+	loader := bullruntime.ModuleLoader(func(name string) (*bytecode.Code, bool, error) {
+		source, found := sources[name]
+		if !found {
+			return nil, false, nil
+		}
+		loads[name]++
+		return compileSource(t, source), true, nil
+	})
+	runtime := bullruntime.NewWithLoader(loader)
+	module, err := runtime.ExecuteModule("main", compileSource(t,
+		"import library as first\n"+
+			"import library as second\n"+
+			"answer = first.value\n"+
+			"same = first is second\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertModuleRepr(t, module, "answer", "42")
+	assertModuleRepr(t, module, "same", "True")
+	if loads["library"] != 1 || loads["helper"] != 1 {
+		t.Fatalf("load counts = %v, want library:1 helper:1", loads)
+	}
+	library, found := runtime.Module("library")
+	if !found {
+		t.Fatal("loaded library is absent from the runtime cache")
+	}
+	first, _ := module.Get("first")
+	if first != library {
+		t.Fatal("import did not retain the cached module identity")
+	}
+}
+
+func TestCircularModuleInitialization(t *testing.T) {
+	loads := make(map[string]int)
+	loader := bullruntime.ModuleLoader(func(name string) (*bytecode.Code, bool, error) {
+		loads[name]++
+		if name != "beta" {
+			return nil, false, nil
+		}
+		return compileSource(t, "import alpha\nobserved = alpha.state\n"), true, nil
+	})
+	runtime := bullruntime.NewWithLoader(loader)
+	alpha, err := runtime.ExecuteModule("alpha", compileSource(t,
+		"state = 'starting'\n"+
+			"import beta\n"+
+			"observed = beta.observed\n"+
+			"state = 'finished'\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertModuleRepr(t, alpha, "observed", "'starting'")
+	assertModuleRepr(t, alpha, "state", "'finished'")
+	if loads["alpha"] != 0 || loads["beta"] != 1 {
+		t.Fatalf("load counts = %v, want alpha:0 beta:1", loads)
+	}
+}
+
+func TestFailedModuleInitialization(t *testing.T) {
+	loads := make(map[string]int)
+	sources := map[string]string{
+		"side":   "value = 1\n",
+		"broken": "import side\nraise ValueError('boom')\n",
+	}
+	loader := bullruntime.ModuleLoader(func(name string) (*bytecode.Code, bool, error) {
+		source, found := sources[name]
+		if !found {
+			return nil, false, nil
+		}
+		loads[name]++
+		return compileSource(t, source), true, nil
+	})
+	runtime := bullruntime.NewWithLoader(loader)
+	module, err := runtime.ExecuteModule("main", compileSource(t,
+		"attempts = 0\n"+
+			"try:\n"+
+			"    import broken\n"+
+			"except ValueError:\n"+
+			"    attempts = attempts + 1\n"+
+			"try:\n"+
+			"    import broken\n"+
+			"except ValueError:\n"+
+			"    attempts = attempts + 1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertModuleRepr(t, module, "attempts", "2")
+	if loads["broken"] != 2 || loads["side"] != 1 {
+		t.Fatalf("load counts = %v, want broken:2 side:1", loads)
+	}
+	if _, found := runtime.Module("broken"); found {
+		t.Fatal("failed module remained in the runtime cache")
+	}
+	if _, found := runtime.Module("side"); !found {
+		t.Fatal("successful side import was removed after its importer failed")
+	}
+}
+
+func TestLoaderHostFailure(t *testing.T) {
+	loadFailure := errors.New("module storage unavailable")
+	loader := bullruntime.ModuleLoader(func(name string) (*bytecode.Code, bool, error) {
+		switch name {
+		case "bridge":
+			return compileSource(t, "import unavailable\n"), true, nil
+		case "unavailable":
+			return nil, false, loadFailure
+		default:
+			return nil, false, nil
+		}
+	})
+	runtime := bullruntime.NewWithLoader(loader)
+	module, err := runtime.ExecuteModule("main", compileSource(t, "import bridge\n"))
+	if module != nil {
+		t.Fatalf("module = %#v, want nil", module)
+	}
+	if !errors.Is(err, loadFailure) {
+		t.Fatalf("error = %v, want loader failure", err)
+	}
+	for _, name := range []string{"main", "bridge", "unavailable"} {
+		if _, found := runtime.Module(name); found {
+			t.Fatalf("failed module %q remained in the runtime cache", name)
+		}
+	}
+}
+
+func assertModuleRepr(t *testing.T, module *bullruntime.Module, name, want string) {
+	t.Helper()
+	value, found := module.Get(name)
+	if !found {
+		t.Fatalf("module has no %q binding", name)
+	}
+	if got := value.Repr(); got != want {
+		t.Fatalf("%s = %s, want %s", name, got, want)
+	}
+}
+
 func TestReraiseKeepsOriginalLocation(t *testing.T) {
 	code := testCodeSpec(bytecode.CodeSpec{
 		StackSize: 1,

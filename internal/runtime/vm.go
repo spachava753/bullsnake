@@ -31,7 +31,15 @@ type raisedOutcome struct {
 
 // execute advances the active heap frame until it returns, raises a Python
 // exception, or encounters a validated-bytecode invariant failure.
-func execute(thread *threadState) (Value, *raisedOutcome, error) {
+func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		for current := thread.current; current != nil; current = current.previous {
+			current.discardImportedModule()
+		}
+	}()
 	for thread.current != nil {
 		active := thread.current
 		index := active.instruction
@@ -82,6 +90,10 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 			}
 			if active.classBuild != nil {
 				result = active.classBuild.finish(result)
+			}
+			if active.importedModule != nil {
+				result = active.importedModule
+				active.importedModule = nil
 			}
 			if thread.current == nil {
 				return result, nil, nil
@@ -176,6 +188,7 @@ func routeException(
 		for index := range current.stack {
 			current.stack[index] = nil
 		}
+		current.discardImportedModule()
 		caller := current.previous
 		if caller == nil {
 			thread.current = nil

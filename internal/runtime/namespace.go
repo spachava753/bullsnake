@@ -15,7 +15,8 @@ func (namespace *Namespace) get(name string) (Value, bool) {
 	return value, ok
 }
 
-// Module is one successfully executed module and its global namespace.
+// Module is one module object and its global namespace. The runtime may cache
+// it while its body is still initializing.
 type Module struct {
 	name    string
 	globals *Namespace

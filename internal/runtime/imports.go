@@ -3,7 +3,7 @@ package runtime
 import "strings"
 
 // executeImportName validates compiler-supplied level and from-list values,
-// then resolves one completed flat module from the frame's owning runtime.
+// then returns or starts one flat absolute module in the owning runtime.
 func executeImportName(
 	frame *frame,
 	index int,
@@ -36,14 +36,36 @@ func executeImportName(
 	if frame.runtime == nil {
 		return instructionOutcome{}, frame.failure(index, "frame has no owning runtime")
 	}
-	module, found := frame.runtime.modules[name]
-	if !found || strings.Contains(name, ".") {
-		return instructionOutcome{
-			kind:      raised,
-			exception: newException("ModuleNotFoundError", "No module named '"+name+"'"),
-		}, nil
+	if strings.Contains(name, ".") {
+		return missingModuleOutcome(name), nil
 	}
-	return pushOutcome(frame, index, module)
+	if module, found := frame.runtime.modules[name]; found {
+		return pushOutcome(frame, index, module)
+	}
+	if frame.runtime.loader == nil {
+		return missingModuleOutcome(name), nil
+	}
+	code, found, err := frame.runtime.loader(name)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if !found {
+		return missingModuleOutcome(name), nil
+	}
+	module, imported, err := frame.runtime.newModuleFrame(name, code, frame)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	frame.runtime.modules[name] = module
+	imported.importedModule = module
+	return instructionOutcome{kind: called, frame: imported}, nil
+}
+
+func missingModuleOutcome(name string) instructionOutcome {
+	return instructionOutcome{
+		kind:      raised,
+		exception: newException("ModuleNotFoundError", "No module named '"+name+"'"),
+	}
 }
 
 func validateFromList(frame *frame, index int, value Value) error {
