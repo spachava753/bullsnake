@@ -3,6 +3,8 @@ package runtime
 import (
 	"fmt"
 	"strings"
+
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 )
 
 type functionValue struct {
@@ -45,10 +47,18 @@ func executeCall(
 	}
 
 	locals := make([]Value, len(function.code.locals))
-	copy(locals, caller.stack[base+1:])
-	defaultStart := function.code.code.PositionalCount() - len(function.defaults)
-	for local := argumentCount; local < function.code.code.PositionalCount(); local++ {
+	arguments := caller.stack[base+1:]
+	positionalCount := function.code.code.PositionalCount()
+	positionalGiven := min(argumentCount, positionalCount)
+	copy(locals[:positionalGiven], arguments[:positionalGiven])
+	defaultStart := positionalCount - len(function.defaults)
+	for local := positionalGiven; local < positionalCount; local++ {
 		locals[local] = function.defaults[local-defaultStart]
+	}
+	if function.code.code.Flags()&bytecode.VarArgs != 0 {
+		extra := make([]Value, argumentCount-positionalGiven)
+		copy(extra, arguments[positionalGiven:])
+		locals[positionalCount] = &tupleValue{elements: extra}
 	}
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil
@@ -67,12 +77,13 @@ func executeCall(
 }
 
 // checkPositionalArity reports CPython-style too-many and missing-argument
-// failures for the current required-positional-only call binder.
+// failures around the current defaults and variadic-positional binder.
 func checkPositionalArity(function *functionValue, actual int) *Exception {
 	expected := function.code.code.PositionalCount()
 	required := expected - len(function.defaults)
+	variadic := function.code.code.Flags()&bytecode.VarArgs != 0
 	name := function.code.code.QualifiedName()
-	if actual >= required && actual <= expected {
+	if actual >= required && (variadic || actual <= expected) {
 		return nil
 	}
 	if actual > expected {

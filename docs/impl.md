@@ -434,12 +434,13 @@ Repeated, nested, and recursive Python calls therefore remain in one iterative
 loop.
 
 The current call binder supports positional-only and ordinary positional
-parameters, including trailing defaults captured when `def` executes. Omitted
-arguments reuse those captured objects, while supplied arguments override the
-matching prefix. Keyword arguments, keyword-only defaults, variadic parameters,
-closures, decorators at execution time, callable native values, suspension,
-exception handlers, traceback chains, cancellation, recursion limits, and
-execution budgets are not yet implemented.
+parameters, including trailing defaults captured when `def` executes and a
+variadic positional parameter. Omitted arguments reuse captured default objects;
+supplied prefix arguments override them; surplus positional arguments become a
+fresh tuple for `*args`. Keyword arguments, keyword-only defaults, variadic
+keyword parameters, closures, decorators at execution time, callable native
+values, suspension, exception handlers, traceback chains, cancellation,
+recursion limits, and execution budgets are not yet implemented.
 
 ## Object model and runtime
 

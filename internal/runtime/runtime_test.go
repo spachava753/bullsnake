@@ -182,6 +182,44 @@ func TestDefaultArgumentBinding(t *testing.T) {
 	}
 }
 
+func TestVariadicArgumentBinding(t *testing.T) {
+	code := compileSource(t, "def collect(first, *items):\n"+
+		"    local = first\n"+
+		"    return local, items\n"+
+		"empty_items = collect(1)\n"+
+		"many_items = collect(1, 2, 3, 4)\n"+
+		"def only(*items):\n"+
+		"    return items\n"+
+		"only_empty = only()\n"+
+		"only_many = only(5, 6)\n"+
+		"def defaulted(first=7, *items):\n"+
+		"    return first, items\n"+
+		"default_empty = defaulted()\n"+
+		"default_many = defaulted(8, 9, 10)\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("varargs", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"empty_items":   "(1, ())",
+		"many_items":    "(1, (2, 3, 4))",
+		"only_empty":    "()",
+		"only_many":     "(5, 6)",
+		"default_empty": "(7, ())",
+		"default_many":  "(8, (9, 10))",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1235,6 +1273,14 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name: "missing required argument before varargs",
+			source: "def collect(first, *items):\n" +
+				"    return first, items\n" +
+				"answer = collect()\n",
+			wantType:    "TypeError",
+			wantMessage: "collect() missing 1 required positional argument: 'first'",
+		},
+		{
 			name: "missing required argument before defaults",
 			source: "def choose(required, optional=2):\n" +
 				"    return required + optional\n" +
@@ -1745,6 +1791,21 @@ func TestBytecodeValidation(t *testing.T) {
 				PositionalCount: 1,
 			}),
 			wantFragment: "positional parameter count 1 exceeds local table length 0",
+		},
+		{
+			name: "variadic positional local index",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants:       []bytecode.Constant{bytecode.None()},
+				Flags:           bytecode.Optimized | bytecode.NewLocals | bytecode.VarArgs,
+				PositionalCount: 1,
+				Locals:          []string{"first"},
+			}),
+			wantFragment: "variadic positional parameter index 1 out of range",
 		},
 		{
 			name: "unsupported function attribute",

@@ -85,10 +85,18 @@ func (code *preparedCode) validateMetadata() error {
 		return code.failure(-1, "keyword-only parameters are not supported")
 	}
 	flags := code.code.Flags()
-	if flags&(bytecode.VarArgs|bytecode.VarKeywords) != 0 {
-		return code.failure(-1, "variadic function parameters are not supported")
+	if flags&bytecode.VarKeywords != 0 {
+		return code.failure(-1, "variadic keyword parameters are not supported")
 	}
-	supportedFlags := bytecode.Optimized | bytecode.NewLocals | bytecode.Nested
+	if flags&bytecode.VarArgs != 0 && positional >= len(code.locals) {
+		return code.failure(
+			-1,
+			"variadic positional parameter index %d out of range",
+			positional,
+		)
+	}
+	supportedFlags := bytecode.Optimized | bytecode.NewLocals | bytecode.Nested |
+		bytecode.VarArgs
 	if unsupported := flags &^ supportedFlags; unsupported != 0 {
 		return code.failure(-1, "unsupported code flags %s", unsupported)
 	}
