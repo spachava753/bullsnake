@@ -289,7 +289,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
 		bytecode.BinarySubscript, bytecode.StoreSubscript, bytecode.DeleteSubscript,
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
-		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate:
+		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
+		bytecode.MapMerge:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -341,7 +342,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.CallEx:
-		if instruction.Operand != bytecode.CallExNoKeywords {
+		if instruction.Operand > bytecode.CallExWithKeywords {
 			return code.failure(
 				index,
 				"unsupported CALL_EX operand %d",
@@ -484,7 +485,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 3, 0
 	case bytecode.BinaryOp, bytecode.CompareOp, bytecode.BinarySubscript,
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.SetAdd,
-		bytecode.SetUpdate, bytecode.MapUpdate:
+		bytecode.SetUpdate, bytecode.MapUpdate, bytecode.MapMerge:
 		return 2, 1
 	case bytecode.MapSet:
 		return 3, 1
@@ -493,7 +494,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.Call:
 		return int(instruction.Operand) + 1, 1
 	case bytecode.CallEx:
-		return 2, 1
+		return 2 + int(instruction.Operand), 1
 	case bytecode.UnaryOp, bytecode.GetIter, bytecode.ListToTuple:
 		return 1, 1
 	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSet,

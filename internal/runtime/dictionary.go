@@ -159,6 +159,66 @@ func executeMapUpdate(frame *frame, instruction int) (instructionOutcome, error)
 	return instructionOutcome{kind: advance}, nil
 }
 
+// executeMapMerge combines one call keyword mapping into its accumulator while
+// rejecting duplicate keys before CALL_EX receives the finished dictionary.
+func executeMapMerge(frame *frame, instruction int) (instructionOutcome, error) {
+	update, ok := frame.pop()
+	if !ok || len(frame.stack) == 0 {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	dictionary, ok := frame.stack[len(frame.stack)-1].(*dictValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"MAP_MERGE accumulator is not a dictionary",
+		)
+	}
+	name := callTargetName(frame)
+	source, ok := update.(*dictValue)
+	if !ok {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				name+"() argument after ** must be a mapping, not "+update.TypeName(),
+			),
+		}, nil
+	}
+	for _, entry := range source.entries {
+		_, found, exception := dictionary.get(entry.key)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if found {
+			keyword := "'" + entry.key.Repr() + "'"
+			if text, ok := entry.key.(*stringValue); ok {
+				keyword = quoteString(text.value)
+			}
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"TypeError",
+					name+"() got multiple values for keyword argument "+keyword,
+				),
+			}, nil
+		}
+		if exception := dictionary.set(entry.key, entry.value); exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+	}
+	return instructionOutcome{kind: advance}, nil
+}
+
+func callTargetName(frame *frame) string {
+	index := len(frame.stack) - 3
+	if index >= 0 {
+		if function, ok := frame.stack[index].(*functionValue); ok {
+			return function.code.code.QualifiedName()
+		}
+	}
+	return "function"
+}
+
 // executeStoreSubscript consumes value, container, and key in compiler stack
 // order, then applies mapping key validation and insertion semantics.
 func executeStoreSubscript(frame *frame, instruction int) (instructionOutcome, error) {

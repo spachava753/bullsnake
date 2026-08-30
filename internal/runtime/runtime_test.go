@@ -251,6 +251,40 @@ func TestCallArgumentExpansion(t *testing.T) {
 	}
 }
 
+func TestKeywordArgumentCalls(t *testing.T) {
+	code := compileSource(t, "def combine(first, second, third=3):\n"+
+		"    return first, second, third\n"+
+		"all_keywords = combine(first=1, second=2)\n"+
+		"mixed = combine(4, third=6, second=5)\n"+
+		"options = {'second': 8}\n"+
+		"unpacked = combine(7, **options)\n"+
+		"expanded = combine(*(9,), **{'second': 10, 'third': 11})\n"+
+		"def positional(first, /, second):\n"+
+		"    return first, second\n"+
+		"positional_ok = positional(12, second=13)\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("keyword calls", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"all_keywords":  "(1, 2, 3)",
+		"mixed":         "(4, 5, 6)",
+		"unpacked":      "(7, 8, 3)",
+		"expanded":      "(9, 10, 11)",
+		"positional_ok": "(12, 13)",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1304,6 +1338,62 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name: "positional and keyword duplicate",
+			source: "def combine(first, second):\n" +
+				"    return first + second\n" +
+				"answer = combine(1, first=2, second=3)\n",
+			wantType:    "TypeError",
+			wantMessage: "combine() got multiple values for argument 'first'",
+		},
+		{
+			name: "positional-only keyword",
+			source: "def combine(first, /, second):\n" +
+				"    return first + second\n" +
+				"answer = combine(first=1, second=2)\n",
+			wantType:    "TypeError",
+			wantMessage: "combine() got some positional-only arguments passed as keyword arguments: 'first'",
+		},
+		{
+			name: "unexpected keyword",
+			source: "def identity(value):\n" +
+				"    return value\n" +
+				"answer = identity(missing=1)\n",
+			wantType:    "TypeError",
+			wantMessage: "identity() got an unexpected keyword argument 'missing'",
+		},
+		{
+			name: "duplicate expanded keyword",
+			source: "def identity(value):\n" +
+				"    return value\n" +
+				"answer = identity(value=1, **{'value': 2})\n",
+			wantType:    "TypeError",
+			wantMessage: "identity() got multiple values for keyword argument 'value'",
+		},
+		{
+			name: "non-mapping keyword expansion",
+			source: "def identity(value):\n" +
+				"    return value\n" +
+				"answer = identity(**1)\n",
+			wantType:    "TypeError",
+			wantMessage: "identity() argument after ** must be a mapping, not int",
+		},
+		{
+			name: "non-string keyword",
+			source: "def identity(value):\n" +
+				"    return value\n" +
+				"answer = identity(**{1: 2})\n",
+			wantType:    "TypeError",
+			wantMessage: "identity() keywords must be strings",
+		},
+		{
+			name: "missing argument after keywords",
+			source: "def combine(first, second):\n" +
+				"    return first + second\n" +
+				"answer = combine(second=2)\n",
+			wantType:    "TypeError",
+			wantMessage: "combine() missing 1 required positional argument: 'first'",
+		},
+		{
 			name: "missing positional argument after unpacking",
 			source: "def add(left, right):\n" +
 				"    return left + right\n" +
@@ -1851,12 +1941,12 @@ func TestBytecodeValidation(t *testing.T) {
 			code: testCode(
 				0,
 				[]bytecode.Instruction{
-					{Opcode: bytecode.CallEx, Operand: bytecode.CallExWithKeywords},
+					{Opcode: bytecode.CallEx, Operand: 2},
 				},
 				nil,
 				nil,
 			),
-			wantFragment: "unsupported CALL_EX operand 1",
+			wantFragment: "unsupported CALL_EX operand 2",
 		},
 		{
 			name: "invalid unpacked call payload",
@@ -1882,6 +1972,46 @@ func TestBytecodeValidation(t *testing.T) {
 				},
 			}),
 			wantFragment: "CALL_EX positional arguments are not a tuple",
+		},
+		{
+			name: "invalid keyword call payload",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 3,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.BuildTuple},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.CallEx, Operand: bytecode.CallExWithKeywords},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children: []*bytecode.Code{
+					testCode(
+						1,
+						[]bytecode.Instruction{
+							{Opcode: bytecode.LoadConst},
+							{Opcode: bytecode.ReturnValue},
+						},
+						[]bytecode.Constant{bytecode.None()},
+						nil,
+					),
+				},
+			}),
+			wantFragment: "CALL_EX keyword arguments are not a dictionary",
+		},
+		{
+			name: "map merge underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildMap},
+					{Opcode: bytecode.MapMerge},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "operand stack underflow",
 		},
 		{
 			name: "unsupported function attribute",

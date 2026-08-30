@@ -210,6 +210,8 @@ func executeInstruction(
 		return executeMapSet(frame, index)
 	case bytecode.MapUpdate:
 		return executeMapUpdate(frame, index)
+	case bytecode.MapMerge:
+		return executeMapMerge(frame, index)
 	case bytecode.MakeFunction:
 		function := &functionValue{
 			code:    frame.code.children[instruction.Operand],
@@ -251,7 +253,11 @@ func executeInstruction(
 	case bytecode.Call:
 		return executeCall(frame, index, int(instruction.Operand))
 	case bytecode.CallEx:
-		return executeUnpackedCall(frame, index)
+		return executeUnpackedCall(
+			frame,
+			index,
+			instruction.Operand == bytecode.CallExWithKeywords,
+		)
 	case bytecode.SetAdd:
 		return executeSetAdd(frame, index)
 	case bytecode.SetUpdate:

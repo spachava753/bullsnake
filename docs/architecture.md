@@ -418,10 +418,12 @@ code and its materialized constants are cached per runtime and immutable
 code-object identity.
 
 `MAKE_FUNCTION` captures one prepared child and its defining global namespace.
-`CALL` reads inline positional arguments; `CALL_EX 0` reads a compiler-built
-positional tuple. Both bind into a fresh fast-local array, fill omitted trailing
-parameters from captured defaults, pack surplus arguments into `*args`, and
-replace the active frame with a child whose `previous` link names the caller.
+`CALL` reads inline positional arguments. `CALL_EX` reads a compiler-built
+positional tuple plus an optional ordered keyword dictionary assembled by
+`MAP_MERGE`. The binder fills captured defaults, packs surplus arguments into
+`*args`, and assigns ordinary keyword names after rejecting positional-only,
+duplicate, non-string, and unexpected names. It then replaces the active frame
+with a child whose `previous` link names the caller.
 Return restores that caller and pushes the result. Nested and recursive Python
 calls therefore remain in the iterative dispatcher. A suspended async task or
 generator will eventually own the same frame state needed to resume it.

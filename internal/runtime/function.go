@@ -37,17 +37,25 @@ func executeCall(
 		base,
 		caller.stack[base],
 		caller.stack[base+1:],
+		nil,
 	)
 }
 
+// executeUnpackedCall validates the positional tuple and optional keyword map
+// selected by CALL_EX before delegating to the shared function-frame path.
 func executeUnpackedCall(
 	caller *frame,
 	instruction int,
+	withKeywords bool,
 ) (instructionOutcome, error) {
-	if len(caller.stack) < 2 {
+	required := 2
+	if withKeywords {
+		required++
+	}
+	if len(caller.stack) < required {
 		return instructionOutcome{}, caller.failure(instruction, "operand stack underflow")
 	}
-	base := len(caller.stack) - 2
+	base := len(caller.stack) - required
 	arguments, ok := caller.stack[base+1].(*tupleValue)
 	if !ok {
 		return instructionOutcome{}, caller.failure(
@@ -55,12 +63,23 @@ func executeUnpackedCall(
 			"CALL_EX positional arguments are not a tuple",
 		)
 	}
+	var keywords *dictValue
+	if withKeywords {
+		keywords, ok = caller.stack[base+2].(*dictValue)
+		if !ok {
+			return instructionOutcome{}, caller.failure(
+				instruction,
+				"CALL_EX keyword arguments are not a dictionary",
+			)
+		}
+	}
 	return executeFunctionCall(
 		caller,
 		instruction,
 		base,
 		caller.stack[base],
 		arguments.elements,
+		keywords,
 	)
 }
 
@@ -72,6 +91,7 @@ func executeFunctionCall(
 	base int,
 	callable Value,
 	arguments []Value,
+	keywords *dictValue,
 ) (instructionOutcome, error) {
 	function, ok := callable.(*functionValue)
 	if !ok {
@@ -83,23 +103,9 @@ func executeFunctionCall(
 			),
 		}, nil
 	}
-	argumentCount := len(arguments)
-	if exception := checkPositionalArity(function, argumentCount); exception != nil {
+	locals, exception := bindFunctionArguments(function, arguments, keywords)
+	if exception != nil {
 		return instructionOutcome{kind: raised, exception: exception}, nil
-	}
-
-	locals := make([]Value, len(function.code.locals))
-	positionalCount := function.code.code.PositionalCount()
-	positionalGiven := min(argumentCount, positionalCount)
-	copy(locals[:positionalGiven], arguments[:positionalGiven])
-	defaultStart := positionalCount - len(function.defaults)
-	for local := positionalGiven; local < positionalCount; local++ {
-		locals[local] = function.defaults[local-defaultStart]
-	}
-	if function.code.code.Flags()&bytecode.VarArgs != 0 {
-		extra := make([]Value, argumentCount-positionalGiven)
-		copy(extra, arguments[positionalGiven:])
-		locals[positionalCount] = &tupleValue{elements: extra}
 	}
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil
@@ -117,57 +123,150 @@ func executeFunctionCall(
 	return instructionOutcome{kind: called, frame: child}, nil
 }
 
-// checkPositionalArity reports CPython-style too-many and missing-argument
-// failures around the current defaults and variadic-positional binder.
-func checkPositionalArity(function *functionValue, actual int) *Exception {
-	expected := function.code.code.PositionalCount()
-	required := expected - len(function.defaults)
-	variadic := function.code.code.Flags()&bytecode.VarArgs != 0
-	name := function.code.code.QualifiedName()
-	if actual >= required && (variadic || actual <= expected) {
-		return nil
+// bindFunctionArguments applies positional values, ordinary keyword values,
+// defaults, and *args in CPython's conflict and missing-argument order.
+func bindFunctionArguments(
+	function *functionValue,
+	arguments []Value,
+	keywords *dictValue,
+) ([]Value, *Exception) {
+	code := function.code.code
+	positionalCount := code.PositionalCount()
+	positionalOnly := code.PositionalOnlyCount()
+	required := positionalCount - len(function.defaults)
+	variadic := code.Flags()&bytecode.VarArgs != 0
+	locals := make([]Value, len(function.code.locals))
+
+	positionalGiven := min(len(arguments), positionalCount)
+	copy(locals[:positionalGiven], arguments[:positionalGiven])
+	if variadic {
+		extra := make([]Value, len(arguments)-positionalGiven)
+		copy(extra, arguments[positionalGiven:])
+		locals[positionalCount] = &tupleValue{elements: extra}
 	}
-	if actual > expected {
-		signature := fmt.Sprintf("%d", expected)
-		plural := expected != 1
-		if len(function.defaults) != 0 {
-			signature = fmt.Sprintf("from %d to %d", required, expected)
-			plural = true
+
+	if keywords != nil {
+		keywordNames := make([]string, len(keywords.entries))
+		var positionalOnlyNames []string
+		for index, entry := range keywords.entries {
+			name, ok := entry.key.(*stringValue)
+			if !ok {
+				return nil, newException(
+					"TypeError",
+					code.QualifiedName()+"() keywords must be strings",
+				)
+			}
+			keywordNames[index] = name.value
+			for parameter := 0; parameter < positionalOnly; parameter++ {
+				if function.code.locals[parameter] == name.value {
+					positionalOnlyNames = append(positionalOnlyNames, name.value)
+					break
+				}
+			}
 		}
-		argument := "argument"
-		if plural {
-			argument = "arguments"
+		if len(positionalOnlyNames) != 0 {
+			return nil, newException(
+				"TypeError",
+				code.QualifiedName()+
+					"() got some positional-only arguments passed as keyword arguments: '"+
+					strings.Join(positionalOnlyNames, ", ")+"'",
+			)
 		}
-		given := "were"
-		if actual == 1 {
-			given = "was"
+		for index, entry := range keywords.entries {
+			name := keywordNames[index]
+			parameterIndex := -1
+			for parameter := positionalOnly; parameter < positionalCount; parameter++ {
+				if function.code.locals[parameter] == name {
+					parameterIndex = parameter
+					break
+				}
+			}
+			if parameterIndex < 0 {
+				return nil, newException(
+					"TypeError",
+					code.QualifiedName()+
+						"() got an unexpected keyword argument '"+name+"'",
+				)
+			}
+			if locals[parameterIndex] != nil {
+				return nil, newException(
+					"TypeError",
+					code.QualifiedName()+"() got multiple values for argument '"+
+						name+"'",
+				)
+			}
+			locals[parameterIndex] = entry.value
 		}
-		return newException(
+	}
+
+	if len(arguments) > positionalCount && !variadic {
+		return nil, tooManyPositionalError(
+			function,
+			len(arguments),
+			positionalCount,
+			required,
+		)
+	}
+	var missing []string
+	for parameter := 0; parameter < required; parameter++ {
+		if locals[parameter] == nil {
+			missing = append(missing, function.code.locals[parameter])
+		}
+	}
+	if len(missing) != 0 {
+		argument := "arguments"
+		if len(missing) == 1 {
+			argument = "argument"
+		}
+		return nil, newException(
 			"TypeError",
 			fmt.Sprintf(
-				"%s() takes %s positional %s but %d %s given",
-				name,
-				signature,
+				"%s() missing %d required positional %s: %s",
+				code.QualifiedName(),
+				len(missing),
 				argument,
-				actual,
-				given,
+				formatMissingArguments(missing),
 			),
 		)
 	}
+	defaultStart := positionalCount - len(function.defaults)
+	for parameter := defaultStart; parameter < positionalCount; parameter++ {
+		if locals[parameter] == nil {
+			locals[parameter] = function.defaults[parameter-defaultStart]
+		}
+	}
+	return locals, nil
+}
 
-	missing := function.code.locals[actual:required]
-	argument := "arguments"
-	if len(missing) == 1 {
-		argument = "argument"
+func tooManyPositionalError(
+	function *functionValue,
+	actual int,
+	expected int,
+	required int,
+) *Exception {
+	signature := fmt.Sprintf("%d", expected)
+	plural := expected != 1
+	if len(function.defaults) != 0 {
+		signature = fmt.Sprintf("from %d to %d", required, expected)
+		plural = true
+	}
+	argument := "argument"
+	if plural {
+		argument = "arguments"
+	}
+	given := "were"
+	if actual == 1 {
+		given = "was"
 	}
 	return newException(
 		"TypeError",
 		fmt.Sprintf(
-			"%s() missing %d required positional %s: %s",
-			name,
-			len(missing),
+			"%s() takes %s positional %s but %d %s given",
+			function.code.code.QualifiedName(),
+			signature,
 			argument,
-			formatMissingArguments(missing),
+			actual,
+			given,
 		),
 	)
 }

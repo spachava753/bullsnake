@@ -401,7 +401,7 @@ tree before execution. Validation currently accepts `NOP`, `LOAD_CONST`,
 `BUILD_TUPLE`, `BUILD_LIST`,
 `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`,
 `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
-`MAP_SET`, `MAP_UPDATE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
+`MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
 `FOR_ITER`, integer or slice `BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and
 `DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP`; scalar
 `COMPARE_OP` variants; absolute `JUMP`; both pop-and-test jumps; both
@@ -428,21 +428,22 @@ A heap-allocated frame contains prepared code, the next instruction index, a
 preallocated operand stack, indexed fast locals, local, global, and builtin
 namespaces, and its logical predecessor. A thread state points at the active
 frame. `MAKE_FUNCTION` captures prepared child code and the defining globals.
-`CALL` binds inline positional arguments, while `CALL_EX 0` consumes a compiler-
-built positional tuple. Both create a fresh fast-local array and return a child-
-frame outcome. The dispatch loop switches to that frame without a Go call;
-`RETURN_VALUE` restores the predecessor and pushes the result.
+`CALL` binds inline positional arguments. `CALL_EX` consumes a compiler-built
+positional tuple and, for operand one, an ordered keyword dictionary assembled
+by duplicate-checking `MAP_MERGE`. Both create a fresh fast-local array and
+return a child-frame outcome. The dispatch loop switches to that frame without
+a Go call; `RETURN_VALUE` restores the predecessor and pushes the result.
 Repeated, nested, and recursive Python calls therefore remain in one iterative
 loop.
 
 The current call binder supports positional-only and ordinary positional
-parameters, including trailing defaults captured when `def` executes and a
-variadic positional parameter. Omitted arguments reuse captured default objects;
-supplied prefix arguments override them; surplus positional arguments become a
-fresh tuple for `*args`. Keyword arguments, keyword-only defaults, variadic
-keyword parameters, closures, decorators at execution time, callable native
-values, suspension, exception handlers, traceback chains, cancellation,
-recursion limits, and execution budgets are not yet implemented.
+parameters, trailing defaults, `*args`, and ordinary parameter names supplied by
+keyword or `**dict`. It rejects positional-only names, duplicate bindings,
+non-string keys, and unexpected names with Python exceptions. Keyword-only
+parameters and defaults, variadic keyword parameters, closures, decorators at
+execution time, callable native values, suspension, exception handlers,
+traceback chains, cancellation, recursion limits, and execution budgets are not
+yet implemented.
 
 ## Object model and runtime
 
