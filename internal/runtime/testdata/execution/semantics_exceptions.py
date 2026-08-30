@@ -92,3 +92,51 @@ try:
 except Exception:
     exception_parent = True
 assert exception_parent is True
+# ---
+# case: try else runs only after normal body completion
+normal = False
+handled = False
+try:
+    value = 42
+except:
+    handled = True
+else:
+    normal = True
+assert value == 42
+assert normal is True
+assert handled is False
+
+caught = False
+skipped = True
+try:
+    missing_in_body
+except:
+    caught = True
+else:
+    skipped = False
+assert caught is True
+assert skipped is True
+
+outer = False
+inner = False
+try:
+    try:
+        pass
+    except:
+        inner = True
+    else:
+        missing_in_else
+except NameError:
+    outer = True
+assert inner is False
+assert outer is True
+
+def returns_from_body():
+    try:
+        return 1
+    except:
+        return 2
+    else:
+        return 3
+
+assert returns_from_body() == 1

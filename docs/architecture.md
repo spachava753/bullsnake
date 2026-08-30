@@ -397,7 +397,8 @@ handler on each protected instruction and combines adjacent records into
 immutable, non-overlapping ranges. Each range gives the handler target and the
 stack depth to restore after a raise. The runtime can therefore skip handler
 bookkeeping on normal execution. Handler dispatch checks classes or flat tuples
-in source order and reraises when no clause matches.
+in source order and reraises when no clause matches. A normal protected body
+runs an optional `else` outside its own range before it jumps over dispatch.
 
 Bytecode currently remains in memory and evolves with the compiler and runtime.
 If cached compiled files are added, their format must include a Bullsnake magic
@@ -438,8 +439,9 @@ iterative frame chain as ordinary return and continues until a handler catches
 the exception or it crosses the host boundary. Typed clauses match immutable
 builtin exception classes through their CPython inheritance links and accept a
 flat tuple after validating every member. A final miss reraises the same
-exception and retains its original frame and instruction. Handler bindings,
-`else`, `finally`, and handled-exception state remain later slices.
+exception and retains its original frame and instruction. Normal completion can
+run `else`; exceptions there bypass this statement's handlers. Handler bindings,
+`finally`, and handled-exception state remain later slices.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one

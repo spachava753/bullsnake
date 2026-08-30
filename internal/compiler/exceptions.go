@@ -65,9 +65,6 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 	if len(statement.Finally) != 0 {
 		return compiler.error(statement.Span(), "try/finally is not compiled")
 	}
-	if len(statement.Else) != 0 {
-		return compiler.error(statement.Span(), "try/except else is not compiled")
-	}
 	if len(statement.Handlers) == 0 {
 		return compiler.error(statement.Span(), "try statement has no exception handlers")
 	}
@@ -94,6 +91,11 @@ func (compiler *compilerState) compileTryStatement(statement *compilerast.TryStm
 	compiler.activeHandlers = compiler.activeHandlers[:len(compiler.activeHandlers)-1]
 	if err != nil {
 		return err
+	}
+	if compiler.reachable {
+		if err := compiler.compileStatements(statement.Else); err != nil {
+			return err
+		}
 	}
 	if compiler.reachable {
 		if err := compiler.emitJump(bytecode.Jump, end, statement.Span()); err != nil {
