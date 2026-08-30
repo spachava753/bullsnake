@@ -632,3 +632,84 @@ except ValueError as error:
     assert error.__context__ is None
     assert error.__suppress_context__ is False
 assert ordinary_raise is True
+# ---
+# case: raised exceptions link the active handled context
+handler_context = False
+try:
+    try:
+        1 // 0
+    except ZeroDivisionError as original:
+        saved_handler_context = original
+        missing_from_handler_context
+except NameError as error:
+    handler_context = error.__context__ is saved_handler_context
+    assert error.__cause__ is None
+    assert error.__suppress_context__ is False
+assert handler_context is True
+
+def fail_in_called_frame():
+    missing_from_called_context
+
+cross_frame_context = False
+try:
+    try:
+        1 // 0
+    except ZeroDivisionError as original:
+        saved_cross_frame_context = original
+        fail_in_called_frame()
+except NameError as error:
+    cross_frame_context = error.__context__ is saved_cross_frame_context
+assert cross_frame_context is True
+
+pending = NameError('pending')
+finally_context = False
+try:
+    try:
+        raise pending
+    finally:
+        1 // 0
+except ZeroDivisionError as error:
+    finally_context = error.__context__ is pending
+assert finally_context is True
+
+explicit_context = False
+try:
+    try:
+        missing_before_explicit_context
+    except NameError as original:
+        saved_explicit_context = original
+        raise ValueError('outer') from TypeError('cause')
+except ValueError as error:
+    explicit_context = error.__context__ is saved_explicit_context
+    assert f'{error.__cause__!r}' == 'TypeError("cause")'
+    assert error.__suppress_context__ is True
+assert explicit_context is True
+
+suppressed_context = False
+try:
+    try:
+        missing_before_suppressed_context
+    except NameError as original:
+        saved_suppressed_context = original
+        raise ValueError('outer') from None
+except ValueError as error:
+    suppressed_context = error.__context__ is saved_suppressed_context
+    assert error.__cause__ is None
+    assert error.__suppress_context__ is True
+assert suppressed_context is True
+
+first = ValueError('first')
+second = TypeError('second')
+cycle_broken = False
+try:
+    raise first
+except ValueError:
+    try:
+        raise second
+    except TypeError:
+        try:
+            raise first
+        except ValueError as reraised:
+            cycle_broken = reraised.__context__ is second
+            assert second.__context__ is None
+assert cycle_broken is True

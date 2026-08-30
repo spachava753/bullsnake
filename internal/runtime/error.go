@@ -141,6 +141,26 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 	}
 }
 
+// chainContext links the active handled exception while removing a back-link
+// that would make the new context chain cyclic.
+func (exception *Exception) chainContext(context *Exception) {
+	if context == nil || context == exception {
+		return
+	}
+	seen := make(map[*Exception]struct{})
+	for current := context; current != nil; current = current.context {
+		if _, exists := seen[current]; exists {
+			break
+		}
+		seen[current] = struct{}{}
+		if current.context == exception {
+			current.context = nil
+			break
+		}
+	}
+	exception.context = context
+}
+
 // attribute returns the three chain fields exposed by current exception values,
 // translating absent exception links to Python None.
 func (exception *Exception) attribute(name string) (Value, bool) {

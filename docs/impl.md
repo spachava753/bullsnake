@@ -552,10 +552,12 @@ exception active, including while nested final suites run. Plain and combined
 break, or continue; a newer transfer from the final suite replaces the pending
 one. Explicit causes accept an exception class, instance, or `None`; invalid
 causes raise `TypeError`. The raised exception exposes read-only `__cause__`,
-`__context__`, and `__suppress_context__` attributes. Automatic implicit context
-chaining, callable native values, multiple inheritance, C3 linearization,
-metaclasses, `super`, `__new__`, general descriptors, suspension, traceback
-chains, cancellation, recursion limits, and
+`__context__`, and `__suppress_context__` attributes. Fresh raises link the
+active handled exception as context, including across function calls and final
+suites. Reraises preserve the existing chain, and cycle prevention cuts a
+back-link before assigning context. Callable native values, multiple
+inheritance, C3 linearization, metaclasses, `super`, `__new__`, general
+descriptors, suspension, traceback rendering, cancellation, recursion limits, and
 execution budgets are not yet implemented.
 
 ## Object model and runtime
@@ -756,7 +758,7 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has sixty-five successful chunks and one hundred seven expected runtime
+currently has sixty-six successful chunks and one hundred seven expected runtime
 errors; it requires no Python installation, external checkout, network access,
 or generation step.
 

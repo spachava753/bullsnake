@@ -472,8 +472,10 @@ suite before normal completion, exception propagation, return, break, or
 continue. `RAISE_VARARGS 2` normalizes an explicit cause from an exception class
 or instance, accepts `None`, and marks implicit context display as suppressed.
 Exception values expose read-only `__cause__`, `__context__`, and
-`__suppress_context__` attributes. Automatic context links and traceback
-rendering remain future runtime work.
+`__suppress_context__` attributes. A fresh raise links the active handled
+exception as context across frame calls and exceptional final suites; reraises
+keep their existing chain. Context assignment removes a back-link before it can
+form a cycle. Traceback rendering remains future runtime work.
 
 Name deletion follows the compiler-selected storage location. `DELETE_NAME`
 removes a binding from the frame's local namespace, `DELETE_GLOBAL` removes one

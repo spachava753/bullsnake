@@ -120,6 +120,7 @@ func routeException(
 		return nil, origin.failure(instruction, "raised outcome has no exception")
 	}
 	if exception.originFrame == nil {
+		exception.chainContext(activeHandledException(origin, instruction))
 		exception.originFrame = origin
 		exception.originInstruction = instruction
 	}
