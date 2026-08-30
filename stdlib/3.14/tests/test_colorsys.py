@@ -3,6 +3,7 @@
 #
 # The selected unittest methods use ordinary assertions. The upstream
 # assertTripleEqual helper is reproduced without its unittest dependency.
+# The frange generator is replaced by the exact six values it yields.
 
 import colorsys
 
@@ -100,3 +101,27 @@ for rgb, hsv in values:
     # test 360 phase shift in hue
     h, s, v = hsv
     assert_triple_equal(rgb, colorsys.hsv_to_rgb(h + 1.0, s, v))
+
+
+samples = (0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 1.0)
+
+# test_hsv_roundtrip
+for r in samples:
+    for g in samples:
+        for b in samples:
+            rgb = (r, g, b)
+            assert_triple_equal(rgb, colorsys.hsv_to_rgb(*colorsys.rgb_to_hsv(*rgb)))
+
+# test_hls_roundtrip
+for r in samples:
+    for g in samples:
+        for b in samples:
+            rgb = (r, g, b)
+            assert_triple_equal(rgb, colorsys.hls_to_rgb(*colorsys.rgb_to_hls(*rgb)))
+
+# test_yiq_roundtrip
+for r in samples:
+    for g in samples:
+        for b in samples:
+            rgb = (r, g, b)
+            assert_triple_equal(rgb, colorsys.yiq_to_rgb(*colorsys.rgb_to_yiq(*rgb)))
