@@ -700,19 +700,20 @@ Expected-failure chunks declare an exact exception family and message in
 `# error:` and `# message:` comments. `# case:` names subtests, `# module:`
 preserves module-qualified representations when needed, and `# ---` separates
 isolated programs while retaining physical fixture line numbers. The suite
-currently has forty successful chunks and ninety-six expected runtime errors;
-it requires no Python installation, external checkout, network access, or
-generation step.
+currently has fifty successful chunks and one hundred one expected runtime
+errors; it requires no Python installation, external checkout, network access,
+or generation step.
 
-Focused Go tests retain behavior that crosses the language/host boundary:
-module caching and mutation, exposed value types and representations, deferred
-annotation callables, absent bindings after empty loops, and selected frame and
-class metadata. A separate table in `validation_test.go` constructs malformed
-code objects directly. Its sixty-seven cases cover unsupported instructions,
-operands, and constant kinds; invalid integer and string descriptors; table and
-jump bounds; stack underflow, overflow, and merge mismatches; unreachable
-returns; and fallthrough. This keeps bytecode invariants out of source fixtures
-without mixing them into ordinary execution tests.
+Focused Go tests retain only behavior that crosses the language/host boundary
+or cannot be expressed by supported Python source: module cache identity and
+cross-module mutation, exported value metadata and singleton identity, direct
+annotation-format bytecode, and class-builder argument checks. A separate table
+in `validation_test.go` constructs malformed code objects directly. Its
+sixty-seven cases cover unsupported instructions, operands, and constant kinds;
+invalid integer and string descriptors; table and jump bounds; stack underflow,
+overflow, and merge mismatches; unreachable returns; and fallthrough. This
+keeps bytecode invariants out of source fixtures without mixing them into
+ordinary execution tests.
 
 Future baseline changes must update the conformance tables, pinned revision,
 case counts, and affected focused tests in the same review.

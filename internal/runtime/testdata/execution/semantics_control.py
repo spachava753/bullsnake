@@ -62,3 +62,137 @@ assert f'{different_identity!r}' == "True", "different_identity"
 assert f'{true_chain!r}' == "True", "true_chain"
 assert f'{false_chain!r}' == "False", "false_chain"
 assert f'{short_chain!r}' == "False", "short_chain"
+# ---
+# case: passing assertion
+assert True
+answer = 42
+assert answer == 42
+# ---
+# case: while loops
+count = 5
+total = 0
+while count:
+    total = total + count
+    count = count - 1
+else:
+    completed = 1
+break_count = 3
+while break_count:
+    break_count = break_count - 1
+    if break_count:
+        continue
+    break
+else:
+    skipped_else = missing
+after_break = break_count
+assert count == 0
+assert total == 15
+assert completed == 1
+assert break_count == 0
+assert after_break == 0
+# ---
+# case: tuple and list for loops
+total = 0
+for value in (1, 2, 3):
+    total = total + value
+else:
+    completed = total
+continued_total = 0
+for value in [4, 5, 6]:
+    if value == 5:
+        continue
+    continued_total = continued_total + value
+else:
+    continued = 1
+for stopped in (7, 8, 9):
+    if stopped == 8:
+        break
+else:
+    skipped_else = missing
+after_break = stopped
+for absent in ():
+    missing
+else:
+    empty_else = 11
+pair_total = 0
+for left, right in [(1, 2), (3, 4)]:
+    pair_total = pair_total + left + right
+nested_total = 0
+for outer in (1, 2):
+    for inner in [10, 20]:
+        nested_total = nested_total + outer + inner
+assert total == 6
+assert completed == 6
+assert continued_total == 10
+assert continued == 1
+assert after_break == 8
+assert empty_else == 11
+assert pair_total == 10
+assert nested_total == 66
+# ---
+# case: dictionary and set for loops
+mapping = {'first': 1, 'second': 2}
+mapping_total = 0
+mapping_position = 1
+mapping_order = 0
+for key in mapping:
+    mapping_total = mapping_total + mapping[key]
+    if key == 'first':
+        mapping_order = mapping_order + mapping_position
+    else:
+        mapping_order = mapping_order + mapping_position * 10
+    mapping_position = mapping_position + 1
+else:
+    mapping_complete = True
+set_total = 0
+set_count = 0
+for value in {3, 1, 2, 1}:
+    set_total = set_total + value
+    set_count = set_count + 1
+for absent in {*()}:
+    missing
+else:
+    empty_complete = True
+pairs = {(4, 5): 1, (6, 7): 2}
+pair_total = 0
+for left, right in pairs:
+    pair_total = pair_total + left + right
+for key in mapping:
+    mapping[key] = mapping[key] + 10
+assert f'{mapping!r}' == "{'first': 11, 'second': 12}"
+assert mapping_total == 3
+assert mapping_order == 21
+assert mapping_complete is True
+assert set_total == 6
+assert set_count == 3
+assert empty_complete is True
+assert pair_total == 22
+# ---
+# case: string and bytes for loops
+text_seen = {}
+text_count = 0
+for character in 'A\u00e9\U0001f40d\ud800':
+    text_seen[text_count] = character
+    text_count = text_count + 1
+byte_seen = {}
+byte_count = 0
+byte_total = 0
+for octet in b'\x00A\xff':
+    byte_seen[byte_count] = octet
+    byte_count = byte_count + 1
+    byte_total = byte_total + octet
+for absent_text in '':
+    missing
+else:
+    empty_text_complete = True
+for absent_byte in b'':
+    missing
+else:
+    empty_bytes_complete = True
+assert f'{text_seen!r}' == "{0: 'A', 1: 'é', 2: '🐍', 3: '\\ud800'}"
+assert text_count == 4
+assert f'{byte_seen!r}' == "{0: 0, 1: 65, 2: 255}"
+assert byte_count == 3
+assert byte_total == 320
+assert empty_text_complete is True
+assert empty_bytes_complete is True

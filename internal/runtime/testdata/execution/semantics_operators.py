@@ -108,3 +108,23 @@ assert f'{large_floor!r}' == "333333333333333333333333333333", "large_floor"
 assert f'{large_modulo!r}' == "1", "large_modulo"
 assert f'{bool_floor!r}' == "1", "bool_floor"
 assert f'{bool_modulo!r}' == "0", "bool_modulo"
+# ---
+# case: integer shifts
+left_shift = 5 << 3
+right_shift = 40 >> 3
+negative_left = -5 << 2
+negative_right = -5 >> 1
+bool_left = True << 4
+bool_right = 8 >> True
+huge_right = 1 >> 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+huge_negative_right = -1 >> 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+huge_zero_left = 0 << 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+assert left_shift == 40
+assert right_shift == 5
+assert negative_left == -20
+assert negative_right == -3
+assert bool_left == 16
+assert bool_right == 4
+assert huge_right == 0
+assert huge_negative_right == -1
+assert huge_zero_left == 0

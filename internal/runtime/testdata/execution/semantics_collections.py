@@ -262,3 +262,19 @@ assert f'{right!r}' == "14", "right"
 assert f'{list_left!r}' == "15", "list_left"
 assert f'{list_middle!r}' == "[16, 17]", "list_middle"
 assert f'{list_right!r}' == "18", "list_right"
+# ---
+# case: dictionary item assignment and deletion
+mapping = {'first': 1, 'second': 2}
+mapping['first'] = 10
+mapping['third'] = 3
+mapping[True] = 'bool'
+mapping[1] = 'integer'
+mapping[(1, 2)] = 'pair'
+del mapping['second']
+mapping['second'] = 20
+nested = {'inner': {}}
+nested['inner']['value'] = 7
+del nested['inner']['value']
+want_mapping = "{'first': 10, 'third': 3, True: 'integer', (1, 2): 'pair', 'second': 20}"
+assert f'{mapping!r}' == want_mapping
+assert f'{nested!r}' == "{'inner': {}}"

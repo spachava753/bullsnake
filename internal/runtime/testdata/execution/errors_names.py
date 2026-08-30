@@ -66,3 +66,36 @@ answer = read()
 # error: NameError
 # message: "name 'missing' is not defined"
 answer = missing
+# ---
+# case: absent imported module
+# error: ModuleNotFoundError
+# message: "No module named 'absent'"
+import absent
+# ---
+# case: empty tuple loop leaves target unbound
+# error: NameError
+# message: "name 'absent' is not defined"
+for absent in ():
+    pass
+absent
+# ---
+# case: empty set loop leaves target unbound
+# error: NameError
+# message: "name 'absent' is not defined"
+for absent in {*()}:
+    pass
+absent
+# ---
+# case: empty string loop leaves target unbound
+# error: NameError
+# message: "name 'absent_text' is not defined"
+for absent_text in '':
+    pass
+absent_text
+# ---
+# case: empty bytes loop leaves target unbound
+# error: NameError
+# message: "name 'absent_byte' is not defined"
+for absent_byte in b'':
+    pass
+absent_byte

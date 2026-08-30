@@ -89,3 +89,45 @@ assert f'{before!r}' == "0", "before"
 assert f'{result!r}' == "42", "result"
 assert f'{after!r}' == "0", "after"
 assert f'{nested_result!r}' == "7", "nested_result"
+# ---
+# case: function frames and calls
+module_value = 10
+def add(left, right):
+    total = left + right
+    return total
+first = add(40, 2)
+second = add(1, 2)
+def add_module(value):
+    return value + module_value
+with_global = add_module(5)
+def set_shared(value):
+    global shared
+    shared = value
+implicit = set_shared(7)
+def outer():
+    def inner(value):
+        local = value + 1
+        return local
+    return inner
+first_inner = outer()
+second_inner = outer()
+fresh_inner = first_inner is not second_inner
+nested = first_inner(8)
+def countdown(value):
+    if value:
+        return countdown(value - 1)
+    return value
+recursive = countdown(50)
+def identity(value, /):
+    return value
+positional_only = identity(9)
+assert first == 42
+assert second == 3
+assert with_global == 15
+assert shared == 7
+assert implicit is None
+assert fresh_inner is True
+assert nested == 9
+assert recursive == 0
+assert positional_only == 9
+assert f'{add!r}' == "<function add>"

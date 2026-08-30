@@ -1071,6 +1071,108 @@ func TestBytecodeValidation(t *testing.T) {
 	}
 }
 
+func TestAnnotationFormatRejection(t *testing.T) {
+	code := testCode(
+		1,
+		[]bytecode.Instruction{
+			{Opcode: bytecode.LoadNotImplementedError},
+			{Opcode: bytecode.RaiseVarargs, Operand: 1},
+		},
+		nil,
+		nil,
+	)
+	_, err := bullruntime.New().ExecuteModule("annotation format", code)
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Exception().TypeName(); got != "NotImplementedError" {
+		t.Errorf("exception type = %q, want NotImplementedError", got)
+	}
+	if got := raised.Exception().Message(); got != "" {
+		t.Errorf("exception message = %q, want empty", got)
+	}
+}
+
+func TestClassBuilderArguments(t *testing.T) {
+	body := testCode(
+		1,
+		[]bytecode.Instruction{
+			{Opcode: bytecode.LoadConst},
+			{Opcode: bytecode.ReturnValue},
+		},
+		[]bytecode.Constant{bytecode.None()},
+		nil,
+	)
+	tests := []struct {
+		name        string
+		code        *bytecode.Code
+		wantMessage string
+	}{
+		{
+			name: "too few",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadBuildClass},
+					{Opcode: bytecode.Call},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantMessage: "__build_class__: not enough arguments",
+		},
+		{
+			name: "body is not function",
+			code: testCode(
+				3,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadBuildClass},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst, Operand: 1},
+					{Opcode: bytecode.Call, Operand: 2},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None(), bytecode.TextString("Broken")},
+				nil,
+			),
+			wantMessage: "__build_class__: func must be a function",
+		},
+		{
+			name: "name is not string",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 3,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadBuildClass},
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Call, Operand: 2},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children:  []*bytecode.Code{body},
+			}),
+			wantMessage: "__build_class__: name is not a string",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := bullruntime.New().ExecuteModule("class error", test.code)
+			var raised *bullruntime.UncaughtException
+			if !errors.As(err, &raised) {
+				t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+			}
+			if got := raised.Exception().TypeName(); got != "TypeError" {
+				t.Errorf("exception type = %q, want TypeError", got)
+			}
+			if got := raised.Exception().Message(); got != test.wantMessage {
+				t.Errorf("exception message = %q, want %q", got, test.wantMessage)
+			}
+		})
+	}
+}
+
 func testCode(
 	stackSize int,
 	instructions []bytecode.Instruction,
