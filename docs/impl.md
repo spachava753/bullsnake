@@ -260,7 +260,9 @@ generators.
 operand stack. `SEND` forwards `None` or a sent value, falls through when the
 delegate yields, and jumps with the delegate's return value when it completes.
 Delegate exceptions enter the outer generator's ordinary protected ranges.
-`throw` and `close` forwarding through an active delegation are not implemented;
+`throw` walks nested generator delegates; a native delegate without `throw`
+receives the exception in the outer generator instead. Forwarding
+`GeneratorExit` and `close` through an active delegation is not implemented;
 those calls raise `NotImplementedError` without changing the suspended outer
 generator.
 
@@ -440,7 +442,8 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no general `iter` builtin or `throw` and `close` forwarding through `yield from`
+- no general `iter` builtin or `GeneratorExit` and `close` forwarding through
+  `yield from`
 - no generator expressions, asynchronous comprehensions, coroutines, async
   execution, or Python threads
 - no asynchronous context managers or structural matching

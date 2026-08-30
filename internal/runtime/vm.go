@@ -224,18 +224,33 @@ func routeException(
 	if exception == nil {
 		return nil, origin.failure(instruction, "raised outcome has no exception")
 	}
+	current := origin
+	currentInstruction := instruction
+	for {
+		delegate, delegatedAt, forwarded, forwardErr := forwardDelegatedException(
+			current,
+			currentInstruction,
+		)
+		if forwardErr != nil {
+			return nil, forwardErr
+		}
+		if !forwarded {
+			break
+		}
+		current = delegate
+		currentInstruction = delegatedAt
+		thread.current = current
+	}
 	if exception.originFrame == nil {
-		exception.chainContext(activeHandledException(origin, instruction))
-		exception.originFrame = origin
-		exception.originInstruction = instruction
+		exception.chainContext(activeHandledException(current, currentInstruction))
+		exception.originFrame = current
+		exception.originInstruction = currentInstruction
 	}
 	unhandled := &raisedOutcome{
 		exception:   exception,
 		frame:       exception.originFrame,
 		instruction: exception.originInstruction,
 	}
-	current := origin
-	currentInstruction := instruction
 	skipTraceback := reraise
 	for current != nil {
 		if skipTraceback {

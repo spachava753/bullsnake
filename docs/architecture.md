@@ -203,12 +203,13 @@ traceback because Python traceback objects do not exist yet.
 
 `yield from` uses a send loop in the outer generator frame. It delegates ordinary
 iteration and sent values, exposes a generator delegate's return value, and
-routes delegate failures through the outer generator's handlers. Throwing or
-closing the outer generator while delegation is active currently raises
-`NotImplementedError` and leaves it suspended; later slices must forward those
-operations to the delegate. The protocol does not yet expose a general `iter`
-builtin, and garbage collection does not implicitly close an abandoned
-generator.
+routes delegate failures through the outer generator's handlers. `throw`
+traverses nested generator delegates before recording the injection site. If a
+native delegate has no `throw` method, the exception enters the outer generator
+at the suspended expression. `GeneratorExit` and `close` forwarding remain
+unimplemented; those operations raise `NotImplementedError` and leave the outer
+generator suspended. The protocol does not yet expose a general `iter` builtin,
+and garbage collection does not implicitly close an abandoned generator.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table

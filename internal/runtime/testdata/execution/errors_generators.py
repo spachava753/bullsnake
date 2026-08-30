@@ -256,3 +256,16 @@ def outer():
 stream = outer()
 next(stream)
 stream.send(9)
+# ---
+# case: yield from propagates unhandled thrown exception
+# error: ValueError
+# message: "forwarded"
+def inner():
+    yield 1
+
+def outer():
+    yield from inner()
+
+stream = outer()
+next(stream)
+stream.throw(ValueError('forwarded'))

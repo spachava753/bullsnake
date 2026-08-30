@@ -278,12 +278,13 @@ func executeGeneratorThrowCall(
 	}
 	generator := method.generator
 	if generator.state == generatorSuspended && generator.frame != nil &&
-		generator.frame.delegation != nil {
+		generator.frame.delegation != nil && injected.class != nil &&
+		injected.class.isSubclassOf(generatorExitType) {
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(
 				"NotImplementedError",
-				"throw through yield from is not implemented",
+				"GeneratorExit through yield from is not implemented",
 			),
 		}, nil
 	}
@@ -530,6 +531,51 @@ func finishDelegation(
 	}
 	frame.instruction = target
 	return instructionOutcome{kind: advance}, nil
+}
+
+// forwardDelegatedException redirects an injection at a yield-from suspension
+// into a generator delegate, or abandons a native delegate without throw.
+func forwardDelegatedException(
+	outer *frame,
+	instruction int,
+) (*frame, int, bool, error) {
+	delegation := outer.delegation
+	if delegation == nil || instruction != delegation.yieldInstruction {
+		return nil, 0, false, nil
+	}
+	if len(outer.stack) == 0 {
+		return nil, 0, false, outer.failure(
+			instruction,
+			"yield-from delegate is missing from the operand stack",
+		)
+	}
+	delegate, ok := outer.stack[len(outer.stack)-1].(*generatorValue)
+	if !ok {
+		outer.delegation = nil
+		return nil, 0, false, nil
+	}
+	if delegate.state != generatorSuspended || delegate.frame == nil {
+		return nil, 0, false, outer.failure(
+			instruction,
+			"yield-from generator delegate is not suspended",
+		)
+	}
+	outer.instruction = delegation.yieldInstruction
+	delegate.state = generatorRunning
+	delegate.resume = generatorResume{
+		kind:        generatorDelegate,
+		target:      delegation.target,
+		instruction: delegation.sendInstruction,
+	}
+	delegate.frame.previous = outer
+	injectedAt := delegate.frame.instruction - 1
+	if injectedAt < 0 {
+		return nil, 0, false, delegate.frame.failure(
+			injectedAt,
+			"delegated exception has no suspended instruction",
+		)
+	}
+	return delegate.frame, injectedAt, true, nil
 }
 
 // suspendGenerator verifies the active frame and its resumption contract,

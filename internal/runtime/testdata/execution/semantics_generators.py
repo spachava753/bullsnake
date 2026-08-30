@@ -362,17 +362,56 @@ except StopIteration as error:
     caught = error.value
 assert f'{caught!r}' == 'ValueError("delegate failed")'
 # ---
-# case: yield from rejects throw and close forwarding explicitly
+# case: yield from forwards throw through nested generators
+def throwing_inner():
+    try:
+        yield 1
+    except ValueError as error:
+        yield error
+    return 6
+
+def throwing_middle():
+    result = yield from throwing_inner()
+    return result + 1
+
+def throwing_outer():
+    result = yield from throwing_middle()
+    return result + 1
+
+stream = throwing_outer()
+assert next(stream) == 1
+injected = ValueError('forwarded')
+assert stream.throw(injected) is injected
+try:
+    next(stream)
+except StopIteration as error:
+    throw_result = error.value
+assert throw_result == 8
+# ---
+# case: yield from throws into outer when native iterator has no throw
+def native_throw_outer():
+    try:
+        yield from (1, 2)
+    except ValueError as error:
+        yield error
+
+stream = native_throw_outer()
+assert next(stream) == 1
+injected = ValueError('outer')
+assert stream.throw(injected) is injected
+assert next(stream, 7) == 7
+# ---
+# case: yield from still rejects GeneratorExit and close forwarding
 def delegated_values():
     yield from (1, 2)
 
 stream = delegated_values()
 assert next(stream) == 1
 try:
-    stream.throw(ValueError('pending'))
+    stream.throw(GeneratorExit())
 except NotImplementedError as error:
     throw_error = error
-assert f'{throw_error!r}' == 'NotImplementedError("throw through yield from is not implemented")'
+assert f'{throw_error!r}' == 'NotImplementedError("GeneratorExit through yield from is not implemented")'
 assert next(stream) == 2
 
 stream = delegated_values()
