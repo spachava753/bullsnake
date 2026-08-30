@@ -11,64 +11,69 @@ const (
 	comprehensionResultLocal   = ".result"
 )
 
-// compileListComprehension builds a hidden function for the comprehension body,
-// then calls it with an iterator evaluated in the enclosing scope.
-func (compiler *compilerState) compileListComprehension(
-	expression *compilerast.ListComprehensionExpr,
+// compileEagerComprehension builds a hidden function for the comprehension
+// body, then calls it with an iterator evaluated in the enclosing scope.
+func (compiler *compilerState) compileEagerComprehension(
+	owner compilerast.Expr,
+	clauses []compilerast.Comprehension,
+	codeName string,
+	scopeFlag resolver.ScopeFlags,
+	buildOpcode bytecode.Opcode,
+	appendValue func(*compilerState) error,
 ) error {
-	if len(expression.Clauses) == 0 {
-		return compiler.error(expression.Span(), "list comprehension has no clauses")
+	if len(clauses) == 0 {
+		return compiler.error(owner.Span(), "%s has no clauses", codeName)
 	}
-	for _, clause := range expression.Clauses {
+	for _, clause := range clauses {
 		if clause.Async {
 			return compiler.error(clause.Range, "asynchronous comprehensions are not compiled")
 		}
 	}
 
-	scope := compiler.table.ScopeFor(expression, resolver.ComprehensionBody, 0)
-	if scope == nil || scope.Kind != resolver.FunctionScope {
-		return compiler.error(expression.Span(), "resolver has no list comprehension scope")
+	scope := compiler.table.ScopeFor(owner, resolver.ComprehensionBody, 0)
+	if scope == nil || scope.Kind != resolver.FunctionScope || scope.Flags&scopeFlag == 0 {
+		return compiler.error(owner.Span(), "resolver has no %s scope", codeName)
 	}
-	child := compiler.newComprehensionCompiler(expression, scope, "<listcomp>")
-	if err := child.emit(bytecode.BuildList, 0, expression.Span()); err != nil {
+	child := compiler.newComprehensionCompiler(owner, scope, codeName)
+	if err := child.emit(buildOpcode, 0, owner.Span()); err != nil {
 		return err
 	}
 	if err := child.emit(
 		bytecode.StoreFast,
 		child.localIDs[comprehensionResultLocal],
-		expression.Span(),
+		owner.Span(),
 	); err != nil {
 		return err
 	}
-	if err := child.compileListComprehensionClauses(expression, 0); err != nil {
+	if err := child.compileComprehensionClauses(clauses, 0, appendValue); err != nil {
 		return err
 	}
 	if err := child.emit(
 		bytecode.LoadFast,
 		child.localIDs[comprehensionResultLocal],
-		expression.Span(),
+		owner.Span(),
 	); err != nil {
 		return err
 	}
-	if err := child.emitTerminator(bytecode.ReturnValue, 0, expression.Span()); err != nil {
+	if err := child.emitTerminator(bytecode.ReturnValue, 0, owner.Span()); err != nil {
 		return err
 	}
 	code, err := child.finish()
 	if err != nil {
 		return err
 	}
-	if err := compiler.emitFunction(code, false, false, false, expression.Span()); err != nil {
+	if err := compiler.emitFunction(code, false, false, false, owner.Span()); err != nil {
 		return err
 	}
 
-	first := expression.Clauses[0]
+	first := clauses[0]
 	if err := compiler.compileExpr(first.Iterable); err != nil {
 		return err
 	}
 	if err := compiler.emit(bytecode.GetIter, 0, first.Iterable.Span()); err != nil {
 		return err
 	}
-	return compiler.emit(bytecode.Call, 1, expression.Span())
+	return compiler.emit(bytecode.Call, 1, owner.Span())
 }
 
 func (compiler *compilerState) newComprehensionCompiler(
@@ -104,13 +109,14 @@ func (compiler *compilerState) newComprehensionCompiler(
 	return child
 }
 
-// compileListComprehensionClauses emits nested iterator loops recursively; each
-// filter jumps to its own loop head and the innermost clause appends one value.
-func (compiler *compilerState) compileListComprehensionClauses(
-	expression *compilerast.ListComprehensionExpr,
+// compileComprehensionClauses emits nested iterator loops recursively; each
+// filter jumps to its own loop head and the innermost clause adds one value.
+func (compiler *compilerState) compileComprehensionClauses(
+	clauses []compilerast.Comprehension,
 	index int,
+	appendValue func(*compilerState) error,
 ) error {
-	clause := expression.Clauses[index]
+	clause := clauses[index]
 	if index == 0 {
 		if err := compiler.emit(
 			bytecode.LoadFast,
@@ -147,11 +153,15 @@ func (compiler *compilerState) compileListComprehensionClauses(
 			return err
 		}
 	}
-	if index+1 < len(expression.Clauses) {
-		if err := compiler.compileListComprehensionClauses(expression, index+1); err != nil {
+	if index+1 < len(clauses) {
+		if err := compiler.compileComprehensionClauses(
+			clauses,
+			index+1,
+			appendValue,
+		); err != nil {
 			return err
 		}
-	} else if err := compiler.appendListComprehensionElement(expression); err != nil {
+	} else if err := appendValue(compiler); err != nil {
 		return err
 	}
 	if compiler.reachable {
@@ -162,21 +172,22 @@ func (compiler *compilerState) compileListComprehensionClauses(
 	return compiler.markLabel(end, clause.Range)
 }
 
-func (compiler *compilerState) appendListComprehensionElement(
-	expression *compilerast.ListComprehensionExpr,
+func (compiler *compilerState) appendComprehensionValue(
+	expression compilerast.Expr,
+	opcode bytecode.Opcode,
 ) error {
 	if err := compiler.emit(
 		bytecode.LoadFast,
 		compiler.localIDs[comprehensionResultLocal],
-		expression.Element.Span(),
+		expression.Span(),
 	); err != nil {
 		return err
 	}
-	if err := compiler.compileExpr(expression.Element); err != nil {
+	if err := compiler.compileExpr(expression); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.ListAppend, 0, expression.Element.Span()); err != nil {
+	if err := compiler.emit(opcode, 0, expression.Span()); err != nil {
 		return err
 	}
-	return compiler.emit(bytecode.PopTop, 0, expression.Element.Span())
+	return compiler.emit(bytecode.PopTop, 0, expression.Span())
 }

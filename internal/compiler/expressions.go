@@ -3,6 +3,7 @@ package compiler
 import (
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
 // compileExpr emits one expression and leaves exactly one value on the stack.
@@ -76,7 +77,30 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 	case *compilerast.DictExpr:
 		return compiler.compileDictDisplay(expression)
 	case *compilerast.ListComprehensionExpr:
-		return compiler.compileListComprehension(expression)
+		return compiler.compileEagerComprehension(
+			expression,
+			expression.Clauses,
+			"<listcomp>",
+			resolver.ListComprehension,
+			bytecode.BuildList,
+			func(child *compilerState) error {
+				return child.appendComprehensionValue(
+					expression.Element,
+					bytecode.ListAppend,
+				)
+			},
+		)
+	case *compilerast.SetComprehensionExpr:
+		return compiler.compileEagerComprehension(
+			expression,
+			expression.Clauses,
+			"<setcomp>",
+			resolver.SetComprehension,
+			bytecode.BuildSet,
+			func(child *compilerState) error {
+				return child.appendComprehensionValue(expression.Element, bytecode.SetAdd)
+			},
+		)
 	case *compilerast.UnaryExpr:
 		return compiler.compileUnary(expression)
 	case *compilerast.BinaryExpr:

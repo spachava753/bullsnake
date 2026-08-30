@@ -236,3 +236,13 @@ values = [item for item in 1]
 # message: "name 'item' is not defined"
 values = [item for item in ()]
 item
+# ---
+# case: non-iterable set comprehension
+# error: TypeError
+# message: "'int' object is not iterable"
+values = {item for item in 1}
+# ---
+# case: unhashable set comprehension value
+# error: TypeError
+# message: "cannot use 'list' as a set element (unhashable type: 'list')"
+values = {item for item in ([1],)}

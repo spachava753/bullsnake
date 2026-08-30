@@ -283,6 +283,23 @@ def build(groups, offset):
 result = build(((1, 2), (), (3,)), 10)
 assert f'{result!r}' == "([11, 12, 13], 3)", "result"
 # ---
+# case: set comprehensions
+outer = (1, 2, 1, 3)
+values = {outer * 10 for outer in outer if outer != 2}
+empty = {item for item in ()}
+pairs = {(left, right) for left in (1, 2) for right in (3, 4) if left + right != 5}
+assert f'{values!r}' == "{10, 30}", "values"
+assert f'{outer!r}' == "(1, 2, 1, 3)", "outer"
+assert f'{empty!r}' == "set()", "empty"
+assert f'{pairs!r}' == "{(1, 3), (2, 4)}", "pairs"
+# ---
+# case: set comprehension closure
+def unique(groups, offset):
+    return {item + offset for group in groups if group for item in group if item}
+
+result = unique(((1, 2, 1), (), (3,)), 10)
+assert f'{result!r}' == "{11, 12, 13}", "result"
+# ---
 # case: dictionary item assignment and deletion
 mapping = {'first': 1, 'second': 2}
 mapping['first'] = 10
