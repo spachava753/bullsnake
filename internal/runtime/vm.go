@@ -146,6 +146,33 @@ func executeInstruction(
 			}, nil
 		}
 		return pushOutcome(frame, index, value)
+	case bytecode.LoadAttr:
+		owner, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		name := frame.code.names[instruction.Operand]
+		class, isType := owner.(*typeValue)
+		if !isType {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"AttributeError",
+					"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
+				),
+			}, nil
+		}
+		value, found := class.namespace.get(name)
+		if !found {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"AttributeError",
+					"type object '"+class.name+"' has no attribute '"+name+"'",
+				),
+			}, nil
+		}
+		return pushOutcome(frame, index, value)
 	case bytecode.StoreName:
 		value, ok := frame.pop()
 		if !ok {

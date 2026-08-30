@@ -396,13 +396,13 @@ Preparation copies the instruction, name, local, cell, free-variable, and
 child-code tables, materializes code constants as runtime values, and validates
 the complete code tree before execution. Validation currently accepts `NOP`,
 `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`,
-`LOAD_GLOBAL`, `STORE_GLOBAL`, `LOAD_DEREF`, `STORE_DEREF`, `DELETE_DEREF`,
-`LOAD_CLOSURE`, `LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`,
-`MAKE_FUNCTION`, positional-default, keyword-default, closure, and annotation
-`SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms, one-argument
-`RAISE_VARARGS`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`,
-`BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`,
-`LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
+`LOAD_GLOBAL`, `STORE_GLOBAL`, `LOAD_ATTR`, `LOAD_DEREF`, `STORE_DEREF`,
+`DELETE_DEREF`, `LOAD_CLOSURE`, `LOAD_NOT_IMPLEMENTED_ERROR`,
+`LOAD_BUILD_CLASS`, `MAKE_FUNCTION`, positional-default, keyword-default,
+closure, and annotation `SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms,
+one-argument `RAISE_VARARGS`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`,
+`BUILD_LIST`, `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`,
+`LIST_EXTEND`, `LIST_TO_TUPLE`, `SET_ADD`, `SET_UPDATE`,
 `MAP_SET`, `MAP_UPDATE`, `MAP_MERGE`, `UNPACK_SEQUENCE`, `UNPACK_EX`, `GET_ITER`,
 `FOR_ITER`, integer or slice `BINARY_SUBSCR`, and mapping `STORE_SUBSCR` and
 `DELETE_SUBSCR`; scalar `UNARY_OP`; selected integer `BINARY_OP`; scalar
@@ -443,7 +443,9 @@ and recursive Python calls therefore remain in one iterative loop.
 fresh local namespace. A class-build record on that body frame converts return
 into a basic type value, retains the namespace, and fills a returned `__class__`
 cell before resuming the defining frame. Module execution seeds `__name__` so
-class bodies can initialize `__module__`.
+class bodies can initialize `__module__`. `LOAD_ATTR` reads retained namespace
+entries from basic type objects; class-level functions remain raw functions
+because descriptor binding is not implemented.
 
 The current call binder supports positional-only, ordinary positional, and
 keyword-only parameters; trailing positional defaults; sparse keyword-only
@@ -464,8 +466,9 @@ without evaluating annotation expressions during definition or ordinary calls.
 Its internal format guard can raise `NotImplementedError`; Python attribute
 lookup and `annotationlib` integration cannot request annotation maps yet.
 Callable native values, other raise forms, class bases, metaclasses, instances,
-attribute access, suspension, exception handlers, traceback chains,
-cancellation, recursion limits, and execution budgets are not yet implemented.
+descriptor binding, attribute mutation, suspension, exception handlers,
+traceback chains, cancellation, recursion limits, and execution budgets are not
+yet implemented.
 
 ## Object model and runtime
 
@@ -479,7 +482,8 @@ runtime and code object. String objects accept UTF-8 plus the compiler's
 deliberate WTF-8 encoding for lone surrogates; bytes objects retain arbitrary
 payloads. Stable representations escape non-printable text and bytes without
 losing their contents. Basic type objects retain their class-body namespace and
-use module-qualified class representations; namespace access is not exposed yet.
+use module-qualified class representations. `LOAD_ATTR` exposes raw namespace
+entries; mutation, inheritance, and descriptors remain deferred.
 
 Fixed tuple and list displays consume their elements in source order and
 allocate heap-backed sequence values. Exact and starred unpacking arrange stack

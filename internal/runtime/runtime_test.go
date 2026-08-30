@@ -650,6 +650,43 @@ func TestClassBuilderArguments(t *testing.T) {
 	}
 }
 
+func TestTypeAttributeReads(t *testing.T) {
+	code := compileSource(t, "class Config:\n"+
+		"    value = 42\n"+
+		"    def add(self, amount):\n"+
+		"        return __class__.value + amount\n"+
+		"    def owner(self):\n"+
+		"        return __class__\n"+
+		"loaded = Config.value\n"+
+		"called = Config.add(None, 8)\n"+
+		"owner = Config.owner(None)\n"+
+		"def make(offset):\n"+
+		"    class Inner:\n"+
+		"        value = offset\n"+
+		"    return Inner\n"+
+		"nested_value = make(9).value\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("attributes", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"loaded":       "42",
+		"called":       "50",
+		"owner":        "<class 'attributes.Config'>",
+		"nested_value": "9",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+
@@ -1703,6 +1740,14 @@ func TestPythonExceptions(t *testing.T) {
 		wantMessage string
 	}{
 		{
+			name: "missing type attribute",
+			source: "class Empty:\n" +
+				"    pass\n" +
+				"answer = Empty.missing\n",
+			wantType:    "AttributeError",
+			wantMessage: "type object 'Empty' has no attribute 'missing'",
+		},
+		{
 			name: "unbound local cell",
 			source: "def outer():\n" +
 				"    def read():\n" +
@@ -2307,7 +2352,7 @@ func TestBytecodeValidation(t *testing.T) {
 						1,
 						[]bytecode.Instruction{
 							{Opcode: bytecode.LoadConst},
-							{Opcode: bytecode.LoadAttr},
+							{Opcode: bytecode.LoadAssertionError},
 							{Opcode: bytecode.ReturnValue},
 						},
 						[]bytecode.Constant{bytecode.None()},
@@ -2315,7 +2360,7 @@ func TestBytecodeValidation(t *testing.T) {
 					),
 				},
 			}),
-			wantFragment: "unsupported opcode LOAD_ATTR",
+			wantFragment: "unsupported opcode LOAD_ASSERTION_ERROR",
 		},
 		{
 			name: "function parameters exceed locals",
@@ -3052,13 +3097,13 @@ func TestBytecodeValidation(t *testing.T) {
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.StoreName},
-					{Opcode: bytecode.LoadAttr},
+					{Opcode: bytecode.LoadAssertionError},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
 				[]string{"changed"},
 			),
-			wantFragment: "unsupported opcode LOAD_ATTR",
+			wantFragment: "unsupported opcode LOAD_ASSERTION_ERROR",
 		},
 		{
 			name: "unsupported binary operation",
@@ -3153,6 +3198,33 @@ func TestBytecodeValidation(t *testing.T) {
 				[]string{"present"},
 			),
 			wantFragment: "name index 1 out of range",
+		},
+		{
+			name: "attribute name index",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadAttr, Operand: 1},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				[]string{"present"},
+			),
+			wantFragment: "name index 1 out of range",
+		},
+		{
+			name: "attribute stack underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadAttr},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				[]string{"attribute"},
+			),
+			wantFragment: "operand stack underflow",
 		},
 		{
 			name: "stack underflow",

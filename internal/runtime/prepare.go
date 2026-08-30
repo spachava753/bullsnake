@@ -354,7 +354,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(index, "constant index %d out of range", instruction.Operand)
 		}
 		return nil
-	case bytecode.LoadName, bytecode.StoreName, bytecode.LoadGlobal, bytecode.StoreGlobal:
+	case bytecode.LoadName, bytecode.StoreName, bytecode.LoadGlobal, bytecode.StoreGlobal,
+		bytecode.LoadAttr:
 		if uint64(instruction.Operand) >= uint64(len(code.names)) {
 			return code.failure(index, "name index %d out of range", instruction.Operand)
 		}
@@ -556,7 +557,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return int(instruction.Operand) + 1, 1
 	case bytecode.CallEx:
 		return 2 + int(instruction.Operand), 1
-	case bytecode.UnaryOp, bytecode.GetIter, bytecode.ListToTuple:
+	case bytecode.UnaryOp, bytecode.GetIter, bytecode.ListToTuple,
+		bytecode.LoadAttr:
 		return 1, 1
 	case bytecode.BuildTuple, bytecode.BuildList, bytecode.BuildSet,
 		bytecode.BuildSlice:
