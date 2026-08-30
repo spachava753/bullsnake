@@ -120,3 +120,9 @@ assert max(1.0, 3.0, 2.0) == 3.0
 assert min(1.0, -2.0, 0.0) == -2.0
 assert max('alpha', 'gamma', 'beta') == 'gamma'
 assert min(b'alpha', b'gamma', b'beta') == b'alpha'
+# ---
+# case: scalar int builtin
+assert int(4.9) == 4
+assert int(-4.9) == -4
+assert int(7) == 7
+assert int(True) == 1

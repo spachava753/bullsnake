@@ -263,9 +263,10 @@ Current float arithmetic covers addition, subtraction, multiplication, true
 division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
-The builtin namespace contains the current exception classes plus positional
-`max` and `min` calls with two or more arguments. Their iterable and keyword
-forms remain unsupported.
+The builtin namespace contains the current exception classes, scalar numeric
+`int`, and positional `max` and `min` calls with two or more arguments. String
+and base forms of `int`, and the iterable and keyword forms of `max` and `min`,
+remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

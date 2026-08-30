@@ -77,3 +77,26 @@ values = (
 for rgb, hls in values:
     assert_triple_equal(hls, colorsys.rgb_to_hls(*rgb))
     assert_triple_equal((1.0, 1.0, 1.0), colorsys.hls_to_rgb(*hls))
+
+
+# test_hsv_values
+values = [
+    # rgb, hsv
+    ((0.0, 0.0, 0.0), (0, 0.0, 0.0)),  # black
+    ((0.0, 0.0, 1.0), (4.0 / 6.0, 1.0, 1.0)),  # blue
+    ((0.0, 1.0, 0.0), (2.0 / 6.0, 1.0, 1.0)),  # green
+    ((0.0, 1.0, 1.0), (3.0 / 6.0, 1.0, 1.0)),  # cyan
+    ((1.0, 0.0, 0.0), (0, 1.0, 1.0)),  # red
+    ((1.0, 0.0, 1.0), (5.0 / 6.0, 1.0, 1.0)),  # purple
+    ((1.0, 1.0, 0.0), (1.0 / 6.0, 1.0, 1.0)),  # yellow
+    ((1.0, 1.0, 1.0), (0, 0.0, 1.0)),  # white
+    ((0.5, 0.5, 0.5), (0, 0.0, 0.5)),  # grey
+]
+
+for rgb, hsv in values:
+    assert_triple_equal(hsv, colorsys.rgb_to_hsv(*rgb))
+    assert_triple_equal(rgb, colorsys.hsv_to_rgb(*hsv))
+
+    # test 360 phase shift in hue
+    h, s, v = hsv
+    assert_triple_equal(rgb, colorsys.hsv_to_rgb(h + 1.0, s, v))

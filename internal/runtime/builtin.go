@@ -1,6 +1,10 @@
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+	"math/big"
+)
 
 type builtinFunctionValue struct {
 	name string
@@ -33,8 +37,49 @@ func executeBuiltinFunctionCall(
 }
 
 var builtinFunctions = []*builtinFunctionValue{
+	{name: "int", call: builtinInt},
 	{name: "max", call: builtinMax},
 	{name: "min", call: builtinMin},
+}
+
+// builtinInt converts the currently supported scalar numeric values.
+func builtinInt(arguments []Value, keywords *dictValue) (Value, *Exception) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		return nil, newException("TypeError", "int() keyword arguments are unsupported")
+	}
+	if len(arguments) != 1 {
+		return nil, newException("TypeError", "int() requires exactly one argument")
+	}
+	switch value := arguments[0].(type) {
+	case *intValue:
+		return value, nil
+	case *boolValue:
+		var integer big.Int
+		if value.value {
+			integer.SetInt64(1)
+		}
+		return &intValue{value: integer}, nil
+	case *floatValue:
+		if math.IsInf(value.value, 0) {
+			return nil, newException(
+				"OverflowError",
+				"cannot convert float infinity to integer",
+			)
+		}
+		if math.IsNaN(value.value) {
+			return nil, newException(
+				"ValueError",
+				"cannot convert float NaN to integer",
+			)
+		}
+		integer, _ := new(big.Float).SetFloat64(value.value).Int(nil)
+		return &intValue{value: *integer}, nil
+	default:
+		return nil, newException(
+			"TypeError",
+			"int() argument must be a real number, not '"+value.TypeName()+"'",
+		)
+	}
 }
 
 func builtinMax(arguments []Value, keywords *dictValue) (Value, *Exception) {
