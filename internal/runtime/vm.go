@@ -53,10 +53,14 @@ func execute(thread *threadState) (Value, *raisedOutcome, error) {
 			thread.current = outcome.frame
 		case returned:
 			thread.current = active.previous
-			if thread.current == nil {
-				return outcome.value, nil, nil
+			result := outcome.value
+			if active.classBuild != nil {
+				result = active.classBuild.finish(result)
 			}
-			if !thread.current.push(outcome.value) {
+			if thread.current == nil {
+				return result, nil, nil
+			}
+			if !thread.current.push(result) {
 				return nil, nil, thread.current.failure(
 					thread.current.instruction,
 					"operand stack overflow while returning to caller",
@@ -90,6 +94,8 @@ func executeInstruction(
 		return pushOutcome(frame, index, value)
 	case bytecode.LoadNotImplementedError:
 		return pushOutcome(frame, index, newException("NotImplementedError", ""))
+	case bytecode.LoadBuildClass:
+		return pushOutcome(frame, index, buildClassSingleton)
 	case bytecode.LoadName:
 		name := frame.code.names[instruction.Operand]
 		value, ok := frame.lookupName(name)

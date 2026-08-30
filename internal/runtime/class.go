@@ -1,0 +1,124 @@
+package runtime
+
+type buildClassValue struct{}
+
+func (*buildClassValue) TypeName() string { return "builtin_function_or_method" }
+func (*buildClassValue) Repr() string     { return "<built-in function __build_class__>" }
+func (*buildClassValue) isValue()         {}
+
+var buildClassSingleton = &buildClassValue{}
+
+type typeValue struct {
+	name          string
+	qualifiedName string
+	module        string
+	namespace     *Namespace
+}
+
+func (*typeValue) TypeName() string { return "type" }
+func (class *typeValue) Repr() string {
+	if class.module == "" {
+		return "<class '" + class.qualifiedName + "'>"
+	}
+	return "<class '" + class.module + "." + class.qualifiedName + "'>"
+}
+func (*typeValue) isValue() {}
+
+type classBuild struct {
+	name          string
+	qualifiedName string
+	module        string
+	namespace     *Namespace
+}
+
+func (build *classBuild) finish(bodyResult Value) Value {
+	class := &typeValue{
+		name:          build.name,
+		qualifiedName: build.qualifiedName,
+		module:        build.module,
+		namespace:     build.namespace,
+	}
+	if classCell, ok := bodyResult.(*cellValue); ok {
+		classCell.value = class
+	}
+	return class
+}
+
+// executeBuildClassCall starts one no-base class body with its own local
+// namespace. The dispatch loop finishes type creation when this frame returns.
+func executeBuildClassCall(
+	caller *frame,
+	instruction int,
+	base int,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if len(arguments) < 2 {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "__build_class__: not enough arguments"),
+		}, nil
+	}
+	body, ok := arguments[0].(*functionValue)
+	if !ok {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "__build_class__: func must be a function"),
+		}, nil
+	}
+	name, ok := arguments[1].(*stringValue)
+	if !ok {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "__build_class__: name is not a string"),
+		}, nil
+	}
+	if len(arguments) != 2 || (keywords != nil && len(keywords.entries) != 0) {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "class bases and keywords are not supported"),
+		}, nil
+	}
+	locals, exception := bindFunctionArguments(body, nil, nil)
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	deref, initialized := initializeDeref(body.code, locals, body.closure)
+	if !initialized {
+		return instructionOutcome{}, caller.failure(
+			instruction,
+			"class body closure does not match its free variables",
+		)
+	}
+	for index := base; index < len(caller.stack); index++ {
+		caller.stack[index] = nil
+	}
+	caller.stack = caller.stack[:base]
+	namespace := newNamespace()
+	module := ""
+	if value, found := body.globals.get("__name__"); found {
+		if moduleName, isString := value.(*stringValue); isString {
+			module = moduleName.value
+		}
+	}
+	child := &frame{
+		code:       body.code,
+		stack:      make([]Value, 0, body.code.stackSize),
+		fastLocals: locals,
+		deref:      deref,
+		locals:     namespace,
+		globals:    body.globals,
+		builtins:   caller.builtins,
+		previous:   caller,
+		classBuild: &classBuild{
+			name:          name.value,
+			qualifiedName: body.code.code.QualifiedName(),
+			module:        module,
+			namespace:     namespace,
+		},
+	}
+	return instructionOutcome{kind: called, frame: child}, nil
+}
+
+var _ Value = (*buildClassValue)(nil)
+var _ Value = (*typeValue)(nil)

@@ -27,6 +27,7 @@ func (runtime *Runtime) ExecuteModule(name string, code *bytecode.Code) (*Module
 		return nil, err
 	}
 	globals := newNamespace()
+	globals.values["__name__"] = &stringValue{value: name}
 	module := &Module{name: name, globals: globals}
 	fastLocals := make([]Value, len(prepared.locals))
 	deref, ok := initializeDeref(prepared, fastLocals, nil)

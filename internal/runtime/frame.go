@@ -12,6 +12,7 @@ type frame struct {
 	globals     *Namespace
 	builtins    *Namespace
 	previous    *frame
+	classBuild  *classBuild
 }
 
 type threadState struct {

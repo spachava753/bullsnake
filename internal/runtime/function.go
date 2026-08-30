@@ -96,6 +96,15 @@ func executeFunctionCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
+	if _, buildClass := callable.(*buildClassValue); buildClass {
+		return executeBuildClassCall(
+			caller,
+			instruction,
+			base,
+			arguments,
+			keywords,
+		)
+	}
 	function, ok := callable.(*functionValue)
 	if !ok {
 		return instructionOutcome{

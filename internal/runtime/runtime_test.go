@@ -523,6 +523,133 @@ func TestAnnotationFormatRejection(t *testing.T) {
 	}
 }
 
+func TestConstructedClassDefinitions(t *testing.T) {
+	code := compileSource(t, "marker = 0\n"+
+		"class Empty:\n"+
+		"    global marker\n"+
+		"    marker = 41\n"+
+		"    value = 42\n"+
+		"    def method(self):\n"+
+		"        return 7\n"+
+		"created = Empty\n"+
+		"same = created is Empty\n"+
+		"observed_marker = marker\n"+
+		"def preserve(cls):\n"+
+		"    return cls\n"+
+		"@preserve\n"+
+		"class Decorated:\n"+
+		"    pass\n"+
+		"decorated = Decorated\n"+
+		"def make(value):\n"+
+		"    class Inner:\n"+
+		"        global marker\n"+
+		"        marker = value\n"+
+		"    return Inner\n"+
+		"nested = make(43)\n"+
+		"nested_marker = marker\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("classes", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"created":         "<class 'classes.Empty'>",
+		"same":            "True",
+		"observed_marker": "41",
+		"decorated":       "<class 'classes.Decorated'>",
+		"nested":          "<class 'classes.make.<locals>.Inner'>",
+		"nested_marker":   "43",
+	}
+	for name, expected := range want {
+		value, ok := module.Get(name)
+		if !ok {
+			t.Fatalf("module has no %q binding", name)
+		}
+		if got := value.Repr(); got != expected {
+			t.Errorf("%s = %s, want %s", name, got, expected)
+		}
+	}
+}
+
+func TestClassBuilderArguments(t *testing.T) {
+	body := testCode(
+		1,
+		[]bytecode.Instruction{
+			{Opcode: bytecode.LoadConst},
+			{Opcode: bytecode.ReturnValue},
+		},
+		[]bytecode.Constant{bytecode.None()},
+		nil,
+	)
+	tests := []struct {
+		name        string
+		code        *bytecode.Code
+		wantMessage string
+	}{
+		{
+			name: "too few",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadBuildClass},
+					{Opcode: bytecode.Call},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantMessage: "__build_class__: not enough arguments",
+		},
+		{
+			name: "body is not function",
+			code: testCode(
+				3,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadBuildClass},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst, Operand: 1},
+					{Opcode: bytecode.Call, Operand: 2},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None(), bytecode.TextString("Broken")},
+				nil,
+			),
+			wantMessage: "__build_class__: func must be a function",
+		},
+		{
+			name: "name is not string",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 3,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadBuildClass},
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.Call, Operand: 2},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children:  []*bytecode.Code{body},
+			}),
+			wantMessage: "__build_class__: name is not a string",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := bullruntime.New().ExecuteModule("class error", test.code)
+			var raised *bullruntime.UncaughtException
+			if !errors.As(err, &raised) {
+				t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+			}
+			if got := raised.Exception().TypeName(); got != "TypeError" {
+				t.Errorf("exception type = %q, want TypeError", got)
+			}
+			if got := raised.Exception().Message(); got != test.wantMessage {
+				t.Errorf("exception message = %q, want %q", got, test.wantMessage)
+			}
+		})
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+

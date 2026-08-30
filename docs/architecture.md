@@ -399,13 +399,13 @@ added after semantic conformance and profiling.
 
 ## Virtual machine and frames
 
-The current VM executes module and basic function code with heap-allocated
-frames. A frame contains prepared immutable code, the next instruction index,
-an operand stack, indexed fast locals, one cell/free-variable dereference array,
-local, global, and builtin namespaces, and a link to its logical caller. A
-thread state points to the active frame. The iterative dispatcher handles normal
-progress, Python calls, return, and Python exception outcomes without using a Go
-call as the definition of a Python frame.
+The current VM executes module, function, and basic class-body code with
+heap-allocated frames. A frame contains prepared immutable code, the next
+instruction index, an operand stack, indexed fast locals, one cell/free-variable
+dereference array, local, global, and builtin namespaces, and a link to its
+logical caller. A thread state points to the active frame. The iterative
+dispatcher handles normal progress, Python calls, return, and Python exception
+outcomes without using a Go call as the definition of a Python frame.
 
 Before execution, the runtime copies the code tables it consumes, materializes
 compiler constants as runtime values, and recursively prepares every child code
@@ -438,8 +438,14 @@ rejects positional-only, duplicate, non-string, and unexpected names when the
 signature does not provide a legal destination. It then replaces the active
 frame with a child whose `previous` link names the caller.
 Return restores that caller and pushes the result. Nested and recursive Python
-calls therefore remain in the iterative dispatcher. A suspended async task or
-generator will eventually own the same frame state needed to resume it.
+calls therefore remain in the iterative dispatcher. `LOAD_BUILD_CLASS` pushes
+an internal class builder. For a no-base class, it runs the body function in a
+fresh namespace and records a class-build continuation on that frame. Return
+turns the retained namespace into a type value, fills a returned `__class__`
+cell when present, and then resumes the defining frame. Bases, metaclasses,
+instances, descriptors, and attribute access require later object-model slices.
+A suspended async task or generator will eventually own the same frame state
+needed to resume it.
 
 As more execution forms enter the supported subset, the VM must add outcomes
 for yield, await suspension, exception propagation through handlers, scheduler
@@ -452,10 +458,10 @@ The runtime has a sealed internal `Value` interface. Immutable singleton
 objects represent `None`, both booleans, and ellipsis. Heap-backed objects
 represent arbitrary-precision integers, binary64 floats, complex numbers,
 strings, bytes, fixed tuples and lists, dictionaries, sets, slices, collection
-iterators, Python functions, and Python exceptions. Every live reference remains
-in a typed pointer or interface visible to Go's collector. Module bindings use a
-string-keyed namespace; Python dictionaries use their own value type and
-insertion-ordered entries.
+iterators, Python functions, basic type objects, and Python exceptions. Every
+live reference remains in a typed pointer or interface visible to Go's collector.
+Module bindings and basic class bodies use string-keyed namespaces; Python
+dictionaries use their own value type and insertion-ordered entries.
 
 The current object operations cover fixed scalar truth, numeric unary
 operators, selected arbitrary-precision integer binary operators, scalar and
@@ -463,11 +469,11 @@ tuple equality, object identity, fixed and starred tuple/list construction and
 unpacking, tuple/list/dictionary/set/text/bytes iteration, tuple/list/text/bytes
 subscription, fixed and unpacked dictionary displays, fixed and starred set
 displays, dictionary subscription and item mutation, and
-tuple/list/dict/set/text/bytes membership. Dictionary key and set element matching are linear until
-user-defined hash and equality protocols justify hash tables. Dictionary
-iterators detect key insertion and deletion while allowing value replacement.
-Text indexes count decoded Python code points over UTF-8/WTF-8 storage; bytes
-indexes count raw bytes.
+tuple/list/dict/set/text/bytes membership. Dictionary key and set element
+matching are linear until user-defined hash and equality protocols justify hash
+tables. Dictionary iterators detect key insertion and deletion while allowing
+value replacement. Text indexes count decoded Python code points over UTF-8/WTF-8
+storage; bytes indexes count raw bytes.
 Later user-defined protocols must reuse the VM's outcome and exception paths.
 
 The object model can become the largest compatibility component, so it should

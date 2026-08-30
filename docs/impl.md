@@ -27,8 +27,8 @@ describes the code that exists.
 | Lexer | Initial Python 3.14 behavior implemented |
 | Parser and resolver | Initial Python 3.14 parser and name resolution implemented |
 | Compiler and bytecode | Initial Python 3.14-derived bytecode subset implemented |
-| Virtual machine and frames | Initial module execution slice implemented |
-| Object model and runtime | Initial scalar, sequence, and mapping values implemented |
+| Virtual machine and frames | Modules, functions, and basic classes execute |
+| Object model and runtime | Initial scalar, collection, function, and type values |
 | Import system and standard library | Not implemented |
 | Go embedding API | Not implemented |
 | Async and scheduling | Not implemented |
@@ -397,8 +397,8 @@ child-code tables, materializes code constants as runtime values, and validates
 the complete code tree before execution. Validation currently accepts `NOP`,
 `LOAD_CONST`, `LOAD_NAME`, `STORE_NAME`, `LOAD_FAST`, `STORE_FAST`,
 `LOAD_GLOBAL`, `STORE_GLOBAL`, `LOAD_DEREF`, `STORE_DEREF`, `DELETE_DEREF`,
-`LOAD_CLOSURE`, `LOAD_NOT_IMPLEMENTED_ERROR`, `MAKE_FUNCTION`,
-positional-default, keyword-default, closure, and annotation
+`LOAD_CLOSURE`, `LOAD_NOT_IMPLEMENTED_ERROR`, `LOAD_BUILD_CLASS`,
+`MAKE_FUNCTION`, positional-default, keyword-default, closure, and annotation
 `SET_FUNCTION_ATTRIBUTE`, `CALL`, both `CALL_EX` forms, one-argument
 `RAISE_VARARGS`, `POP_TOP`, `COPY`, `SWAP`, fixed `BUILD_TUPLE`, `BUILD_LIST`,
 `BUILD_SET`, `BUILD_MAP`, and `BUILD_SLICE`; `LIST_APPEND`, `LIST_EXTEND`,
@@ -439,6 +439,11 @@ dictionary assembled by duplicate-checking `MAP_MERGE`. Both return a
 child-frame outcome. The dispatch loop switches to that frame without a Go call;
 `RETURN_VALUE` restores the predecessor and pushes the result. Repeated, nested,
 and recursive Python calls therefore remain in one iterative loop.
+`LOAD_BUILD_CLASS` uses the same transition to run a no-base class body with a
+fresh local namespace. A class-build record on that body frame converts return
+into a basic type value, retains the namespace, and fills a returned `__class__`
+cell before resuming the defining frame. Module execution seeds `__name__` so
+class bodies can initialize `__module__`.
 
 The current call binder supports positional-only, ordinary positional, and
 keyword-only parameters; trailing positional defaults; sparse keyword-only
@@ -458,9 +463,9 @@ from bottom to top. Annotation attributes retain the compiler-generated callable
 without evaluating annotation expressions during definition or ordinary calls.
 Its internal format guard can raise `NotImplementedError`; Python attribute
 lookup and `annotationlib` integration cannot request annotation maps yet.
-Callable native values, other raise forms, suspension, exception handlers,
-traceback chains, cancellation, recursion limits, and execution budgets are not
-yet implemented.
+Callable native values, other raise forms, class bases, metaclasses, instances,
+attribute access, suspension, exception handlers, traceback chains,
+cancellation, recursion limits, and execution budgets are not yet implemented.
 
 ## Object model and runtime
 
@@ -468,12 +473,13 @@ The initial sealed `Value` interface keeps every Python reference in a typed Go
 interface or pointer. Process-wide immutable singletons represent `None`,
 `False`, `True`, and `Ellipsis`. Heap-backed objects represent arbitrary-
 precision integers, binary64 floats, complex values, strings, bytes, tuples,
-lists, dictionaries, sets, slices, collection iterators, functions, and
-exceptions. Code preparation materializes each constant once per runtime and
-code object. String objects accept UTF-8 plus the compiler's deliberate WTF-8
-encoding for lone surrogates; bytes objects retain arbitrary payloads. Stable
-representations escape non-printable text and bytes without losing their
-contents.
+lists, dictionaries, sets, slices, collection iterators, functions, basic type
+objects, and exceptions. Code preparation materializes each constant once per
+runtime and code object. String objects accept UTF-8 plus the compiler's
+deliberate WTF-8 encoding for lone surrogates; bytes objects retain arbitrary
+payloads. Stable representations escape non-printable text and bytes without
+losing their contents. Basic type objects retain their class-body namespace and
+use module-qualified class representations; namespace access is not exposed yet.
 
 Fixed tuple and list displays consume their elements in source order and
 allocate heap-backed sequence values. Exact and starred unpacking arrange stack
