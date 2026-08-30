@@ -18,8 +18,9 @@ func (namespace *Namespace) get(name string) (Value, bool) {
 // Module is one module object and its global namespace. The runtime may cache
 // it while its body is still initializing.
 type Module struct {
-	name    string
-	globals *Namespace
+	name      string
+	globals   *Namespace
+	isPackage bool
 }
 
 // Name returns the runtime cache name of the module.

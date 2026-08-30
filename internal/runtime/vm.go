@@ -91,9 +91,18 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 			if active.classBuild != nil {
 				result = active.classBuild.finish(result)
 			}
-			if active.importedModule != nil {
-				result = active.importedModule
-				active.importedModule = nil
+			if active.moduleImport != nil {
+				loaded := active.moduleImport
+				active.moduleImport = nil
+				if thread.current == nil || thread.current.instruction == 0 {
+					return nil, nil, active.failure(index, "import frame has no suspended caller")
+				}
+				if thread.current.pendingImport != nil {
+					return nil, nil, active.failure(index, "caller already has a pending import")
+				}
+				thread.current.pendingImport = loaded.request
+				thread.current.instruction--
+				continue
 			}
 			if thread.current == nil {
 				return result, nil, nil

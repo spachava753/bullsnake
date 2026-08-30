@@ -228,20 +228,21 @@ instance.
 This ownership makes isolation explicit. Separate runtimes may execute in
 parallel without silently sharing modules or mutable Python values.
 
-The current importer can ask a host-supplied loader for immutable code for a
-flat absolute module name. The runtime validates that code, creates and caches
-the module, then executes its body in the existing frame loop. Repeated imports
+The current importer asks a host-supplied loader for a module description with
+immutable code and package metadata. For a dotted absolute name, the runtime
+loads each parent first, verifies that it is a package, and publishes each child
+on that parent. Modules execute in the existing frame loop. Repeated imports
 reuse one object. Because the cache entry exists before execution, circular
 imports see the names assigned so far. If execution fails, the runtime removes
 only that module; dependencies that finished successfully remain cached.
 
-The first filesystem loader searches configured roots for `name.py`, decodes
-and compiles the file outside the runtime, and returns its code object. A later
-loader will add packages and the metadata needed for dotted and relative names.
+The first filesystem loader searches configured roots for a flat `name.py`,
+decodes and compiles the file outside the runtime, and returns its module
+description. A later slice will make that loader find package directories.
 Source modules and statically linked Go modules should enter through the same
-runtime loading path. Python-visible `sys.modules`, advanced `importlib` hooks,
-zip imports, reload, and bytecode caches should be added only when package tests
-require their observable behavior.
+runtime loading path. Relative names, Python-visible `sys.modules`, advanced
+`importlib` hooks, zip imports, reload, and bytecode caches should be added only
+when package tests require their observable behavior.
 
 ## Go embedding and extensions
 
@@ -339,8 +340,8 @@ experiments/                disposable design probes
 
 The compiler depends on syntax and resolution, but not on the runtime. The
 runtime consumes immutable code objects, but it does not parse source. The
-importer composes source loading and compilation, then supplies code through a
-callback shape that does not create a compiler-to-runtime dependency. A future
+importer is a composition package: it depends on the compiler pipeline and the
+runtime's loader contract, while neither core package depends on it. A future
 public package will configure these pieces without making internal packages
 public.
 

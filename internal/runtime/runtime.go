@@ -1,10 +1,21 @@
 package runtime
 
-import "github.com/spachava753/bullsnake/internal/compiler/bytecode"
+import (
+	"strings"
 
-// ModuleLoader finds immutable code for one absolute module name. A false found
-// result means that the configured source does not contain the module.
-type ModuleLoader func(name string) (code *bytecode.Code, found bool, err error)
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+)
+
+// ModuleSpec describes immutable code and import metadata supplied by a loader.
+type ModuleSpec struct {
+	Code            *bytecode.Code
+	IsPackage       bool
+	Origin          string
+	SearchLocations []string
+}
+
+// ModuleLoader finds one absolute module description.
+type ModuleLoader func(name string) (spec ModuleSpec, found bool, err error)
 
 // Runtime owns mutable interpreter state shared by executions in one isolated
 // Python runtime instance.
@@ -42,7 +53,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 // ExecuteModule validates and executes one module code object. The module
 // enters the cache before its body runs so imports can observe partial state.
 func (runtime *Runtime) ExecuteModule(name string, code *bytecode.Code) (*Module, error) {
-	module, moduleFrame, err := runtime.newModuleFrame(name, code, nil)
+	module, moduleFrame, err := runtime.newModuleFrame(name, ModuleSpec{Code: code}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -67,24 +78,44 @@ func (runtime *Runtime) ExecuteModule(name string, code *bytecode.Code) (*Module
 	return module, nil
 }
 
+// newModuleFrame validates one module description, initializes its import
+// metadata and frame storage, and leaves cache insertion to the caller.
 func (runtime *Runtime) newModuleFrame(
 	name string,
-	code *bytecode.Code,
+	spec ModuleSpec,
 	previous *frame,
 ) (*Module, *frame, error) {
-	if code == nil {
+	if spec.Code == nil {
 		return nil, nil, &BytecodeError{
 			Instruction: -1,
 			Message:     "module loader returned nil code for " + name,
 		}
 	}
-	prepared, err := runtime.prepare(code)
+	prepared, err := runtime.prepare(spec.Code)
 	if err != nil {
 		return nil, nil, err
 	}
 	globals := newNamespace()
 	globals.values["__name__"] = &stringValue{value: name}
-	module := &Module{name: name, globals: globals}
+	packageName := name
+	if !spec.IsPackage {
+		packageName = ""
+		if separator := strings.LastIndexByte(name, '.'); separator >= 0 {
+			packageName = name[:separator]
+		}
+	}
+	globals.values["__package__"] = &stringValue{value: packageName}
+	if spec.Origin != "" {
+		globals.values["__file__"] = &stringValue{value: spec.Origin}
+	}
+	if spec.IsPackage {
+		locations := make([]Value, len(spec.SearchLocations))
+		for index, location := range spec.SearchLocations {
+			locations[index] = &stringValue{value: location}
+		}
+		globals.values["__path__"] = &listValue{elements: locations}
+	}
+	module := &Module{name: name, globals: globals, isPackage: spec.IsPackage}
 	fastLocals := make([]Value, len(prepared.locals))
 	deref, ok := initializeDeref(prepared, fastLocals, nil)
 	if !ok {

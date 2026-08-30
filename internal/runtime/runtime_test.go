@@ -170,13 +170,13 @@ func TestLoadedModuleIdentity(t *testing.T) {
 		"helper":  "value = 40\n",
 		"library": "import helper\nvalue = helper.value + 2\n",
 	}
-	loader := bullruntime.ModuleLoader(func(name string) (*bytecode.Code, bool, error) {
+	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
 		source, found := sources[name]
 		if !found {
-			return nil, false, nil
+			return bullruntime.ModuleSpec{}, false, nil
 		}
 		loads[name]++
-		return compileSource(t, source), true, nil
+		return bullruntime.ModuleSpec{Code: compileSource(t, source)}, true, nil
 	})
 	runtime := bullruntime.NewWithLoader(loader)
 	module, err := runtime.ExecuteModule("main", compileSource(t,
@@ -204,12 +204,14 @@ func TestLoadedModuleIdentity(t *testing.T) {
 
 func TestCircularModuleInitialization(t *testing.T) {
 	loads := make(map[string]int)
-	loader := bullruntime.ModuleLoader(func(name string) (*bytecode.Code, bool, error) {
+	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
 		loads[name]++
 		if name != "beta" {
-			return nil, false, nil
+			return bullruntime.ModuleSpec{}, false, nil
 		}
-		return compileSource(t, "import alpha\nobserved = alpha.state\n"), true, nil
+		return bullruntime.ModuleSpec{
+			Code: compileSource(t, "import alpha\nobserved = alpha.state\n"),
+		}, true, nil
 	})
 	runtime := bullruntime.NewWithLoader(loader)
 	alpha, err := runtime.ExecuteModule("alpha", compileSource(t,
@@ -233,13 +235,13 @@ func TestFailedModuleInitialization(t *testing.T) {
 		"side":   "value = 1\n",
 		"broken": "import side\nraise ValueError('boom')\n",
 	}
-	loader := bullruntime.ModuleLoader(func(name string) (*bytecode.Code, bool, error) {
+	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
 		source, found := sources[name]
 		if !found {
-			return nil, false, nil
+			return bullruntime.ModuleSpec{}, false, nil
 		}
 		loads[name]++
-		return compileSource(t, source), true, nil
+		return bullruntime.ModuleSpec{Code: compileSource(t, source)}, true, nil
 	})
 	runtime := bullruntime.NewWithLoader(loader)
 	module, err := runtime.ExecuteModule("main", compileSource(t,
@@ -269,14 +271,16 @@ func TestFailedModuleInitialization(t *testing.T) {
 
 func TestLoaderHostFailure(t *testing.T) {
 	loadFailure := errors.New("module storage unavailable")
-	loader := bullruntime.ModuleLoader(func(name string) (*bytecode.Code, bool, error) {
+	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
 		switch name {
 		case "bridge":
-			return compileSource(t, "import unavailable\n"), true, nil
+			return bullruntime.ModuleSpec{
+				Code: compileSource(t, "import unavailable\n"),
+			}, true, nil
 		case "unavailable":
-			return nil, false, loadFailure
+			return bullruntime.ModuleSpec{}, false, loadFailure
 		default:
-			return nil, false, nil
+			return bullruntime.ModuleSpec{}, false, nil
 		}
 	})
 	runtime := bullruntime.NewWithLoader(loader)
@@ -291,6 +295,97 @@ func TestLoaderHostFailure(t *testing.T) {
 		if _, found := runtime.Module(name); found {
 			t.Fatalf("failed module %q remained in the runtime cache", name)
 		}
+	}
+}
+
+func TestDottedImports(t *testing.T) {
+	loads := make(map[string]int)
+	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
+		loads[name]++
+		switch name {
+		case "package":
+			return bullruntime.ModuleSpec{
+				Code:            compileSource(t, "marker = 'root'\n"),
+				IsPackage:       true,
+				Origin:          "/modules/package/__init__.py",
+				SearchLocations: []string{"/modules/package"},
+			}, true, nil
+		case "package.child":
+			return bullruntime.ModuleSpec{
+				Code:   compileSource(t, "value = 42\n"),
+				Origin: "/modules/package/child.py",
+			}, true, nil
+		default:
+			return bullruntime.ModuleSpec{}, false, nil
+		}
+	})
+	runtime := bullruntime.NewWithLoader(loader)
+	module, err := runtime.ExecuteModule("main", compileSource(t,
+		"import package.child\n"+
+			"import package.child as alias\n"+
+			"from package.child import value as selected\n"+
+			"answer = package.child.value\n"+
+			"same = alias is package.child\n"+
+			"root_package = package.__package__\n"+
+			"child_package = alias.__package__\n"+
+			"root_path = package.__path__\n"+
+			"child_file = alias.__file__\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"answer":        "42",
+		"same":          "True",
+		"selected":      "42",
+		"root_package":  "'package'",
+		"child_package": "'package'",
+		"root_path":     "['/modules/package']",
+		"child_file":    "'/modules/package/child.py'",
+	}
+	for name, expected := range want {
+		assertModuleRepr(t, module, name, expected)
+	}
+	if loads["package"] != 1 || loads["package.child"] != 1 {
+		t.Fatalf("load counts = %v, want each package component once", loads)
+	}
+	parent, _ := runtime.Module("package")
+	child, _ := runtime.Module("package.child")
+	published, found := parent.Get("child")
+	if !found || published != child {
+		t.Fatal("child module was not published on its parent by identity")
+	}
+}
+
+func TestNonPackageImportParent(t *testing.T) {
+	loads := make(map[string]int)
+	loader := bullruntime.ModuleLoader(func(name string) (bullruntime.ModuleSpec, bool, error) {
+		loads[name]++
+		if name == "plain" {
+			return bullruntime.ModuleSpec{Code: compileSource(t, "value = 1\n")}, true, nil
+		}
+		return bullruntime.ModuleSpec{}, false, nil
+	})
+	runtime := bullruntime.NewWithLoader(loader)
+	module, err := runtime.ExecuteModule("main", compileSource(t, "import plain.child\n"))
+	if module != nil {
+		t.Fatalf("module = %#v, want nil", module)
+	}
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Exception().TypeName(); got != "ModuleNotFoundError" {
+		t.Fatalf("exception type = %q, want ModuleNotFoundError", got)
+	}
+	want := "No module named 'plain.child'; 'plain' is not a package"
+	if got := raised.Exception().Message(); got != want {
+		t.Fatalf("message = %q, want %q", got, want)
+	}
+	if loads["plain"] != 1 || loads["plain.child"] != 0 {
+		t.Fatalf("load counts = %v, want plain:1 plain.child:0", loads)
+	}
+	if _, found := runtime.Module("plain"); !found {
+		t.Fatal("successfully loaded parent was removed after child lookup failed")
 	}
 }
 

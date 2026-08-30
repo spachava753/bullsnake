@@ -2,13 +2,20 @@ package runtime
 
 import "strings"
 
-// executeImportName validates compiler-supplied level and from-list values,
-// then returns or starts one flat absolute module in the owning runtime.
+// executeImportName validates compiler-supplied operands, then resumes or
+// starts the ordered loading of one absolute module path.
 func executeImportName(
 	frame *frame,
 	index int,
 	name string,
 ) (instructionOutcome, error) {
+	if request := frame.pendingImport; request != nil {
+		frame.pendingImport = nil
+		if request.names[len(request.names)-1] != name {
+			return instructionOutcome{}, frame.failure(index, "pending import name changed")
+		}
+		return advanceImport(frame, index, request)
+	}
 	fromList, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
@@ -36,29 +43,78 @@ func executeImportName(
 	if frame.runtime == nil {
 		return instructionOutcome{}, frame.failure(index, "frame has no owning runtime")
 	}
-	if strings.Contains(name, ".") {
-		return missingModuleOutcome(name), nil
+	return advanceImport(frame, index, newImportRequest(name, fromList != None))
+}
+
+func newImportRequest(name string, fromList bool) *importRequest {
+	parts := strings.Split(name, ".")
+	names := make([]string, len(parts))
+	for index := range parts {
+		names[index] = strings.Join(parts[:index+1], ".")
 	}
-	if module, found := frame.runtime.modules[name]; found {
-		return pushOutcome(frame, index, module)
+	returnName := names[0]
+	if fromList {
+		returnName = name
 	}
-	if frame.runtime.loader == nil {
-		return missingModuleOutcome(name), nil
+	return &importRequest{names: names, returnName: returnName}
+}
+
+// advanceImport walks cached or loader-provided path components until it must
+// suspend for a module frame or can push the import statement's selected module.
+func advanceImport(
+	frame *frame,
+	index int,
+	request *importRequest,
+) (instructionOutcome, error) {
+	for request.next < len(request.names) {
+		name := request.names[request.next]
+		var parent *Module
+		if request.next != 0 {
+			parent = frame.runtime.modules[request.names[request.next-1]]
+			if parent == nil {
+				return instructionOutcome{}, frame.failure(index, "import parent is not cached")
+			}
+			if !parent.isPackage {
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"ModuleNotFoundError",
+						"No module named '"+name+"'; '"+parent.name+"' is not a package",
+					),
+				}, nil
+			}
+		}
+		if module, found := frame.runtime.modules[name]; found {
+			if parent != nil {
+				child := name[strings.LastIndexByte(name, '.')+1:]
+				parent.globals.values[child] = module
+			}
+			request.next++
+			continue
+		}
+		if frame.runtime.loader == nil {
+			return missingModuleOutcome(name), nil
+		}
+		spec, found, err := frame.runtime.loader(name)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if !found {
+			return missingModuleOutcome(name), nil
+		}
+		module, imported, err := frame.runtime.newModuleFrame(name, spec, frame)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		frame.runtime.modules[name] = module
+		imported.moduleImport = &moduleImport{module: module, request: request}
+		return instructionOutcome{kind: called, frame: imported}, nil
 	}
-	code, found, err := frame.runtime.loader(name)
-	if err != nil {
-		return instructionOutcome{}, err
+	module := frame.runtime.modules[request.returnName]
+	if module == nil {
+		return instructionOutcome{}, frame.failure(index, "completed import is not cached")
 	}
-	if !found {
-		return missingModuleOutcome(name), nil
-	}
-	module, imported, err := frame.runtime.newModuleFrame(name, code, frame)
-	if err != nil {
-		return instructionOutcome{}, err
-	}
-	frame.runtime.modules[name] = module
-	imported.importedModule = module
-	return instructionOutcome{kind: called, frame: imported}, nil
+	return pushOutcome(frame, index, module)
 }
 
 func missingModuleOutcome(name string) instructionOutcome {

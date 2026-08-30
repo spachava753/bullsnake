@@ -20,7 +20,7 @@ func TestFileSystem(t *testing.T) {
 	loader := importer.NewFileSystem(first, second)
 
 	t.Run("executes source modules", func(t *testing.T) {
-		code, found, err := loader.Load("main")
+		spec, found, err := loader.Load("main")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -28,7 +28,7 @@ func TestFileSystem(t *testing.T) {
 			t.Fatal("main module was not found")
 		}
 		runtime := bullruntime.NewWithLoader(loader.Load)
-		module, err := runtime.ExecuteModule("main", code)
+		module, err := runtime.ExecuteModule("main", spec.Code)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -42,25 +42,25 @@ func TestFileSystem(t *testing.T) {
 	})
 
 	t.Run("reports a missing module", func(t *testing.T) {
-		code, found, err := loader.Load("absent")
-		if err != nil || found || code != nil {
-			t.Fatalf("Load(absent) = %#v, %t, %v, want nil, false, nil", code, found, err)
+		spec, found, err := loader.Load("absent")
+		if err != nil || found || spec.Code != nil {
+			t.Fatalf("Load(absent) = %#v, %t, %v, want empty, false, nil", spec, found, err)
 		}
 	})
 
 	t.Run("rejects non-flat names", func(t *testing.T) {
 		for _, name := range []string{"", "package.child", "../main", `..\main`} {
-			code, found, err := loader.Load(name)
-			if err != nil || found || code != nil {
-				t.Fatalf("Load(%q) = %#v, %t, %v, want nil, false, nil", name, code, found, err)
+			spec, found, err := loader.Load(name)
+			if err != nil || found || spec.Code != nil {
+				t.Fatalf("Load(%q) = %#v, %t, %v, want empty, false, nil", name, spec, found, err)
 			}
 		}
 	})
 
 	t.Run("preserves frontend errors", func(t *testing.T) {
-		code, found, err := loader.Load("broken")
-		if code != nil || !found {
-			t.Fatalf("Load(broken) = %#v, %t, %v, want nil, true, error", code, found, err)
+		spec, found, err := loader.Load("broken")
+		if spec.Code != nil || !found {
+			t.Fatalf("Load(broken) = %#v, %t, %v, want empty, true, error", spec, found, err)
 		}
 		var parseError *parser.Error
 		if !errors.As(err, &parseError) {

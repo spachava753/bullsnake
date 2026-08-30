@@ -8,6 +8,17 @@ type handledException struct {
 	end       int
 }
 
+type importRequest struct {
+	names      []string
+	next       int
+	returnName string
+}
+
+type moduleImport struct {
+	module  *Module
+	request *importRequest
+}
+
 type frame struct {
 	runtime           *Runtime
 	code              *preparedCode
@@ -21,7 +32,8 @@ type frame struct {
 	previous          *frame
 	classBuild        *classBuild
 	instanceInit      *instanceInit
-	importedModule    *Module
+	moduleImport      *moduleImport
+	pendingImport     *importRequest
 	handledExceptions []handledException
 }
 
@@ -92,14 +104,14 @@ func (frame *frame) position(index int) lexer.Span {
 }
 
 func (frame *frame) discardImportedModule() {
-	module := frame.importedModule
-	if module == nil || frame.runtime == nil {
+	if frame.moduleImport == nil || frame.runtime == nil {
 		return
 	}
+	module := frame.moduleImport.module
 	if frame.runtime.modules[module.name] == module {
 		delete(frame.runtime.modules, module.name)
 	}
-	frame.importedModule = nil
+	frame.moduleImport = nil
 }
 
 func (frame *frame) failure(index int, message string) error {

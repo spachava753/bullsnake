@@ -21,7 +21,7 @@ execute every instruction. Each stage rejects behavior it does not yet own.
 | Resolver | Name scopes, closures, contextual checks, annotations, generics, and comprehensions |
 | Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
 | Runtime | Modules, values, collections, functions, basic classes, and structured exceptions |
-| Imports | Flat absolute `.py` modules from configured filesystem roots |
+| Imports | Dotted host modules and flat `.py` files from configured roots |
 | Go API, standard library, async, and REPL | Not implemented |
 
 The parser and resolver intentionally cover more language forms than the
@@ -309,12 +309,20 @@ A module has one string-keyed namespace used as both locals and globals.
 the same object and namespace, including names assigned during partial
 initialization.
 
-`NewWithLoader` accepts a `ModuleLoader` callback that returns immutable code
-for one flat absolute name. A cache miss calls the loader, prepares the complete
-returned code tree, creates the module, and switches the existing dispatch loop
-to a module frame. Normal return leaves the module cached and pushes it into the
-importer. Repeated and circular imports reuse that identity without another
-loader call.
+`NewWithLoader` accepts a `ModuleLoader` callback. Each result is a `ModuleSpec`
+with immutable code, a package flag, an optional origin, and package search
+locations. A cache miss prepares the complete returned code tree, creates the
+module, and switches the existing dispatch loop to a module frame. Normal
+return leaves the module cached. Repeated and circular imports reuse that
+identity without another loader call.
+
+A dotted absolute import loads its prefixes in order. Every intermediate module
+must be a package. After a child returns, the runtime publishes it on its parent
+and resumes the suspended `IMPORT_NAME` instruction for the next component. An
+ordinary `import package.child` returns the top package. A nonempty from-list
+returns the requested child module, matching the stack contract used by the
+compiler. Modules initialize `__name__` and `__package__`; loader metadata adds
+`__file__` and a package `__path__` list.
 
 If a Python exception leaves an imported module, the frame unwind removes its
 cache entry before checking the importer's handler. A later import may retry it.
@@ -322,25 +330,25 @@ Modules that completed as side effects remain cached. A host loader error also
 removes every module frame still initializing. An explicit `ExecuteModule`
 failure restores any older module that the execution temporarily replaced.
 
-The callback returns code, not source, so `internal/runtime` remains independent
-of source decoding and compilation. `internal/importer.FileSystem` implements
-that callback shape. It searches configured roots in order for `name.py`, uses
-the ordinary source loader, parser, resolver, and compiler, and preserves typed
-frontend errors under a module-loading wrapper.
+`internal/importer.FileSystem` implements the callback contract while keeping
+source decoding and compilation outside `internal/runtime`. It currently
+searches configured roots in order for a flat `name.py`, uses the ordinary
+source loader, parser, resolver, and compiler, and preserves typed frontend
+errors under a module-loading wrapper.
 
 A missing callback, missing file, or missing callback result raises
 `ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
-until the runtime has the corresponding Python exception values. Dotted
-packages, relative imports, package metadata, `sys.modules`, `__all__`, finder
-and loader hooks, reload, import locks, and a standard library remain
-unimplemented.
+until the runtime has the corresponding Python exception values. Filesystem
+package discovery, relative imports, from-list submodule fallback,
+`sys.modules`, `__all__`, finder and loader hooks, reload, import locks, and a
+standard library remain unimplemented.
 
 ## Deliberate boundaries
 
 The largest current gaps are:
 
 - no public Go embedding or extension API
-- no packages, standard library, or native extension loading
+- no filesystem package discovery, standard library, or native extension loading
 - no generators, coroutines, async execution, or Python threads
 - no comprehensions, context-manager execution, or structural matching
 - no complete Python object protocol, descriptors, user hashing, or multiple
