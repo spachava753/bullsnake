@@ -24,6 +24,18 @@ func executeUnary(frame *frame, index int, operand uint32) (instructionOutcome, 
 		)
 	}
 
+	if instance, userValue := value.(*instanceValue); userValue {
+		name := "__pos__"
+		if operand == bytecode.UnaryNegative {
+			name = "__neg__"
+		} else if operand == bytecode.UnaryInvert {
+			name = "__invert__"
+		}
+		if method, found := lookupInstanceSpecial(instance, name); found {
+			return executeUserUnary(frame, index, method)
+		}
+	}
+
 	var result Value
 	switch value := value.(type) {
 	case *intValue:

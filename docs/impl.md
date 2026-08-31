@@ -442,6 +442,10 @@ the swapped right method, such as `__lt__` and `__gt__` for `<`, and raises
 `TypeError` if both decline. An explicit rich-comparison result otherwise
 passes through unchanged.
 
+Unary `+`, `-`, and `~` resolve class `__pos__`, `__neg__`, and `__invert__` for
+user instances and keep the returned object unchanged. Binary and reflected
+user arithmetic methods remain unsupported.
+
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative
 integer exponent returns an integer, subject to the documented 1,048,576-bit

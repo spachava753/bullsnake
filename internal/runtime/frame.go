@@ -55,6 +55,7 @@ type frame struct {
 	membership          *membershipCall
 	subscription        *subscriptionCall
 	comparison          *comparisonCall
+	unary               *unaryCall
 	generator           *generatorValue
 	delegation          *delegationState
 	handledExceptions   []handledException

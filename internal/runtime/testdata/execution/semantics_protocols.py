@@ -578,3 +578,45 @@ except ValueError as error:
     ordering_error = f'{error!r}'
 
 assert ordering_error == 'ValueError("ordering failed")'
+# ---
+# case: user unary numeric protocols
+class UnaryValue:
+    def __init__(self, value):
+        self.value = value
+    def __pos__(self):
+        return ('positive', self.value)
+    def __neg__(self):
+        return ('negative', self.value)
+    def __invert__(self):
+        return ('inverted', self.value)
+
+value = UnaryValue(7)
+positive = +value
+negative = -value
+inverted = ~value
+
+class UnaryBase:
+    def __neg__(self):
+        return 'inherited negative'
+
+class UnaryChild(UnaryBase):
+    pass
+
+inherited = -UnaryChild()
+
+assert positive == ('positive', 7)
+assert negative == ('negative', 7)
+assert inverted == ('inverted', 7)
+assert inherited == 'inherited negative'
+# ---
+# case: unary numeric exceptions are catchable
+class BrokenUnary:
+    def __neg__(self):
+        raise ValueError('unary failed')
+
+try:
+    result = -BrokenUnary()
+except ValueError as error:
+    unary_error = f'{error!r}'
+
+assert unary_error == 'ValueError("unary failed")'

@@ -216,3 +216,24 @@ class DisabledOrdering:
     __lt__ = None
 
 result = DisabledOrdering() < DisabledOrdering()
+# ---
+# case: disabled unary method
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledUnary:
+    __neg__ = None
+
+result = -DisabledUnary()
+# ---
+# case: instance-only unary method
+# error: TypeError
+# message: "bad operand type for unary -: 'InstanceOnlyUnary'"
+class InstanceOnlyUnary:
+    pass
+
+def negate():
+    return 1
+
+value = InstanceOnlyUnary()
+value.__neg__ = negate
+result = -value

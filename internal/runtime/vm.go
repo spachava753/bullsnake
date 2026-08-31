@@ -462,6 +462,27 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					)
 				}
 			}
+			if active.unary != nil {
+				call := active.unary
+				active.unary = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"unary special method has no caller",
+					)
+				}
+				unaryOutcome, unaryErr := finishUnaryCall(thread.current, call, result)
+				if unaryErr != nil {
+					return nil, nil, unaryErr
+				}
+				if unaryOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid unary special method outcome",
+					)
+				}
+				continue
+			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil
