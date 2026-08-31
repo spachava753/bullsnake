@@ -195,3 +195,46 @@ class BrokenHasOwner:
     field = BrokenHasDescriptor()
 
 hasattr(BrokenHasOwner(), 'field')
+# ---
+# case: callable missing argument
+# error: TypeError
+# message: "callable() takes exactly one argument (0 given)"
+callable()
+# ---
+# case: callable keyword argument
+# error: TypeError
+# message: "callable() takes no keyword arguments"
+callable(obj=None)
+# ---
+# case: plain instance call
+# error: TypeError
+# message: "'PlainCallable' object is not callable"
+class PlainCallable:
+    pass
+
+PlainCallable()()
+# ---
+# case: disabled call method invocation
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledCall:
+    __call__ = None
+
+DisabledCall()()
+# ---
+# case: non-callable call method invocation
+# error: TypeError
+# message: "'int' object is not callable"
+class InvalidCall:
+    __call__ = 1
+
+InvalidCall()()
+# ---
+# case: call method exception
+# error: ValueError
+# message: "call failed"
+class FailingCall:
+    def __call__(self):
+        raise ValueError('call failed')
+
+FailingCall()()

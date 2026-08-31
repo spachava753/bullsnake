@@ -488,6 +488,10 @@ The built-in `property` supports direct construction and decorator-style
 explicit documentation, and the class-assigned name. Function-docstring
 inference and property subclasses remain unsupported.
 
+Calling a user instance resolves class `__call__`, ignores a same-named instance
+attribute, and forwards arguments through the ordinary function binder. The
+`callable` builtin reports whether that class slot exists without running it.
+
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative
 integer exponent returns an integer, subject to the documented 1,048,576-bit
@@ -499,12 +503,12 @@ Current float arithmetic covers addition, subtraction, multiplication, true
 division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
-The builtin namespace contains the current exception classes, `getattr`,
-`hasattr`, scalar numeric `int`, one-argument `iter`, `len`, positional `max`
-and `min` calls with two or more arguments, and `next` for generators, internal
-iterators, and user iterators. `next` accepts one optional default. String and
-base forms of `int`, the iterable and keyword forms of `max` and `min`, and
-callable-sentinel `iter` remain unsupported.
+The builtin namespace contains the current exception classes, `callable`,
+`getattr`, `hasattr`, scalar numeric `int`, one-argument `iter`, `len`,
+positional `max` and `min` calls with two or more arguments, and `next` for
+generators, internal iterators, and user iterators. `next` accepts one optional
+default. String and base forms of `int`, the iterable and keyword forms of `max`
+and `min`, and callable-sentinel `iter` remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

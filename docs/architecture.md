@@ -387,7 +387,11 @@ truth path. Item access calls class `__getitem__`, `__setitem__`, or
 `__delitem__` as appropriate. Rich comparisons may try both operands after
 `NotImplemented`, with the reflected ordering method selected by the operator.
 Binary arithmetic uses the same normal, reflected, and in-place candidate order.
-Attribute reads apply data descriptor, instance attribute, non-data descriptor,
+Calling a user instance resolves `__call__` on its class and uses the ordinary
+frame-switching call path. The `callable` builtin reports whether that call slot
+exists without invoking it; a same-named instance attribute does not affect
+either operation. Attribute reads apply data descriptor, instance attribute,
+non-data descriptor,
 and plain class attribute precedence. The `getattr` and `hasattr` builtins send
 a runtime name through those same module, class, instance, and function paths.
 An optional `getattr` default and `hasattr` suppress only `AttributeError`,

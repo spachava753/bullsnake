@@ -149,3 +149,41 @@ assert not hasattr(subject, 'hidden')
 assert not hasattr(subject, 'missing')
 assert hasattr(HasSubject, 'class_value')
 assert not hasattr(HasSubject, 'missing')
+# ---
+# case: callable instances and builtin
+class CallableValue:
+    def __init__(self, offset):
+        self.offset = offset
+
+    def __call__(self, left, right=1, *, scale=1):
+        return (self.offset + left + right) * scale
+
+class InheritedCallable(CallableValue):
+    pass
+
+class PlainValue:
+    pass
+
+class DisabledCallable:
+    __call__ = None
+
+value = CallableValue(10)
+value.__call__ = None
+assert value(2, 3, scale=2) == 30
+assert InheritedCallable(1)(2) == 4
+assert callable(value)
+assert callable(InheritedCallable(0))
+assert callable(CallableValue)
+assert callable(callable)
+assert not callable(PlainValue())
+assert not callable(None)
+assert callable(DisabledCallable())
+# ---
+# case: callable instance return identity
+marker = []
+
+class ReturnsMarker:
+    def __call__(self):
+        return marker
+
+assert ReturnsMarker()() is marker

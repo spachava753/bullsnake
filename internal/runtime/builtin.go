@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 )
 
 type builtinFunctionValue struct {
@@ -45,6 +46,7 @@ func discardCallSegment(caller *frame, base int) {
 }
 
 var builtinFunctions = []*builtinFunctionValue{
+	{name: "callable", call: builtinCallable},
 	{name: "getattr", frameCall: executeBuiltinGetattr},
 	{name: "hasattr", frameCall: executeBuiltinHasattr},
 	{name: "int", call: builtinInt},
@@ -55,6 +57,24 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "next", frameCall: executeBuiltinNext},
 	{name: "property", call: builtinProperty},
 	{name: "super", frameCall: executeBuiltinSuper},
+}
+
+// builtinCallable reports whether the runtime call dispatcher accepts a value.
+func builtinCallable(arguments []Value, keywords *dictValue) (Value, *Exception) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		return nil, newException("TypeError", "callable() takes no keyword arguments")
+	}
+	if len(arguments) != 1 {
+		return nil, newException(
+			"TypeError",
+			"callable() takes exactly one argument ("+
+				strconv.Itoa(len(arguments))+" given)",
+		)
+	}
+	if isCallableValue(arguments[0]) {
+		return trueSingleton, nil
+	}
+	return falseSingleton, nil
 }
 
 // builtinInt converts the currently supported scalar numeric values.

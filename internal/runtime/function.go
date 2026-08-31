@@ -255,6 +255,18 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *instanceValue:
+		method, found := lookupInstanceSpecial(callable, "__call__")
+		if found {
+			return executeFunctionCall(
+				caller,
+				instruction,
+				base,
+				method,
+				arguments,
+				keywords,
+			)
+		}
 	case *boundMethodValue:
 		boundArguments := make([]Value, len(arguments)+1)
 		boundArguments[0] = callable.self
@@ -316,6 +328,34 @@ func executeFunctionCall(
 		return pushOutcome(caller, instruction, generator)
 	}
 	return instructionOutcome{kind: called, frame: child}, nil
+}
+
+// isCallableValue mirrors the concrete values accepted by executeFunctionCall
+// and treats any class-level __call__ entry as an instance call slot.
+func isCallableValue(value Value) bool {
+	switch value := value.(type) {
+	case *instanceValue:
+		_, found := value.class.lookup("__call__")
+		return found
+	case *builtinFunctionValue,
+		*propertyAccessorMethod,
+		*buildClassValue,
+		*typeValue,
+		*exceptionTypeValue,
+		*asyncGeneratorAIterMethod,
+		*asyncGeneratorANextMethod,
+		*asyncGeneratorASendMethod,
+		*asyncGeneratorAThrowMethod,
+		*asyncGeneratorACloseMethod,
+		*generatorSendMethod,
+		*generatorThrowMethod,
+		*generatorCloseMethod,
+		*boundMethodValue,
+		*functionValue:
+		return true
+	default:
+		return false
+	}
 }
 
 func newFunctionFrame(
