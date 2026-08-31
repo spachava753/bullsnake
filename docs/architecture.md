@@ -408,8 +408,10 @@ A list instance exposes bound `append`, `pop`, `extend`, and `remove` methods.
 Extend uses the same resumable iterator path and mutates the target as each item
 arrives. Remove scans left to right, prefers object identity, and may suspend for
 user equality and truth methods.
-Dictionary instances expose bound `get`, `pop`, `items`, and `keys` methods.
-The view methods return live values whose iterators reject key-set changes. Set
+Dictionary instances expose bound `get`, `pop`, `items`, `keys`, and `update`
+methods. The view methods return live values whose iterators reject key-set
+changes. Update accepts native dictionaries and keyword entries while retaining
+existing key positions; iterable pairs and user mappings remain later work. Set
 instances expose bound `add` and `discard` methods that use the same fixed
 hashability and equality rules as set displays.
 Set-like operations on dictionary views and other native collection or text

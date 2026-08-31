@@ -1208,3 +1208,22 @@ class DelattrOwner:
 owner = DelattrOwner()
 assert delattr(owner, 'field') is None
 assert owner.deleted is True
+# ---
+# case: dictionary update mappings and keywords
+target = {'a': 1, 'keep': 0}
+source = {'b': 2, 'a': 3}
+assert target.update(source) is None
+assert list(target.items()) == [('a', 3), ('keep', 0), ('b', 2)]
+assert target.update(c=4, a=5) is None
+assert list(target.items()) == [('a', 5), ('keep', 0), ('b', 2), ('c', 4)]
+assert target.update() is None
+assert target.update(target) is None
+assert list(target.items()) == [('a', 5), ('keep', 0), ('b', 2), ('c', 4)]
+# ---
+# case: retained dictionary update method
+update = {'a': 1}.update
+assert callable(update)
+assert update({'b': 2}) is None
+dictionary = {}
+assert getattr(dictionary, 'update')(value=7) is None
+assert list(dictionary.items()) == [('value', 7)]

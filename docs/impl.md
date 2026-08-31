@@ -490,10 +490,12 @@ Extend consumes native, generator, or user iterators through the frame loop and
 mutates the target as each item arrives. Remove scans left to right, prefers
 identity, and resumes user `__eq__` and truth methods through the same frame loop.
 
-Dictionary instances expose bound `get`, `pop`, `items`, and `keys` methods. The
-view methods return live `dict_items` and `dict_keys` values with independent
-iterators. Replacing a value remains visible. Key-set changes during iteration
-raise `RuntimeError`. Set instances expose bound `add` and `discard` methods
+Dictionary instances expose bound `get`, `pop`, `items`, `keys`, and `update`
+methods. The view methods return live `dict_items` and `dict_keys` values with
+independent iterators. Replacing a value remains visible. Key-set changes during
+iteration raise `RuntimeError`. Update accepts a native dictionary and keyword
+entries, preserving existing key positions; iterable pairs and user mappings
+remain unsupported. Set instances expose bound `add` and `discard` methods
 using the same fixed hashability and equality rules as set displays. Set-like
 view operations and other native collection or text methods are not implemented.
 List equality uses the runtime's fixed recursive rules for scalars, tuples,

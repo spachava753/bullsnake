@@ -42,6 +42,8 @@ func (*dictionaryKeysMethod) Repr() string {
 }
 func (*dictionaryKeysMethod) isValue() {}
 
+// executeDictionaryAttributeLoad returns the implemented bound method for one
+// native dictionary or the normal missing-attribute error.
 func executeDictionaryAttributeLoad(
 	frame *frame,
 	instruction int,
@@ -72,6 +74,12 @@ func executeDictionaryAttributeLoad(
 			frame,
 			instruction,
 			&dictionaryKeysMethod{dictionary: dictionary},
+		)
+	case "update":
+		return pushOutcome(
+			frame,
+			instruction,
+			&dictionaryUpdateMethod{dictionary: dictionary},
 		)
 	default:
 		return raiseOutcome(newException(
