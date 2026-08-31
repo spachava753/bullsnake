@@ -1112,3 +1112,22 @@ removeprefix = 'prefix-value'.removeprefix
 assert callable(removeprefix)
 assert removeprefix('prefix-') == 'value'
 assert getattr('prefix', 'removeprefix')('pre') == 'fix'
+# ---
+# case: string count occurrences and bounds
+assert 'aaaa'.count('aa') == 2
+assert 'one.two.three'.count('.') == 2
+assert 'abababa'.count('aba') == 2
+assert 'abcabc'.count('a', 1) == 1
+assert 'abcabc'.count('a', -3, 99) == 1
+assert 'abc'.count('a', 4) == 0
+assert 'abc'.count('', 1, 2) == 2
+assert 'abc'.count('', 4) == 0
+# ---
+# case: string count Unicode and retained method
+text = '\ud800\u2603\ud800'
+assert text.count('\ud800') == 2
+assert text.count('', 0, 3) == 4
+count = 'a.b.c'.count
+assert callable(count)
+assert count('.') == 2
+assert getattr('banana', 'count')('an') == 2

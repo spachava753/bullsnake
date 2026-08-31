@@ -1212,3 +1212,28 @@ class CustomFormat:
 # error: TypeError
 # message: "str.removeprefix() takes no keyword arguments"
 'a'.removeprefix(prefix='a')
+# ---
+# case: string count missing substring
+# error: TypeError
+# message: "count() takes at least 1 argument (0 given)"
+'a'.count()
+# ---
+# case: string count extra argument
+# error: TypeError
+# message: "count() takes at most 3 arguments (4 given)"
+'a'.count('a', 0, 1, 2)
+# ---
+# case: string count invalid substring
+# error: TypeError
+# message: "must be str, not int"
+'a'.count(1)
+# ---
+# case: string count invalid bound
+# error: TypeError
+# message: "slice indices must be integers or None or have an __index__ method"
+'a'.count('a', 'start')
+# ---
+# case: string count keyword argument
+# error: TypeError
+# message: "count() takes no keyword arguments"
+'a'.count(sub='a')

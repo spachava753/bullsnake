@@ -45,6 +45,8 @@ func executeStringAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "count":
+		return pushOutcome(frame, instruction, &stringCountMethod{value: value})
 	case "join":
 		return pushOutcome(frame, instruction, &stringJoinMethod{separator: value})
 	case "format":

@@ -148,6 +148,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringCountMethod:
+		return executeStringCountCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *propertyAccessorMethod:
 		return executePropertyAccessorCall(
 			caller,
@@ -541,6 +550,7 @@ func isCallableValue(value Value) bool {
 	case *builtinFunctionValue,
 		*nativeTypeValue,
 		*propertyAccessorMethod,
+		*stringCountMethod,
 		*stringJoinMethod,
 		*stringFormatMethod,
 		*stringLowerMethod,
