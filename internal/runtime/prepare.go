@@ -476,6 +476,13 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.GetAwaitable:
+		if instruction.Operand > bytecode.AwaitAsyncExit {
+			return code.failure(
+				index,
+				"unsupported GET_AWAITABLE operand %d",
+				instruction.Operand,
+			)
+		}
 		if code.code.Flags()&bytecode.Coroutine == 0 {
 			return code.failure(index, "GET_AWAITABLE requires coroutine code")
 		}

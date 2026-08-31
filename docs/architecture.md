@@ -317,6 +317,12 @@ native Bullsnake coroutine and delegates through the same send loop used by
 and protected-range rules. Custom `__await__` methods and scheduler-facing
 awaitables remain later work.
 
+Asynchronous context managers reuse the ordinary context-cleanup stack. Entry
+awaits the class-level `__aenter__` result before the protected body starts.
+Every normal, exceptional, return, break, or continue path calls and awaits the
+saved `__aexit__` method. Multiple managers still enter left to right and exit in
+reverse order. A truthy exceptional exit result suppresses the active exception.
+
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
 indexes, jump targets, exception ranges, and stack use. Invalid or unsupported
@@ -430,15 +436,14 @@ but they must not mutate Python objects directly.
 
 ## Async and Python threads
 
-Native coroutine awaiting exists, but custom awaitables, async iteration,
-scheduling, and Python threads remain future work.
+Native coroutine awaiting and asynchronous context management exist, but custom
+awaitables, async iteration, scheduling, and Python threads remain future work.
 
 Generators and coroutines retain suspended Python frames and resume through the
-VM's ordinary frame loop. The next steps add asynchronous context management,
-then asynchronous iteration. An event loop will eventually manage ready tasks,
-timers, I/O completion, cancellation, and task context. Async tasks will not be
-modeled as one goroutine each because Python task scheduling and cancellation
-need explicit interpreter state.
+VM's ordinary frame loop. The next step is asynchronous iteration. An event loop
+will eventually manage ready tasks, timers, I/O completion, cancellation, and
+task context. Async tasks will not be modeled as one goroutine each because
+Python task scheduling and cancellation need explicit interpreter state.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread

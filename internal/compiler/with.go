@@ -4,16 +4,20 @@ import (
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
+	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
 const (
-	contextEnterName = "__enter__"
-	contextExitName  = "__exit__"
+	contextEnterName      = "__enter__"
+	contextExitName       = "__exit__"
+	asyncContextEnterName = "__aenter__"
+	asyncContextExitName  = "__aexit__"
 )
 
 func (compiler *compilerState) compileWithStatement(statement *compilerast.WithStmt) error {
-	if statement.Async {
-		return compiler.error(statement.Span(), "async with is not compiled")
+	if statement.Async && (compiler.scope.Kind != resolver.FunctionScope ||
+		compiler.scope.Flags&resolver.Coroutine == 0) {
+		return compiler.error(statement.Span(), "async with has no enclosing coroutine")
 	}
 	if len(statement.Items) == 0 {
 		return compiler.error(statement.Span(), "with statement has no context managers")
@@ -29,7 +33,7 @@ func (compiler *compilerState) compileWithItem(
 ) error {
 	item := statement.Items[index]
 	baseDepth := compiler.stackDepth
-	if err := compiler.compileContextEntry(item); err != nil {
+	if err := compiler.compileContextEntry(item, statement.Async); err != nil {
 		return err
 	}
 
@@ -46,6 +50,7 @@ func (compiler *compilerState) compileWithItem(
 		context: contextManagerCleanup{
 			baseDepth: baseDepth,
 			span:      item.Range,
+			async:     statement.Async,
 		},
 	})
 	var err error
@@ -68,22 +73,37 @@ func (compiler *compilerState) compileWithItem(
 	}
 
 	if compiler.reachable {
-		if err := compiler.emitContextExit(item.Range); err != nil {
+		if err := compiler.emitContextExit(item.Range, statement.Async); err != nil {
 			return err
 		}
 		if err := compiler.emitJump(bytecode.Jump, end, statement.Span()); err != nil {
 			return err
 		}
 	}
-	if err := compiler.compileExceptionalContextExit(handler, end, baseDepth, item.Range); err != nil {
+	if err := compiler.compileExceptionalContextExit(
+		handler,
+		end,
+		baseDepth,
+		item.Range,
+		statement.Async,
+	); err != nil {
 		return err
 	}
 	return compiler.markLabel(end, statement.Span())
 }
 
 // compileContextEntry leaves the bound exit method below the enter result. The
-// protected range starts only after __enter__ returns successfully.
-func (compiler *compilerState) compileContextEntry(item compilerast.WithItem) error {
+// protected range starts only after the enter awaitable returns successfully.
+func (compiler *compilerState) compileContextEntry(
+	item compilerast.WithItem,
+	async bool,
+) error {
+	exitName := contextExitName
+	enterName := contextEnterName
+	if async {
+		exitName = asyncContextExitName
+		enterName = asyncContextEnterName
+	}
 	if err := compiler.compileExpr(item.Context); err != nil {
 		return err
 	}
@@ -92,7 +112,7 @@ func (compiler *compilerState) compileContextEntry(item compilerast.WithItem) er
 	}
 	if err := compiler.emit(
 		bytecode.LoadSpecial,
-		compiler.nameIndex(contextExitName),
+		compiler.nameIndex(exitName),
 		item.Context.Span(),
 	); err != nil {
 		return err
@@ -102,20 +122,31 @@ func (compiler *compilerState) compileContextEntry(item compilerast.WithItem) er
 	}
 	if err := compiler.emit(
 		bytecode.LoadSpecial,
-		compiler.nameIndex(contextEnterName),
+		compiler.nameIndex(enterName),
 		item.Context.Span(),
 	); err != nil {
 		return err
 	}
-	return compiler.emit(bytecode.Call, 0, item.Context.Span())
+	if err := compiler.emit(bytecode.Call, 0, item.Context.Span()); err != nil {
+		return err
+	}
+	if async {
+		return compiler.compileAwaitStackTop(item.Range, bytecode.AwaitAsyncEnter)
+	}
+	return nil
 }
 
-func (compiler *compilerState) emitContextExit(span lexer.Span) error {
+func (compiler *compilerState) emitContextExit(span lexer.Span, async bool) error {
 	if err := compiler.emitContextExitArguments(span); err != nil {
 		return err
 	}
 	if err := compiler.emit(bytecode.Call, 3, span); err != nil {
 		return err
+	}
+	if async {
+		if err := compiler.compileAwaitStackTop(span, bytecode.AwaitAsyncExit); err != nil {
+			return err
+		}
 	}
 	return compiler.emit(bytecode.PopTop, 0, span)
 }
@@ -132,7 +163,7 @@ func (compiler *compilerState) emitPreservedContextExit(
 	if err := compiler.emit(bytecode.Copy, uint32(depth), cleanup.span); err != nil {
 		return err
 	}
-	return compiler.emitContextExit(cleanup.span)
+	return compiler.emitContextExit(cleanup.span, cleanup.async)
 }
 
 func (compiler *compilerState) emitContextExitArguments(span lexer.Span) error {
@@ -155,6 +186,7 @@ func (compiler *compilerState) compileExceptionalContextExit(
 	end *jumpLabel,
 	baseDepth int,
 	span lexer.Span,
+	async bool,
 ) error {
 	if err := compiler.mergeLabelDepth(handler, baseDepth+2, span); err != nil {
 		return err
@@ -189,6 +221,11 @@ func (compiler *compilerState) compileExceptionalContextExit(
 	}
 	if err := compiler.emit(bytecode.Call, 3, span); err != nil {
 		return err
+	}
+	if async {
+		if err := compiler.compileAwaitStackTop(span, bytecode.AwaitAsyncExit); err != nil {
+			return err
+		}
 	}
 
 	suppressed := compiler.newLabel()

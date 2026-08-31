@@ -3,6 +3,7 @@ package compiler
 import (
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
@@ -16,30 +17,39 @@ func (compiler *compilerState) compileAwaitExpression(expression *compilerast.Aw
 	if err := compiler.compileExpr(expression.Value); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.GetAwaitable, 0, expression.Value.Span()); err != nil {
+	return compiler.compileAwaitStackTop(
+		expression.Span(),
+		bytecode.AwaitExpression,
+	)
+}
+
+// compileAwaitStackTop converts the top value to an awaitable and emits the
+// shared send/yield loop, leaving the awaitable's return value on the stack.
+func (compiler *compilerState) compileAwaitStackTop(span lexer.Span, context uint32) error {
+	if err := compiler.emit(bytecode.GetAwaitable, context, span); err != nil {
 		return err
 	}
 	if err := compiler.emit(
 		bytecode.LoadConst,
 		compiler.constantIndex(bytecode.None()),
-		expression.Span(),
+		span,
 	); err != nil {
 		return err
 	}
 
 	send := compiler.newLabel()
 	exit := compiler.newLabel()
-	if err := compiler.markLabel(send, expression.Span()); err != nil {
+	if err := compiler.markLabel(send, span); err != nil {
 		return err
 	}
-	if err := compiler.emitJump(bytecode.Send, exit, expression.Span()); err != nil {
+	if err := compiler.emitJump(bytecode.Send, exit, span); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.YieldValue, 0, expression.Span()); err != nil {
+	if err := compiler.emit(bytecode.YieldValue, 0, span); err != nil {
 		return err
 	}
-	if err := compiler.emitJump(bytecode.Jump, send, expression.Span()); err != nil {
+	if err := compiler.emitJump(bytecode.Jump, send, span); err != nil {
 		return err
 	}
-	return compiler.markLabel(exit, expression.Span())
+	return compiler.markLabel(exit, span)
 }

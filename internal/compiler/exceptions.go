@@ -30,6 +30,7 @@ const (
 type contextManagerCleanup struct {
 	baseDepth int
 	span      lexer.Span
+	async     bool
 }
 
 type controlCleanup struct {

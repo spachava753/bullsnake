@@ -447,7 +447,7 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := SetFunctionTypeParameters.StackEffect(0); got != -1 {
 		t.Fatalf("SET_FUNCTION_TYPE_PARAMETERS stack effect = %d, want -1", got)
 	}
-	if got := (Instruction{Opcode: GetAwaitable}).String(); got != "GET_AWAITABLE" {
+	if got := (Instruction{Opcode: GetAwaitable, Operand: AwaitExpression}).String(); got != "GET_AWAITABLE 0" {
 		t.Fatalf("awaitable instruction = %q", got)
 	}
 	if got := GetAwaitable.StackEffect(0); got != 0 {

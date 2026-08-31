@@ -180,8 +180,9 @@ The current compiler translates:
   conditional expressions
 - simple, chained, destructuring, annotated, augmented, and deletion targets
 - `if`, synchronous `while` and `for`, loop `else`, `break`, and `continue`
-- synchronous `with`, including multiple managers, exception suppression, and
-  cleanup during return or loop transfer
+- synchronous and asynchronous `with`, including multiple managers, exception
+  suppression, awaited async entry and exit, and cleanup during return or loop
+  transfer
 - structural matching with literal and dotted-value tests, capture, wildcard,
   AS and OR patterns, guards, fixed or starred tuple/list sequences, dictionary
   patterns with `**rest`, and class patterns with positional or named fields
@@ -262,9 +263,8 @@ defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
 The compiler rejects template-string execution, generic async functions, async
-generators, asynchronous comprehensions, `async for`, and `async with`.
-Unsupported AST forms return compiler errors; they are not approximated with
-similar bytecode.
+generators, asynchronous comprehensions, and `async for`. Unsupported AST forms
+return compiler errors; they are not approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -431,11 +431,12 @@ non-future class body; an explicit class method of that name wins. The first
 Explicit class dictionaries, including dictionaries created by the future
 annotations compiler path, take precedence. Failed lazy evaluation is retried.
 Synchronous context managers look up `__enter__` and `__exit__` on that class
-chain, ignoring same-named instance attributes. The object model does not yet
-implement complete annotation attribute mutation rules, class keyword
-arguments, multiple inheritance, C3 method order, metaclasses, `super`,
-`__new__`, or general descriptors. Custom exception initializers and methods
-remain unsupported.
+chain, ignoring same-named instance attributes. Asynchronous managers use the
+same class-only rule for `__aenter__` and `__aexit__`; the runtime requires native
+coroutines from both methods. The object model does not yet implement complete
+annotation attribute mutation rules, class keyword arguments, multiple
+inheritance, C3 method order, metaclasses, `super`, `__new__`, or general
+descriptors. Custom exception initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general
@@ -555,7 +556,6 @@ The largest current gaps are:
   collection
 - no custom awaitable protocol, async scheduling, asynchronous comprehensions,
   async generators, async iteration, or Python threads
-- no asynchronous context managers
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

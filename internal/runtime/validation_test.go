@@ -551,6 +551,20 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "GET_AWAITABLE requires coroutine code",
 		},
 		{
+			name: "get awaitable operand",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.GetAwaitable, Operand: 99},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.Coroutine,
+			}),
+			wantFragment: "unsupported GET_AWAITABLE operand 99",
+		},
+		{
 			name: "get awaitable stack underflow",
 			code: testCodeSpec(bytecode.CodeSpec{
 				StackSize: 1,

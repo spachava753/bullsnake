@@ -11,6 +11,13 @@ const (
 	ConversionASCII
 )
 
+// GET_AWAITABLE operands identify the source of an awaitable requirement.
+const (
+	AwaitExpression uint32 = iota
+	AwaitAsyncEnter
+	AwaitAsyncExit
+)
+
 // CALL_EX operands report whether a keyword map follows the positional tuple.
 const (
 	CallExNoKeywords uint32 = iota
@@ -301,7 +308,7 @@ func (opcode Opcode) HasOperand() bool {
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
 		DeleteDeref, LoadClosure, ImportName, ImportFrom, LoadFromDictOrGlobals,
-		LoadFromDictOrDeref, EnterExcept, LoadSpecial, MatchClass:
+		LoadFromDictOrDeref, EnterExcept, LoadSpecial, MatchClass, GetAwaitable:
 		return true
 	default:
 		return false

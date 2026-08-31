@@ -32,10 +32,14 @@ func executeLoadSpecial(
 }
 
 func missingContextMethod(owner Value, name string) *Exception {
+	protocol := "context manager protocol"
+	if name == "__aenter__" || name == "__aexit__" {
+		protocol = "asynchronous context manager protocol"
+	}
 	return newException(
 		"TypeError",
-		"'"+owner.TypeName()+"' object does not support the context manager protocol "+
-			"(missed "+name+" method)",
+		"'"+owner.TypeName()+"' object does not support the "+protocol+
+			" (missed "+name+" method)",
 	)
 }
 

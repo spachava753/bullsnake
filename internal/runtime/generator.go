@@ -1,6 +1,10 @@
 package runtime
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+)
 
 // suspendedKind distinguishes synchronous generators from native coroutines.
 type suspendedKind uint8
@@ -459,19 +463,29 @@ func executeGeneratorCloseCall(
 
 // executeGetAwaitable accepts native coroutines without making them ordinary
 // iterators. User-defined __await__ methods remain a later object-model feature.
-func executeGetAwaitable(frame *frame, instruction int) (instructionOutcome, error) {
+func executeGetAwaitable(
+	frame *frame,
+	instruction int,
+	context uint32,
+) (instructionOutcome, error) {
 	value, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
 	coroutine, ok := value.(*generatorValue)
 	if !ok || coroutine.kind != coroutineObject {
+		message := "'" + value.TypeName() + "' object can't be awaited"
+		switch context {
+		case bytecode.AwaitAsyncEnter:
+			message = "'async with' received an object from __aenter__ that does not " +
+				"implement __await__: " + value.TypeName()
+		case bytecode.AwaitAsyncExit:
+			message = "'async with' received an object from __aexit__ that does not " +
+				"implement __await__: " + value.TypeName()
+		}
 		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				"'"+value.TypeName()+"' object can't be awaited",
-			),
+			kind:      raised,
+			exception: newException("TypeError", message),
 		}, nil
 	}
 	return pushOutcome(frame, instruction, coroutine)
