@@ -85,3 +85,41 @@ assert next(iterator, None) is None
 
 self_iterator = CountingIterator()
 assert iter(self_iterator) is self_iterator
+# ---
+# case: getattr builtin values and defaults
+class DynamicField:
+    def __get__(self, instance, owner):
+        if instance is None:
+            return owner
+        return instance.value + 1
+
+class Subject:
+    class_value = 10
+    dynamic = DynamicField()
+
+    def __init__(self, value):
+        self.value = value
+
+    def add(self, amount):
+        return self.value + amount
+
+subject = Subject(20)
+assert getattr(subject, 'value') == 20
+assert getattr(subject, 'dynamic') == 21
+assert getattr(subject, 'add')(2) == 22
+assert getattr(Subject, 'class_value') == 10
+assert getattr(Subject, 'dynamic') is Subject
+marker = []
+assert getattr(subject, 'missing', marker) is marker
+assert getattr(Subject, 'missing', marker) is marker
+# ---
+# case: getattr default catches descriptor attribute error
+class MissingField:
+    def __get__(self, instance, owner):
+        raise AttributeError('hidden field')
+
+class MissingSubject:
+    field = MissingField()
+
+marker = []
+assert getattr(MissingSubject(), 'field', marker) is marker

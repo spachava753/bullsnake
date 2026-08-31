@@ -116,3 +116,55 @@ def produce():
     return None
 
 iter(produce, None)
+# ---
+# case: getattr missing arguments
+# error: TypeError
+# message: "getattr expected at least 2 arguments, got 0"
+getattr()
+# ---
+# case: getattr extra arguments
+# error: TypeError
+# message: "getattr expected at most 3 arguments, got 4"
+getattr(None, 'value', None, None)
+# ---
+# case: getattr keyword argument
+# error: TypeError
+# message: "getattr() takes no keyword arguments"
+getattr(None, name='value')
+# ---
+# case: getattr non-string name
+# error: TypeError
+# message: "attribute name must be string, not 'int'"
+getattr(None, 1)
+# ---
+# case: getattr missing attribute without default
+# error: AttributeError
+# message: "'MissingAttribute' object has no attribute 'value'"
+class MissingAttribute:
+    pass
+
+getattr(MissingAttribute(), 'value')
+# ---
+# case: getattr descriptor attribute error without default
+# error: AttributeError
+# message: "hidden field"
+class MissingDescriptor:
+    def __get__(self, instance, owner):
+        raise AttributeError('hidden field')
+
+class DescriptorOwner:
+    field = MissingDescriptor()
+
+getattr(DescriptorOwner(), 'field')
+# ---
+# case: getattr default preserves non-attribute errors
+# error: ValueError
+# message: "broken field"
+class BrokenDescriptor:
+    def __get__(self, instance, owner):
+        raise ValueError('broken field')
+
+class BrokenOwner:
+    field = BrokenDescriptor()
+
+getattr(BrokenOwner(), 'field', None)

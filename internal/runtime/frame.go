@@ -52,6 +52,7 @@ type frame struct {
 	pendingImport       *importRequest
 	truth               *truthCall
 	length              *lengthCall
+	getattrDefault      *getattrDefaultCall
 	iteration           *iterationCall
 	membership          *membershipCall
 	subscription        *subscriptionCall

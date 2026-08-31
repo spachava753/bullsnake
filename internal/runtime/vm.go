@@ -741,6 +741,31 @@ route:
 				return nil, nil
 			}
 
+			if current.getattrDefault != nil && isAttributeError(exception) {
+				call := current.getattrDefault
+				current.getattrDefault = nil
+				for index := range current.stack {
+					current.stack[index] = nil
+				}
+				current.stack = current.stack[:0]
+				current.discardImportedModule()
+				caller := current.previous
+				if caller == nil {
+					return nil, current.failure(
+						currentInstruction,
+						"getattr attribute call has no caller",
+					)
+				}
+				if !caller.push(call.value) {
+					return nil, caller.failure(
+						call.instruction,
+						"operand stack overflow while returning getattr default",
+					)
+				}
+				thread.current = caller
+				return nil, nil
+			}
+
 			if current.iteration != nil &&
 				current.iteration.kind != iterationGetIterator &&
 				isStopIteration(exception) {
@@ -1099,25 +1124,7 @@ func executeInstruction(
 				}, nil
 			}
 		case *functionValue:
-			switch name {
-			case "__type_params__":
-				return pushOutcome(frame, index, owner.typeParams)
-			case "__annotate__":
-				if owner.annotate == nil {
-					return pushOutcome(frame, index, None)
-				}
-				return pushOutcome(frame, index, owner.annotate)
-			case "__annotations__":
-				return executeFunctionAnnotationsLoad(frame, index, owner)
-			default:
-				return instructionOutcome{
-					kind: raised,
-					exception: newException(
-						"AttributeError",
-						"'function' object has no attribute '"+name+"'",
-					),
-				}, nil
-			}
+			return executeFunctionAttributeLoad(frame, index, owner, name)
 		case *propertyValue:
 			return executePropertyAttributeLoad(frame, index, owner, name)
 		case *templateValue:
@@ -1186,44 +1193,11 @@ func executeInstruction(
 				}, nil
 			}
 		case *Exception:
-			value, found := owner.attribute(name)
-			if !found {
-				return instructionOutcome{
-					kind: raised,
-					exception: newException(
-						"AttributeError",
-						"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
-					),
-				}, nil
-			}
-			return pushOutcome(frame, index, value)
+			return executeExceptionAttributeLoad(frame, index, owner, name)
 		case *Module:
-			value, found := owner.globals.get(name)
-			if !found {
-				return instructionOutcome{
-					kind: raised,
-					exception: newException(
-						"AttributeError",
-						"module '"+owner.name+"' has no attribute '"+name+"'",
-					),
-				}, nil
-			}
-			return pushOutcome(frame, index, value)
+			return executeModuleAttributeLoad(frame, index, owner, name)
 		case *typeValue:
-			if name == "__annotations__" {
-				return executeClassAnnotationsLoad(frame, index, owner)
-			}
-			if name == "__annotate__" {
-				value, found := owner.namespace.get("__annotate__")
-				if !found {
-					value, found = owner.namespace.get("__annotate_func__")
-				}
-				if !found {
-					value = None
-				}
-				return pushOutcome(frame, index, value)
-			}
-			return executeTypeAttributeLoad(frame, index, owner, name)
+			return executeClassAttributeLoad(frame, index, owner, name)
 		case *instanceValue:
 			return executeInstanceAttributeLoad(frame, index, owner, name)
 		default:

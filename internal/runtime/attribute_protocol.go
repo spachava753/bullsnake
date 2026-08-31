@@ -13,6 +13,119 @@ type attributeCall struct {
 	instruction int
 }
 
+// executeDynamicAttributeLoad applies the runtime's existing attribute rules to
+// a name supplied by Python rather than stored in a bytecode name table.
+func executeDynamicAttributeLoad(
+	frame *frame,
+	instruction int,
+	owner Value,
+	name string,
+) (instructionOutcome, error) {
+	switch owner := owner.(type) {
+	case *functionValue:
+		return executeFunctionAttributeLoad(frame, instruction, owner, name)
+	case *propertyValue:
+		return executePropertyAttributeLoad(frame, instruction, owner, name)
+	case *templateValue:
+		return executeTemplateAttributeLoad(frame, instruction, owner, name)
+	case *interpolationValue:
+		return executeInterpolationAttributeLoad(frame, instruction, owner, name)
+	case *superValue:
+		return executeSuperAttributeLoad(frame, instruction, owner, name)
+	case *Exception:
+		return executeExceptionAttributeLoad(frame, instruction, owner, name)
+	case *Module:
+		return executeModuleAttributeLoad(frame, instruction, owner, name)
+	case *typeValue:
+		return executeClassAttributeLoad(frame, instruction, owner, name)
+	case *instanceValue:
+		return executeInstanceAttributeLoad(frame, instruction, owner, name)
+	default:
+		return raiseOutcome(newException(
+			"AttributeError",
+			"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
+		)), nil
+	}
+}
+
+func executeFunctionAttributeLoad(
+	frame *frame,
+	instruction int,
+	owner *functionValue,
+	name string,
+) (instructionOutcome, error) {
+	switch name {
+	case "__type_params__":
+		return pushOutcome(frame, instruction, owner.typeParams)
+	case "__annotate__":
+		if owner.annotate == nil {
+			return pushOutcome(frame, instruction, None)
+		}
+		return pushOutcome(frame, instruction, owner.annotate)
+	case "__annotations__":
+		return executeFunctionAnnotationsLoad(frame, instruction, owner)
+	default:
+		return raiseOutcome(newException(
+			"AttributeError",
+			"'function' object has no attribute '"+name+"'",
+		)), nil
+	}
+}
+
+func executeExceptionAttributeLoad(
+	frame *frame,
+	instruction int,
+	owner *Exception,
+	name string,
+) (instructionOutcome, error) {
+	value, found := owner.attribute(name)
+	if !found {
+		return raiseOutcome(newException(
+			"AttributeError",
+			"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
+		)), nil
+	}
+	return pushOutcome(frame, instruction, value)
+}
+
+func executeModuleAttributeLoad(
+	frame *frame,
+	instruction int,
+	owner *Module,
+	name string,
+) (instructionOutcome, error) {
+	value, found := owner.globals.get(name)
+	if !found {
+		return raiseOutcome(newException(
+			"AttributeError",
+			"module '"+owner.name+"' has no attribute '"+name+"'",
+		)), nil
+	}
+	return pushOutcome(frame, instruction, value)
+}
+
+func executeClassAttributeLoad(
+	frame *frame,
+	instruction int,
+	owner *typeValue,
+	name string,
+) (instructionOutcome, error) {
+	if name == "__annotations__" {
+		return executeClassAnnotationsLoad(frame, instruction, owner)
+	}
+	if name == "__annotate__" {
+		value, found := owner.namespace.get("__annotate__")
+		if !found {
+			value, found = owner.namespace.get("__annotate_func__")
+		}
+		if !found {
+			value = None
+		}
+		return pushOutcome(frame, instruction, value)
+	}
+	return executeTypeAttributeLoad(frame, instruction, owner, name)
+}
+
 // executeTypeAttributeLoad serves computed class metadata before applying
 // ordinary MRO lookup and descriptor binding.
 func executeTypeAttributeLoad(
