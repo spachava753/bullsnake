@@ -50,6 +50,67 @@ func executeUserEquality(
 	return continueComparisonCall(frame, call)
 }
 
+// executeUserOrdering maps the source operator to left and reflected method
+// names, then applies the same strict-subclass ordering as equality.
+func executeUserOrdering(
+	frame *frame,
+	instruction int,
+	operand uint32,
+	left Value,
+	right Value,
+) (instructionOutcome, error) {
+	call := &comparisonCall{
+		instruction: instruction,
+		operand:     operand,
+		left:        left,
+		right:       right,
+	}
+	leftName, rightName := orderingMethodNames(operand)
+	leftInstance, leftUser := left.(*instanceValue)
+	rightInstance, rightUser := right.(*instanceValue)
+	if leftUser && rightUser && rightInstance.class != leftInstance.class &&
+		rightInstance.class.isSubclassOf(leftInstance.class) {
+		call.appendOrderingCandidate(rightInstance, left, rightName)
+		call.appendOrderingCandidate(leftInstance, right, leftName)
+	} else {
+		if leftUser {
+			call.appendOrderingCandidate(leftInstance, right, leftName)
+		}
+		if rightUser {
+			call.appendOrderingCandidate(rightInstance, left, rightName)
+		}
+	}
+	return continueComparisonCall(frame, call)
+}
+
+func (call *comparisonCall) appendOrderingCandidate(
+	receiver *instanceValue,
+	argument Value,
+	name string,
+) {
+	method, found := lookupInstanceSpecial(receiver, name)
+	if !found {
+		return
+	}
+	call.candidates = append(call.candidates, comparisonCandidate{
+		method:   method,
+		argument: argument,
+	})
+}
+
+func orderingMethodNames(operand uint32) (string, string) {
+	switch operand {
+	case bytecode.CompareLess:
+		return "__lt__", "__gt__"
+	case bytecode.CompareLessEqual:
+		return "__le__", "__ge__"
+	case bytecode.CompareGreater:
+		return "__gt__", "__lt__"
+	default:
+		return "__ge__", "__le__"
+	}
+}
+
 func (call *comparisonCall) appendEqualityCandidate(
 	receiver *instanceValue,
 	argument Value,
@@ -75,22 +136,14 @@ func (call *comparisonCall) appendEqualityCandidate(
 	})
 }
 
-// continueComparisonCall invokes the next candidate or applies identity after
-// every available method has returned NotImplemented.
+// continueComparisonCall invokes the next candidate or applies the operator's
+// identity or unsupported-ordering fallback after every method declines.
 func continueComparisonCall(
 	frame *frame,
 	call *comparisonCall,
 ) (instructionOutcome, error) {
 	if call.next >= len(call.candidates) {
-		equal := call.left == call.right
-		if call.operand == bytecode.CompareNotEqual {
-			equal = !equal
-		}
-		result := falseSingleton
-		if equal {
-			result = trueSingleton
-		}
-		return pushOutcome(frame, call.instruction, result)
+		return finishDeclinedComparison(frame, call)
 	}
 
 	candidate := call.candidates[call.next]
@@ -122,6 +175,43 @@ func continueComparisonCall(
 		)
 	}
 	return finishComparisonCall(frame, call, result)
+}
+
+// finishDeclinedComparison applies identity for equality and constructs the
+// operator-specific TypeError for an ordering declined by both operands.
+func finishDeclinedComparison(
+	frame *frame,
+	call *comparisonCall,
+) (instructionOutcome, error) {
+	if call.operand == bytecode.CompareEqual || call.operand == bytecode.CompareNotEqual {
+		equal := call.left == call.right
+		if call.operand == bytecode.CompareNotEqual {
+			equal = !equal
+		}
+		result := falseSingleton
+		if equal {
+			result = trueSingleton
+		}
+		return pushOutcome(frame, call.instruction, result)
+	}
+
+	operator := "<"
+	switch call.operand {
+	case bytecode.CompareLessEqual:
+		operator = "<="
+	case bytecode.CompareGreater:
+		operator = ">"
+	case bytecode.CompareGreaterEqual:
+		operator = ">="
+	}
+	return instructionOutcome{
+		kind: raised,
+		exception: newException(
+			"TypeError",
+			"'"+operator+"' not supported between instances of '"+
+				call.left.TypeName()+"' and '"+call.right.TypeName()+"'",
+		),
+	}, nil
 }
 
 func finishComparisonCall(

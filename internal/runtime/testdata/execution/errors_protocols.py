@@ -197,3 +197,22 @@ result = ImplicitInvalidInequality() != ImplicitInvalidInequality()
 # message: "NotImplemented should not be used in a boolean context"
 if NotImplemented:
     pass
+# ---
+# case: declined user ordering
+# error: TypeError
+# message: "'<' not supported between instances of 'DeclinedOrdering' and 'DeclinedOrdering'"
+class DeclinedOrdering:
+    def __lt__(self, other):
+        return NotImplemented
+    def __gt__(self, other):
+        return NotImplemented
+
+result = DeclinedOrdering() < DeclinedOrdering()
+# ---
+# case: disabled ordering method
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledOrdering:
+    __lt__ = None
+
+result = DisabledOrdering() < DisabledOrdering()

@@ -437,8 +437,10 @@ statement operation. Same-named instance attributes do not participate.
 User equality and inequality resolve class `__eq__` or `__ne__`. A strict right
 subclass gets the first attempt. Returning `NotImplemented` tries the other
 operand, then falls back to identity. If `__ne__` is absent, Bullsnake
-truth-tests and inverts `__eq__`; an explicit comparison method otherwise keeps
-its return value unchanged. User ordering methods remain unsupported.
+truth-tests and inverts `__eq__`. Ordering resolves the matching left method or
+the swapped right method, such as `__lt__` and `__gt__` for `<`, and raises
+`TypeError` if both decline. An explicit rich-comparison result otherwise
+passes through unchanged.
 
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative

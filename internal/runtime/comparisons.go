@@ -35,6 +35,13 @@ func executeComparison(
 			return executeUserEquality(frame, index, operand, left, right)
 		}
 	}
+	if operand >= bytecode.CompareLess && operand <= bytecode.CompareGreaterEqual {
+		_, leftUser := left.(*instanceValue)
+		_, rightUser := right.(*instanceValue)
+		if leftUser || rightUser {
+			return executeUserOrdering(frame, index, operand, left, right)
+		}
+	}
 
 	var result bool
 	switch operand {

@@ -480,3 +480,101 @@ except ValueError as error:
     equality_error = f'{error!r}'
 
 assert equality_error == 'ValueError("equality failed")'
+# ---
+# case: user ordering protocols
+class OrderedValue:
+    def __init__(self, value):
+        self.value = value
+    def __lt__(self, other):
+        return self.value < other.value
+    def __le__(self, other):
+        return self.value <= other.value
+    def __gt__(self, other):
+        return self.value > other.value
+    def __ge__(self, other):
+        return self.value >= other.value
+
+less = OrderedValue(1) < OrderedValue(2)
+less_equal = OrderedValue(2) <= OrderedValue(2)
+greater = OrderedValue(3) > OrderedValue(2)
+greater_equal = OrderedValue(3) >= OrderedValue(3)
+
+class RawOrdering:
+    def __lt__(self, other):
+        return 'raw ordering result'
+
+raw_ordering = RawOrdering() < RawOrdering()
+
+class OrderingTruth:
+    def __init__(self, value):
+        self.value = value
+        self.calls = 0
+    def __bool__(self):
+        self.calls = self.calls + 1
+        return self.value
+
+class ChainedOrdering:
+    def __init__(self, result):
+        self.result = result
+    def __lt__(self, other):
+        return self.result
+
+first_truth = OrderingTruth(True)
+second_truth = OrderingTruth(False)
+chained = (
+    ChainedOrdering(first_truth)
+    < ChainedOrdering(second_truth)
+    < ChainedOrdering(OrderingTruth(True))
+)
+
+assert less is True
+assert less_equal is True
+assert greater is True
+assert greater_equal is True
+assert raw_ordering == 'raw ordering result'
+assert chained is second_truth
+assert first_truth.calls == 1
+assert second_truth.calls == 0
+# ---
+# case: reflected ordering priority
+ordering_order = 0
+class LeftOrdering:
+    def __lt__(self, other):
+        global ordering_order
+        ordering_order = ordering_order * 10 + 1
+        return NotImplemented
+
+class RightOrdering:
+    def __gt__(self, other):
+        global ordering_order
+        ordering_order = ordering_order * 10 + 2
+        return True
+
+reflected_ordering = LeftOrdering() < RightOrdering()
+reflected_ordering_order = ordering_order
+
+class OrderingBase:
+    def __lt__(self, other):
+        return 'base ordering'
+
+class OrderingChild(OrderingBase):
+    def __gt__(self, other):
+        return 'child reflected ordering'
+
+subclass_ordering = OrderingBase() < OrderingChild()
+
+assert reflected_ordering is True
+assert reflected_ordering_order == 12
+assert subclass_ordering == 'child reflected ordering'
+# ---
+# case: ordering exceptions are catchable
+class BrokenOrdering:
+    def __lt__(self, other):
+        raise ValueError('ordering failed')
+
+try:
+    result = BrokenOrdering() < BrokenOrdering()
+except ValueError as error:
+    ordering_error = f'{error!r}'
+
+assert ordering_error == 'ValueError("ordering failed")'

@@ -378,9 +378,10 @@ tries class `__bool__` before class `__len__`. Iteration calls class `__iter__`,
 validates its result, and resumes class `__next__` from `for` or `next()`.
 Containment calls class `__contains__` and sends its result through the same
 truth path. Item access calls class `__getitem__`, `__setitem__`, or
-`__delitem__` as appropriate. Equality may try both operands after
-`NotImplemented`. Later ordering, arithmetic, and descriptor work should reuse
-this call path rather than invoke Python recursively from Go.
+`__delitem__` as appropriate. Rich comparisons may try both operands after
+`NotImplemented`, with the reflected ordering method selected by the operator.
+Later arithmetic and descriptor work should reuse this call path rather than
+invoke Python recursively from Go.
 
 Integers use arbitrary precision, but one exact power operation may produce at
 most 1,048,576 bits. Larger results raise `OverflowError` before Go's allocator
