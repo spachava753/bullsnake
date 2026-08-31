@@ -192,6 +192,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *asyncGeneratorASendMethod:
+		return executeAsyncGeneratorASendCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *generatorSendMethod:
 		return executeGeneratorSendCall(
 			caller,

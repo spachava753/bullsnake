@@ -23,6 +23,7 @@ const (
 type asyncGeneratorNextValue struct {
 	generator *generatorValue
 	state     asyncGeneratorNextState
+	sendValue Value
 }
 
 func (*asyncGeneratorNextValue) TypeName() string { return "async_generator_asend" }
@@ -37,6 +38,10 @@ type asyncGeneratorANextMethod struct {
 	generator *generatorValue
 }
 
+type asyncGeneratorASendMethod struct {
+	generator *generatorValue
+}
+
 func (*asyncGeneratorAIterMethod) TypeName() string { return "method-wrapper" }
 func (method *asyncGeneratorAIterMethod) Repr() string {
 	return "<method-wrapper '__aiter__' of " + method.generator.Repr() + ">"
@@ -48,6 +53,12 @@ func (method *asyncGeneratorANextMethod) Repr() string {
 	return "<method-wrapper '__anext__' of " + method.generator.Repr() + ">"
 }
 func (*asyncGeneratorANextMethod) isValue() {}
+
+func (*asyncGeneratorASendMethod) TypeName() string { return "builtin_function_or_method" }
+func (method *asyncGeneratorASendMethod) Repr() string {
+	return "<built-in method asend of " + method.generator.Repr() + ">"
+}
+func (*asyncGeneratorASendMethod) isValue() {}
 
 func executeAsyncGeneratorAIterCall(
 	caller *frame,
@@ -89,6 +100,45 @@ func executeAsyncGeneratorANextCall(
 	return pushOutcome(caller, instruction, &asyncGeneratorNextValue{
 		generator: method.generator,
 		state:     asyncGeneratorNextCreated,
+		sendValue: None,
+	})
+}
+
+func executeAsyncGeneratorASendCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *asyncGeneratorASendMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"async_generator.asend() takes no keyword arguments",
+			),
+		}, nil
+	}
+	if len(arguments) != 1 {
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"async_generator.asend() takes exactly one argument ("+
+					strconv.Itoa(len(arguments))+" given)",
+			),
+		}, nil
+	}
+	sendValue := arguments[0]
+	discardCallSegment(caller, base)
+	return pushOutcome(caller, instruction, &asyncGeneratorNextValue{
+		generator: method.generator,
+		state:     asyncGeneratorNextCreated,
+		sendValue: sendValue,
 	})
 }
 
@@ -123,6 +173,7 @@ func executeAsyncGeneratorNextSend(
 	sent Value,
 ) (instructionOutcome, error) {
 	generator := awaitable.generator
+	resumeValue := sent
 	switch awaitable.state {
 	case asyncGeneratorNextClosed:
 		return instructionOutcome{
@@ -150,7 +201,10 @@ func executeAsyncGeneratorNextSend(
 				),
 			}, nil
 		}
-		if sent != None {
+		resumeValue = awaitable.sendValue
+		awaitable.sendValue = None
+		if generator.state == generatorCreated && resumeValue != None {
+			awaitable.state = asyncGeneratorNextClosed
 			return instructionOutcome{
 				kind: raised,
 				exception: newException(
@@ -177,7 +231,7 @@ func executeAsyncGeneratorNextSend(
 		caller,
 		instruction,
 		generator,
-		sent,
+		resumeValue,
 		generatorResume{
 			kind:        generatorAsyncNext,
 			target:      target,
@@ -228,3 +282,4 @@ var _ Value = (*asyncGeneratorWrappedValue)(nil)
 var _ Value = (*asyncGeneratorNextValue)(nil)
 var _ Value = (*asyncGeneratorAIterMethod)(nil)
 var _ Value = (*asyncGeneratorANextMethod)(nil)
+var _ Value = (*asyncGeneratorASendMethod)(nil)

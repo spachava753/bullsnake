@@ -682,6 +682,12 @@ func executeInstruction(
 						index,
 						&asyncGeneratorANextMethod{generator: owner},
 					)
+				case "asend":
+					return pushOutcome(
+						frame,
+						index,
+						&asyncGeneratorASendMethod{generator: owner},
+					)
 				default:
 					return instructionOutcome{
 						kind: raised,

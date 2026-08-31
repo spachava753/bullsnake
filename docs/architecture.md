@@ -321,8 +321,10 @@ therefore follow the existing frame and protected-range rules. Custom
 An async generator uses a distinct code flag and object kind while retaining the
 same detached frame. Its `__aiter__` returns itself. Each `__anext__` call returns
 a one-shot awaitable that resumes the frame until a wrapped user yield, normal
-completion, or failure. Suspension caused by an inner `await` passes through the
-next awaitable without being mistaken for an item. Normal completion raises
+completion, or failure. `asend(value)` uses the same awaitable but supplies its
+value when resuming a suspended yield expression. A new async generator accepts
+only `None`. Suspension caused by an inner `await` passes through the next
+awaitable without being mistaken for an item. Normal completion raises
 `StopAsyncIteration` at the awaiting loop operation.
 
 Asynchronous context managers reuse the ordinary context-cleanup stack. Entry
@@ -457,8 +459,9 @@ but they must not mutate Python objects directly.
 
 Native coroutine awaiting, asynchronous context management, asynchronous
 iteration, eager asynchronous comprehensions, and basic async generators exist.
-Custom awaitables, async generator `asend`, `athrow`, and `aclose`, asynchronous
-generator expressions, scheduling, and Python threads remain future work.
+Async generators support `asend`; custom awaitables, `athrow`, `aclose`,
+asynchronous generator expressions, scheduling, and Python threads remain
+future work.
 
 Generators, coroutines, and async generators retain suspended Python frames and
 resume through the VM's ordinary frame loop. The next language step is the rest

@@ -336,11 +336,14 @@ and task execution remain unsupported.
 
 An async generator owns a third kind of detached frame. Calling its function is
 lazy and returns an `async_generator`, which is an async iterator but neither a
-synchronous iterator nor an awaitable. `__anext__` returns a one-shot awaitable.
-A wrapped user `yield` completes that awaitable with the yielded item, while an
-ordinary suspension from an inner `await` continues through the caller. Normal
-return completes iteration with `StopAsyncIteration`. An explicit
-`StopIteration` or `StopAsyncIteration` escaping the body becomes `RuntimeError`.
+synchronous iterator nor an awaitable. `__anext__` returns a one-shot awaitable;
+`asend(value)` creates the same awaitable with a value for the suspended `yield`
+expression. A wrapped user `yield` completes that awaitable with the yielded
+item, while an ordinary suspension from an inner `await` continues through the
+caller. A new async generator accepts only `None`; a rejected first send closes
+that awaitable without closing the generator. Normal return completes iteration
+with `StopAsyncIteration`. An explicit `StopIteration` or `StopAsyncIteration`
+escaping the body becomes `RuntimeError`.
 
 `async for` calls class-level `__aiter__` synchronously, requires its result to
 provide `__anext__`, and awaits each native-coroutine next result. A protected
@@ -584,8 +587,8 @@ The largest current gaps are:
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
 - no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
-  async generator `asend`, `athrow`, or `aclose`, asynchronous generator
-  expressions, or Python threads
+  async generator `athrow` or `aclose`, asynchronous generator expressions, or
+  Python threads
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

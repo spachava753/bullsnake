@@ -81,3 +81,66 @@ except StopIteration as stopped:
     assert stopped.value == (7, 8, True)
 else:
     assert False
+
+# ---
+# case: async generator asend supplies suspended yield results
+asend_activity = 0
+
+async def exchange_async_values():
+    global asend_activity
+    asend_activity += 1
+    first = yield 1
+    second = yield first
+    yield second
+
+async def drive_async_sends():
+    stream = exchange_async_values()
+    pending = stream.asend(None)
+    assert asend_activity == 0
+    first = await pending
+    second = await stream.asend(20)
+    third = await stream.asend(30)
+    exhausted = False
+    try:
+        await stream.asend(None)
+    except StopAsyncIteration:
+        exhausted = True
+    return (first, second, third, exhausted)
+
+sending = drive_async_sends()
+try:
+    sending.send(None)
+except StopIteration as stopped:
+    assert stopped.value == (1, 20, 30, True)
+else:
+    assert False
+assert asend_activity == 1
+
+# ---
+# case: failed first asend closes only its awaitable
+async def restartable_async_sender():
+    yield 5
+
+async def recover_from_invalid_first_asend():
+    stream = restartable_async_sender()
+    rejected = stream.asend(4)
+    first_failed = False
+    try:
+        await rejected
+    except TypeError:
+        first_failed = True
+    reuse_failed = False
+    try:
+        await rejected
+    except RuntimeError:
+        reuse_failed = True
+    value = await stream.asend(None)
+    return (first_failed, reuse_failed, value)
+
+recovering = recover_from_invalid_first_asend()
+try:
+    recovering.send(None)
+except StopIteration as stopped:
+    assert stopped.value == (True, True, 5)
+else:
+    assert False

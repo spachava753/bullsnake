@@ -66,3 +66,29 @@ class AsyncGeneratorInitializer:
         yield 1
 
 AsyncGeneratorInitializer()
+
+# ---
+# case: first async generator asend value must be None
+# error: TypeError
+# message: "can't send non-None value to a just-started async generator"
+async def new_async_sender():
+    yield 1
+
+async def start_async_sender_with_value():
+    await new_async_sender().asend(4)
+
+start_async_sender_with_value().send(None)
+
+# ---
+# case: async generator next awaitables are one shot
+# error: RuntimeError
+# message: "cannot reuse already awaited __anext__()/asend()"
+async def reusable_async_sender():
+    yield 1
+
+async def reuse_async_sender_awaitable():
+    pending = reusable_async_sender().asend(None)
+    await pending
+    await pending
+
+reuse_async_sender_awaitable().send(None)
