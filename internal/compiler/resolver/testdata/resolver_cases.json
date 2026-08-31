@@ -196,6 +196,11 @@
       "want_table": "Table(features=[FutureAnnotations], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[annotations=Local[Imported], f=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"f\", private=\"\", flags=[ReturnsValue, UsesAnnotations], parameters=[\"x\"], symbols=[x=Local[Used, Parameter], callback=Local[Assigned, Annotated]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested, UsesAnnotations, UnevaluatedAnnotations], parameters=[], symbols=[], children=[Function(name=\"lambda\", private=\"\", flags=[Nested], parameters=[], symbols=[x=Free[Used]], children=[])])])]))"
     },
     {
+      "name": "future function annotations do not capture names",
+      "source": "from __future__ import annotations\ndef outer(Type):\n    def inner(value: Type, missing: Missing) -> tuple[Type, Missing]:\n        return value\n    return inner\nfactory = outer\n",
+      "want_table": "Table(features=[FutureAnnotations], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[annotations=Local[Imported], outer=Local[Used, Assigned], factory=Local[Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[], parameters=[], symbols=[], children=[]), Function(name=\"outer\", private=\"\", flags=[ReturnsValue], parameters=[\"Type\"], symbols=[Type=Local[Parameter], inner=Local[Used, Assigned]], children=[Annotation(name=\"__annotate__\", private=\"\", flags=[Nested, UsesAnnotations, UnevaluatedAnnotations], parameters=[], symbols=[], children=[]), Function(name=\"inner\", private=\"\", flags=[Nested, ReturnsValue], parameters=[\"value\", \"missing\"], symbols=[value=Local[Used, Parameter], missing=Local[Parameter]], children=[])])]))"
+    },
+    {
       "name": "loop control inside exception group handler loop",
       "source": "try:\n    pass\nexcept* Error:\n    for item in items:\n        if item:\n            continue\n        break\n",
       "want_table": "Table(features=[], root=Module(name=\"top\", private=\"\", flags=[], parameters=[], symbols=[Error=GlobalImplicit[Used], item=Local[Used, Assigned], items=GlobalImplicit[Used]], children=[]))"

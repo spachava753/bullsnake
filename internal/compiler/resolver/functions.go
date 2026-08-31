@@ -41,7 +41,9 @@ func (state *resolver) collectFunctionScopes(
 	annotationFlags := ScopeFlags(0)
 	if statement.Returns != nil || parametersHaveAnnotations(statement.Parameters) {
 		annotationFlags |= UsesAnnotations
-		if canSeeClass {
+		if state.table.Features&FutureAnnotations != 0 {
+			annotationFlags |= UnevaluatedAnnotations
+		} else if canSeeClass {
 			annotationFlags |= CanSeeClassScope
 			state.markVisibleClassNeedsDict()
 		}

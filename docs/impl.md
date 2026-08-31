@@ -141,10 +141,12 @@ selects a scope by its purpose.
 
 The resolver handles closure propagation, class scope rules, `__class__` and
 `__classdict__` cells, private names, comprehension bindings, assignment
-expressions, deferred annotations, generic scopes, and pattern captures. It
-also records generator and coroutine flags and checks where control-flow and
-suspension syntax may appear. Unknown names remain implicit globals for runtime
-lookup.
+expressions, deferred annotations, generic scopes, and pattern captures. Under
+`from __future__ import annotations`, function annotation scopes still check
+context-sensitive syntax but do not create name uses, free variables, or
+closure cells. The resolver also records generator and coroutine flags and
+checks where control-flow and suspension syntax may appear. Unknown names
+remain implicit globals for runtime lookup.
 
 The resolver decides what a name means. It does not assign bytecode indexes or
 choose load and store instructions. Those decisions belong to the compiler.
