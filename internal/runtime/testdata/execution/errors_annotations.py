@@ -14,3 +14,11 @@ class InvalidAnnotations:
         return 42
 
 InvalidAnnotations.__annotations__
+# ---
+# case: function annotation format is limited
+# error: NotImplementedError
+# message: ""
+def described(value: int):
+    return value
+
+described.__annotate__(3)

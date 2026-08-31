@@ -166,6 +166,33 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					continue
 				}
 			}
+			if active.functionAnnotations != nil {
+				load := active.functionAnnotations
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"function annotation load has no caller",
+					)
+				}
+				var annotationException *Exception
+				result, annotationException = finishFunctionAnnotationsLoad(load, result)
+				if annotationException != nil {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						load.instruction,
+						annotationException,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+			}
 			if active.instanceInit != nil {
 				initialization := active.instanceInit
 				if result != None {
@@ -506,6 +533,24 @@ func executeInstruction(
 		}
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
+		case *functionValue:
+			switch name {
+			case "__annotate__":
+				if owner.annotate == nil {
+					return pushOutcome(frame, index, None)
+				}
+				return pushOutcome(frame, index, owner.annotate)
+			case "__annotations__":
+				return executeFunctionAnnotationsLoad(frame, index, owner)
+			default:
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"'function' object has no attribute '"+name+"'",
+					),
+				}, nil
+			}
 		case *generatorValue:
 			switch name {
 			case "send":

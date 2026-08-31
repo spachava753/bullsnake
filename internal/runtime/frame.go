@@ -32,24 +32,25 @@ type delegationState struct {
 }
 
 type frame struct {
-	runtime           *Runtime
-	code              *preparedCode
-	instruction       int
-	stack             []Value
-	fastLocals        []Value
-	deref             []*cellValue
-	locals            *Namespace
-	globals           *Namespace
-	builtins          *Namespace
-	previous          *frame
-	classBuild        *classBuild
-	instanceInit      *instanceInit
-	classAnnotations  *classAnnotationLoad
-	moduleImport      *moduleImport
-	pendingImport     *importRequest
-	generator         *generatorValue
-	delegation        *delegationState
-	handledExceptions []handledException
+	runtime             *Runtime
+	code                *preparedCode
+	instruction         int
+	stack               []Value
+	fastLocals          []Value
+	deref               []*cellValue
+	locals              *Namespace
+	globals             *Namespace
+	builtins            *Namespace
+	previous            *frame
+	classBuild          *classBuild
+	instanceInit        *instanceInit
+	classAnnotations    *classAnnotationLoad
+	functionAnnotations *functionAnnotationLoad
+	moduleImport        *moduleImport
+	pendingImport       *importRequest
+	generator           *generatorValue
+	delegation          *delegationState
+	handledExceptions   []handledException
 }
 
 type threadState struct {

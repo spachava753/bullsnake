@@ -14,6 +14,7 @@ type functionValue struct {
 	keywordDefaults map[string]Value
 	closure         []*cellValue
 	annotate        *functionValue
+	annotations     *dictValue
 }
 
 func (*functionValue) TypeName() string { return "function" }

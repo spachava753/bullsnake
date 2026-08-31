@@ -197,3 +197,68 @@ try:
 except KeyError:
     class_skipped_absent = True
 assert class_skipped_absent
+# ---
+# case: function annotations are lazy and cache identity
+events = 0
+
+def evaluate(label):
+    global events
+    events = events + 1
+    return label
+
+def described(value: evaluate('parameter')) -> evaluate('return'):
+    return value
+
+before = events
+direct = described.__annotate__(1)
+after_direct = events
+first_function_annotations = described.__annotations__
+after_first = events
+second_function_annotations = described.__annotations__
+after_second = events
+assert before == 0
+assert direct['value'] == 'parameter'
+assert direct['return'] == 'return'
+assert after_direct == 2
+assert first_function_annotations['value'] == 'parameter'
+assert first_function_annotations['return'] == 'return'
+assert after_first == 4
+assert after_second == 4
+assert first_function_annotations is second_function_annotations
+# ---
+# case: unannotated functions expose one empty dictionary
+
+def plain_function():
+    pass
+
+assert plain_function.__annotate__ is None
+empty_function_annotations = plain_function.__annotations__
+try:
+    empty_function_annotations['missing']
+except KeyError:
+    empty_function_annotations_are_empty = True
+assert empty_function_annotations_are_empty
+assert empty_function_annotations is plain_function.__annotations__
+# ---
+# case: failed function annotation evaluation is retried
+function_annotation_events = 0
+
+def fail_function_annotation():
+    global function_annotation_events
+    function_annotation_events = function_annotation_events + 1
+    raise ValueError('retry function')
+
+def retry_function(value: fail_function_annotation()):
+    return value
+
+try:
+    retry_function.__annotations__
+except ValueError:
+    first_function_failure = True
+try:
+    retry_function.__annotations__
+except ValueError:
+    second_function_failure = True
+assert first_function_failure
+assert second_function_failure
+assert function_annotation_events == 2

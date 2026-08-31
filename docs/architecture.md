@@ -155,6 +155,13 @@ expression use the comprehension scope. This simpler compiler model preserves
 name isolation and closure behavior. The extra frame may change when Bullsnake
 exposes Python frame introspection.
 
+Function definitions with annotations also create a child code object. The child
+captures the names needed to evaluate those expressions. Reading
+`f.__annotate__` returns that callable. The first `f.__annotations__` access
+calls it with value format `1`, requires a dictionary, and caches the exact
+result. A failed call leaves the cache empty so a later access retries it.
+Unannotated functions cache one empty dictionary.
+
 Without `from __future__ import annotations`, class annotations use a child code
 object. The class body records which annotation statements ran, while the child
 captures the live class namespace and any required enclosing cells. Calling

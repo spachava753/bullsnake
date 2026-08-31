@@ -20,6 +20,70 @@ type classAnnotationLoad struct {
 	instruction int
 }
 
+type functionAnnotationLoad struct {
+	function    *functionValue
+	instruction int
+}
+
+// executeFunctionAnnotationsLoad returns a cached dictionary or starts the
+// function's annotation child so it runs through the ordinary frame loop.
+func executeFunctionAnnotationsLoad(
+	frame *frame,
+	instruction int,
+	function *functionValue,
+) (instructionOutcome, error) {
+	if function.annotations != nil {
+		return pushOutcome(frame, instruction, function.annotations)
+	}
+	if function.annotate == nil {
+		function.annotations = &dictValue{}
+		return pushOutcome(frame, instruction, function.annotations)
+	}
+	if function.annotate.code.code.Flags()&bytecode.Generator != 0 {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"__annotate__ returned non-dict of type 'generator'",
+			),
+		}, nil
+	}
+	format := &intValue{value: *big.NewInt(1)}
+	child, exception, err := newFunctionFrame(
+		frame,
+		instruction,
+		function.annotate,
+		[]Value{format},
+		nil,
+	)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	child.functionAnnotations = &functionAnnotationLoad{
+		function:    function,
+		instruction: instruction,
+	}
+	return instructionOutcome{kind: called, frame: child}, nil
+}
+
+func finishFunctionAnnotationsLoad(
+	load *functionAnnotationLoad,
+	value Value,
+) (Value, *Exception) {
+	annotations, ok := value.(*dictValue)
+	if !ok {
+		return nil, newException(
+			"TypeError",
+			"__annotate__ returned non-dict of type '"+value.TypeName()+"'",
+		)
+	}
+	load.function.annotations = annotations
+	return annotations, nil
+}
+
 // executeClassAnnotationsLoad returns an explicit or cached dictionary first;
 // otherwise it starts the class's own annotation function and records the
 // return-time cache work on that child frame.

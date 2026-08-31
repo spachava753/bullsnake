@@ -210,12 +210,16 @@ names.
 
 Without `from __future__ import annotations`, deferred annotation bodies are
 also children. Function annotations do not run during an ordinary definition or
-call. Class bodies record each executed simple annotation and publish a lazy
-`__annotate__` child that can read the live class namespace, enclosing cells,
-globals, and builtins. With the future import, module and class scopes create
-`__annotations__` dictionaries eagerly. Each executed simple-name annotation
-stores its retained source spelling without evaluating the expression. Complex
-annotation-only targets do nothing in this mode.
+call. The runtime exposes the generated child as `f.__annotate__`; the first
+`f.__annotations__` access calls it with format `1`, requires a dictionary, and
+caches that object. An unannotated function receives one stable empty
+dictionary. Failed evaluation is retried. Class bodies record each executed
+simple annotation and publish a lazy `__annotate__` child that can read the live
+class namespace, enclosing cells, globals, and builtins. With the future import,
+module and class scopes create `__annotations__` dictionaries eagerly. Each
+executed simple-name annotation stores its retained source spelling without
+evaluating the expression. Complex annotation-only targets do nothing in this
+mode.
 
 The compiler rejects template-string execution, future function annotation
 strings, generic definitions, async definitions, asynchronous comprehensions,
