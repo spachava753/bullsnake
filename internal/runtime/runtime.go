@@ -117,6 +117,9 @@ func (runtime *Runtime) newModuleFrame(
 	if prepared.code.Flags()&bytecode.Generator != 0 {
 		return nil, nil, prepared.failure(-1, "module code cannot be a generator")
 	}
+	if prepared.code.Flags()&bytecode.AsyncGenerator != 0 {
+		return nil, nil, prepared.failure(-1, "module code cannot be an async generator")
+	}
 	globals := newNamespace()
 	globals.values["__name__"] = &stringValue{value: name}
 	packageName := name

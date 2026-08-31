@@ -509,6 +509,19 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "suspended code requires optimized new locals",
 		},
 		{
+			name: "async generator metadata",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.AsyncGenerator,
+			}),
+			wantFragment: "suspended code requires optimized new locals",
+		},
+		{
 			name: "generator coroutine conflict",
 			code: testCodeSpec(bytecode.CodeSpec{
 				StackSize: 1,
@@ -523,6 +536,20 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "code cannot be both a generator and a coroutine",
 		},
 		{
+			name: "async generator flag conflict",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags: bytecode.Optimized | bytecode.NewLocals |
+					bytecode.AsyncGenerator | bytecode.Coroutine,
+			}),
+			wantFragment: "async generator code cannot also be a generator or coroutine",
+		},
+		{
 			name: "yield outside suspended code",
 			code: testCode(
 				1,
@@ -535,6 +562,35 @@ func TestBytecodeValidation(t *testing.T) {
 				nil,
 			),
 			wantFragment: "YIELD_VALUE requires suspended code",
+		},
+		{
+			name: "async generator wrap outside async generator",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.AsyncGenWrap},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "ASYNC_GEN_WRAP requires async generator code",
+		},
+		{
+			name: "async generator wrap stack underflow",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.AsyncGenWrap},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags: bytecode.Optimized | bytecode.NewLocals |
+					bytecode.AsyncGenerator,
+			}),
+			wantFragment: "operand stack underflow",
 		},
 		{
 			name: "get awaitable outside coroutine code",
@@ -663,6 +719,20 @@ func TestBytecodeValidation(t *testing.T) {
 				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.Generator,
 			}),
 			wantFragment: "module code cannot be a generator",
+		},
+		{
+			name: "async generator module code",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags: bytecode.Optimized | bytecode.NewLocals |
+					bytecode.AsyncGenerator,
+			}),
+			wantFragment: "module code cannot be an async generator",
 		},
 		{
 			name: "yield stack underflow",

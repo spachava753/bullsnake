@@ -19,6 +19,7 @@ const (
 	Nested
 	Generator
 	Coroutine
+	AsyncGenerator
 )
 
 var codeFlagNames = [...]struct {
@@ -32,6 +33,7 @@ var codeFlagNames = [...]struct {
 	{Nested, "Nested"},
 	{Generator, "Generator"},
 	{Coroutine, "Coroutine"},
+	{AsyncGenerator, "AsyncGenerator"},
 }
 
 // String returns the stable dump spelling of code flags.

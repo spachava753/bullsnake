@@ -2,6 +2,8 @@ package runtime
 
 import "github.com/spachava753/bullsnake/internal/compiler/bytecode"
 
+// executeLoadSpecial resolves built-in async-generator methods directly and
+// user-defined protocol methods on an instance's class, never its attributes.
 func executeLoadSpecial(
 	frame *frame,
 	instruction int,
@@ -10,6 +12,22 @@ func executeLoadSpecial(
 	owner, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	if generator, asyncGenerator := owner.(*generatorValue); asyncGenerator &&
+		generator.kind == asyncGeneratorObject {
+		var value Value
+		switch name {
+		case "__aiter__":
+			value = &asyncGeneratorAIterMethod{generator: generator}
+		case "__anext__":
+			value = &asyncGeneratorANextMethod{generator: generator}
+		default:
+			return instructionOutcome{
+				kind:      raised,
+				exception: missingSpecialMethod(owner, name),
+			}, nil
+		}
+		return pushOutcome(frame, instruction, value)
 	}
 	instance, ok := owner.(*instanceValue)
 	if !ok {

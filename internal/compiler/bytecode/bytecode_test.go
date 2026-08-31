@@ -79,8 +79,8 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := (Instruction{Opcode: LoadName, Operand: 3}).String(); got != "LOAD_NAME 3" {
 		t.Fatalf("instruction = %q", got)
 	}
-	flags := Optimized | NewLocals | VarArgs | Nested | Generator | Coroutine
-	if got := flags.String(); got != "Optimized, NewLocals, VarArgs, Nested, Generator, Coroutine" {
+	flags := Optimized | NewLocals | VarArgs | Nested | Generator | Coroutine | AsyncGenerator
+	if got := flags.String(); got != "Optimized, NewLocals, VarArgs, Nested, Generator, Coroutine, AsyncGenerator" {
 		t.Fatalf("code flags = %q", got)
 	}
 	function := Instruction{Opcode: MakeFunction, Operand: 2}
@@ -342,6 +342,12 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	}
 	if got := YieldValue.StackEffect(0); got != 0 {
 		t.Fatalf("YIELD_VALUE stack effect = %d, want 0", got)
+	}
+	if got := (Instruction{Opcode: AsyncGenWrap}).String(); got != "ASYNC_GEN_WRAP" {
+		t.Fatalf("async generator wrap instruction = %q", got)
+	}
+	if got := AsyncGenWrap.StackEffect(0); got != 0 {
+		t.Fatalf("ASYNC_GEN_WRAP stack effect = %d, want 0", got)
 	}
 	send := Instruction{Opcode: Send, Operand: 8}
 	if got := send.String(); got != "SEND 8" {

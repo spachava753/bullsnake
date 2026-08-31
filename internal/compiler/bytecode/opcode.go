@@ -191,6 +191,7 @@ const (
 	GetAwaitable
 	CheckAsyncIterator
 	LoadStopAsyncIteration
+	AsyncGenWrap
 )
 
 var opcodeNames = [...]string{
@@ -292,6 +293,7 @@ var opcodeNames = [...]string{
 	"GET_AWAITABLE",
 	"CHECK_ASYNC_ITERATOR",
 	"LOAD_STOP_ASYNC_ITERATION",
+	"ASYNC_GEN_WRAP",
 }
 
 // String returns the disassembly spelling of an opcode.

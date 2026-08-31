@@ -12,6 +12,7 @@ type suspendedKind uint8
 const (
 	generatorObject suspendedKind = iota
 	coroutineObject
+	asyncGeneratorObject
 )
 
 // generatorState records whether a suspended frame can be entered.
@@ -32,6 +33,7 @@ const (
 	generatorClose
 	generatorDelegate
 	generatorDelegateClose
+	generatorAsyncNext
 )
 
 type generatorResume struct {
@@ -40,6 +42,7 @@ type generatorResume struct {
 	instruction  int
 	defaultValue Value
 	hasDefault   bool
+	asyncNext    *asyncGeneratorNextValue
 }
 
 type generatorValue struct {
@@ -81,10 +84,14 @@ func (method *generatorCloseMethod) Repr() string {
 func (*generatorCloseMethod) isValue() {}
 
 func (generator *generatorValue) TypeName() string {
-	if generator.kind == coroutineObject {
+	switch generator.kind {
+	case coroutineObject:
 		return "coroutine"
+	case asyncGeneratorObject:
+		return "async_generator"
+	default:
+		return "generator"
 	}
-	return "generator"
 }
 func (generator *generatorValue) Repr() string {
 	return "<" + generator.TypeName() + " object " + generator.qualifiedName + ">"
@@ -109,10 +116,21 @@ func transformGeneratorStopIteration(
 	generatorFrame *frame,
 	instruction int,
 ) *Exception {
-	if !isStopIteration(exception) {
+	generator := generatorFrame.generator
+	stopName := ""
+	switch {
+	case isStopIteration(exception):
+		stopName = "StopIteration"
+	case generator.kind == asyncGeneratorObject && isStopAsyncIteration(exception):
+		stopName = "StopAsyncIteration"
+	default:
 		return exception
 	}
-	message := generatorFrame.generator.TypeName() + " raised StopIteration"
+	objectName := generator.TypeName()
+	if generator.kind == asyncGeneratorObject {
+		objectName = "async generator"
+	}
+	message := objectName + " raised " + stopName
 	transformed := newException("RuntimeError", message)
 	transformed.cause = exception
 	transformed.context = exception
@@ -163,12 +181,12 @@ func executeBuiltinNext(
 	switch iterator := iterator.(type) {
 	case *generatorValue:
 		discardCallSegment(caller, base)
-		if iterator.kind == coroutineObject {
+		if iterator.kind != generatorObject {
 			return instructionOutcome{
 				kind: raised,
 				exception: newException(
 					"TypeError",
-					"'coroutine' object is not an iterator",
+					"'"+iterator.TypeName()+"' object is not an iterator",
 				),
 			}, nil
 		}
@@ -472,6 +490,9 @@ func executeGetAwaitable(
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
+	if _, asyncNext := value.(*asyncGeneratorNextValue); asyncNext {
+		return pushOutcome(frame, instruction, value)
+	}
 	coroutine, ok := value.(*generatorValue)
 	if !ok || coroutine.kind != coroutineObject {
 		message := "'" + value.TypeName() + "' object can't be awaited"
@@ -514,6 +535,14 @@ func executeSend(
 	}
 
 	switch delegate := delegate.(type) {
+	case *asyncGeneratorNextValue:
+		return executeAsyncGeneratorNextSend(
+			frame,
+			instruction,
+			target,
+			delegate,
+			sent,
+		)
 	case *generatorValue:
 		if delegate.state == generatorCompleted {
 			if delegate.kind == coroutineObject {
@@ -696,6 +725,12 @@ func suspendGenerator(
 	if caller == nil {
 		return nil, nil, active.failure(instruction, "generator has no resuming caller")
 	}
+	if generator.kind == asyncGeneratorObject &&
+		generator.resume.kind == generatorAsyncNext {
+		if wrapped, asyncYield := value.(*asyncGeneratorWrappedValue); asyncYield {
+			return finishAsyncGeneratorYield(active, instruction, wrapped)
+		}
+	}
 	if (generator.resume.kind == generatorIteration ||
 		generator.resume.kind == generatorDelegate) &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
@@ -771,6 +806,16 @@ func finishGenerator(
 			)
 		}
 		return caller, nil, nil
+	case generatorAsyncNext:
+		if resume.asyncNext == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"async generator completion has no next awaitable",
+			)
+		}
+		resume.asyncNext.state = asyncGeneratorNextClosed
+		generator.complete()
+		return caller, newExceptionOfType(stopAsyncIterationType, ""), nil
 	case generatorDelegate:
 		if len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator {
 			return nil, nil, active.failure(

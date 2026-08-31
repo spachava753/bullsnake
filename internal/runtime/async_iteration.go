@@ -10,6 +10,10 @@ func executeCheckAsyncIterator(
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
+	if generator, asyncGenerator := value.(*generatorValue); asyncGenerator &&
+		generator.kind == asyncGeneratorObject {
+		return pushOutcome(frame, instruction, value)
+	}
 	instance, ok := value.(*instanceValue)
 	if !ok {
 		return instructionOutcome{

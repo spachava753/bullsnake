@@ -174,6 +174,24 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *asyncGeneratorAIterMethod:
+		return executeAsyncGeneratorAIterCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
+	case *asyncGeneratorANextMethod:
+		return executeAsyncGeneratorANextCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *generatorSendMethod:
 		return executeGeneratorSendCall(
 			caller,
@@ -242,10 +260,14 @@ func executeFunctionCall(
 	}
 	caller.stack = caller.stack[:base]
 	flags := function.code.code.Flags()
-	if flags&(bytecode.Generator|bytecode.Coroutine) != 0 {
+	suspendedFlags := bytecode.Generator | bytecode.Coroutine | bytecode.AsyncGenerator
+	if flags&suspendedFlags != 0 {
 		kind := generatorObject
-		if flags&bytecode.Coroutine != 0 {
+		switch {
+		case flags&bytecode.Coroutine != 0:
 			kind = coroutineObject
+		case flags&bytecode.AsyncGenerator != 0:
+			kind = asyncGeneratorObject
 		}
 		generator := &generatorValue{
 			frame:         child,

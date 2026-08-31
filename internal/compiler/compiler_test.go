@@ -75,11 +75,6 @@ func TestFunctionCompilerBoundaries(t *testing.T) {
 			message: "generic async functions are not compiled",
 		},
 		{
-			name:    "async generator",
-			source:  "async def stream():\n    yield 1\n",
-			message: "async generators are not compiled",
-		},
-		{
 			name:    "async generator expression",
 			source:  "async def stream(source):\n    return (item async for item in source)\n",
 			message: "asynchronous generator expressions are not compiled",

@@ -27,6 +27,11 @@ func (compiler *compilerState) compileYieldExpression(expression *compilerast.Yi
 	} else if err := compiler.compileExpr(expression.Value); err != nil {
 		return err
 	}
+	if compiler.scope.Flags&resolver.Coroutine != 0 {
+		if err := compiler.emit(bytecode.AsyncGenWrap, 0, expression.Span()); err != nil {
+			return err
+		}
+	}
 	return compiler.emit(bytecode.YieldValue, 0, expression.Span())
 }
 

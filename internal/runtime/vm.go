@@ -377,6 +377,15 @@ route:
 					)
 				}
 				resumeKind := generator.resume.kind
+				if resumeKind == generatorAsyncNext {
+					if generator.resume.asyncNext == nil {
+						return nil, current.failure(
+							currentInstruction,
+							"async generator failure has no next awaitable",
+						)
+					}
+					generator.resume.asyncNext.state = asyncGeneratorNextClosed
+				}
 				if resumeKind == generatorClose && exception.class != nil &&
 					exception.class.isSubclassOf(generatorExitType) {
 					generator.complete()
@@ -395,7 +404,9 @@ route:
 					thread.current = caller
 					return nil, nil
 				}
-				if isStopIteration(exception) {
+				if isStopIteration(exception) ||
+					(generator.kind == asyncGeneratorObject &&
+						isStopAsyncIteration(exception)) {
 					exception = transformGeneratorStopIteration(
 						exception,
 						current,
@@ -657,6 +668,30 @@ func executeInstruction(
 				}, nil
 			}
 		case *generatorValue:
+			if owner.kind == asyncGeneratorObject {
+				switch name {
+				case "__aiter__":
+					return pushOutcome(
+						frame,
+						index,
+						&asyncGeneratorAIterMethod{generator: owner},
+					)
+				case "__anext__":
+					return pushOutcome(
+						frame,
+						index,
+						&asyncGeneratorANextMethod{generator: owner},
+					)
+				default:
+					return instructionOutcome{
+						kind: raised,
+						exception: newException(
+							"AttributeError",
+							"'async_generator' object has no attribute '"+name+"'",
+						),
+					}, nil
+				}
+			}
 			switch name {
 			case "send":
 				return pushOutcome(frame, index, &generatorSendMethod{generator: owner})
@@ -669,7 +704,7 @@ func executeInstruction(
 					kind: raised,
 					exception: newException(
 						"AttributeError",
-						"'generator' object has no attribute '"+name+"'",
+						"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
 					),
 				}, nil
 			}
@@ -1263,6 +1298,12 @@ func executeInstruction(
 		exception.originFrame = nil
 		exception.originInstruction = 0
 		return instructionOutcome{kind: raised, exception: exception}, nil
+	case bytecode.AsyncGenWrap:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		return pushOutcome(frame, index, &asyncGeneratorWrappedValue{value: value})
 	case bytecode.YieldValue:
 		value, ok := frame.pop()
 		if !ok {

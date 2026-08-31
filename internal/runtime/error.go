@@ -250,6 +250,11 @@ func isStopIteration(exception *Exception) bool {
 		exception.class.isSubclassOf(stopIterationType)
 }
 
+func isStopAsyncIteration(exception *Exception) bool {
+	return exception != nil && exception.class != nil &&
+		exception.class.isSubclassOf(stopAsyncIterationType)
+}
+
 func newUserException(class *typeValue, message string) *Exception {
 	return &Exception{
 		class:     class.builtinExceptionBase(),

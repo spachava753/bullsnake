@@ -200,6 +200,9 @@ The current compiler translates:
 - basic coroutine functions with lazy calls, ordinary argument binding, closure
   captures, direct protocol execution, and `await` between native Bullsnake
   coroutines
+- asynchronous generator functions with lazy calls, arguments, closure captures,
+  `yield`, inner `await`, direct `__aiter__` and `__anext__`, `async for`
+  consumption, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
   closures, lazy class annotations, all three PEP 695 parameter kinds with lazy
   metadata, and cells for class-visible annotations and `__class__`
@@ -213,14 +216,15 @@ WTF-8-compatible form, while bytes constants preserve arbitrary bytes.
 Formatted-string compilation retains conversion, format-specification, raw
 prefix, and debug-field behavior needed by the current runtime formatter.
 
-Functions, generator functions, coroutine functions, class bodies, and
-comprehensions are child code objects. Closures contain explicit cell references
-instead of Go closures. Calling a generator or coroutine creates its runtime
-object without executing its child code. For every comprehension, the enclosing
-code evaluates the first iterable and passes its iterator to the child. A
-synchronous eager child builds and returns a collection; an asynchronous eager
-child is a coroutine that the enclosing coroutine awaits. Generator-expression
-children yield values lazily. Each child owns its target names.
+Functions, generator functions, coroutine functions, async generator functions,
+class bodies, and comprehensions are child code objects. Closures contain
+explicit cell references instead of Go closures. Calling a generator, coroutine,
+or async generator creates its runtime object without executing its child code.
+For every comprehension, the enclosing code evaluates the first iterable and
+passes its iterator to the child. A synchronous eager child builds and returns a
+collection; an asynchronous eager child is a coroutine that the enclosing
+coroutine awaits. Generator-expression children yield values lazily. Each child
+owns its target names.
 
 Without `from __future__ import annotations`, deferred annotation bodies are
 also children. Function annotations do not run during an ordinary definition or
@@ -264,9 +268,9 @@ and cache behavior as a generic alias. Type parameter names do not enter the
 defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
-The compiler rejects template-string execution, generic async functions, async
-generators, and asynchronous generator expressions. Unsupported AST forms
-return compiler errors; they are not approximated with similar bytecode.
+The compiler rejects template-string execution, generic async functions, and
+asynchronous generator expressions. Unsupported AST forms return compiler
+errors; they are not approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -324,11 +328,19 @@ normal return raises `StopIteration` with the returned value. A first send must
 be `None`; a completed coroutine cannot be reused. `next`, `for`, and `GET_ITER`
 reject coroutines.
 
-`await` evaluates its operand, requires a native Bullsnake coroutine, and uses a
-`SEND` loop to run it. A nested return becomes the await-expression value;
-exceptions enter the awaiting coroutine's ordinary handlers. User-defined
-`__await__` methods, scheduler-facing awaitables, and task execution remain
-unsupported.
+`await` evaluates its operand, requires a native Bullsnake coroutine or an
+async-generator next awaitable, and uses a `SEND` loop to run it. A nested return
+becomes the await-expression value; exceptions enter the awaiting coroutine's
+ordinary handlers. User-defined `__await__` methods, scheduler-facing awaitables,
+and task execution remain unsupported.
+
+An async generator owns a third kind of detached frame. Calling its function is
+lazy and returns an `async_generator`, which is an async iterator but neither a
+synchronous iterator nor an awaitable. `__anext__` returns a one-shot awaitable.
+A wrapped user `yield` completes that awaitable with the yielded item, while an
+ordinary suspension from an inner `await` continues through the caller. Normal
+return completes iteration with `StopAsyncIteration`. An explicit
+`StopIteration` or `StopAsyncIteration` escaping the body becomes `RuntimeError`.
 
 `async for` calls class-level `__aiter__` synchronously, requires its result to
 provide `__anext__`, and awaits each native-coroutine next result. A protected
@@ -572,7 +584,8 @@ The largest current gaps are:
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
 - no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
-  asynchronous generator expressions, async generators, or Python threads
+  async generator `asend`, `athrow`, or `aclose`, asynchronous generator
+  expressions, or Python threads
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

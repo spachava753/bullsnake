@@ -142,9 +142,9 @@ instructions, constants, local-variable positions, closure positions, jump
 targets, and source locations.
 
 The result is an immutable code object. A code object contains the information
-the VM needs to run one module, function, generator, class body, annotation
-body, or hidden comprehension body. Child functions and comprehensions have
-child code objects rather than hidden Go closures.
+the VM needs to run one module, function, generator, async generator, class body,
+annotation body, or hidden comprehension body. Child functions and
+comprehensions have child code objects rather than hidden Go closures.
 
 CPython 3.14 inlines eager comprehensions into the enclosing frame. Bullsnake
 currently runs every comprehension in a hidden child frame. The enclosing frame
@@ -313,10 +313,17 @@ A coroutine call uses the same detached-frame ownership without making the
 coroutine iterable. Direct `send(None)` starts the frame; a return exposes its
 value through `StopIteration`. The runtime rejects an initial non-`None` value,
 normal iteration, and reuse after completion. An `await` expression accepts a
-native Bullsnake coroutine and delegates through the same send loop used by
-`yield from`. Nested returns and exceptions therefore follow the existing frame
-and protected-range rules. Custom `__await__` methods and scheduler-facing
-awaitables remain later work.
+native Bullsnake coroutine or async-generator next awaitable and delegates
+through the same send loop used by `yield from`. Nested returns and exceptions
+therefore follow the existing frame and protected-range rules. Custom
+`__await__` methods and scheduler-facing awaitables remain later work.
+
+An async generator uses a distinct code flag and object kind while retaining the
+same detached frame. Its `__aiter__` returns itself. Each `__anext__` call returns
+a one-shot awaitable that resumes the frame until a wrapped user yield, normal
+completion, or failure. Suspension caused by an inner `await` passes through the
+next awaitable without being mistaken for an item. Normal completion raises
+`StopAsyncIteration` at the awaiting loop operation.
 
 Asynchronous context managers reuse the ordinary context-cleanup stack. Entry
 awaits the class-level `__aenter__` result before the protected body starts.
@@ -325,8 +332,9 @@ saved `__aexit__` method. Multiple managers still enter left to right and exit i
 reverse order. A truthy exceptional exit result suppresses the active exception.
 
 Asynchronous iteration uses the same special-method rule. `__aiter__` returns an
-object with `__anext__`; each next result is a native coroutine awaited through
-the frame loop. The compiler protects only the next-item operation so
+object with `__anext__`; each next result is awaited through the frame loop. User
+classes currently return a native coroutine, while async generators return their
+private next awaitable. The compiler protects only the next-item operation so
 `StopAsyncIteration` means exhaustion there, while the same exception from loop
 body code remains an ordinary failure. Loop `else`, break, continue, and cleanup
 keep their synchronous control-flow meanings. Eager asynchronous comprehensions
@@ -448,15 +456,16 @@ but they must not mutate Python objects directly.
 ## Async and Python threads
 
 Native coroutine awaiting, asynchronous context management, asynchronous
-iteration, and eager asynchronous comprehensions exist. Custom awaitables,
-asynchronous generator expressions and generators, scheduling, and Python
-threads remain future work.
+iteration, eager asynchronous comprehensions, and basic async generators exist.
+Custom awaitables, async generator `asend`, `athrow`, and `aclose`, asynchronous
+generator expressions, scheduling, and Python threads remain future work.
 
-Generators and coroutines retain suspended Python frames and resume through the
-VM's ordinary frame loop. The next language step is async generators. An event
-loop will eventually manage ready tasks, timers, I/O completion, cancellation,
-and task context. Async tasks will not be modeled as one goroutine each because
-Python task scheduling and cancellation need explicit interpreter state.
+Generators, coroutines, and async generators retain suspended Python frames and
+resume through the VM's ordinary frame loop. The next language step is the rest
+of the async-generator protocol. An event loop will eventually manage ready
+tasks, timers, I/O completion, cancellation, and task context. Async tasks will
+not be modeled as one goroutine each because Python task scheduling and
+cancellation need explicit interpreter state.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread

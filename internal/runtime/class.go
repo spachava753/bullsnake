@@ -281,28 +281,30 @@ func executeTypeCall(
 		arguments,
 		keywords,
 	)
+	suspendedFlags := bytecode.Generator | bytecode.Coroutine | bytecode.AsyncGenerator
 	if err == nil && outcome.kind == advance &&
-		initializer.code.code.Flags()&bytecode.Generator != 0 {
+		initializer.code.code.Flags()&suspendedFlags != 0 {
 		result, ok := caller.pop()
 		if !ok {
 			return instructionOutcome{}, caller.failure(
 				instruction,
-				"generator initializer produced no result",
+				"suspended initializer produced no result",
 			)
 		}
 		generator, ok := result.(*generatorValue)
 		if !ok {
 			return instructionOutcome{}, caller.failure(
 				instruction,
-				"generator initializer result is not a generator",
+				"suspended initializer result has the wrong type",
 			)
 		}
+		resultType := generator.TypeName()
 		generator.complete()
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(
 				"TypeError",
-				"__init__() should return None, not 'generator'",
+				"__init__() should return None, not '"+resultType+"'",
 			),
 		}, nil
 	}

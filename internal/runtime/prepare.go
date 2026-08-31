@@ -130,12 +130,20 @@ func (code *preparedCode) validateMetadata() error {
 	if flags&bytecode.Generator != 0 && flags&bytecode.Coroutine != 0 {
 		return code.failure(-1, "code cannot be both a generator and a coroutine")
 	}
-	if flags&(bytecode.Generator|bytecode.Coroutine) != 0 &&
+	if flags&bytecode.AsyncGenerator != 0 &&
+		flags&(bytecode.Generator|bytecode.Coroutine) != 0 {
+		return code.failure(
+			-1,
+			"async generator code cannot also be a generator or coroutine",
+		)
+	}
+	suspendedFlags := bytecode.Generator | bytecode.Coroutine | bytecode.AsyncGenerator
+	if flags&suspendedFlags != 0 &&
 		flags&(bytecode.Optimized|bytecode.NewLocals) != bytecode.Optimized|bytecode.NewLocals {
 		return code.failure(-1, "suspended code requires optimized new locals")
 	}
 	supportedFlags := bytecode.Optimized | bytecode.NewLocals | bytecode.Nested |
-		bytecode.VarArgs | bytecode.VarKeywords | bytecode.Generator | bytecode.Coroutine
+		bytecode.VarArgs | bytecode.VarKeywords | suspendedFlags
 	if unsupported := flags &^ supportedFlags; unsupported != 0 {
 		return code.failure(-1, "unsupported code flags %s", unsupported)
 	}
@@ -471,8 +479,14 @@ func (code *preparedCode) instructionEdges(
 func (code *preparedCode) validateOperand(index int, instruction bytecode.Instruction) error {
 	switch instruction.Opcode {
 	case bytecode.YieldValue:
-		if code.code.Flags()&(bytecode.Generator|bytecode.Coroutine) == 0 {
+		if code.code.Flags()&(bytecode.Generator|
+			bytecode.Coroutine|bytecode.AsyncGenerator) == 0 {
 			return code.failure(index, "YIELD_VALUE requires suspended code")
+		}
+		return nil
+	case bytecode.AsyncGenWrap:
+		if code.code.Flags()&bytecode.AsyncGenerator == 0 {
+			return code.failure(index, "ASYNC_GEN_WRAP requires async generator code")
 		}
 		return nil
 	case bytecode.GetAwaitable:
@@ -483,12 +497,12 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 				instruction.Operand,
 			)
 		}
-		if code.code.Flags()&bytecode.Coroutine == 0 {
+		if code.code.Flags()&(bytecode.Coroutine|bytecode.AsyncGenerator) == 0 {
 			return code.failure(index, "GET_AWAITABLE requires coroutine code")
 		}
 		return nil
 	case bytecode.CheckAsyncIterator:
-		if code.code.Flags()&bytecode.Coroutine == 0 {
+		if code.code.Flags()&(bytecode.Coroutine|bytecode.AsyncGenerator) == 0 {
 			return code.failure(index, "CHECK_ASYNC_ITERATOR requires coroutine code")
 		}
 		return nil
@@ -522,7 +536,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.Send:
-		if code.code.Flags()&(bytecode.Generator|bytecode.Coroutine) == 0 {
+		if code.code.Flags()&(bytecode.Generator|
+			bytecode.Coroutine|bytecode.AsyncGenerator) == 0 {
 			return code.failure(index, "SEND requires suspended code")
 		}
 		if uint64(instruction.Operand) >= uint64(len(code.instructions)) {
@@ -765,7 +780,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue,
 		bytecode.ImportStar:
 		return 1, 0
-	case bytecode.YieldValue:
+	case bytecode.YieldValue, bytecode.AsyncGenWrap:
 		return 1, 1
 	case bytecode.DeleteName, bytecode.DeleteFast, bytecode.DeleteGlobal,
 		bytecode.DeleteDeref:

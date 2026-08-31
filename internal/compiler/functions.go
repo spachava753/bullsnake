@@ -21,9 +21,6 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if scope == nil || scope.Kind != resolver.FunctionScope {
 		return compiler.error(statement.Span(), "resolver has no function scope for %q", statement.Name)
 	}
-	if statement.Async && scope.Flags&resolver.Generator != 0 {
-		return compiler.error(statement.Span(), "async generators are not compiled")
-	}
 	for _, decorator := range statement.Decorators {
 		if err := compiler.compileExpr(decorator); err != nil {
 			return err
@@ -215,10 +212,11 @@ func (compiler *compilerState) newFunctionCompiler(
 	if scope.Flags&resolver.Nested != 0 {
 		flags |= bytecode.Nested
 	}
-	if scope.Flags&resolver.Generator != 0 {
+	if scope.Flags&resolver.Generator != 0 && scope.Flags&resolver.Coroutine != 0 {
+		flags |= bytecode.AsyncGenerator
+	} else if scope.Flags&resolver.Generator != 0 {
 		flags |= bytecode.Generator
-	}
-	if scope.Flags&resolver.Coroutine != 0 {
+	} else if scope.Flags&resolver.Coroutine != 0 {
 		flags |= bytecode.Coroutine
 	}
 	child := &compilerState{
