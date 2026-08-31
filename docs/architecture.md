@@ -239,8 +239,8 @@ Sequence patterns currently accept tuples and lists. They check the candidate
 kind and length before unpacking fixed or starred elements. Mapping patterns
 currently accept dictionaries. They evaluate each literal or dotted key once,
 reject duplicate values, and can capture a shallow `**rest` copy. Class patterns
-accept current user classes and exception classes. They follow the current
-single-inheritance chain, use inherited `__match_args__` for positional fields,
+accept current user classes and exception classes. They follow the class's C3
+method resolution order, use inherited `__match_args__` for positional fields,
 and read named fields through normal instance and class lookup. A missing field
 makes the pattern fail; malformed class-pattern metadata raises `TypeError`.
 Tentative nested and OR-pattern captures use hidden frame locals, so a failed
@@ -386,9 +386,9 @@ Attribute reads apply data descriptor, instance attribute, non-data descriptor,
 and plain class attribute precedence. Descriptor writes and deletes run through
 the same frame loop. The built-in `property` type uses that path for getter,
 setter, and deleter functions. Zero- and explicit-argument `super` values search
-the current single-inheritance chain after their starting class and apply the
-same descriptor rules. Custom attribute interception and multiple inheritance
-can extend this path without recursive Go execution.
+the receiver's C3 method resolution order after their starting class and apply
+the same descriptor rules. Custom attribute interception can extend this path
+without recursive Go execution.
 
 Integers use arbitrary precision, but one exact power operation may produce at
 most 1,048,576 bits. Larger results raise `OverflowError` before Go's allocator

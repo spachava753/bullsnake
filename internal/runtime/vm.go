@@ -237,7 +237,31 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				result = initialization.instance
 			}
 			if active.classBuild != nil {
-				result = active.classBuild.finish(result)
+				build := active.classBuild
+				var classException *Exception
+				result, classException = build.finish(result)
+				if classException != nil {
+					if thread.current == nil {
+						return nil, nil, active.failure(
+							index,
+							"class construction has no caller",
+						)
+					}
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						build.instruction,
+						classException,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
 			}
 			if active.truth != nil {
 				call := active.truth
@@ -1180,6 +1204,12 @@ func executeInstruction(
 		case *Module:
 			owner.globals.values[name] = value
 		case *typeValue:
+			if readOnlyTypeMetadata(name) {
+				return instructionOutcome{
+					kind:      raised,
+					exception: newException("AttributeError", "readonly attribute"),
+				}, nil
+			}
 			owner.namespace.values[name] = value
 		case *instanceValue:
 			return executeInstanceAttributeStore(frame, index, owner, name, value)
@@ -1206,6 +1236,12 @@ func executeInstruction(
 			attributes = owner.globals
 			missingMessage = "module '" + owner.name + "' has no attribute '" + name + "'"
 		case *typeValue:
+			if readOnlyTypeMetadata(name) {
+				return instructionOutcome{
+					kind:      raised,
+					exception: newException("AttributeError", "readonly attribute"),
+				}, nil
+			}
 			attributes = owner.namespace
 			missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
 		case *instanceValue:

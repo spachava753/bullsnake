@@ -13,12 +13,25 @@ type attributeCall struct {
 	instruction int
 }
 
+// executeTypeAttributeLoad serves computed class metadata before applying
+// ordinary MRO lookup and descriptor binding.
 func executeTypeAttributeLoad(
 	frame *frame,
 	instruction int,
 	owner *typeValue,
 	name string,
 ) (instructionOutcome, error) {
+	switch name {
+	case "__bases__":
+		return pushOutcome(frame, instruction, typeTuple(owner.bases))
+	case "__base__":
+		if len(owner.bases) == 0 {
+			return pushOutcome(frame, instruction, None)
+		}
+		return pushOutcome(frame, instruction, owner.bases[0])
+	case "__mro__":
+		return pushOutcome(frame, instruction, typeTuple(owner.mro))
+	}
 	value, found := owner.lookup(name)
 	if !found {
 		return instructionOutcome{

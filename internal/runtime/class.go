@@ -16,6 +16,7 @@ type typeValue struct {
 	module        string
 	namespace     *Namespace
 	bases         []*typeValue
+	mro           []*typeValue
 	exceptionBase *exceptionTypeValue
 }
 
@@ -28,30 +29,49 @@ func (class *typeValue) Repr() string {
 }
 func (*typeValue) isValue() {}
 
+func typeTuple(classes []*typeValue) *tupleValue {
+	elements := make([]Value, len(classes))
+	for index, class := range classes {
+		elements[index] = class
+	}
+	return &tupleValue{elements: elements}
+}
+
+func readOnlyTypeMetadata(name string) bool {
+	return name == "__mro__" || name == "__base__" || name == "__bases__"
+}
+
 func (class *typeValue) lookup(name string) (Value, bool) {
-	for current := class; current != nil; {
+	for _, current := range class.mro {
 		if value, found := current.namespace.get(name); found {
 			return value, true
 		}
-		if len(current.bases) == 0 {
-			break
-		}
-		current = current.bases[0]
 	}
 	return nil, false
 }
 
 func (class *typeValue) builtinExceptionBase() *exceptionTypeValue {
-	for current := class; current != nil; {
+	for _, current := range class.mro {
 		if current.exceptionBase != nil {
 			return current.exceptionBase
 		}
-		if len(current.bases) == 0 {
-			return nil
-		}
-		current = current.bases[0]
 	}
 	return nil
+}
+
+func (class *typeValue) builtinExceptionBaseFor(
+	parent *exceptionTypeValue,
+) *exceptionTypeValue {
+	for _, current := range class.mro {
+		if current.exceptionBase != nil && current.exceptionBase.isSubclassOf(parent) {
+			return current.exceptionBase
+		}
+	}
+	return nil
+}
+
+func (class *typeValue) isSubclassOfBuiltinException(parent *exceptionTypeValue) bool {
+	return class.builtinExceptionBaseFor(parent) != nil
 }
 
 func (class *typeValue) isExceptionClass() bool {
@@ -59,14 +79,10 @@ func (class *typeValue) isExceptionClass() bool {
 }
 
 func (class *typeValue) isSubclassOf(parent *typeValue) bool {
-	for current := class; current != nil; {
+	for _, current := range class.mro {
 		if current == parent {
 			return true
 		}
-		if len(current.bases) == 0 {
-			return false
-		}
-		current = current.bases[0]
 	}
 	return false
 }
@@ -112,6 +128,7 @@ type classBuild struct {
 	name              string
 	qualifiedName     string
 	module            string
+	instruction       int
 	namespace         *Namespace
 	bases             []*typeValue
 	exceptionBase     *exceptionTypeValue
@@ -127,15 +144,9 @@ func (build *classBuild) recordStore(name string) {
 	build.namespaceOrder = append(build.namespaceOrder, name)
 }
 
-func (build *classBuild) finish(bodyResult Value) Value {
-	for index, name := range build.namespaceOrder {
-		if build.namespacePosition[name] != index {
-			continue
-		}
-		if property, ok := build.namespace.values[name].(*propertyValue); ok {
-			property.name = name
-		}
-	}
+// finish computes the class's C3 order before publishing native property names
+// and filling the compiler-created __class__ cell.
+func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	class := &typeValue{
 		name:          build.name,
 		qualifiedName: build.qualifiedName,
@@ -144,14 +155,27 @@ func (build *classBuild) finish(bodyResult Value) Value {
 		bases:         build.bases,
 		exceptionBase: build.exceptionBase,
 	}
+	mro, exception := calculateMRO(class, build.bases)
+	if exception != nil {
+		return nil, exception
+	}
+	class.mro = mro
+	for index, name := range build.namespaceOrder {
+		if build.namespacePosition[name] != index {
+			continue
+		}
+		if property, ok := build.namespace.values[name].(*propertyValue); ok {
+			property.name = name
+		}
+	}
 	if classCell, ok := bodyResult.(*cellValue); ok {
 		classCell.value = class
 	}
-	return class
+	return class, nil
 }
 
-// executeBuildClassCall starts one no-base class body with its own local
-// namespace. The dispatch loop finishes type creation when this frame returns.
+// executeBuildClassCall starts one class body with its own local namespace. The
+// dispatch loop computes its MRO and finishes type creation when that frame returns.
 func executeBuildClassCall(
 	caller *frame,
 	instruction int,
@@ -185,19 +209,23 @@ func executeBuildClassCall(
 			exception: newException("TypeError", "class keyword arguments are not supported"),
 		}, nil
 	}
-	if len(arguments) > 3 {
-		return instructionOutcome{
-			kind:      raised,
-			exception: newException("TypeError", "multiple inheritance is not supported"),
-		}, nil
-	}
+	baseValues := arguments[2:]
 	var bases []*typeValue
 	var exceptionBase *exceptionTypeValue
-	if len(arguments) == 3 {
-		switch classBase := arguments[2].(type) {
+	for _, baseValue := range baseValues {
+		switch classBase := baseValue.(type) {
 		case *typeValue:
-			bases = []*typeValue{classBase}
+			bases = append(bases, classBase)
 		case *exceptionTypeValue:
+			if len(baseValues) != 1 {
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"TypeError",
+						"multiple inheritance with built-in exception bases is not supported",
+					),
+				}, nil
+			}
 			exceptionBase = classBase
 		default:
 			return instructionOutcome{
@@ -242,6 +270,7 @@ func executeBuildClassCall(
 			name:              name.value,
 			qualifiedName:     body.code.code.QualifiedName(),
 			module:            module,
+			instruction:       instruction,
 			namespace:         namespace,
 			bases:             bases,
 			exceptionBase:     exceptionBase,

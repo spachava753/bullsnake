@@ -114,8 +114,8 @@ func zeroArgumentSuper(frame *frame) (*typeValue, Value, *Exception) {
 	return nil, nil, newException("RuntimeError", "super(): __class__ cell not found")
 }
 
-// validateSuperReceiver accepts an instance or class whose single-inheritance
-// chain contains the requested starting class.
+// validateSuperReceiver accepts an instance or class whose method resolution
+// order contains the requested starting class.
 func validateSuperReceiver(start *typeValue, receiver Value) (*typeValue, *Exception) {
 	if receiver == nil {
 		return nil, nil
@@ -206,28 +206,23 @@ func executeSuperAttributeLoad(
 	return pushOutcome(frame, instruction, classValue)
 }
 
-// lookupAfterClass follows the current single base chain to the start class,
-// then searches only namespaces that follow it.
+// lookupAfterClass finds the start in the receiver's C3 order, then searches
+// only class namespaces that follow it.
 func lookupAfterClass(receiverType, start *typeValue, name string) (Value, bool) {
-	current := receiverType
-	for current != nil && current != start {
-		if len(current.bases) == 0 {
-			return nil, false
-		}
-		current = current.bases[0]
-	}
-	if current == nil || len(current.bases) == 0 {
-		return nil, false
-	}
-	current = current.bases[0]
-	for current != nil {
-		if value, found := current.namespace.get(name); found {
-			return value, true
-		}
-		if len(current.bases) == 0 {
+	startIndex := -1
+	for index, class := range receiverType.mro {
+		if class == start {
+			startIndex = index
 			break
 		}
-		current = current.bases[0]
+	}
+	if startIndex < 0 {
+		return nil, false
+	}
+	for _, class := range receiverType.mro[startIndex+1:] {
+		if value, found := class.namespace.get(name); found {
+			return value, true
+		}
 	}
 	return nil, false
 }

@@ -60,7 +60,7 @@ func exceptionStarHandlerContainsGroup(handlerType Value) bool {
 	case *exceptionTypeValue:
 		return handlerType.isSubclassOf(baseExceptionGroupType)
 	case *typeValue:
-		return handlerType.builtinExceptionBase().isSubclassOf(baseExceptionGroupType)
+		return handlerType.isSubclassOfBuiltinException(baseExceptionGroupType)
 	default:
 		return false
 	}

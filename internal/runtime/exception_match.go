@@ -23,7 +23,7 @@ func exceptionMatchesClass(exception *Exception, handlerType Value) bool {
 	switch handlerType := handlerType.(type) {
 	case *exceptionTypeValue:
 		if exception.userClass != nil {
-			return exception.userClass.builtinExceptionBase().isSubclassOf(handlerType)
+			return exception.userClass.isSubclassOfBuiltinException(handlerType)
 		}
 		return exception.class.isSubclassOf(handlerType)
 	case *typeValue:

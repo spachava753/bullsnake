@@ -147,7 +147,7 @@ func executeUserExceptionTypeCall(
 			),
 		}, nil
 	}
-	if exceptionBase := class.builtinExceptionBase(); isExceptionGroupType(exceptionBase) {
+	if exceptionBase := class.builtinExceptionBaseFor(baseExceptionGroupType); exceptionBase != nil {
 		return executeExceptionGroupTypeCall(
 			caller,
 			instruction,
@@ -169,7 +169,7 @@ func executeUserExceptionTypeCall(
 	}
 	message := exceptionMessage(arguments)
 	exception := newUserException(class, message)
-	if class.builtinExceptionBase().isSubclassOf(stopIterationType) {
+	if class.isSubclassOfBuiltinException(stopIterationType) {
 		exception.stopIterationValue = None
 		if len(arguments) != 0 {
 			exception.stopIterationValue = arguments[0]
@@ -284,7 +284,7 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 				"custom exception initializers are not supported",
 			)
 		}
-		if isExceptionGroupType(raised.builtinExceptionBase()) {
+		if raised.builtinExceptionBaseFor(baseExceptionGroupType) != nil {
 			return nil, exceptionGroupArityError(0)
 		}
 		return newUserException(raised, ""), nil

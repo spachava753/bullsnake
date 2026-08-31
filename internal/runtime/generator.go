@@ -436,7 +436,7 @@ func normalizeGeneratorThrow(arguments []Value) (*Exception, *Exception) {
 			)
 		}
 		exception := newUserException(class, exceptionMessage([]Value{value}))
-		if class.builtinExceptionBase().isSubclassOf(stopIterationType) {
+		if class.isSubclassOfBuiltinException(stopIterationType) {
 			exception.stopIterationValue = value
 		}
 		return exception, nil
