@@ -385,8 +385,10 @@ Binary arithmetic uses the same normal, reflected, and in-place candidate order.
 Attribute reads apply data descriptor, instance attribute, non-data descriptor,
 and plain class attribute precedence. Descriptor writes and deletes run through
 the same frame loop. The built-in `property` type uses that path for getter,
-setter, and deleter functions. Custom attribute interception, `super`, and
-multiple inheritance can build on this path without recursive Go execution.
+setter, and deleter functions. Zero- and explicit-argument `super` values search
+the current single-inheritance chain after their starting class and apply the
+same descriptor rules. Custom attribute interception and multiple inheritance
+can extend this path without recursive Go execution.
 
 Integers use arbitrary precision, but one exact power operation may produce at
 most 1,048,576 bits. Larger results raise `OverflowError` before Go's allocator

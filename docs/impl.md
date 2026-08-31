@@ -505,7 +505,11 @@ ordinary `__init__`, instance and class attribute mutation, lazy class annotatio
 callables, future annotation dictionaries, and generic classes with ordinary,
 variadic tuple, and parameter-specification type parameters. Those parameters
 support the same lazy bounds, tuple constraints, and defaults that their kinds
-allow. Classes also support user exception subclasses.
+allow. Classes also support user exception subclasses. Zero-argument `super()`
+reads the existing `__class__` cell and first positional argument. One- and
+two-argument forms retain an explicit starting class and optional receiver.
+Inherited lookup skips the starting class, ignores the instance namespace, and
+binds methods and descriptors against the actual receiver class.
 
 A generic class stores one stable `__type_params__` tuple in its own namespace.
 Class statements and methods capture the same parameter objects. Bullsnake does
@@ -522,9 +526,8 @@ coroutines from both methods. Asynchronous iteration also looks up `__aiter__`
 and `__anext__` on the class, and requires a native coroutine from each
 `__anext__` call. The object model does not yet implement complete annotation
 attribute mutation rules, class keyword arguments, multiple inheritance, C3
-method order, metaclasses, `super`, `__new__`, or custom `__getattribute__`,
-`__getattr__`, and `__setattr__`. Custom exception initializers and methods remain
-unsupported.
+method order, metaclasses, `__new__`, or custom `__getattribute__`, `__getattr__`,
+and `__setattr__`. Custom exception initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general

@@ -1055,6 +1055,8 @@ func executeInstruction(
 			}
 		case *propertyValue:
 			return executePropertyAttributeLoad(frame, index, owner, name)
+		case *superValue:
+			return executeSuperAttributeLoad(frame, index, owner, name)
 		case *generatorValue:
 			if owner.kind == asyncGeneratorObject {
 				switch name {
