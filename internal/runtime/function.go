@@ -165,6 +165,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *nativeTypeValue:
+		return executeNativeTypeCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *typeValue:
 		return executeTypeCall(
 			caller,
@@ -347,6 +356,7 @@ func isCallableValue(value Value) bool {
 		_, found := value.class.lookup("__call__")
 		return found
 	case *builtinFunctionValue,
+		*nativeTypeValue,
 		*propertyAccessorMethod,
 		*buildClassValue,
 		*typeValue,

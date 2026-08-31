@@ -407,8 +407,17 @@ return, loop transfer, or exception work across nested calls and cleanup.
 Runtime values implement a sealed `Value` interface. Current concrete values
 include the Python singletons, arbitrary-precision integers, binary64 floats,
 complex numbers, strings, bytes, tuples, lists, dictionaries, sets, slices,
-iterators, generators, modules, functions, classes, instances, bound methods,
-and exceptions.
+iterators, generators, modules, functions, native and user classes, instances,
+bound methods, and exceptions.
+
+The one-argument `type` form returns stable native class objects for Go-backed
+values, the defining class for a user instance, and the concrete class for an
+exception. Native types and built-in exception classes expose `__name__`,
+`__qualname__`, and `__module__`; user classes expose the corresponding compiler
+and class-builder metadata. `type(type) is type`. The `bool`, `int`, and `str`
+bindings are their native type objects and retain their existing constructor
+behavior. Three-argument `type` and the remaining built-in type constructors are
+not implemented yet.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
@@ -514,13 +523,14 @@ Current float arithmetic covers addition, subtraction, multiplication, true
 division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
-The builtin namespace contains the current exception classes, `bool`, `callable`,
-`classmethod`, `getattr`, `hasattr`, scalar numeric `int`, one-argument `iter`,
-`len`, positional `max` and `min` calls with two or more arguments, `next`,
-`repr`, `staticmethod`, and the object form of `str`. `next` accepts one optional
+The builtin namespace contains the current exception classes; native `bool`,
+`int`, `str`, and `type` objects; `callable`; `classmethod`; `getattr`; `hasattr`;
+one-argument `iter`; `len`; positional `max` and `min` calls with two or more
+arguments; `next`; `repr`; and `staticmethod`. `next` accepts one optional
 default for generators, internal iterators, and user iterators. String and base
 forms of `int`, the iterable and keyword forms of `max` and `min`, the encoding
-form of `str`, and callable-sentinel `iter` remain unsupported.
+form of `str`, three-argument `type`, and callable-sentinel `iter` remain
+unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

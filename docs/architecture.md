@@ -368,10 +368,15 @@ Go's garbage collector can see the complete object graph.
 
 The current object model is intentionally small. It has concrete values for the
 scalars, collections, functions, classes, modules, exceptions, templates, and
-interpolations needed by the executable subset. A template keeps literal strings
-separate from evaluated interpolation values and their source metadata; creating
-one does not format those values. More of Python's data model will be added when
-language features or packages require it.
+interpolations needed by the executable subset. Native values have stable type
+objects, and the one-argument `type` form returns those objects or an existing
+user or exception class. Native, user, and exception classes expose their basic
+name metadata through the ordinary attribute path. The existing `bool`, `int`,
+and `str` constructors are those same type objects rather than separate function
+stand-ins. Three-argument dynamic class construction remains later work. A
+template keeps literal strings separate from evaluated interpolation values and
+their source metadata; creating one does not format those values. More of
+Python's data model will be added when language features or packages require it.
 
 A Python special method may call arbitrary Python code. The VM therefore keeps
 the requesting instruction suspended while the method's frame runs in the same

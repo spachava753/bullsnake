@@ -50,6 +50,9 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	for _, function := range builtinFunctions {
 		builtins.values[function.name] = function
 	}
+	for _, class := range builtinNativeTypes {
+		builtins.values[class.name] = class
+	}
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}

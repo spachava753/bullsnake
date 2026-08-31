@@ -1270,6 +1270,10 @@ func executeInstruction(
 			return executeExceptionAttributeLoad(frame, index, owner, name)
 		case *Module:
 			return executeModuleAttributeLoad(frame, index, owner, name)
+		case *nativeTypeValue:
+			return executeNativeTypeAttributeLoad(frame, index, owner, name)
+		case *exceptionTypeValue:
+			return executeExceptionTypeAttributeLoad(frame, index, owner, name)
 		case *typeValue:
 			return executeClassAttributeLoad(frame, index, owner, name)
 		case *instanceValue:

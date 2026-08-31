@@ -52,6 +52,10 @@ func executeDynamicAttributeLoad(
 		return executeExceptionAttributeLoad(frame, instruction, owner, name)
 	case *Module:
 		return executeModuleAttributeLoad(frame, instruction, owner, name)
+	case *nativeTypeValue:
+		return executeNativeTypeAttributeLoad(frame, instruction, owner, name)
+	case *exceptionTypeValue:
+		return executeExceptionTypeAttributeLoad(frame, instruction, owner, name)
 	case *typeValue:
 		return executeClassAttributeLoad(frame, instruction, owner, name)
 	case *instanceValue:
@@ -151,6 +155,12 @@ func executeTypeAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "__name__":
+		return pushOutcome(frame, instruction, &stringValue{value: owner.name})
+	case "__qualname__":
+		return pushOutcome(frame, instruction, &stringValue{value: owner.qualifiedName})
+	case "__module__":
+		return pushOutcome(frame, instruction, &stringValue{value: owner.module})
 	case "__bases__":
 		return pushOutcome(frame, instruction, typeTuple(owner.bases))
 	case "__base__":
