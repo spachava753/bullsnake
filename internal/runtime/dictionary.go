@@ -177,6 +177,8 @@ func validateDictKey(key Value) *Exception {
 	return nil
 }
 
+// unhashableComponent accepts fixed hashable values and recursively finds the
+// first invalid value inside tuple and frozenset keys.
 func unhashableComponent(value Value) (string, bool) {
 	switch value := value.(type) {
 	case *noneValue, *boolValue, *intValue, *floatValue, *complexValue,
@@ -184,6 +186,13 @@ func unhashableComponent(value Value) (string, bool) {
 		return "", false
 	case *tupleValue:
 		for _, element := range value.elements {
+			if typeName, found := unhashableComponent(element); found {
+				return typeName, true
+			}
+		}
+		return "", false
+	case *frozenSetValue:
+		for _, element := range value.entries {
 			if typeName, found := unhashableComponent(element); found {
 				return typeName, true
 			}

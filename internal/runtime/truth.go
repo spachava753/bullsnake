@@ -170,6 +170,8 @@ func immediateTruth(value Value) (bool, bool) {
 		return len(value.entries) != 0, true
 	case *setValue:
 		return len(value.entries) != 0, true
+	case *frozenSetValue:
+		return len(value.entries) != 0, true
 	case *instanceValue:
 		return false, false
 	default:

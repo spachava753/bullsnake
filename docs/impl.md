@@ -406,7 +406,8 @@ return, loop transfer, or exception work across nested calls and cleanup.
 
 Runtime values implement a sealed `Value` interface. Current concrete values
 include the Python singletons, arbitrary-precision integers, binary64 floats,
-complex numbers, strings, bytes, tuples, lists, dictionaries, sets, slices,
+complex numbers, strings, bytes, tuples, lists, dictionaries, sets, frozen sets,
+slices,
 iterators, generators, modules, functions, native and user classes, instances,
 bound methods, and exceptions.
 
@@ -421,16 +422,17 @@ subclasses of `object`. A user class with no named base, or with `object` as its
 sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
 Mixing native and user direct bases remains unsupported. The `bool`, `int`, and
 `str` bindings are native type objects and retain their implemented constructor
-behavior. The `list`, `tuple`, `set`, and `dict` type objects accept zero or one
-positional source. Sequence and set constructors collect native, user, or
-generator iterators through the frame loop. `tuple(existing_tuple)` preserves
-identity, while list and set construction returns a new value. Set finalization
+behavior. The `list`, `tuple`, `set`, `frozenset`, and `dict` type objects
+accept zero or one positional source. Sequence, set, and frozen-set constructors
+collect native, user, or generator iterators through the frame loop.
+`tuple(existing_tuple)` and `frozenset(existing_frozenset)` preserve identity;
+list and set construction returns a new value. Set and frozen-set finalization
 uses the same hashability and duplicate rules as set displays. Dict construction
 copies a native dictionary or consumes tuple/list key-value pairs, then applies
 keyword values. User-defined mapping objects and arbitrary iterable inner pairs
-are not implemented yet. `isinstance`
-checks native identity, the C3 ancestry of a user instance, and built-in or user
-exception ancestry. `issubclass` applies those
+are not implemented yet. `isinstance` checks native identity, the C3 ancestry of
+a user instance, and built-in or user exception ancestry. `issubclass` applies
+those
 same ancestry rules directly to class objects. A tuple of candidates is
 processed left to right and may contain nested tuples; a match suppresses errors
 from later entries. `bool` is a native subclass of `int`. Type unions and custom
@@ -550,12 +552,12 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes; native `bool`,
-`int`, `str`, `list`, `tuple`, `set`, `dict`, `object`, and `type` objects; `callable`;
-`classmethod`;
-`getattr`; `hasattr`; `isinstance`; `issubclass`; one-argument `iter`; `len`;
-positional `max` and `min` calls with two or more arguments; `next`; `repr`; and
-`staticmethod`. The `next` builtin accepts one optional default for generators,
-internal iterators, and user iterators. String and base
+`int`, `str`, `list`, `tuple`, `set`, `frozenset`, `dict`, `object`, and `type`
+objects; `callable`; `classmethod`; `getattr`; `hasattr`; `isinstance`;
+`issubclass`; one-argument `iter`; `len`; positional `max` and `min` calls with
+two or more arguments; `next`; `repr`; and `staticmethod`. The `next` builtin
+accepts one optional default for generators, internal iterators, and user
+iterators. String and base
 forms of `int`, the iterable and keyword forms of `max` and `min`, the encoding
 form of `str`, and callable-sentinel `iter` remain unsupported.
 

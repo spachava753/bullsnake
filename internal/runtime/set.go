@@ -6,6 +6,33 @@ type setValue struct {
 	entries []Value
 }
 
+type frozenSetValue struct {
+	entries []Value
+}
+
+var emptyFrozenSetSingleton = &frozenSetValue{}
+
+func (*frozenSetValue) TypeName() string { return "frozenset" }
+func (set *frozenSetValue) Repr() string {
+	if len(set.entries) == 0 {
+		return "frozenset()"
+	}
+	return "frozenset(" + (&setValue{entries: set.entries}).Repr() + ")"
+}
+func (*frozenSetValue) isValue() {}
+
+func (set *frozenSetValue) contains(value Value) (bool, *Exception) {
+	if exception := validateSetElement(value); exception != nil {
+		return false, exception
+	}
+	for _, entry := range set.entries {
+		if entry == value || valuesEqual(entry, value) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (*setValue) TypeName() string { return "set" }
 func (set *setValue) Repr() string {
 	if len(set.entries) == 0 {

@@ -377,8 +377,9 @@ and exception classes expose their basic name metadata through the ordinary
 attribute path. `object` is the native root class for native values, built-in
 exceptions, and ordinary user classes. A user class may name it as its sole
 base; combining native and user direct bases still requires a unified MRO
-representation. The existing `bool`, `int`, `str`, `list`, `tuple`, `set`, and
-`dict` constructors are those same type objects rather than separate function
+representation. The existing `bool`, `int`, `str`, `list`, `tuple`, `set`,
+`frozenset`, and `dict` constructors are those same type objects rather than
+separate function
 stand-ins. Three-argument `type`
 construction copies a string-keyed dictionary into the ordinary class builder,
 so dynamic and statement classes share C3 ordering and descriptor behavior.

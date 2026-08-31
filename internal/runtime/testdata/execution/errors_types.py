@@ -197,3 +197,23 @@ object(None)
 # error: TypeError
 # message: "object() takes no arguments"
 object(value=None)
+# ---
+# case: frozenset extra argument
+# error: TypeError
+# message: "frozenset expected at most 1 argument, got 2"
+frozenset(None, None)
+# ---
+# case: frozenset keyword argument
+# error: TypeError
+# message: "frozenset() takes no keyword arguments"
+frozenset(iterable=())
+# ---
+# case: frozenset non-iterable
+# error: TypeError
+# message: "'int' object is not iterable"
+frozenset(1)
+# ---
+# case: frozenset unhashable element
+# error: TypeError
+# message: "cannot use 'list' as a set element (unhashable type: 'list')"
+frozenset(([1],))

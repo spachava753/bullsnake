@@ -382,3 +382,42 @@ assert ObjectChild.__bases__ == (ExplicitObjectBase,)
 assert ObjectChild.__mro__ == (ObjectChild, ExplicitObjectBase, object)
 assert isinstance(ImplicitObjectBase(), object)
 assert issubclass(ObjectChild, object)
+# ---
+# case: frozenset constructor and protocols
+empty_frozen = frozenset()
+assert empty_frozen is frozenset()
+assert type(empty_frozen) is frozenset
+assert len(empty_frozen) == 0
+assert not empty_frozen
+existing_frozen = frozenset((1, 2))
+assert frozenset(existing_frozen) is existing_frozen
+values_frozen = frozenset((1, 2, 1))
+assert len(values_frozen) == 2
+assert 1 in values_frozen and 2 in values_frozen
+assert tuple(values_frozen) == (1, 2)
+assert bool(values_frozen)
+# ---
+# case: frozenset consumes user and generator iterators
+class FrozenIterator:
+    def __init__(self):
+        self.current = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == 3:
+            raise StopIteration
+        value = self.current
+        self.current += 1
+        return value
+
+user_frozen = frozenset(FrozenIterator())
+generator_frozen = frozenset(value % 2 for value in (1, 2, 3, 4))
+assert len(user_frozen) == 3
+assert 0 in user_frozen and 1 in user_frozen and 2 in user_frozen
+assert len(generator_frozen) == 2
+assert 0 in generator_frozen and 1 in generator_frozen
+nested_key = frozenset(((1, 2), (3, 4)))
+lookup = {nested_key: 'value'}
+assert lookup[nested_key] == 'value'

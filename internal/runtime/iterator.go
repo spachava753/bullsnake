@@ -117,6 +117,8 @@ func (iterator *collectionIterator) TypeName() string {
 		return "dict_keyiterator"
 	case *setValue:
 		return "set_iterator"
+	case *frozenSetValue:
+		return "set_iterator"
 	default:
 		return "iterator"
 	}
@@ -168,6 +170,13 @@ func (iterator *collectionIterator) next() (Value, bool, *Exception) {
 		value := collection.entries[iterator.index]
 		iterator.index++
 		return value, true, nil
+	case *frozenSetValue:
+		if iterator.index >= len(collection.entries) {
+			return nil, false, nil
+		}
+		value := collection.entries[iterator.index]
+		iterator.index++
+		return value, true, nil
 	default:
 		return nil, false, nil
 	}
@@ -197,6 +206,11 @@ func newIterator(value Value) (Value, bool) {
 			version:    value.version,
 		}, true
 	case *setValue:
+		return &collectionIterator{
+			collection: value,
+			length:     len(value.entries),
+		}, true
+	case *frozenSetValue:
 		return &collectionIterator{
 			collection: value,
 			length:     len(value.entries),

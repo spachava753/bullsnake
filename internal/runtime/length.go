@@ -144,6 +144,8 @@ func immediateLength(value Value) (int, bool) {
 		return len(value.entries), true
 	case *setValue:
 		return len(value.entries), true
+	case *frozenSetValue:
+		return len(value.entries), true
 	default:
 		return 0, false
 	}

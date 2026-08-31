@@ -46,6 +46,7 @@ var (
 	listNativeType            = builtinNativeType("list")
 	dictNativeType            = builtinNativeType("dict")
 	setNativeType             = builtinNativeType("set")
+	frozenSetNativeType       = builtinNativeType("frozenset")
 	sliceNativeType           = builtinNativeType("slice")
 	ellipsisNativeType        = builtinNativeType("ellipsis")
 	notImplementedNativeType  = builtinNativeType("NotImplementedType")
@@ -71,6 +72,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 	tupleNativeType,
 	listNativeType,
 	setNativeType,
+	frozenSetNativeType,
 	dictNativeType,
 }
 
@@ -87,6 +89,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"list":                             listNativeType,
 	"dict":                             dictNativeType,
 	"set":                              setNativeType,
+	"frozenset":                        frozenSetNativeType,
 	"slice":                            sliceNativeType,
 	"ellipsis":                         ellipsisNativeType,
 	"NotImplementedType":               notImplementedNativeType,
@@ -179,7 +182,8 @@ func executeNativeTypeCall(
 		return pushOutcome(caller, instruction, result)
 	case stringNativeType:
 		return executeBuiltinStr(caller, instruction, base, arguments, keywords)
-	case tupleNativeType, listNativeType, setNativeType, dictNativeType:
+	case tupleNativeType, listNativeType, setNativeType, frozenSetNativeType,
+		dictNativeType:
 		return executeCollectionTypeCall(
 			caller,
 			instruction,

@@ -112,6 +112,8 @@ func containsValue(container, needle Value) (bool, *Exception) {
 		return found, exception
 	case *setValue:
 		return container.contains(needle)
+	case *frozenSetValue:
+		return container.contains(needle)
 	case *stringValue:
 		text, ok := needle.(*stringValue)
 		if !ok {

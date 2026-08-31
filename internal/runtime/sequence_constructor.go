@@ -8,6 +8,7 @@ const (
 	collectionList collectionConstructorKind = iota
 	collectionTuple
 	collectionSet
+	collectionFrozenSet
 	collectionDict
 )
 
@@ -36,6 +37,8 @@ func executeCollectionTypeCall(
 		kind = collectionTuple
 	case setNativeType:
 		kind = collectionSet
+	case frozenSetNativeType:
+		kind = collectionFrozenSet
 	case dictNativeType:
 		kind = collectionDict
 	}
@@ -65,6 +68,12 @@ func executeCollectionTypeCall(
 	iterable := arguments[0]
 	if kind == collectionTuple {
 		if existing, sameType := iterable.(*tupleValue); sameType {
+			discardCallSegment(caller, base)
+			return pushOutcome(caller, instruction, existing)
+		}
+	}
+	if kind == collectionFrozenSet {
+		if existing, sameType := iterable.(*frozenSetValue); sameType {
 			discardCallSegment(caller, base)
 			return pushOutcome(caller, instruction, existing)
 		}
@@ -195,6 +204,17 @@ func finishCollectionConstructor(
 			}
 		}
 		return pushOutcome(frame, call.instruction, set)
+	case collectionFrozenSet:
+		if len(elements) == 0 {
+			return pushOutcome(frame, call.instruction, emptyFrozenSetSingleton)
+		}
+		set := &setValue{entries: make([]Value, 0, len(elements))}
+		for _, element := range elements {
+			if exception := set.add(element); exception != nil {
+				return raiseOutcome(exception), nil
+			}
+		}
+		return pushOutcome(frame, call.instruction, &frozenSetValue{entries: set.entries})
 	case collectionDict:
 		return finishDictConstructor(frame, call, elements)
 	default:
