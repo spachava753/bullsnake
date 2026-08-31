@@ -64,3 +64,25 @@ func TestMissingResolverTableError(t *testing.T) {
 		t.Fatalf("error = %#v, want *compiler.Error", err)
 	}
 }
+
+func TestGenericTypeAliasCompilerBoundary(t *testing.T) {
+	module, err := parser.Parse("input.py", "type Alias[T] = list[T]\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := resolver.Resolve("input.py", module)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, err := Compile("input.py", module, table)
+	if code != nil || err == nil {
+		t.Fatalf("Compile() = (%#v, %v)", code, err)
+	}
+	var compileErr *Error
+	if !errors.As(err, &compileErr) {
+		t.Fatalf("error = %#v, want *compiler.Error", err)
+	}
+	if compileErr.Message != "generic type aliases are not compiled" {
+		t.Fatalf("message = %q", compileErr.Message)
+	}
+}

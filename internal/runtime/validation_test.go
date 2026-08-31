@@ -1096,6 +1096,35 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "operand stack underflow",
 		},
 		{
+			name: "type alias construction underflow",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeTypeAlias},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("Alias")},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "type alias value payload",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst, Operand: 1},
+					{Opcode: bytecode.MakeTypeAlias},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("Alias"), bytecode.None()},
+				nil,
+			),
+			wantFragment: "type alias value payload is not a function",
+		},
+		{
 			name: "class match underflow",
 			code: testCode(
 				3,

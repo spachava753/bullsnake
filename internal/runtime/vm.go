@@ -193,6 +193,16 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					continue
 				}
 			}
+			if active.typeAlias != nil {
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"type alias value load has no caller",
+					)
+				}
+				active.typeAlias.alias.value = result
+				active.typeAlias.alias.evaluated = true
+			}
 			if active.instanceInit != nil {
 				initialization := active.instanceInit
 				if result != None {
@@ -533,6 +543,25 @@ func executeInstruction(
 		}
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
+		case *typeAliasValue:
+			switch name {
+			case "__name__":
+				return pushOutcome(frame, index, &stringValue{value: owner.name})
+			case "__module__":
+				return pushOutcome(frame, index, owner.module)
+			case "__type_params__":
+				return pushOutcome(frame, index, owner.typeParams)
+			case "__value__":
+				return executeTypeAliasValueLoad(frame, index, owner)
+			default:
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"'typing.TypeAliasType' object has no attribute '"+name+"'",
+					),
+				}, nil
+			}
 		case *functionValue:
 			switch name {
 			case "__annotate__":
@@ -856,6 +885,8 @@ func executeInstruction(
 			globals: frame.globals,
 		}
 		return pushOutcome(frame, index, function)
+	case bytecode.MakeTypeAlias:
+		return executeMakeTypeAlias(frame, index)
 	case bytecode.SetFunctionAttribute:
 		target, ok := frame.pop()
 		if !ok {

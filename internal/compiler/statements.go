@@ -65,6 +65,8 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return compiler.compileFunctionDefinition(statement)
 	case *compilerast.ClassDefStmt:
 		return compiler.compileClassDefinition(statement)
+	case *compilerast.TypeAliasStmt:
+		return compiler.compileTypeAlias(statement)
 	case *compilerast.IfStmt:
 		return compiler.compileIfStatement(statement)
 	case *compilerast.WhileStmt:

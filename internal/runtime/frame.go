@@ -46,6 +46,7 @@ type frame struct {
 	instanceInit        *instanceInit
 	classAnnotations    *classAnnotationLoad
 	functionAnnotations *functionAnnotationLoad
+	typeAlias           *typeAliasLoad
 	moduleImport        *moduleImport
 	pendingImport       *importRequest
 	generator           *generatorValue

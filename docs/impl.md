@@ -187,6 +187,7 @@ The current compiler translates:
   patterns with `**rest`, and class patterns with positional or named fields
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, and lazy function annotations
+- non-generic type aliases with lazy values and definition-scope captures
 - synchronous generator functions with lazy calls, `yield`, `yield from`,
   iteration, sent values, closure captures, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
@@ -224,6 +225,12 @@ spellings without evaluating or capturing names. Module and class scopes create
 `__annotations__` dictionaries eagerly. Each executed simple-name annotation
 stores the same source-backed string. Complex annotation-only targets do
 nothing in this mode.
+
+A non-generic type alias stores a hidden zero-argument child function instead of
+evaluating its value at the statement. That child uses the alias definition's
+globals, enclosing cells, and visible class namespace. The runtime evaluates it
+on the first `Alias.__value__` access and caches the returned object. A raised
+exception leaves the alias unevaluated so a later access retries it.
 
 The compiler rejects template-string execution, generic definitions, async
 definitions, asynchronous comprehensions, `async for`, `async with`, and
@@ -349,6 +356,12 @@ keyword unpacking. Defaults retain the objects created when the definition ran.
 Calls reject duplicate, missing, unexpected, or non-string keyword arguments
 with Python exceptions. Generator calls use the same binding path but retain the
 new frame without running its body.
+
+A non-generic type alias has runtime type name `typing.TypeAliasType`. Its repr
+is its declared name. It exposes `__name__`, `__module__`, an empty
+`__type_params__` tuple, and lazy `__value__`. Alias calls, generic
+parameterization, alias unions, and mutation of these attributes remain
+unsupported.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, lazy class annotation

@@ -15,7 +15,8 @@ func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error 
 	if err != nil {
 		return err
 	}
-	if compiler.scope.Kind == resolver.AnnotationScope &&
+	if (compiler.scope.Kind == resolver.AnnotationScope ||
+		compiler.scope.Kind == resolver.TypeAliasScope) &&
 		compiler.scope.Flags&resolver.CanSeeClassScope != 0 {
 		handled, classErr := compiler.emitClassVisibleNameLoad(name, symbol, span)
 		if classErr != nil {
@@ -63,7 +64,7 @@ func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error 
 }
 
 // emitClassVisibleNameLoad checks a captured class namespace before the normal
-// global or enclosing-cell fallback used by a method annotation.
+// global or enclosing-cell fallback used by a class-visible child scope.
 func (compiler *compilerState) emitClassVisibleNameLoad(
 	name string,
 	symbol *resolver.Symbol,

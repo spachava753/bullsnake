@@ -393,6 +393,12 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := MatchClass.StackEffect(2); got != -1 {
 		t.Fatalf("MATCH_CLASS stack effect = %d, want -1", got)
 	}
+	if got := (Instruction{Opcode: MakeTypeAlias}).String(); got != "MAKE_TYPE_ALIAS" {
+		t.Fatalf("type alias instruction = %q", got)
+	}
+	if got := MakeTypeAlias.StackEffect(0); got != -1 {
+		t.Fatalf("MAKE_TYPE_ALIAS stack effect = %d, want -1", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)
