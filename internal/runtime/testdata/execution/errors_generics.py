@@ -64,3 +64,12 @@ def missing_variadic_default[*Ts = MissingVariadicDefault]():
     return Ts
 
 missing_variadic_default.__type_params__[0].__default__
+
+# ---
+# case: generic class parameters do not leak
+# error: NameError
+# message: "name 'T' is not defined"
+class HiddenClassParameter[T]:
+    value = T
+
+T

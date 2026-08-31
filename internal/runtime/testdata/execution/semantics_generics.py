@@ -241,3 +241,16 @@ assert generator_started is False
 assert next(generator) is generator_parameter
 assert generator_started is True
 assert next(generator) == 7
+
+# ---
+# case: generic classes expose and capture their type parameters
+class Box[T]:
+    parameter = T
+    def reveal(self):
+        return T
+
+box_parameters = Box.__type_params__
+box_parameter = box_parameters[0]
+assert Box.parameter is box_parameter
+assert Box().reveal() is box_parameter
+assert Box.__type_params__ is box_parameters

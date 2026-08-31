@@ -65,24 +65,42 @@ func TestMissingResolverTableError(t *testing.T) {
 	}
 }
 
-func TestGenericFunctionCompilerBoundary(t *testing.T) {
-	module, err := parser.Parse("input.py", "async def generic[T]():\n    return T\n")
-	if err != nil {
-		t.Fatal(err)
+func TestGenericCompilerBoundaries(t *testing.T) {
+	tests := []struct {
+		name, source, message string
+	}{
+		{
+			name:    "async function",
+			source:  "async def generic[T]():\n    return T\n",
+			message: "async functions are not compiled",
+		},
+		{
+			name:    "class parameter metadata",
+			source:  "class Generic[T: Bound]:\n    pass\n",
+			message: "generic class type parameter bounds, defaults, and variadics are not compiled",
+		},
 	}
-	table, err := resolver.Resolve("input.py", module)
-	if err != nil {
-		t.Fatal(err)
-	}
-	code, err := Compile("input.py", module, table)
-	if code != nil || err == nil {
-		t.Fatalf("Compile() = (%#v, %v)", code, err)
-	}
-	var compileErr *Error
-	if !errors.As(err, &compileErr) {
-		t.Fatalf("error = %#v, want *compiler.Error", err)
-	}
-	if compileErr.Message != "async functions are not compiled" {
-		t.Fatalf("message = %q", compileErr.Message)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			module, err := parser.Parse("input.py", test.source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			table, err := resolver.Resolve("input.py", module)
+			if err != nil {
+				t.Fatal(err)
+			}
+			code, err := Compile("input.py", module, table)
+			if code != nil || err == nil {
+				t.Fatalf("Compile() = (%#v, %v)", code, err)
+			}
+			var compileErr *Error
+			if !errors.As(err, &compileErr) {
+				t.Fatalf("error = %#v, want *compiler.Error", err)
+			}
+			if compileErr.Message != test.message {
+				t.Fatalf("message = %q", compileErr.Message)
+			}
+		})
 	}
 }

@@ -208,6 +208,12 @@ generator, the hidden constructor still returns an ordinary function value;
 calling that value creates the existing suspended generator frame. The hidden
 scope does not appear in the user function's qualified name.
 
+A generic class also runs inside a hidden type-parameter scope. That scope keeps
+the parameter tuple in a closure cell. The class body stores the tuple as
+`__type_params__`, while class statements and methods capture individual
+parameters through ordinary cells. Bullsnake does not yet add CPython's implicit
+`Generic[...]` base or support class specialization by subscription.
+
 For aliases and generic functions, a bound, tuple constraint, or default owns
 another hidden evaluator that captures the same definition scope. Reading
 `T.__bound__`, `T.__constraints__`, or `T.__default__` runs the corresponding

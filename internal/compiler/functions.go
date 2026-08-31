@@ -110,56 +110,10 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 
 	name := "<generic parameters of " + statement.Name + ">"
 	generic := compiler.newTypeParametersCompiler(statement, typeScope, name, payloadNames)
-	for index, parameter := range statement.TypeParameters {
-		if err := generic.emit(
-			bytecode.LoadConst,
-			generic.constantIndex(bytecode.TextString(parameter.Name)),
-			parameter.Range,
-		); err != nil {
-			return err
-		}
-		makeOpcode := bytecode.MakeTypeVar
-		switch parameter.Kind {
-		case compilerast.TypeVariableTuple:
-			makeOpcode = bytecode.MakeTypeVarTuple
-		case compilerast.ParameterSpecification:
-			makeOpcode = bytecode.MakeParamSpec
-		}
-		if err := generic.emit(makeOpcode, 0, parameter.Range); err != nil {
-			return err
-		}
-		if parameter.Bound != nil {
-			if err := generic.emitTypeParameterBound(statement, parameter, index); err != nil {
-				return err
-			}
-		}
-		if parameter.Default != nil {
-			if err := generic.emitTypeParameterEvaluator(
-				statement,
-				parameter,
-				index,
-				resolver.TypeVariableDefault,
-				parameter.Default,
-				"<default of "+parameter.Name+">",
-				bytecode.SetTypeVarDefault,
-			); err != nil {
-				return err
-			}
-		}
-		if err := generic.emitNameStore(parameter.Name, parameter.Range); err != nil {
-			return err
-		}
+	if err := generic.emitTypeParameters(statement, statement.TypeParameters); err != nil {
+		return err
 	}
-	for _, parameter := range statement.TypeParameters {
-		if err := generic.emitNameLoad(parameter.Name, parameter.Range); err != nil {
-			return err
-		}
-	}
-	if err := generic.emit(
-		bytecode.BuildTuple,
-		uint32(len(statement.TypeParameters)),
-		statement.Span(),
-	); err != nil {
+	if err := generic.emitTypeParameterTuple(statement.TypeParameters, statement.Span()); err != nil {
 		return err
 	}
 	for index := range payloadNames {

@@ -3,6 +3,7 @@ package compiler
 import (
 	compilerast "github.com/spachava753/bullsnake/internal/compiler/ast"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
@@ -33,56 +34,10 @@ func (compiler *compilerState) compileGenericTypeAlias(
 	}
 	name := "<generic parameters of " + statement.Name + ">"
 	child := compiler.newTypeParametersCompiler(statement, scope, name, nil)
-	for index, parameter := range statement.TypeParameters {
-		if err := child.emit(
-			bytecode.LoadConst,
-			child.constantIndex(bytecode.TextString(parameter.Name)),
-			parameter.Range,
-		); err != nil {
-			return err
-		}
-		makeOpcode := bytecode.MakeTypeVar
-		switch parameter.Kind {
-		case compilerast.TypeVariableTuple:
-			makeOpcode = bytecode.MakeTypeVarTuple
-		case compilerast.ParameterSpecification:
-			makeOpcode = bytecode.MakeParamSpec
-		}
-		if err := child.emit(makeOpcode, 0, parameter.Range); err != nil {
-			return err
-		}
-		if parameter.Bound != nil {
-			if err := child.emitTypeParameterBound(statement, parameter, index); err != nil {
-				return err
-			}
-		}
-		if parameter.Default != nil {
-			if err := child.emitTypeParameterEvaluator(
-				statement,
-				parameter,
-				index,
-				resolver.TypeVariableDefault,
-				parameter.Default,
-				"<default of "+parameter.Name+">",
-				bytecode.SetTypeVarDefault,
-			); err != nil {
-				return err
-			}
-		}
-		if err := child.emitNameStore(parameter.Name, parameter.Range); err != nil {
-			return err
-		}
+	if err := child.emitTypeParameters(statement, statement.TypeParameters); err != nil {
+		return err
 	}
-	for _, parameter := range statement.TypeParameters {
-		if err := child.emitNameLoad(parameter.Name, parameter.Range); err != nil {
-			return err
-		}
-	}
-	if err := child.emit(
-		bytecode.BuildTuple,
-		uint32(len(statement.TypeParameters)),
-		statement.Span(),
-	); err != nil {
+	if err := child.emitTypeParameterTuple(statement.TypeParameters, statement.Span()); err != nil {
 		return err
 	}
 	if err := child.emitTypeAliasObject(statement); err != nil {
@@ -144,6 +99,69 @@ func (compiler *compilerState) newTypeParametersCompiler(
 		child.addFree("__classdict__")
 	}
 	return child
+}
+
+// emitTypeParameters creates and binds each PEP 695 parameter in declaration
+// order, attaching any lazy metadata before the name becomes visible.
+func (compiler *compilerState) emitTypeParameters(
+	owner compilerast.Node,
+	parameters []compilerast.TypeParameter,
+) error {
+	for index, parameter := range parameters {
+		if err := compiler.emit(
+			bytecode.LoadConst,
+			compiler.constantIndex(bytecode.TextString(parameter.Name)),
+			parameter.Range,
+		); err != nil {
+			return err
+		}
+		makeOpcode := bytecode.MakeTypeVar
+		switch parameter.Kind {
+		case compilerast.TypeVariableTuple:
+			makeOpcode = bytecode.MakeTypeVarTuple
+		case compilerast.ParameterSpecification:
+			makeOpcode = bytecode.MakeParamSpec
+		}
+		if err := compiler.emit(makeOpcode, 0, parameter.Range); err != nil {
+			return err
+		}
+		if parameter.Bound != nil {
+			if err := compiler.emitTypeParameterBound(owner, parameter, index); err != nil {
+				return err
+			}
+		}
+		if parameter.Default != nil {
+			if err := compiler.emitTypeParameterEvaluator(
+				owner,
+				parameter,
+				index,
+				resolver.TypeVariableDefault,
+				parameter.Default,
+				"<default of "+parameter.Name+">",
+				bytecode.SetTypeVarDefault,
+			); err != nil {
+				return err
+			}
+		}
+		if err := compiler.emitNameStore(parameter.Name, parameter.Range); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// emitTypeParameterTuple loads the bound parameters and leaves their stable
+// declaration-order tuple on the operand stack.
+func (compiler *compilerState) emitTypeParameterTuple(
+	parameters []compilerast.TypeParameter,
+	span lexer.Span,
+) error {
+	for _, parameter := range parameters {
+		if err := compiler.emitNameLoad(parameter.Name, parameter.Range); err != nil {
+			return err
+		}
+	}
+	return compiler.emit(bytecode.BuildTuple, uint32(len(parameters)), span)
 }
 
 // emitTypeParameterBound creates the lazy evaluator selected by the resolver

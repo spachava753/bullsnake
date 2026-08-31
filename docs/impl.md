@@ -196,8 +196,8 @@ The current compiler translates:
   `yield`, `yield from`, iteration, sent values, closure captures, and cleanup
   across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
-  closures, lazy class annotations, and the cells used by class-visible
-  annotations and `__class__`
+  closures, lazy class annotations, plain `TypeVar` generic parameters, and the
+  cells used by class-visible annotations and `__class__`
 - ordinary imports and assertions
 - ordinary exception handlers, `else`, `finally`, exception groups, `except*`,
   bare reraising, explicit causes, and cleanup during return or loop transfer
@@ -258,8 +258,9 @@ and cache behavior as a generic alias. Type parameter names do not enter the
 defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
-The compiler rejects template-string execution, generic classes, async
-definitions, asynchronous comprehensions, `async for`, `async with`, and coroutines.
+The compiler rejects template-string execution, generic classes with bounds,
+defaults, or variadic type parameters, async definitions, asynchronous
+comprehensions, `async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.
 
@@ -401,7 +402,11 @@ imports, and mutation of these attributes remain unsupported.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, lazy class annotation
-callables, future annotation dictionaries, and user exception subclasses. A
+callables, future annotation dictionaries, plain-TypeVar generic classes, and
+user exception subclasses. A generic class stores one stable `__type_params__`
+tuple in its own namespace; class statements and methods capture the same
+parameter objects. Bullsnake does not yet add an implicit `Generic[...]` base or
+support class specialization. A
 generated `C.__annotate__(1)` returns annotations from statements that ran in a
 non-future class body; an explicit class method of that name wins. The first
 `C.__annotations__` access requires and caches the generated dictionary.

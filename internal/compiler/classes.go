@@ -9,11 +9,11 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
-// compileClassDefinition evaluates decorators first, creates a namespace body
-// function, calls the class builder with ordinary bases, and binds the result.
+// compileClassDefinition evaluates decorators, builds one class value, applies
+// decorators in reverse order, and binds the final value.
 func (compiler *compilerState) compileClassDefinition(statement *compilerast.ClassDefStmt) error {
 	if len(statement.TypeParameters) != 0 {
-		return compiler.error(statement.Span(), "generic classes are not compiled")
+		return compiler.compileGenericClassDefinition(statement)
 	}
 	scope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
 	if scope == nil || scope.Kind != resolver.ClassScope {
@@ -24,7 +24,25 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 			return err
 		}
 	}
+	if err := compiler.compileClassObject(
+		statement,
+		scope,
+		compiler.childQualifiedName(statement.Name),
+		"",
+	); err != nil {
+		return err
+	}
+	return compiler.applyClassDecoratorsAndStore(statement)
+}
 
+// compileClassObject creates the class body function, invokes __build_class__,
+// and leaves the resulting class on the operand stack.
+func (compiler *compilerState) compileClassObject(
+	statement *compilerast.ClassDefStmt,
+	scope *resolver.Scope,
+	qualifiedName string,
+	typeParametersCell string,
+) error {
 	child := &compilerState{
 		filename:      compiler.filename,
 		module:        compiler.module,
@@ -32,7 +50,7 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 		table:         compiler.table,
 		scope:         scope,
 		codeName:      statement.Name,
-		qualifiedName: compiler.childQualifiedName(statement.Name),
+		qualifiedName: qualifiedName,
 		firstLine:     statement.Span().Start.Line,
 		localIDs:      make(map[string]uint32),
 		derefIDs:      make(map[string]uint32),
@@ -55,8 +73,27 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 		child.addCell(conditionalAnnotationsName)
 	}
 	child.initializeDerefLayout(scope)
+	if typeParametersCell != "" {
+		child.addFree(typeParametersCell)
+	}
 	if err := child.emitClassNamespace(statement.Span()); err != nil {
 		return err
+	}
+	if typeParametersCell != "" {
+		index, indexErr := child.derefIndex(typeParametersCell)
+		if indexErr != nil {
+			return compiler.error(statement.Span(), "%v", indexErr)
+		}
+		if err := child.emit(bytecode.LoadDeref, index, statement.Span()); err != nil {
+			return err
+		}
+		if err := child.emit(
+			bytecode.StoreName,
+			child.nameIndex("__type_params__"),
+			statement.Span(),
+		); err != nil {
+			return err
+		}
 	}
 	if futureClassAnnotations {
 		if err := child.emitFutureAnnotationsMap(statement.Span()); err != nil {
@@ -167,6 +204,87 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 			}
 		}
 	}
+	return nil
+}
+
+// compileGenericClassDefinition creates type parameters in a hidden scope, then
+// builds and returns the class whose body closes over those parameters.
+func (compiler *compilerState) compileGenericClassDefinition(
+	statement *compilerast.ClassDefStmt,
+) error {
+	for _, parameter := range statement.TypeParameters {
+		if parameter.Kind != compilerast.TypeVariable ||
+			parameter.Bound != nil || parameter.Default != nil {
+			return compiler.error(
+				parameter.Range,
+				"generic class type parameter bounds, defaults, and variadics are not compiled",
+			)
+		}
+	}
+	typeScope := compiler.table.ScopeFor(statement, resolver.TypeParameters, 0)
+	if typeScope == nil || typeScope.Kind != resolver.TypeParametersScope {
+		return compiler.error(
+			statement.Span(),
+			"resolver has no type parameter scope for %q",
+			statement.Name,
+		)
+	}
+	classScope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
+	if classScope == nil || classScope.Kind != resolver.ClassScope {
+		return compiler.error(statement.Span(), "resolver has no class scope for %q", statement.Name)
+	}
+	for _, decorator := range statement.Decorators {
+		if err := compiler.compileExpr(decorator); err != nil {
+			return err
+		}
+	}
+
+	name := "<generic parameters of " + statement.Name + ">"
+	generic := compiler.newTypeParametersCompiler(statement, typeScope, name, nil)
+	const typeParametersCell = ".type_params"
+	generic.addCell(typeParametersCell)
+	if err := generic.emitTypeParameters(statement, statement.TypeParameters); err != nil {
+		return err
+	}
+	if err := generic.emitTypeParameterTuple(statement.TypeParameters, statement.Span()); err != nil {
+		return err
+	}
+	index, err := generic.derefIndex(typeParametersCell)
+	if err != nil {
+		return compiler.error(statement.Span(), "%v", err)
+	}
+	if err := generic.emit(bytecode.StoreDeref, index, statement.Span()); err != nil {
+		return err
+	}
+	if err := generic.compileClassObject(
+		statement,
+		classScope,
+		compiler.childQualifiedName(statement.Name),
+		typeParametersCell,
+	); err != nil {
+		return err
+	}
+	if err := generic.emitTerminator(bytecode.ReturnValue, 0, statement.Span()); err != nil {
+		return err
+	}
+	code, err := generic.finish()
+	if err != nil {
+		return err
+	}
+	if err := compiler.emitFunction(code, false, false, false, statement.Span()); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.Call, 0, statement.Span()); err != nil {
+		return err
+	}
+	return compiler.applyClassDecoratorsAndStore(statement)
+}
+
+// applyClassDecoratorsAndStore wraps a completed class in reverse decorator
+// order and binds the final value in the defining scope.
+func (compiler *compilerState) applyClassDecoratorsAndStore(
+	statement *compilerast.ClassDefStmt,
+) error {
 	for index := len(statement.Decorators) - 1; index >= 0; index-- {
 		decorator := statement.Decorators[index]
 		if err := compiler.emit(bytecode.Call, 1, decorator.Span()); err != nil {
