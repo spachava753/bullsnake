@@ -51,6 +51,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "getattr", frameCall: executeBuiltinGetattr},
 	{name: "hasattr", frameCall: executeBuiltinHasattr},
 	{name: "isinstance", call: builtinIsInstance},
+	{name: "issubclass", call: builtinIsSubclass},
 	{name: "iter", frameCall: executeBuiltinIter},
 	{name: "len", frameCall: executeBuiltinLen},
 	{name: "max", call: builtinMax},

@@ -370,8 +370,9 @@ The current object model is intentionally small. It has concrete values for the
 scalars, collections, functions, classes, modules, exceptions, templates, and
 interpolations needed by the executable subset. Native values have stable type
 objects, and the one-argument `type` form returns those objects or an existing
-user or exception class. `isinstance` checks these identities, user class MROs,
-and exception ancestry; tuple candidates run from left to right. Native, user,
+user or exception class. `isinstance` and `issubclass` check these identities,
+user class MROs, and exception ancestry. Tuple candidates run from left to right.
+Native, user,
 and exception classes expose their basic name metadata through the ordinary
 attribute path. The existing `bool`, `int`, and `str` constructors are those same
 type objects rather than separate function stand-ins. Three-argument dynamic

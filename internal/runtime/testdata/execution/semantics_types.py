@@ -115,3 +115,52 @@ assert isinstance(value, (str, TupleBase))
 assert isinstance(value, (str, (int, TupleBase)))
 assert not isinstance(value, (str, int))
 assert isinstance(1, (int, None))
+# ---
+# case: issubclass native and user classes
+class SubclassBase:
+    pass
+
+class SubclassMiddle(SubclassBase):
+    pass
+
+class SubclassLeaf(SubclassMiddle):
+    pass
+
+class SubclassOther:
+    pass
+
+assert issubclass(bool, bool)
+assert issubclass(bool, int)
+assert not issubclass(int, bool)
+assert issubclass(int, int)
+assert issubclass(type, type)
+assert issubclass(SubclassLeaf, SubclassLeaf)
+assert issubclass(SubclassLeaf, SubclassMiddle)
+assert issubclass(SubclassLeaf, SubclassBase)
+assert not issubclass(SubclassBase, SubclassLeaf)
+assert not issubclass(SubclassLeaf, SubclassOther)
+# ---
+# case: issubclass exception ancestry
+class ParentSubclassError(ValueError):
+    pass
+
+class ChildSubclassError(ParentSubclassError):
+    pass
+
+assert issubclass(ValueError, Exception)
+assert issubclass(ParentSubclassError, ValueError)
+assert issubclass(ChildSubclassError, ParentSubclassError)
+assert issubclass(ChildSubclassError, Exception)
+assert not issubclass(ValueError, ParentSubclassError)
+# ---
+# case: issubclass tuple candidates
+class CandidateBase:
+    pass
+
+class CandidateChild(CandidateBase):
+    pass
+
+assert issubclass(CandidateChild, (str, CandidateBase))
+assert issubclass(CandidateChild, (str, (int, CandidateBase)))
+assert not issubclass(CandidateChild, (str, int))
+assert issubclass(bool, (int, None))
