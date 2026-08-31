@@ -315,3 +315,44 @@ assert defaulted_class_parameter.__default__ is ClassFallback
 assert class_default_calls == 1
 dependent_class_parameters = DependentClass.__type_params__
 assert dependent_class_parameters[1].__default__ is dependent_class_parameters[0]
+
+# ---
+# case: generic classes create variadic type parameters
+class VariadicClass[*Ts, **P]:
+    parameters = (Ts, P)
+
+variadic_class_parameters = VariadicClass.__type_params__
+assert VariadicClass.parameters is not variadic_class_parameters
+assert VariadicClass.parameters[0] is variadic_class_parameters[0]
+assert VariadicClass.parameters[1] is variadic_class_parameters[1]
+assert f'{variadic_class_parameters[0]!r}' == 'Ts'
+assert f'{variadic_class_parameters[1]!r}' == 'P'
+assert f'{variadic_class_parameters[0].__default__!r}' == 'typing.NoDefault'
+assert f'{variadic_class_parameters[1].__default__!r}' == 'typing.NoDefault'
+assert variadic_class_parameters[1].args is not variadic_class_parameters[1].kwargs
+
+# ---
+# case: generic class variadic defaults evaluate lazily
+class ClassVariadicFallback:
+    pass
+
+class_variadic_default_calls = 0
+
+def resolve_class_variadic_default():
+    global class_variadic_default_calls
+    class_variadic_default_calls += 1
+    return (ClassVariadicFallback,)
+
+class DefaultedVariadicClass[
+    *Ts = resolve_class_variadic_default(),
+    **P = (Ts,),
+]:
+    parameters = (Ts, P)
+
+assert class_variadic_default_calls == 0
+defaulted_variadic_parameters = DefaultedVariadicClass.__type_params__
+assert defaulted_variadic_parameters[0].__default__[0] is ClassVariadicFallback
+assert class_variadic_default_calls == 1
+assert defaulted_variadic_parameters[0].__default__[0] is ClassVariadicFallback
+assert class_variadic_default_calls == 1
+assert defaulted_variadic_parameters[1].__default__[0] is defaulted_variadic_parameters[0]

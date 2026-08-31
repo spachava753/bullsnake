@@ -74,11 +74,6 @@ func TestGenericCompilerBoundaries(t *testing.T) {
 			source:  "async def generic[T]():\n    return T\n",
 			message: "async functions are not compiled",
 		},
-		{
-			name:    "class parameter metadata",
-			source:  "class Generic[*Ts]:\n    pass\n",
-			message: "generic class variadic type parameters are not compiled",
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

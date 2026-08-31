@@ -208,10 +208,12 @@ generator, the hidden constructor still returns an ordinary function value;
 calling that value creates the existing suspended generator frame. The hidden
 scope does not appear in the user function's qualified name.
 
-A generic class also runs inside a hidden type-parameter scope. That scope keeps
+A generic class also runs inside a hidden type-parameter scope. That scope creates
+ordinary TypeVars, TypeVarTuples, and ParamSpecs in declaration order and keeps
 the parameter tuple in a closure cell. The class body stores the tuple as
 `__type_params__`, while class statements and methods capture individual
-parameters through ordinary cells. Bullsnake does not yet add CPython's implicit
+parameters through ordinary cells. Variadic parameters use the same lazy default
+mechanism as aliases and functions. Bullsnake does not yet add CPython's implicit
 `Generic[...]` base or support class specialization by subscription.
 
 For aliases, generic functions, and generic classes, a bound, tuple constraint, or

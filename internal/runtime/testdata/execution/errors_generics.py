@@ -91,3 +91,12 @@ class MissingClassDefaultOwner[T = MissingClassDefault]:
     value = T
 
 MissingClassDefaultOwner.__type_params__[0].__default__
+
+# ---
+# case: generic class variadic default failures remain lazy
+# error: NameError
+# message: "name 'MissingClassVariadicDefault' is not defined"
+class MissingClassVariadicDefaultOwner[*Ts = MissingClassVariadicDefault]:
+    value = Ts
+
+MissingClassVariadicDefaultOwner.__type_params__[0].__default__

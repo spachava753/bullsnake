@@ -212,14 +212,6 @@ func (compiler *compilerState) compileClassObject(
 func (compiler *compilerState) compileGenericClassDefinition(
 	statement *compilerast.ClassDefStmt,
 ) error {
-	for _, parameter := range statement.TypeParameters {
-		if parameter.Kind != compilerast.TypeVariable {
-			return compiler.error(
-				parameter.Range,
-				"generic class variadic type parameters are not compiled",
-			)
-		}
-	}
 	typeScope := compiler.table.ScopeFor(statement, resolver.TypeParameters, 0)
 	if typeScope == nil || typeScope.Kind != resolver.TypeParametersScope {
 		return compiler.error(

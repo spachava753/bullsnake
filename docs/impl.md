@@ -259,11 +259,10 @@ and cache behavior as a generic alias. Type parameter names do not enter the
 defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
-The compiler rejects template-string execution, generic classes with variadic
-type parameters, async definitions, asynchronous comprehensions,
-comprehensions, `async for`, `async with`, and coroutines.
-Unsupported AST forms return compiler errors; they are not approximated with
-similar bytecode.
+The compiler rejects template-string execution, async definitions,
+asynchronous comprehensions, comprehensions, `async for`, `async with`, and
+coroutines. Unsupported AST forms return compiler errors; they are not
+approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -403,8 +402,10 @@ imports, and mutation of these attributes remain unsupported.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, lazy class annotation
-callables, future annotation dictionaries, plain-TypeVar generic classes with
-lazy bounds, tuple constraints, or defaults, and user exception subclasses.
+callables, future annotation dictionaries, and generic classes with ordinary,
+variadic tuple, and parameter-specification type parameters. Those parameters
+support the same lazy bounds, tuple constraints, and defaults that their kinds
+allow. Classes also support user exception subclasses.
 
 A generic class stores one stable `__type_params__` tuple in its own namespace.
 Class statements and methods capture the same parameter objects. Bullsnake does
