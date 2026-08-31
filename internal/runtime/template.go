@@ -106,6 +106,181 @@ func concatenateTemplates(left, right *templateValue) *templateValue {
 	}
 }
 
+func newTemplateLibraryModules() (*Module, *Module) {
+	packageGlobals := newNamespace()
+	packageGlobals.values["__name__"] = &stringValue{value: "string"}
+	packageGlobals.values["__package__"] = &stringValue{value: "string"}
+	packageGlobals.values["__path__"] = &listValue{}
+
+	libraryGlobals := newNamespace()
+	libraryGlobals.values["__name__"] = &stringValue{value: "string.templatelib"}
+	libraryGlobals.values["__package__"] = &stringValue{value: "string"}
+	libraryGlobals.values["Template"] = &builtinFunctionValue{
+		name: "Template",
+		call: builtinTemplate,
+	}
+	libraryGlobals.values["Interpolation"] = &builtinFunctionValue{
+		name: "Interpolation",
+		call: builtinInterpolation,
+	}
+	library := &Module{name: "string.templatelib", globals: libraryGlobals}
+	packageGlobals.values["templatelib"] = library
+	return &Module{
+		name:            "string",
+		globals:         packageGlobals,
+		isPackage:       true,
+		searchLocations: []string{},
+	}, library
+}
+
+// builtinTemplate folds adjacent string arguments and inserts empty boundary
+// strings around exact Interpolation values.
+func builtinTemplate(arguments []Value, keywords *dictValue) (Value, *Exception) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		return nil, newException(
+			"TypeError",
+			"Template.__new__ only accepts *args arguments",
+		)
+	}
+	strings := make([]Value, 0, len(arguments)+1)
+	interpolations := make([]Value, 0, len(arguments))
+	literal := ""
+	for _, argument := range arguments {
+		switch argument := argument.(type) {
+		case *stringValue:
+			literal += argument.value
+		case *interpolationValue:
+			strings = append(strings, &stringValue{value: literal})
+			interpolations = append(interpolations, argument)
+			literal = ""
+		default:
+			return nil, newException(
+				"TypeError",
+				"Template.__new__ *args need to be of type 'str' or "+
+					"'Interpolation', got "+argument.TypeName(),
+			)
+		}
+	}
+	strings = append(strings, &stringValue{value: literal})
+	return &templateValue{
+		strings:        &tupleValue{elements: strings},
+		interpolations: &tupleValue{elements: interpolations},
+	}, nil
+}
+
+// builtinInterpolation binds the four constructor fields and checks the two
+// string metadata values plus the optional conversion marker.
+func builtinInterpolation(arguments []Value, keywords *dictValue) (Value, *Exception) {
+	values, exception := bindInterpolationArguments(arguments, keywords)
+	if exception != nil {
+		return nil, exception
+	}
+	expression, ok := values[1].(*stringValue)
+	if !ok {
+		return nil, interpolationArgumentTypeError("expression", "str", values[1])
+	}
+	conversion := values[2]
+	if conversion != None {
+		conversionText, ok := conversion.(*stringValue)
+		if !ok {
+			return nil, interpolationArgumentTypeError("conversion", "str", conversion)
+		}
+		if conversionText.value != "s" && conversionText.value != "a" &&
+			conversionText.value != "r" {
+			return nil, newException(
+				"ValueError",
+				"Interpolation() argument 'conversion' must be one of 's', 'a' or 'r'",
+			)
+		}
+	}
+	formatSpec, ok := values[3].(*stringValue)
+	if !ok {
+		return nil, interpolationArgumentTypeError("format_spec", "str", values[3])
+	}
+	return &interpolationValue{
+		value:      values[0],
+		expression: expression,
+		conversion: conversion,
+		formatSpec: formatSpec,
+	}, nil
+}
+
+// bindInterpolationArguments combines positional and named constructor fields,
+// rejects duplicates and unknown names, and supplies CPython's three defaults.
+func bindInterpolationArguments(
+	arguments []Value,
+	keywords *dictValue,
+) ([]Value, *Exception) {
+	if len(arguments) > 4 {
+		return nil, newException(
+			"TypeError",
+			fmt.Sprintf("Interpolation expected at most 4 arguments, got %d", len(arguments)),
+		)
+	}
+	values := make([]Value, 4)
+	copy(values, arguments)
+	if keywords != nil {
+		for _, entry := range keywords.entries {
+			name, ok := entry.key.(*stringValue)
+			if !ok {
+				return nil, newException("TypeError", "Interpolation() keywords must be strings")
+			}
+			index := interpolationArgumentIndex(name.value)
+			if index < 0 {
+				return nil, newException(
+					"TypeError",
+					"Interpolation() got an unexpected keyword argument '"+name.value+"'",
+				)
+			}
+			if index < len(arguments) || values[index] != nil {
+				return nil, newException(
+					"TypeError",
+					"Interpolation() got multiple values for argument '"+name.value+"'",
+				)
+			}
+			values[index] = entry.value
+		}
+	}
+	if values[0] == nil {
+		return nil, newException(
+			"TypeError",
+			"Interpolation() missing required argument 'value' (pos 1)",
+		)
+	}
+	if values[1] == nil {
+		values[1] = &stringValue{value: ""}
+	}
+	if values[2] == nil {
+		values[2] = None
+	}
+	if values[3] == nil {
+		values[3] = &stringValue{value: ""}
+	}
+	return values, nil
+}
+
+func interpolationArgumentIndex(name string) int {
+	switch name {
+	case "value":
+		return 0
+	case "expression":
+		return 1
+	case "conversion":
+		return 2
+	case "format_spec":
+		return 3
+	default:
+		return -1
+	}
+}
+
+func interpolationArgumentTypeError(name, expected string, value Value) *Exception {
+	return newException(
+		"TypeError",
+		"Interpolation() argument '"+name+"' must be "+expected+", not "+value.TypeName(),
+	)
+}
+
 // executeBuildInterpolation validates compiler-created metadata and retains the
 // evaluated value without applying its conversion or format string.
 func executeBuildInterpolation(

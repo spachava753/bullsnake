@@ -132,3 +132,41 @@ assert adjacent.interpolations[0].value == 1
 assert adjacent.interpolations[1].value == 2
 assert in_place.strings == ('prefix ', '')
 assert in_place.values == (1,)
+# ---
+# case: explicit template constructors
+from string.templatelib import Interpolation, Template
+
+first = Interpolation('Ada', 'name', 'r', '>8')
+second = Interpolation(42)
+template = Template('Hello', ', ', first, second, '!')
+empty = Template()
+
+assert first.value == 'Ada'
+assert first.expression == 'name'
+assert first.conversion == 'r'
+assert first.format_spec == '>8'
+assert second.value == 42
+assert second.expression == ''
+assert second.conversion is None
+assert second.format_spec == ''
+assert template.strings == ('Hello, ', '', '!')
+assert template.interpolations[0] is first
+assert template.interpolations[1] is second
+assert empty.strings == ('',)
+assert empty.interpolations == ()
+# ---
+# case: interpolation constructor keywords
+from string.templatelib import Interpolation
+
+value = []
+interpolation = Interpolation(
+    value=value,
+    expression='value',
+    conversion='s',
+    format_spec='wide',
+)
+
+assert interpolation.value is value
+assert interpolation.expression == 'value'
+assert interpolation.conversion == 's'
+assert interpolation.format_spec == 'wide'

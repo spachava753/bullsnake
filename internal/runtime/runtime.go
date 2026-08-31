@@ -56,6 +56,9 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	builtins.values["NotImplemented"] = notImplementedSingleton
 	modules := make(map[string]*Module)
 	modules[futureModuleName] = newFutureModule()
+	stringPackage, templateLibrary := newTemplateLibraryModules()
+	modules[stringPackage.name] = stringPackage
+	modules[templateLibrary.name] = templateLibrary
 	return &Runtime{
 		builtins: builtins,
 		modules:  modules,

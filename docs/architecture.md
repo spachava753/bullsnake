@@ -438,14 +438,15 @@ This ownership makes isolation explicit. Separate runtimes may execute in
 parallel without silently sharing modules or mutable Python values.
 
 The current importer asks a host-supplied loader for a module description with
-immutable code and package metadata. Each runtime begins with a small cached
-`__future__` module so recognized future statements retain their import and
-binding behavior without a loader. For a dotted absolute name, the runtime
-loads each parent first, verifies that it is a package, and publishes each child
-on that parent. Relative from-imports resolve their level against the executing
-module's package name. A from-import also tries a missing package attribute as a
-child module. Wildcard imports honor an explicit `__all__` list and load listed
-package children. Modules execute in the existing frame loop. Repeated imports
+immutable code and package metadata. Each runtime begins with cached modules for
+`__future__` and the native `string.templatelib` values, so those features retain
+ordinary import and binding behavior without a loader. For a dotted absolute
+name, the runtime loads each parent first, verifies that it is a package, and
+publishes each child on that parent. Relative from-imports resolve their level
+against the executing module's package name. A from-import also tries a missing
+package attribute as a child module. Wildcard imports honor an explicit `__all__`
+list and load listed package children. Modules execute in the existing frame
+loop. Repeated imports
 reuse one object. Because the cache entry exists before execution, circular
 imports see the names assigned so far. If execution fails, the runtime removes
 only that module; dependencies that finished successfully remain cached.

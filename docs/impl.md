@@ -426,8 +426,9 @@ clipping and positive or negative steps. Template strings retain parallel
 tuple from them. Iteration alternates non-empty literal strings with the original
 interpolation objects and skips empty literal strings. Adding two templates joins
 the touching literal strings in a new template and preserves interpolation
-identity and order. Explicit constructors and the `string.templatelib` module
-remain unsupported.
+identity and order. The cached `string.templatelib` module exports `Template`
+and `Interpolation` constructors with positional and keyword metadata binding.
+Its `convert` helper remains unsupported.
 
 Dictionary iteration detects key-set changes; replacing an existing value is
 allowed. Set display and iteration order is stable for Bullsnake tests but is not
@@ -629,8 +630,9 @@ the complete package name; each additional level removes one component. An
 empty package name raises the no-known-parent `ImportError`, while removing too
 many components raises the beyond-top-level form. Each runtime also starts with
 a cached `__future__` module. It exposes marker values for the feature names the
-resolver accepts, so future statements retain ordinary import and binding
-behavior without a filesystem loader.
+resolver accepts. A cached `string` package and `string.templatelib` child expose
+the native template constructors. These modules retain ordinary import and
+binding behavior without a filesystem loader.
 
 If a Python exception leaves an imported module, the frame unwind removes its
 cache entry before checking the importer's handler. A later import may retry it.
