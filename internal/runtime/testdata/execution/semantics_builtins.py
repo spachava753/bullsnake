@@ -307,3 +307,63 @@ class ReprOnlyValue:
         return representation
 
 assert str(ReprOnlyValue()) is representation
+# ---
+# case: enumerate native iteration
+assert list(enumerate(('first', 'second'))) == [
+    (0, 'first'),
+    (1, 'second'),
+]
+assert list(enumerate(['first', 'second'], 5)) == [
+    (5, 'first'),
+    (6, 'second'),
+]
+assert list(enumerate(iterable=('value',), start=100)) == [(100, 'value')]
+value = enumerate((), 7)
+assert type(value) is enumerate
+assert isinstance(value, enumerate)
+assert iter(value) is value
+assert next(value, None) is None
+# ---
+# case: enumerate large indexes and generators
+large = enumerate((10, 20), 100000000000000000000)
+assert next(large) == (100000000000000000000, 10)
+assert next(large) == (100000000000000000001, 20)
+
+def generated_values():
+    yield 'left'
+    yield 'right'
+
+assert list(enumerate(generated_values(), -2)) == [
+    (-2, 'left'),
+    (-1, 'right'),
+]
+# ---
+# case: enumerate user iteration protocol
+class EnumeratedValues:
+    def __iter__(self):
+        yield 4
+        yield 8
+
+class EnumeratedIterator:
+    def __init__(self):
+        self.current = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == 2:
+            raise StopIteration
+        self.current += 1
+        return self.current * 10
+
+assert list(enumerate(EnumeratedValues(), 1)) == [(1, 4), (2, 8)]
+iterator = enumerate(EnumeratedIterator(), 3)
+assert next(iterator) == (3, 10)
+assert next(iterator) == (4, 20)
+assert next(iterator, 'done') == 'done'
+
+many = list(enumerate(range(5000)))
+assert len(many) == 5000
+assert many[0] == (0, 0)
+assert many[4999] == (4999, 4999)

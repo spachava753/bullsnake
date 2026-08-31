@@ -368,3 +368,40 @@ class FailingString:
         raise ValueError('string failed')
 
 str(FailingString())
+# ---
+# case: enumerate missing iterable
+# error: TypeError
+# message: "enumerate() missing required argument 'iterable'"
+enumerate()
+# ---
+# case: enumerate extra arguments
+# error: TypeError
+# message: "enumerate() takes at most 2 arguments (3 given)"
+enumerate((), 0, 1)
+# ---
+# case: enumerate invalid keyword
+# error: TypeError
+# message: "'unknown' is an invalid keyword argument for enumerate()"
+enumerate((), unknown=1)
+# ---
+# case: enumerate non-integer start
+# error: TypeError
+# message: "'float' object cannot be interpreted as an integer"
+enumerate((), 1.5)
+# ---
+# case: enumerate non-iterable value
+# error: TypeError
+# message: "'int' object is not iterable"
+enumerate(1)
+# ---
+# case: enumerate iterator failure
+# error: ValueError
+# message: "enumerate failed"
+class FailingEnumeratedIterator:
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raise ValueError('enumerate failed')
+
+next(enumerate(FailingEnumeratedIterator()))

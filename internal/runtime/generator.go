@@ -30,6 +30,7 @@ type generatorResumeKind uint8
 const (
 	generatorIteration generatorResumeKind = iota
 	generatorCollection
+	generatorEnumerate
 	generatorCall
 	generatorClose
 	generatorDelegate
@@ -45,6 +46,7 @@ type generatorResume struct {
 	defaultValue Value
 	hasDefault   bool
 	collection   *collectionConstructorCall
+	enumeration  *enumerateCall
 	asyncNext    *asyncGeneratorNextValue
 	asyncThrow   *asyncGeneratorThrowValue
 }
@@ -183,6 +185,18 @@ func executeBuiltinNext(
 	}
 
 	switch iterator := iterator.(type) {
+	case *enumerateValue:
+		discardCallSegment(caller, base)
+		request := &iterationCall{
+			kind:         iterationBuiltinNext,
+			instruction:  instruction,
+			defaultValue: defaultValue,
+			hasDefault:   hasDefault,
+		}
+		return executeEnumerateNext(caller, &enumerateCall{
+			enumeration: iterator,
+			request:     request,
+		})
 	case *generatorValue:
 		discardCallSegment(caller, base)
 		if iterator.kind != generatorObject {
@@ -788,6 +802,34 @@ func suspendGenerator(
 		active.previous = caller
 		return active, nil, nil
 	}
+	if generator.resume.kind == generatorEnumerate {
+		call := generator.resume.enumeration
+		if call == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator enumerate has no continuation state",
+			)
+		}
+		active.previous = nil
+		generator.state = generatorSuspended
+		outcome, err := finishEnumerateItem(caller, call, value)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind == called {
+			return outcome.frame, nil, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				call.request.instruction,
+				"invalid enumerate generator yield outcome",
+			)
+		}
+		return caller, nil, nil
+	}
 	if (generator.resume.kind == generatorIteration ||
 		generator.resume.kind == generatorDelegate) &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
@@ -861,6 +903,28 @@ func finishGenerator(
 			return nil, nil, caller.failure(
 				resume.collection.instruction,
 				"invalid collection constructor completion",
+			)
+		}
+		return caller, nil, nil
+	case generatorEnumerate:
+		if resume.enumeration == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator enumerate completion has no continuation state",
+			)
+		}
+		generator.complete()
+		outcome, err := finishEnumerateStop(caller, resume.enumeration)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				resume.enumeration.request.instruction,
+				"invalid enumerate generator completion",
 			)
 		}
 		return caller, nil, nil

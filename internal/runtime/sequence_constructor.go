@@ -143,6 +143,16 @@ func continueCollectionConstructor(
 			}
 			call.elements = append(call.elements, value)
 		}
+	case *enumerateValue:
+		request := &iterationCall{
+			kind:        iterationCollectionNext,
+			instruction: call.instruction,
+			collection:  call,
+		}
+		return executeEnumerateNext(frame, &enumerateCall{
+			enumeration: iterator,
+			request:     request,
+		})
 	case *generatorValue:
 		if iterator.kind != generatorObject {
 			return raiseOutcome(newException(

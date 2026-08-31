@@ -838,6 +838,7 @@ route:
 			if current.iteration != nil &&
 				current.iteration.kind != iterationGetIterator &&
 				current.iteration.kind != iterationCollectionIterator &&
+				current.iteration.kind != iterationEnumerateIterator &&
 				isStopIteration(exception) {
 				call := current.iteration
 				current.iteration = nil

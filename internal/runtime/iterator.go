@@ -15,6 +15,8 @@ const (
 	iterationBuiltinNext
 	iterationCollectionIterator
 	iterationCollectionNext
+	iterationEnumerateIterator
+	iterationEnumerateNext
 )
 
 type iterationCall struct {
@@ -25,6 +27,7 @@ type iterationCall struct {
 	defaultValue Value
 	hasDefault   bool
 	collection   *collectionConstructorCall
+	enumeration  *enumerateCall
 }
 
 type sequenceIterator struct {
@@ -188,6 +191,8 @@ func newIterator(value Value) (Value, bool) {
 	switch value := value.(type) {
 	case valueIterator:
 		return value, true
+	case *enumerateValue:
+		return value, true
 	case *generatorValue:
 		if value.kind == generatorObject {
 			return value, true
@@ -301,6 +306,19 @@ func executeForIter(
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
 	value := frame.stack[len(frame.stack)-1]
+	if enumeration, ok := value.(*enumerateValue); ok {
+		frame.pop()
+		request := &iterationCall{
+			kind:        iterationForNext,
+			instruction: index,
+			target:      target,
+			iterator:    enumeration,
+		}
+		return executeEnumerateNext(frame, &enumerateCall{
+			enumeration: enumeration,
+			request:     request,
+		})
+	}
 	if generator, ok := value.(*generatorValue); ok {
 		return resumeGeneratorIteration(frame, index, target, generator)
 	}
@@ -372,6 +390,7 @@ func executeIterationSpecial(
 		return outcome, nil
 	}
 	if outcome.kind == raised && call.kind != iterationGetIterator &&
+		call.kind != iterationEnumerateIterator &&
 		isStopIteration(outcome.exception) {
 		return finishIterationStop(frame, call, outcome.exception)
 	}
@@ -442,6 +461,10 @@ func finishIterationCall(
 		}
 		call.collection.elements = append(call.collection.elements, result)
 		return continueCollectionConstructor(frame, call.collection)
+	case iterationEnumerateIterator:
+		return finishEnumerateIterator(frame, call.enumeration, result)
+	case iterationEnumerateNext:
+		return finishEnumerateItem(frame, call.enumeration, result)
 	default:
 		return instructionOutcome{}, frame.failure(
 			call.instruction,
@@ -474,14 +497,20 @@ func finishIterationStop(
 			)
 		}
 		return finishCollectionConstructor(frame, call.collection)
+	case iterationEnumerateNext:
+		return finishEnumerateStop(frame, call.enumeration)
 	default:
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
 }
 
+// isIteratorValue recognizes native iterators, synchronous generators, and user
+// instances whose class provides an enabled __next__ method.
 func isIteratorValue(value Value) bool {
 	switch value := value.(type) {
 	case valueIterator:
+		return true
+	case *enumerateValue:
 		return true
 	case *generatorValue:
 		return value.kind == generatorObject
