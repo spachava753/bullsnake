@@ -1237,3 +1237,40 @@ class CustomFormat:
 # error: TypeError
 # message: "count() takes no keyword arguments"
 'a'.count(sub='a')
+# ---
+# case: setattr missing argument
+# error: TypeError
+# message: "setattr expected 3 arguments, got 2"
+setattr(object(), 'name')
+# ---
+# case: setattr extra argument
+# error: TypeError
+# message: "setattr expected 3 arguments, got 4"
+setattr(object(), 'name', 1, 2)
+# ---
+# case: setattr keyword argument
+# error: TypeError
+# message: "setattr() takes no keyword arguments"
+setattr(object(), 'name', value=1)
+# ---
+# case: setattr non-string name
+# error: TypeError
+# message: "attribute name must be string, not 'int'"
+setattr(object(), 1, 2)
+# ---
+# case: setattr immutable native value
+# error: AttributeError
+# message: "'int' object has no attribute 'name'"
+setattr(1, 'name', 2)
+# ---
+# case: setattr descriptor failure
+# error: RuntimeError
+# message: "set failed"
+class FailingSetattrDescriptor:
+    def __set__(self, instance, value):
+        raise RuntimeError('set failed')
+
+class FailingSetattrOwner:
+    field = FailingSetattrDescriptor()
+
+setattr(FailingSetattrOwner(), 'field', 1)

@@ -1131,3 +1131,42 @@ count = 'a.b.c'.count
 assert callable(count)
 assert count('.') == 2
 assert getattr('banana', 'count')('an') == 2
+# ---
+# case: setattr instance class and function attributes
+class SetattrRecord:
+    pass
+
+record = SetattrRecord()
+name = 'value'
+assert setattr(record, name, 7) is None
+assert record.value == 7
+assert setattr(SetattrRecord, 'kind', 'entry') is None
+assert record.kind == 'entry'
+
+def decorated():
+    return 'called'
+
+assert setattr(decorated, 'marker', 11) is None
+assert decorated.marker == 11
+decorated.direct = 12
+assert decorated.direct == 12
+setter = setattr
+assert callable(setter)
+assert setter(record, 'other', 13) is None
+assert record.other == 13
+# ---
+# case: setattr data descriptor
+setattr_events = []
+
+class SetattrDescriptor:
+    def __set__(self, instance, value):
+        setattr_events.append((instance, value))
+        instance.stored = value
+
+class SetattrOwner:
+    field = SetattrDescriptor()
+
+owner = SetattrOwner()
+assert setattr(owner, 'field', 21) is None
+assert setattr_events == [(owner, 21)]
+assert owner.stored == 21

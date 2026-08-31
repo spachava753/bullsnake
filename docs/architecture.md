@@ -449,13 +449,14 @@ Binary arithmetic uses the same normal, reflected, and in-place candidate order.
 Calling a user instance resolves `__call__` on its class and uses the ordinary
 frame-switching call path. The `callable` builtin reports whether that call slot
 exists without invoking it; a same-named instance attribute does not affect
-either operation. Attribute reads apply data descriptor, instance attribute,
-non-data descriptor,
-and plain class attribute precedence. The `getattr` and `hasattr` builtins send
-a runtime name through those same module, class, instance, and function paths.
-An optional `getattr` default and `hasattr` suppress only `AttributeError`,
-including one raised by descriptor code. Descriptor writes and deletes run
-through the same frame loop. The
+either operation. Attribute reads apply data-descriptor, instance-attribute,
+non-data-descriptor, and plain class-attribute precedence. The `getattr` and
+`hasattr` builtins send a runtime name through those same module, class,
+instance, and function paths. An optional `getattr` default and `hasattr`
+suppress only `AttributeError`, including one raised by descriptor code. The
+`setattr` builtin shares ordinary module, class, instance, and function stores.
+Functions retain arbitrary assigned attributes. Instance writes continue to run
+data descriptors through the frame loop. The
 built-in `property` type uses that path for getter, setter, and deleter
 functions. `classmethod` binds its wrapped callable to the class through which
 the attribute was accessed; `staticmethod` returns its wrapped callable without

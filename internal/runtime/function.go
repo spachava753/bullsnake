@@ -16,6 +16,7 @@ type functionValue struct {
 	annotate        *functionValue
 	annotations     *dictValue
 	typeParams      *tupleValue
+	attributes      *Namespace
 }
 
 func (*functionValue) TypeName() string { return "function" }

@@ -584,8 +584,11 @@ attribute precedence. Class access calls `__get__` with `None` and the accessed
 class. The `getattr` and `hasattr` builtins apply the same implemented module,
 class, instance, and function lookup rules to a runtime string. An optional
 `getattr` default and `hasattr` catch only `AttributeError`, including one
-escaping a descriptor method. Writes and deletes invoke data descriptors
-before the instance namespace and discard the descriptor method's result.
+escaping a descriptor method. The `setattr` builtin shares ordinary module,
+class, instance, and function stores. Python functions retain arbitrary assigned
+attributes; their current annotation and type-parameter metadata remains
+read-only. Instance writes invoke data descriptors before the instance namespace
+and discard the descriptor method's result.
 
 The built-in `property` supports direct construction and decorator-style
 `getter`, `setter`, and `deleter` copies. Properties expose their accessor fields,
@@ -620,7 +623,8 @@ The builtin namespace contains the current exception classes; native `bool`,
 `frozenset`, `dict`, `object`, and `type` objects; `abs`; `all`; `any`;
 `callable`; `classmethod`; `dir`; `getattr`; `hasattr`; `hash`; `isinstance`;
 `issubclass`; one-argument `iter`; `len`; positional `max` and `min` calls with
-two or more arguments; `next`; `repr`; `round`; and `staticmethod`. The `next`
+two or more arguments; `next`; `repr`; `round`; `setattr`; and `staticmethod`.
+The `next`
 builtin accepts one optional default for generators, internal iterators, and user
 iterators. String and base forms of `int`, the iterable and keyword forms of
 `max` and `min`, the encoding form of `str`, and callable-sentinel `iter` remain

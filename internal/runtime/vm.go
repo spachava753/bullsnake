@@ -1482,29 +1482,7 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		name := frame.code.names[instruction.Operand]
-		switch owner := owner.(type) {
-		case *Module:
-			owner.globals.values[name] = value
-		case *typeValue:
-			if readOnlyTypeMetadata(name) {
-				return instructionOutcome{
-					kind:      raised,
-					exception: newException("AttributeError", "readonly attribute"),
-				}, nil
-			}
-			owner.namespace.values[name] = value
-		case *instanceValue:
-			return executeInstanceAttributeStore(frame, index, owner, name, value)
-		default:
-			return instructionOutcome{
-				kind: raised,
-				exception: newException(
-					"AttributeError",
-					"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
-				),
-			}, nil
-		}
-		return instructionOutcome{kind: advance}, nil
+		return executeDynamicAttributeStore(frame, index, owner, name, value)
 	case bytecode.DeleteAttr:
 		owner, ok := frame.pop()
 		if !ok {

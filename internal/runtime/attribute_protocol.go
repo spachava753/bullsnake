@@ -11,6 +11,7 @@ const (
 type attributeCall struct {
 	kind        attributeCallKind
 	instruction int
+	returnNone  bool
 }
 
 // executeDynamicAttributeLoad applies the runtime's existing attribute rules to
@@ -78,6 +79,8 @@ func executeDynamicAttributeLoad(
 	}
 }
 
+// executeFunctionAttributeLoad gives fixed function metadata precedence over
+// arbitrary attributes assigned through STORE_ATTR or setattr.
 func executeFunctionAttributeLoad(
 	frame *frame,
 	instruction int,
@@ -95,6 +98,11 @@ func executeFunctionAttributeLoad(
 	case "__annotations__":
 		return executeFunctionAnnotationsLoad(frame, instruction, owner)
 	default:
+		if owner.attributes != nil {
+			if value, found := owner.attributes.get(name); found {
+				return pushOutcome(frame, instruction, value)
+			}
+		}
 		return raiseOutcome(newException(
 			"AttributeError",
 			"'function' object has no attribute '"+name+"'",
@@ -284,6 +292,43 @@ func executeInstanceAttributeLoad(
 	return pushOutcome(frame, instruction, classValue)
 }
 
+// executeDynamicAttributeStore applies the mutable stores shared by STORE_ATTR
+// and setattr while preserving descriptor dispatch for user instances.
+func executeDynamicAttributeStore(
+	frame *frame,
+	instruction int,
+	owner Value,
+	name string,
+	value Value,
+) (instructionOutcome, error) {
+	switch owner := owner.(type) {
+	case *Module:
+		owner.globals.values[name] = value
+	case *functionValue:
+		if name == "__type_params__" || name == "__annotate__" ||
+			name == "__annotations__" {
+			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		if owner.attributes == nil {
+			owner.attributes = newNamespace()
+		}
+		owner.attributes.values[name] = value
+	case *typeValue:
+		if readOnlyTypeMetadata(name) {
+			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		owner.namespace.values[name] = value
+	case *instanceValue:
+		return executeInstanceAttributeStore(frame, instruction, owner, name, value)
+	default:
+		return raiseOutcome(newException(
+			"AttributeError",
+			"'"+owner.TypeName()+"' object has no attribute '"+name+"'",
+		)), nil
+	}
+	return instructionOutcome{kind: advance}, nil
+}
+
 // executeInstanceAttributeStore sends writes through a property or user data
 // descriptor before falling back to the instance namespace.
 func executeInstanceAttributeStore(
@@ -450,6 +495,9 @@ func finishAttributeCall(
 ) (instructionOutcome, error) {
 	if call.kind == attributeGet {
 		return pushOutcome(frame, call.instruction, result)
+	}
+	if call.returnNone {
+		return pushOutcome(frame, call.instruction, None)
 	}
 	return instructionOutcome{kind: advance}, nil
 }
