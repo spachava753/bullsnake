@@ -454,10 +454,10 @@ non-data-descriptor, and plain class-attribute precedence. The `getattr` and
 `hasattr` builtins send a runtime name through those same module, class,
 instance, and function paths. An optional `getattr` default and `hasattr`
 suppress only `AttributeError`, including one raised by descriptor code. The
-`setattr` builtin shares ordinary module, class, instance, and function stores.
-Functions retain arbitrary assigned attributes. Instance writes continue to run
-data descriptors through the frame loop. The
-built-in `property` type uses that path for getter, setter, and deleter
+`setattr` and `delattr` builtins share ordinary module, class, instance, and
+function mutation rules. Functions retain arbitrary assigned attributes.
+Instance writes and deletes continue to run data descriptors through the frame
+loop. The built-in `property` type uses that path for getter, setter, and deleter
 functions. `classmethod` binds its wrapped callable to the class through which
 the attribute was accessed; `staticmethod` returns its wrapped callable without
 binding. Zero- and explicit-argument `super` values search

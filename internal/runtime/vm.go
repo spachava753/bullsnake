@@ -1489,38 +1489,7 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		name := frame.code.names[instruction.Operand]
-		var attributes *Namespace
-		missingMessage := "'" + owner.TypeName() + "' object has no attribute '" + name + "'"
-		switch owner := owner.(type) {
-		case *Module:
-			attributes = owner.globals
-			missingMessage = "module '" + owner.name + "' has no attribute '" + name + "'"
-		case *typeValue:
-			if readOnlyTypeMetadata(name) {
-				return instructionOutcome{
-					kind:      raised,
-					exception: newException("AttributeError", "readonly attribute"),
-				}, nil
-			}
-			attributes = owner.namespace
-			missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
-		case *instanceValue:
-			return executeInstanceAttributeDelete(frame, index, owner, name)
-		}
-		if attributes == nil {
-			return instructionOutcome{
-				kind:      raised,
-				exception: newException("AttributeError", missingMessage),
-			}, nil
-		}
-		if _, found := attributes.values[name]; !found {
-			return instructionOutcome{
-				kind:      raised,
-				exception: newException("AttributeError", missingMessage),
-			}, nil
-		}
-		delete(attributes.values, name)
-		return instructionOutcome{kind: advance}, nil
+		return executeDynamicAttributeDelete(frame, index, owner, name)
 	case bytecode.StoreName:
 		value, ok := frame.pop()
 		if !ok {

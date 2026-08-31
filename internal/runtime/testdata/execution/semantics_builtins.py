@@ -1170,3 +1170,41 @@ owner = SetattrOwner()
 assert setattr(owner, 'field', 21) is None
 assert setattr_events == [(owner, 21)]
 assert owner.stored == 21
+# ---
+# case: delattr instance class and function attributes
+class DelattrRecord:
+    kind = 'entry'
+
+record = DelattrRecord()
+record.value = 7
+assert delattr(record, 'value') is None
+assert not hasattr(record, 'value')
+assert delattr(DelattrRecord, 'kind') is None
+assert not hasattr(DelattrRecord, 'kind')
+
+def decorated_for_delete():
+    return 'called'
+
+decorated_for_delete.marker = 11
+assert delattr(decorated_for_delete, 'marker') is None
+assert not hasattr(decorated_for_delete, 'marker')
+decorated_for_delete.direct = 12
+del decorated_for_delete.direct
+assert not hasattr(decorated_for_delete, 'direct')
+deleter = delattr
+assert callable(deleter)
+record.other = 13
+assert deleter(record, 'other') is None
+assert not hasattr(record, 'other')
+# ---
+# case: delattr data descriptor
+class DelattrDescriptor:
+    def __delete__(self, instance):
+        instance.deleted = True
+
+class DelattrOwner:
+    field = DelattrDescriptor()
+
+owner = DelattrOwner()
+assert delattr(owner, 'field') is None
+assert owner.deleted is True

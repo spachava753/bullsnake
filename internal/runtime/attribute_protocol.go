@@ -329,6 +329,47 @@ func executeDynamicAttributeStore(
 	return instructionOutcome{kind: advance}, nil
 }
 
+// executeDynamicAttributeDelete removes one mutable attribute or runs an
+// instance data descriptor while preserving target-specific missing messages.
+func executeDynamicAttributeDelete(
+	frame *frame,
+	instruction int,
+	owner Value,
+	name string,
+) (instructionOutcome, error) {
+	var attributes *Namespace
+	missingMessage := "'" + owner.TypeName() + "' object has no attribute '" + name + "'"
+	switch owner := owner.(type) {
+	case *Module:
+		attributes = owner.globals
+		missingMessage = "module '" + owner.name + "' has no attribute '" + name + "'"
+	case *functionValue:
+		if name == "__type_params__" || name == "__annotate__" ||
+			name == "__annotations__" {
+			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		attributes = owner.attributes
+	case *typeValue:
+		if readOnlyTypeMetadata(name) {
+			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		attributes = owner.namespace
+		missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
+	case *instanceValue:
+		return executeInstanceAttributeDelete(frame, instruction, owner, name)
+	default:
+		return raiseOutcome(newException("AttributeError", missingMessage)), nil
+	}
+	if attributes == nil {
+		return raiseOutcome(newException("AttributeError", missingMessage)), nil
+	}
+	if _, found := attributes.values[name]; !found {
+		return raiseOutcome(newException("AttributeError", missingMessage)), nil
+	}
+	delete(attributes.values, name)
+	return instructionOutcome{kind: advance}, nil
+}
+
 // executeInstanceAttributeStore sends writes through a property or user data
 // descriptor before falling back to the instance namespace.
 func executeInstanceAttributeStore(

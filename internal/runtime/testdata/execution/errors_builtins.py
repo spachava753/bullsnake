@@ -1274,3 +1274,48 @@ class FailingSetattrOwner:
     field = FailingSetattrDescriptor()
 
 setattr(FailingSetattrOwner(), 'field', 1)
+# ---
+# case: delattr missing argument
+# error: TypeError
+# message: "delattr expected 2 arguments, got 1"
+delattr(object())
+# ---
+# case: delattr extra argument
+# error: TypeError
+# message: "delattr expected 2 arguments, got 3"
+delattr(object(), 'name', 1)
+# ---
+# case: delattr keyword argument
+# error: TypeError
+# message: "delattr() takes no keyword arguments"
+delattr(object(), name='value')
+# ---
+# case: delattr non-string name
+# error: TypeError
+# message: "attribute name must be string, not 'int'"
+delattr(object(), 1)
+# ---
+# case: delattr immutable native value
+# error: AttributeError
+# message: "'int' object has no attribute 'name'"
+delattr(1, 'name')
+# ---
+# case: delattr missing function attribute
+# error: AttributeError
+# message: "'function' object has no attribute 'missing'"
+def no_deleted_attribute():
+    pass
+
+delattr(no_deleted_attribute, 'missing')
+# ---
+# case: delattr descriptor failure
+# error: RuntimeError
+# message: "delete failed"
+class FailingDelattrDescriptor:
+    def __delete__(self, instance):
+        raise RuntimeError('delete failed')
+
+class FailingDelattrOwner:
+    field = FailingDelattrDescriptor()
+
+delattr(FailingDelattrOwner(), 'field')
