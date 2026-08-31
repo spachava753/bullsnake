@@ -446,3 +446,32 @@ class FailingAllTruth:
         raise ValueError('all truth failed')
 
 all((FailingAllTruth(),))
+# ---
+# case: any missing iterable
+# error: TypeError
+# message: "any() takes exactly one argument (0 given)"
+any()
+# ---
+# case: any extra arguments
+# error: TypeError
+# message: "any() takes exactly one argument (2 given)"
+any((), ())
+# ---
+# case: any keyword argument
+# error: TypeError
+# message: "any() takes no keyword arguments"
+any(iterable=())
+# ---
+# case: any non-iterable value
+# error: TypeError
+# message: "'int' object is not iterable"
+any(1)
+# ---
+# case: any truth failure
+# error: ValueError
+# message: "any truth failed"
+class FailingAnyTruth:
+    def __bool__(self):
+        raise ValueError('any truth failed')
+
+any((FailingAnyTruth(),))

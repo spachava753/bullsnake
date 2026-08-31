@@ -400,9 +400,9 @@ class `__bool__` before class `__len__`.
 The `len` builtin handles built-in containers and text directly, and otherwise
 calls class `__len__` with the same nonnegative host-index result checks.
 `repr` and the object form of `str` use class `__repr__` and `__str__` through
-the same suspended-frame mechanism. The `all` builtin repeatedly uses both the
-iteration and truth paths, stops at the first false item, and does not resume the
-iterator after that result is known.
+the same suspended-frame mechanism. The `all` and `any` builtins repeatedly use
+both the iteration and truth paths. They stop at the first result that determines
+the answer and do not resume the iterator afterward.
 
 Iteration calls class `__iter__`, validates its result, and resumes class
 `__next__` from `for` or `next()`.

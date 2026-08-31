@@ -10,8 +10,8 @@ type truthAggregateCall struct {
 	exhausted   bool
 }
 
-// executeBuiltinAll validates one positional iterable and starts a resumable
-// truth aggregate that returns False on the first false item and True at EOF.
+// executeBuiltinAll starts an aggregate that returns False on the first false
+// item and True when its iterator is exhausted.
 func executeBuiltinAll(
 	caller *frame,
 	instruction int,
@@ -19,26 +19,69 @@ func executeBuiltinAll(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
+	return executeBuiltinTruthAggregate(
+		caller,
+		instruction,
+		base,
+		arguments,
+		keywords,
+		"all",
+		false,
+		true,
+	)
+}
+
+// executeBuiltinAny starts an aggregate that returns True on the first true
+// item and False when its iterator is exhausted.
+func executeBuiltinAny(
+	caller *frame,
+	instruction int,
+	base int,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	return executeBuiltinTruthAggregate(
+		caller,
+		instruction,
+		base,
+		arguments,
+		keywords,
+		"any",
+		true,
+		false,
+	)
+}
+
+func executeBuiltinTruthAggregate(
+	caller *frame,
+	instruction int,
+	base int,
+	arguments []Value,
+	keywords *dictValue,
+	name string,
+	stopTruth bool,
+	exhausted bool,
+) (instructionOutcome, error) {
 	if keywords != nil && len(keywords.entries) != 0 {
 		discardCallSegment(caller, base)
 		return raiseOutcome(newException(
 			"TypeError",
-			"all() takes no keyword arguments",
+			name+"() takes no keyword arguments",
 		)), nil
 	}
 	if len(arguments) != 1 {
 		discardCallSegment(caller, base)
 		return raiseOutcome(newException(
 			"TypeError",
-			"all() takes exactly one argument ("+
+			name+"() takes exactly one argument ("+
 				strconv.Itoa(len(arguments))+" given)",
 		)), nil
 	}
 	call := &truthAggregateCall{
 		instruction: instruction,
 		iterable:    arguments[0],
-		stopTruth:   false,
-		exhausted:   true,
+		stopTruth:   stopTruth,
+		exhausted:   exhausted,
 	}
 	discardCallSegment(caller, base)
 	return startTruthAggregate(caller, call)

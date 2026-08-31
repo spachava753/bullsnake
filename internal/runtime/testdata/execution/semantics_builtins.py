@@ -421,3 +421,36 @@ class AllIterator:
         return self.current
 
 assert all(AllIterator()) is True
+# ---
+# case: any over native values
+assert any(()) is False
+assert any((0, False, '')) is False
+assert any((0, '', 3)) is True
+assert any(range(0)) is False
+assert any(range(0, 3)) is True
+# ---
+# case: any short circuits generators
+any_steps = 0
+
+def any_values():
+    global any_steps
+    any_steps += 1
+    yield 0
+    any_steps += 1
+    yield 2
+    any_steps += 1
+    yield 0
+
+assert any(any_values()) is True
+assert any_steps == 2
+assert any(value < 0 for value in (1, 2, 3)) is False
+# ---
+# case: any uses user truth protocol
+class AnyTruth:
+    def __init__(self, value):
+        self.value = value
+
+    def __len__(self):
+        return self.value
+
+assert any((AnyTruth(0), AnyTruth(2), AnyTruth(0))) is True
