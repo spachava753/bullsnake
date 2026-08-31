@@ -417,8 +417,9 @@ truth and length rules. `len` supports strings, bytes, tuples, lists,
 dictionaries, and sets; string lengths count decoded code points, including
 preserved lone surrogates. A user instance looks up `__bool__` on its class for
 truth and falls back to class `__len__`; same-named instance attributes do not
-participate. A direct `len` call uses that same class `__len__` path. `__bool__`
-must return a boolean. `__len__` must return a nonnegative integer that fits
+participate. The `bool` builtin uses the same lookup and returns the resolved
+boolean singleton; a direct `len` call uses the same class `__len__` path.
+`__bool__` must return a boolean. `__len__` must return a nonnegative integer that fits
 the host index size. The special-method call can suspend in another Python
 frame before the requesting operation continues. Dictionaries and sets
 currently use ordered linear storage. This keeps Python identity and equality
@@ -506,7 +507,7 @@ Current float arithmetic covers addition, subtraction, multiplication, true
 division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
-The builtin namespace contains the current exception classes, `callable`,
+The builtin namespace contains the current exception classes, `bool`, `callable`,
 `classmethod`, `getattr`, `hasattr`, scalar numeric `int`, one-argument `iter`,
 `len`, positional `max` and `min` calls with two or more arguments, `next`, and
 `staticmethod`. `next` accepts one optional default for generators, internal

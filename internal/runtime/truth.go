@@ -1,6 +1,10 @@
 package runtime
 
-import "github.com/spachava753/bullsnake/internal/compiler/bytecode"
+import (
+	"strconv"
+
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+)
 
 type truthMethod uint8
 
@@ -10,19 +14,31 @@ const (
 )
 
 type truthCall struct {
-	instruction int
-	operation   bytecode.Instruction
-	original    Value
-	method      truthMethod
+	instruction   int
+	operation     bytecode.Instruction
+	original      Value
+	method        truthMethod
+	returnBoolean bool
 }
 
-// executeTruthOperation either completes truth testing immediately or calls a
-// user special method and leaves the original instruction suspended.
+// executeTruthOperation resolves one value for a bytecode truth operation.
 func executeTruthOperation(
 	frame *frame,
 	instruction int,
 	operation bytecode.Instruction,
 	value Value,
+) (instructionOutcome, error) {
+	return executeTruthValue(frame, instruction, operation, value, false)
+}
+
+// executeTruthValue either completes immediately or leaves a user special
+// method frame carrying the operation that resumes after its return.
+func executeTruthValue(
+	frame *frame,
+	instruction int,
+	operation bytecode.Instruction,
+	value Value,
+	returnBoolean bool,
 ) (instructionOutcome, error) {
 	if value == notImplementedSingleton {
 		return instructionOutcome{
@@ -33,13 +49,19 @@ func executeTruthOperation(
 			),
 		}, nil
 	}
+	call := &truthCall{
+		instruction:   instruction,
+		operation:     operation,
+		original:      value,
+		returnBoolean: returnBoolean,
+	}
 	if truth, immediate := immediateTruth(value); immediate {
-		return completeTruthOperation(frame, instruction, operation, value, truth)
+		return completeTruthCall(frame, call, truth)
 	}
 
 	instance := value.(*instanceValue)
 	method, found := lookupInstanceSpecial(instance, "__bool__")
-	methodKind := truthBoolMethod
+	call.method = truthBoolMethod
 	if found && method == None {
 		return instructionOutcome{
 			kind: raised,
@@ -51,18 +73,12 @@ func executeTruthOperation(
 	}
 	if !found {
 		method, found = lookupInstanceSpecial(instance, "__len__")
-		methodKind = truthLengthMethod
+		call.method = truthLengthMethod
 	}
 	if !found {
-		return completeTruthOperation(frame, instruction, operation, value, true)
+		return completeTruthCall(frame, call, true)
 	}
 
-	call := &truthCall{
-		instruction: instruction,
-		operation:   operation,
-		original:    value,
-		method:      methodKind,
-	}
 	outcome, err := executeFunctionCall(
 		frame,
 		instruction,
@@ -89,6 +105,43 @@ func executeTruthOperation(
 		)
 	}
 	return finishTruthCall(frame, call, result)
+}
+
+// executeBuiltinBool applies ordinary truth testing to zero or one value.
+func executeBuiltinBool(
+	caller *frame,
+	instruction int,
+	base int,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"bool() takes no keyword arguments",
+		)), nil
+	}
+	if len(arguments) > 1 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"bool expected at most 1 argument, got "+strconv.Itoa(len(arguments)),
+		)), nil
+	}
+	if len(arguments) == 0 {
+		discardCallSegment(caller, base)
+		return pushOutcome(caller, instruction, falseSingleton)
+	}
+	value := arguments[0]
+	discardCallSegment(caller, base)
+	return executeTruthValue(
+		caller,
+		instruction,
+		bytecode.Instruction{},
+		value,
+		true,
+	)
 }
 
 // immediateTruth returns the fixed truth value for built-in runtime objects and
@@ -132,6 +185,21 @@ func finishTruthCall(
 	truth, exception := truthMethodResult(call.method, result)
 	if exception != nil {
 		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	return completeTruthCall(frame, call, truth)
+}
+
+func completeTruthCall(
+	frame *frame,
+	call *truthCall,
+	truth bool,
+) (instructionOutcome, error) {
+	if call.returnBoolean {
+		result := falseSingleton
+		if truth {
+			result = trueSingleton
+		}
+		return pushOutcome(frame, call.instruction, result)
 	}
 	return completeTruthOperation(
 		frame,

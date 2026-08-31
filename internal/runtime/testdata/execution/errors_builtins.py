@@ -284,3 +284,31 @@ class FailingClassMethod:
         raise ValueError('class method failed')
 
 FailingClassMethod.fail()
+# ---
+# case: bool extra arguments
+# error: TypeError
+# message: "bool expected at most 1 argument, got 2"
+bool(1, 2)
+# ---
+# case: bool keyword argument
+# error: TypeError
+# message: "bool() takes no keyword arguments"
+bool(value=1)
+# ---
+# case: bool method result type
+# error: TypeError
+# message: "__bool__ should return bool, returned int"
+class InvalidBoolean:
+    def __bool__(self):
+        return 1
+
+bool(InvalidBoolean())
+# ---
+# case: bool method exception
+# error: ValueError
+# message: "truth failed"
+class FailingBoolean:
+    def __bool__(self):
+        raise ValueError('truth failed')
+
+bool(FailingBoolean())

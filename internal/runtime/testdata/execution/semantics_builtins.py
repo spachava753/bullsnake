@@ -236,3 +236,26 @@ assert static_wrapper.__func__ is combine
 assert static_wrapper.__wrapped__ is combine
 assert class_wrapper.__func__ is combine
 assert class_wrapper.__wrapped__ is combine
+# ---
+# case: bool builtin truth protocol
+assert bool() is False
+assert bool(None) is False
+assert bool(0) is False
+assert bool(1) is True
+assert bool('') is False
+assert bool('value') is True
+assert bool([]) is False
+assert bool([1]) is True
+
+class BooleanValue:
+    def __bool__(self):
+        return False
+
+class LengthValue:
+    def __len__(self):
+        return 2
+
+boolean_value = BooleanValue()
+boolean_value.__bool__ = None
+assert bool(boolean_value) is False
+assert bool(LengthValue()) is True
