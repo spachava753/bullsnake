@@ -37,6 +37,8 @@ func executeStringAttributeLoad(
 		return pushOutcome(frame, instruction, &stringJoinMethod{separator: value})
 	case "startswith":
 		return pushOutcome(frame, instruction, &stringStartswithMethod{value: value})
+	case "split":
+		return pushOutcome(frame, instruction, &stringSplitMethod{value: value})
 	default:
 		return raiseOutcome(newException(
 			"AttributeError",

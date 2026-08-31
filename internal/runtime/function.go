@@ -175,6 +175,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringSplitMethod:
+		return executeStringSplitCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *listAppendMethod:
 		return executeListAppendCall(
 			caller,
@@ -468,6 +477,7 @@ func isCallableValue(value Value) bool {
 		*propertyAccessorMethod,
 		*stringJoinMethod,
 		*stringStartswithMethod,
+		*stringSplitMethod,
 		*listAppendMethod,
 		*listPopMethod,
 		*listExtendMethod,

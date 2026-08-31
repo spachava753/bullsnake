@@ -384,10 +384,11 @@ objects rather than separate function stand-ins. Ranges retain
 arbitrary-precision integer bounds and produce values lazily through the ordinary
 native iterator path. Enumerate, map, and filter objects wrap that iterator
 contract and may suspend while a generator, user iterator, mapped callable, or
-filter predicate and truth method runs. String instances expose bound `join` and
-`startswith`. Join collects through that iterator path before validating and
-concatenating its items. Startswith applies code-point slice bounds and accepts
-one string or an ordered tuple of strings. A list instance exposes bound
+filter predicate and truth method runs. String instances expose bound `join`,
+`split`, and `startswith`. Join collects through that iterator path before
+validating and concatenating its items. Split handles explicit separators and
+Python whitespace. Startswith applies code-point slice bounds and accepts one
+string or an ordered tuple of strings. A list instance exposes bound
 `append`, `pop`, `extend`, and `remove` methods. Extend uses the same resumable
 iterator path and mutates the target as each item arrives. Remove scans left to
 right, prefers object identity, and may suspend for user equality and truth

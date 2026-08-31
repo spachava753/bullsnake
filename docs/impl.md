@@ -464,20 +464,23 @@ constructors are not implemented yet.
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
 slice subscription, and dictionary item mutation. String instances expose bound
-`join` and `startswith`. Join collects through the resumable iterator path before
-validating all items. Startswith applies code-point bounds from the current
-integer-or-`None` index subset to one string or an ordered tuple. List instances
-expose bound `append`, `pop`, `extend`, and `remove` methods. Extend consumes
-native, generator, or user iterators through the frame loop and mutates the
-target as each item arrives. Remove scans left to right, prefers identity, and
-resumes user `__eq__` and truth methods through the same frame loop.
-Dictionary instances expose bound `get`, `pop`, `items`, and `keys` methods.
-The view methods return
-live `dict_items` and `dict_keys` values with independent iterators. Replacing a
-value remains visible, while key-set changes during iteration raise
-`RuntimeError`. Set instances expose bound `add` and `discard` methods using the
-same fixed hashability and equality rules as set displays. Set-like view
-operations and other native collection or text methods are not implemented yet.
+`join`, `split`, and `startswith`. Join collects through the resumable iterator
+path before validating all items. Split handles explicit separators and Python
+whitespace with the current integer-or-boolean `maxsplit` subset. Startswith
+applies code-point bounds from the current integer-or-`None` index subset to a
+string or an ordered tuple.
+
+List instances expose bound `append`, `pop`, `extend`, and `remove` methods.
+Extend consumes native, generator, or user iterators through the frame loop and
+mutates the target as each item arrives. Remove scans left to right, prefers
+identity, and resumes user `__eq__` and truth methods through the same frame loop.
+
+Dictionary instances expose bound `get`, `pop`, `items`, and `keys` methods. The
+view methods return live `dict_items` and `dict_keys` values with independent
+iterators. Replacing a value remains visible. Key-set changes during iteration
+raise `RuntimeError`. Set instances expose bound `add` and `discard` methods
+using the same fixed hashability and equality rules as set displays. Set-like
+view operations and other native collection or text methods are not implemented.
 List equality uses the runtime's fixed recursive rules for scalars, tuples,
 lists, and identical values. It does not yet suspend for user `__eq__`, unlike
 `list.remove`.

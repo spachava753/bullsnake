@@ -1009,3 +1009,33 @@ def failing_join_values():
 # error: TypeError
 # message: "slice indices must be integers or None or have an __index__ method"
 'abc'.startswith('a', 'start')
+# ---
+# case: string split extra argument
+# error: TypeError
+# message: "split() takes at most 2 arguments (3 given)"
+'a'.split(None, -1, None)
+# ---
+# case: string split unknown keyword
+# error: TypeError
+# message: "'unknown' is an invalid keyword argument for split()"
+'a'.split(unknown=None)
+# ---
+# case: string split duplicate separator
+# error: TypeError
+# message: "split() got multiple values for argument 'sep'"
+'a'.split('.', sep='.')
+# ---
+# case: string split invalid separator
+# error: TypeError
+# message: "must be str or None, not int"
+'a'.split(1)
+# ---
+# case: string split empty separator
+# error: ValueError
+# message: "empty separator"
+'a'.split('')
+# ---
+# case: string split invalid maximum
+# error: TypeError
+# message: "'str' object cannot be interpreted as an integer"
+'a'.split(None, 'maximum')

@@ -955,3 +955,22 @@ assert callable(startswith)
 assert startswith('prefix')
 assert not startswith('value')
 assert getattr('value', 'startswith')('val')
+# ---
+# case: string split explicit separators
+assert 'alpha.beta.gamma'.split('.') == ['alpha', 'beta', 'gamma']
+assert 'alpha.beta.gamma'.split('.', 1) == ['alpha', 'beta.gamma']
+assert 'alpha.beta.gamma'.split('.', 0) == ['alpha.beta.gamma']
+assert 'a--b--'.split('--') == ['a', 'b', '']
+assert '\u2603a\u2603b'.split('\u2603') == ['', 'a', 'b']
+assert 'a.b'.split(sep='.', maxsplit=1) == ['a', 'b']
+# ---
+# case: string split whitespace and retained method
+assert '  alpha\t beta\n gamma  '.split() == ['alpha', 'beta', 'gamma']
+assert '\u00a0alpha\u2003beta\u3000'.split() == ['alpha', 'beta']
+assert '  alpha beta  '.split(None, 0) == ['alpha beta  ']
+assert '   '.split(None, 0) == []
+assert ' a b c '.split(None, 1) == ['a', 'b c ']
+split = 'left:right'.split
+assert callable(split)
+assert split(':') == ['left', 'right']
+assert getattr('x y', 'split')() == ['x', 'y']
