@@ -203,8 +203,10 @@ their completed tuple and keyword map become arguments to the hidden function so
 the user function retains the original objects. Decorator expressions run before
 default expressions, and their results wrap the completed generic function in
 reverse order. The user function keeps the ordinary argument layout and binder,
-including variadic positional and keyword parameters. The hidden scope does not
-appear in the user function's qualified name.
+including variadic positional and keyword parameters. If the user function is a
+generator, the hidden constructor still returns an ordinary function value;
+calling that value creates the existing suspended generator frame. The hidden
+scope does not appear in the user function's qualified name.
 
 For aliases and generic functions, a bound, tuple constraint, or default owns
 another hidden evaluator that captures the same definition scope. Reading

@@ -192,8 +192,9 @@ The current compiler translates:
 - type aliases with lazy values and definition-scope captures, including
   `TypeVar`, `TypeVarTuple`, and `ParamSpec` parameters with lazy defaults;
   ordinary TypeVars also support lazy bounds and tuple constraints
-- synchronous generator functions with lazy calls, `yield`, `yield from`,
-  iteration, sent values, closure captures, and cleanup across suspension
+- synchronous generator functions, including generic functions, with lazy calls,
+  `yield`, `yield from`, iteration, sent values, closure captures, and cleanup
+  across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
   closures, lazy class annotations, and the cells used by class-visible
   annotations and `__class__`
@@ -257,9 +258,8 @@ and cache behavior as a generic alias. Type parameter names do not enter the
 defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
-The compiler rejects template-string execution, generic classes, generic
-generator functions, async definitions, asynchronous comprehensions,
-`async for`, `async with`, and coroutines.
+The compiler rejects template-string execution, generic classes, async
+definitions, asynchronous comprehensions, `async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.
 

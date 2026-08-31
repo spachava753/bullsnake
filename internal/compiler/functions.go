@@ -88,9 +88,6 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	if functionScope == nil || functionScope.Kind != resolver.FunctionScope {
 		return compiler.error(statement.Span(), "resolver has no function scope for %q", statement.Name)
 	}
-	if functionScope.Flags&resolver.Generator != 0 {
-		return compiler.error(statement.Span(), "generic generator functions are not compiled")
-	}
 	for _, decorator := range statement.Decorators {
 		if err := compiler.compileExpr(decorator); err != nil {
 			return err

@@ -224,3 +224,20 @@ assert f'{variadic_parameters[1].__default__!r}' == 'typing.NoDefault'
 default_parameters = variadic_defaults.__type_params__
 assert default_parameters[0].__default__[0] is VariadicFallback
 assert default_parameters[1].__default__[0] is VariadicFallback
+
+# ---
+# case: generic generator functions preserve type parameters across suspension
+generator_started = False
+
+def produce[T](value):
+    global generator_started
+    generator_started = True
+    yield T
+    yield value
+
+generator_parameter = produce.__type_params__[0]
+generator = produce(7)
+assert generator_started is False
+assert next(generator) is generator_parameter
+assert generator_started is True
+assert next(generator) == 7

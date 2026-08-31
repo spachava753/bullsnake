@@ -66,7 +66,7 @@ func TestMissingResolverTableError(t *testing.T) {
 }
 
 func TestGenericFunctionCompilerBoundary(t *testing.T) {
-	module, err := parser.Parse("input.py", "def generic[T]():\n    yield T\n")
+	module, err := parser.Parse("input.py", "async def generic[T]():\n    return T\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestGenericFunctionCompilerBoundary(t *testing.T) {
 	if !errors.As(err, &compileErr) {
 		t.Fatalf("error = %#v, want *compiler.Error", err)
 	}
-	if compileErr.Message != "generic generator functions are not compiled" {
+	if compileErr.Message != "async functions are not compiled" {
 		t.Fatalf("message = %q", compileErr.Message)
 	}
 }
