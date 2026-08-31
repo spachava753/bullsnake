@@ -183,6 +183,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringReplaceMethod:
+		return executeStringReplaceCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *stringEndswithMethod:
 		return executeStringTailmatchCall(
 			caller,
@@ -526,6 +535,7 @@ func isCallableValue(value Value) bool {
 		*stringJoinMethod,
 		*stringFormatMethod,
 		*stringLowerMethod,
+		*stringReplaceMethod,
 		*stringEndswithMethod,
 		*stringStartswithMethod,
 		*stringSplitMethod,

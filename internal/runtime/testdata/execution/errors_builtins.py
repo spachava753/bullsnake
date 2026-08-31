@@ -1162,3 +1162,33 @@ class CustomFormat:
         return 'custom'
 
 '{}'.format(CustomFormat())
+# ---
+# case: string replace missing arguments
+# error: TypeError
+# message: "replace expected at least 2 arguments, got 1"
+'a'.replace('a')
+# ---
+# case: string replace extra argument
+# error: TypeError
+# message: "replace expected at most 3 arguments, got 4"
+'a'.replace('a', 'b', 1, 2)
+# ---
+# case: string replace invalid old value
+# error: TypeError
+# message: "replace() argument 1 must be str, not int"
+'a'.replace(1, 'b')
+# ---
+# case: string replace invalid new value
+# error: TypeError
+# message: "replace() argument 2 must be str, not int"
+'a'.replace('a', 1)
+# ---
+# case: string replace invalid count
+# error: TypeError
+# message: "'str' object cannot be interpreted as an integer"
+'a'.replace('a', 'b', 'one')
+# ---
+# case: string replace count overflow
+# error: OverflowError
+# message: "Python int too large to convert to C ssize_t"
+'a'.replace('a', 'b', 999999999999999999999999999)

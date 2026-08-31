@@ -1078,3 +1078,23 @@ assert callable(formatter)
 assert formatter(value, value, 'done') == 'text shown done'
 assert format_events == ['str', 'repr']
 assert getattr('{}', 'format')('value') == 'value'
+# ---
+# case: string replace occurrences and counts
+text = 'one one one'
+assert text.replace('one', 'two') == 'two two two'
+assert text.replace('one', 'two', 2) == 'two two one'
+assert text.replace('one', 'two', count=1) == 'two one one'
+assert text.replace('one', '') == '  '
+assert text.replace('missing', 'value') is text
+assert text.replace('one', 'two', 0) is text
+assert text.replace('one', 'one') is text
+# ---
+# case: string replace empty pattern and retained method
+assert 'A\u2603'.replace('', '-') == '-A-\u2603-'
+assert '\ud800A'.replace('', '-', 2) == '-\ud800-A'
+assert ''.replace('', 'value') == 'value'
+assert ''.replace('missing', 'value') == ''
+replace = 'a/b/c'.replace
+assert callable(replace)
+assert replace('/', '.', 1) == 'a.b/c'
+assert getattr('x-x', 'replace')('x', 'y') == 'y-y'

@@ -51,6 +51,8 @@ func executeStringAttributeLoad(
 		return pushOutcome(frame, instruction, &stringFormatMethod{value: value})
 	case "lower":
 		return pushOutcome(frame, instruction, &stringLowerMethod{value: value})
+	case "replace":
+		return pushOutcome(frame, instruction, &stringReplaceMethod{value: value})
 	case "endswith":
 		return pushOutcome(frame, instruction, &stringEndswithMethod{value: value})
 	case "startswith":
