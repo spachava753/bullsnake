@@ -47,6 +47,7 @@ func discardCallSegment(caller *frame, base int) {
 
 var builtinFunctions = []*builtinFunctionValue{
 	{name: "callable", call: builtinCallable},
+	{name: "classmethod", call: builtinClassMethod},
 	{name: "getattr", frameCall: executeBuiltinGetattr},
 	{name: "hasattr", frameCall: executeBuiltinHasattr},
 	{name: "int", call: builtinInt},
@@ -56,6 +57,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "min", call: builtinMin},
 	{name: "next", frameCall: executeBuiltinNext},
 	{name: "property", call: builtinProperty},
+	{name: "staticmethod", call: builtinStaticMethod},
 	{name: "super", frameCall: executeBuiltinSuper},
 }
 

@@ -187,3 +187,52 @@ class ReturnsMarker:
         return marker
 
 assert ReturnsMarker()() is marker
+# ---
+# case: class and static method descriptors
+class MethodBase:
+    @classmethod
+    def identify(cls, value):
+        return cls, value
+
+    @staticmethod
+    def add(left, right):
+        return left + right
+
+class MethodChild(MethodBase):
+    pass
+
+base_class, base_value = MethodBase.identify(1)
+instance_class, instance_value = MethodBase().identify(2)
+child_class, child_value = MethodChild.identify(3)
+child_instance_class, child_instance_value = MethodChild().identify(4)
+assert base_class is MethodBase and base_value == 1
+assert instance_class is MethodBase and instance_value == 2
+assert child_class is MethodChild and child_value == 3
+assert child_instance_class is MethodChild and child_instance_value == 4
+assert MethodBase.add(10, 2) == 12
+assert MethodBase().add(20, 3) == 23
+assert MethodChild.add(30, 4) == 34
+# ---
+# case: manual method descriptor wrappers
+def combine(first, second):
+    return first + second
+
+def identify_owner(owner, value):
+    return owner
+
+class ManualMethods:
+    class_combine = classmethod(identify_owner)
+    static_combine = staticmethod(combine)
+
+assert ManualMethods.class_combine(5) is ManualMethods
+assert ManualMethods.static_combine(5, 6) == 11
+assert ManualMethods().static_combine(7, 8) == 15
+static_wrapper = staticmethod(combine)
+class_wrapper = classmethod(combine)
+assert callable(static_wrapper)
+assert not callable(class_wrapper)
+assert static_wrapper(9, 10) == 19
+assert static_wrapper.__func__ is combine
+assert static_wrapper.__wrapped__ is combine
+assert class_wrapper.__func__ is combine
+assert class_wrapper.__wrapped__ is combine

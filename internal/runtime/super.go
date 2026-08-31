@@ -169,6 +169,9 @@ func executeSuperAttributeLoad(
 	if !found {
 		return missingSuperAttribute(name), nil
 	}
+	if bound, descriptor := bindMethodDescriptor(classValue, value.receiverType); descriptor {
+		return pushOutcome(frame, instruction, bound)
+	}
 	_, classMode := value.receiver.(*typeValue)
 	if property, ok := classValue.(*propertyValue); ok {
 		if classMode {
@@ -199,7 +202,7 @@ func executeSuperAttributeLoad(
 	}
 	if function, ok := classValue.(*functionValue); ok && !classMode {
 		classValue = &boundMethodValue{
-			function: function,
+			callable: function,
 			self:     value.receiver.(*instanceValue),
 		}
 	}

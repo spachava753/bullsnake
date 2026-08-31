@@ -397,8 +397,10 @@ a runtime name through those same module, class, instance, and function paths.
 An optional `getattr` default and `hasattr` suppress only `AttributeError`,
 including one raised by descriptor code. Descriptor writes and deletes run
 through the same frame loop. The
-built-in `property` type uses that path for getter,
-setter, and deleter functions. Zero- and explicit-argument `super` values search
+built-in `property` type uses that path for getter, setter, and deleter
+functions. `classmethod` binds its wrapped callable to the class through which
+the attribute was accessed; `staticmethod` returns its wrapped callable without
+binding. Zero- and explicit-argument `super` values search
 the receiver's C3 method resolution order after their starting class and apply
 the same descriptor rules. Custom attribute interception can extend this path
 without recursive Go execution.

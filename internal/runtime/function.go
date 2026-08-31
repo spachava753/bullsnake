@@ -255,6 +255,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *staticMethodValue:
+		return executeFunctionCall(
+			caller,
+			instruction,
+			base,
+			callable.callable,
+			arguments,
+			keywords,
+		)
 	case *instanceValue:
 		method, found := lookupInstanceSpecial(callable, "__call__")
 		if found {
@@ -275,7 +284,7 @@ func executeFunctionCall(
 			caller,
 			instruction,
 			base,
-			callable.function,
+			callable.callable,
 			boundArguments,
 			keywords,
 		)
@@ -350,6 +359,7 @@ func isCallableValue(value Value) bool {
 		*generatorSendMethod,
 		*generatorThrowMethod,
 		*generatorCloseMethod,
+		*staticMethodValue,
 		*boundMethodValue,
 		*functionValue:
 		return true

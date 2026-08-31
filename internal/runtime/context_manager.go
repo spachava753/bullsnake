@@ -36,15 +36,12 @@ func executeLoadSpecial(
 			exception: missingSpecialMethod(owner, name),
 		}, nil
 	}
-	value, found := instance.class.lookup(name)
+	value, found := lookupInstanceSpecial(instance, name)
 	if !found {
 		return instructionOutcome{
 			kind:      raised,
 			exception: missingSpecialMethod(owner, name),
 		}, nil
-	}
-	if function, bind := value.(*functionValue); bind {
-		value = &boundMethodValue{function: function, self: instance}
 	}
 	return pushOutcome(frame, instruction, value)
 }

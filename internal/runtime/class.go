@@ -103,13 +103,17 @@ func (instance *instanceValue) Repr() string {
 func (*instanceValue) isValue() {}
 
 type boundMethodValue struct {
-	function *functionValue
-	self     *instanceValue
+	callable Value
+	self     Value
 }
 
 func (*boundMethodValue) TypeName() string { return "method" }
 func (method *boundMethodValue) Repr() string {
-	return "<bound method " + method.function.code.code.QualifiedName() + ">"
+	name := method.callable.Repr()
+	if function, ok := method.callable.(*functionValue); ok {
+		name = function.code.code.QualifiedName()
+	}
+	return "<bound method " + name + ">"
 }
 func (*boundMethodValue) isValue() {}
 
@@ -118,8 +122,11 @@ func lookupInstanceSpecial(instance *instanceValue, name string) (Value, bool) {
 	if !found {
 		return nil, false
 	}
+	if bound, descriptor := bindMethodDescriptor(value, instance.class); descriptor {
+		return bound, true
+	}
 	if function, bind := value.(*functionValue); bind {
-		value = &boundMethodValue{function: function, self: instance}
+		value = &boundMethodValue{callable: function, self: instance}
 	}
 	return value, true
 }
@@ -331,7 +338,7 @@ func executeTypeCall(
 			),
 		}, nil
 	}
-	bound := &boundMethodValue{function: initializer, self: instance}
+	bound := &boundMethodValue{callable: initializer, self: instance}
 	outcome, err := executeFunctionCall(
 		caller,
 		instruction,

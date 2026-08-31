@@ -238,3 +238,49 @@ class FailingCall:
         raise ValueError('call failed')
 
 FailingCall()()
+# ---
+# case: classmethod missing argument
+# error: TypeError
+# message: "classmethod expected 1 argument, got 0"
+classmethod()
+# ---
+# case: staticmethod extra argument
+# error: TypeError
+# message: "staticmethod expected 1 argument, got 2"
+staticmethod(None, None)
+# ---
+# case: classmethod keyword argument
+# error: TypeError
+# message: "classmethod() takes no keyword arguments"
+classmethod(function=None)
+# ---
+# case: staticmethod keyword argument
+# error: TypeError
+# message: "staticmethod() takes no keyword arguments"
+staticmethod(function=None)
+# ---
+# case: classmethod wrapper is not callable
+# error: TypeError
+# message: "'classmethod' object is not callable"
+def class_value(cls):
+    return cls
+
+classmethod(class_value)()
+# ---
+# case: non-callable classmethod payload
+# error: TypeError
+# message: "'int' object is not callable"
+class InvalidClassMethod:
+    value = classmethod(1)
+
+InvalidClassMethod.value()
+# ---
+# case: class method exception
+# error: ValueError
+# message: "class method failed"
+class FailingClassMethod:
+    @classmethod
+    def fail(cls):
+        raise ValueError('class method failed')
+
+FailingClassMethod.fail()

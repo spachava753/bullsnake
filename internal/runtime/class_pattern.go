@@ -183,8 +183,12 @@ func classPatternAttribute(subject Value, name string) (Value, bool) {
 		if !found {
 			return nil, false
 		}
-		if function, bind := value.(*functionValue); fromClass && bind {
-			value = &boundMethodValue{function: function, self: subject}
+		if fromClass {
+			if bound, descriptor := bindMethodDescriptor(value, subject.class); descriptor {
+				value = bound
+			} else if function, bind := value.(*functionValue); bind {
+				value = &boundMethodValue{callable: function, self: subject}
+			}
 		}
 		return value, true
 	case *Exception:

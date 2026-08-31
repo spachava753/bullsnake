@@ -486,7 +486,10 @@ before the instance namespace and discard the descriptor method's result.
 The built-in `property` supports direct construction and decorator-style
 `getter`, `setter`, and `deleter` copies. Properties expose their accessor fields,
 explicit documentation, and the class-assigned name. Function-docstring
-inference and property subclasses remain unsupported.
+inference and property subclasses remain unsupported. `classmethod` binds its
+wrapped callable to the accessed class from either class or instance lookup;
+`staticmethod` returns its wrapped callable unchanged. Both wrappers expose
+`__func__` and `__wrapped__`.
 
 Calling a user instance resolves class `__call__`, ignores a same-named instance
 attribute, and forwards arguments through the ordinary function binder. The
@@ -504,11 +507,12 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes, `callable`,
-`getattr`, `hasattr`, scalar numeric `int`, one-argument `iter`, `len`,
-positional `max` and `min` calls with two or more arguments, and `next` for
-generators, internal iterators, and user iterators. `next` accepts one optional
-default. String and base forms of `int`, the iterable and keyword forms of `max`
-and `min`, and callable-sentinel `iter` remain unsupported.
+`classmethod`, `getattr`, `hasattr`, scalar numeric `int`, one-argument `iter`,
+`len`, positional `max` and `min` calls with two or more arguments, `next`, and
+`staticmethod`. `next` accepts one optional default for generators, internal
+iterators, and user iterators. String and base forms of `int`, the iterable and
+keyword forms of `max` and `min`, and callable-sentinel `iter` remain
+unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

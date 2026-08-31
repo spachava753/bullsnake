@@ -24,6 +24,22 @@ func executeDynamicAttributeLoad(
 	switch owner := owner.(type) {
 	case *functionValue:
 		return executeFunctionAttributeLoad(frame, instruction, owner, name)
+	case *classMethodValue:
+		return executeMethodDescriptorAttributeLoad(
+			frame,
+			instruction,
+			owner,
+			owner.callable,
+			name,
+		)
+	case *staticMethodValue:
+		return executeMethodDescriptorAttributeLoad(
+			frame,
+			instruction,
+			owner,
+			owner.callable,
+			name,
+		)
 	case *propertyValue:
 		return executePropertyAttributeLoad(frame, instruction, owner, name)
 	case *templateValue:
@@ -155,6 +171,9 @@ func executeTypeAttributeLoad(
 			),
 		}, nil
 	}
+	if bound, descriptor := bindMethodDescriptor(value, owner); descriptor {
+		return pushOutcome(frame, instruction, bound)
+	}
 	if descriptor, ok := value.(*instanceValue); ok &&
 		descriptorHasSpecial(descriptor, "__get__") {
 		return executeDescriptorCall(
@@ -210,6 +229,9 @@ func executeInstanceAttributeLoad(
 			),
 		}, nil
 	}
+	if bound, methodDescriptor := bindMethodDescriptor(classValue, owner.class); methodDescriptor {
+		return pushOutcome(frame, instruction, bound)
+	}
 	if hasGet {
 		return executeDescriptorCall(
 			frame,
@@ -220,7 +242,7 @@ func executeInstanceAttributeLoad(
 		)
 	}
 	if function, bind := classValue.(*functionValue); bind {
-		classValue = &boundMethodValue{function: function, self: owner}
+		classValue = &boundMethodValue{callable: function, self: owner}
 	}
 	return pushOutcome(frame, instruction, classValue)
 }
