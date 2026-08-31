@@ -426,6 +426,11 @@ currently use ordered linear storage. This keeps Python identity and equality
 checks explicit until user-defined hashing and equality can call back into
 Python.
 
+The `repr` builtin calls class `__repr__` for a direct user instance and requires
+a string result. Other values use their fixed runtime representation. Rendering
+a built-in container does not yet suspend to call `__repr__` on nested user
+values.
+
 Strings index and iterate by decoded code point, including preserved lone
 surrogates. Bytes index and iterate as integers. Slices use Python-style bound
 clipping and positive or negative steps. Template strings retain parallel
@@ -509,8 +514,8 @@ a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes, `bool`, `callable`,
 `classmethod`, `getattr`, `hasattr`, scalar numeric `int`, one-argument `iter`,
-`len`, positional `max` and `min` calls with two or more arguments, `next`, and
-`staticmethod`. `next` accepts one optional default for generators, internal
+`len`, positional `max` and `min` calls with two or more arguments, `next`,
+`repr`, and `staticmethod`. `next` accepts one optional default for generators, internal
 iterators, and user iterators. String and base forms of `int`, the iterable and
 keyword forms of `max` and `min`, and callable-sentinel `iter` remain
 unsupported.

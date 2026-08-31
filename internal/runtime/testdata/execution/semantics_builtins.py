@@ -259,3 +259,21 @@ boolean_value = BooleanValue()
 boolean_value.__bool__ = None
 assert bool(boolean_value) is False
 assert bool(LengthValue()) is True
+# ---
+# case: repr builtin values and protocol
+assert repr(None) == 'None'
+assert repr(True) == 'True'
+assert repr(123) == '123'
+assert repr('value') == "'value'"
+assert repr(b'value') == "b'value'"
+assert repr([1, 'two']) == "[1, 'two']"
+
+representation = 'custom representation'
+
+class RepresentedValue:
+    def __repr__(self):
+        return representation
+
+value = RepresentedValue()
+value.__repr__ = None
+assert repr(value) is representation

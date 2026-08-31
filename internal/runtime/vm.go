@@ -337,6 +337,47 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.representation != nil {
+				call := active.representation
+				active.representation = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"representation method has no caller",
+					)
+				}
+				representationOutcome, representationErr := finishRepresentationCall(
+					thread.current,
+					call,
+					result,
+				)
+				if representationErr != nil {
+					return nil, nil, representationErr
+				}
+				if representationOutcome.kind == raised {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						representationOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+				if representationOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid representation method outcome",
+					)
+				}
+				continue
+			}
 			if active.iteration != nil {
 				call := active.iteration
 				active.iteration = nil

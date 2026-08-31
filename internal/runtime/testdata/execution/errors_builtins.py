@@ -312,3 +312,31 @@ class FailingBoolean:
         raise ValueError('truth failed')
 
 bool(FailingBoolean())
+# ---
+# case: repr missing argument
+# error: TypeError
+# message: "repr() takes exactly one argument (0 given)"
+repr()
+# ---
+# case: repr keyword argument
+# error: TypeError
+# message: "repr() takes no keyword arguments"
+repr(obj=None)
+# ---
+# case: repr method result type
+# error: TypeError
+# message: "__repr__ returned non-string (type int)"
+class InvalidRepresentation:
+    def __repr__(self):
+        return 1
+
+repr(InvalidRepresentation())
+# ---
+# case: repr method exception
+# error: ValueError
+# message: "representation failed"
+class FailingRepresentation:
+    def __repr__(self):
+        raise ValueError('representation failed')
+
+repr(FailingRepresentation())
