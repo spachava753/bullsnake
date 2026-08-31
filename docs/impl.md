@@ -492,6 +492,11 @@ List instances expose bound `append`, `pop`, `extend`, and `remove` methods.
 Extend consumes native, generator, or user iterators through the frame loop and
 mutates the target as each item arrives. Remove scans left to right, prefers
 identity, and resumes user `__eq__` and truth methods through the same frame loop.
+The `sorted` builtin collects any current iterable into a new list, evaluates an
+optional key once per item from left to right, and supports reverse ordering via
+ordinary truth conversion. Sorting is stable in both directions. User key,
+`__lt__`, and comparison-truth methods may suspend through the frame loop.
+In-place `list.sort` remains unsupported.
 
 Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
 `keys`, `update`, and `values` methods. Copy clones ordered entry storage while
@@ -636,7 +641,7 @@ The builtin namespace contains the current exception classes; native `bool`,
 `callable`; `classmethod`; `delattr`; `dir`; `getattr`; `hasattr`; `hash`;
 `isinstance`; `issubclass`; one-argument `iter`; `len`; positional `max` and
 `min` calls with two or more arguments; `next`; `repr`; native-sequence
-`reversed`; `round`; `setattr`; and `staticmethod`. The `next` builtin accepts
+`reversed`; `round`; `setattr`; `sorted`; and `staticmethod`. The `next` builtin accepts
 one optional default for generators, internal iterators, and user iterators.
 String and base forms of `int`, the iterable and keyword forms of `max` and
 `min`, the encoding form of `str`, and callable-sentinel `iter` remain

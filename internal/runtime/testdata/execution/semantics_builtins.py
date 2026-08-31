@@ -1380,3 +1380,74 @@ assert next(second, 'done') == 'done'
 zip_type = zip
 assert callable(zip_type)
 assert list(zip_type(['a'], ['b'])) == [('a', 'b')]
+# ---
+# case: sorted native values
+source = [3, 1, 2]
+assert sorted(source) == [1, 2, 3]
+assert source == [3, 1, 2]
+assert sorted(('b', 'a', 'c')) == ['a', 'b', 'c']
+assert sorted({3, 1, 2}) == [1, 2, 3]
+assert sorted(range(4), reverse=True) == [3, 2, 1, 0]
+assert sorted([], key=lambda value: value) == []
+# ---
+# case: sorted keys are stable and ordered
+seen = []
+def record_key(item):
+    seen.append(item[0])
+    return item[1]
+
+items = [('first', 1), ('second', 1), ('third', 2)]
+assert sorted(items, key=record_key) == [
+    ('first', 1),
+    ('second', 1),
+    ('third', 2),
+]
+assert seen == ['first', 'second', 'third']
+assert sorted(items, key=lambda item: item[1], reverse=True) == [
+    ('third', 2),
+    ('first', 1),
+    ('second', 1),
+]
+# ---
+# case: sorted suspended protocols
+class ComparisonTruth:
+    def __init__(self, value):
+        self.value = value
+
+    def __bool__(self):
+        return self.value
+
+class Ranked:
+    def __init__(self, value):
+        self.value = value
+
+    def __lt__(self, other):
+        return ComparisonTruth(self.value < other.value)
+
+class ReverseOrder:
+    def __bool__(self):
+        return True
+
+def unsorted_values():
+    yield Ranked(3)
+    yield Ranked(1)
+    yield Ranked(2)
+
+class UnsortedIterator:
+    def __init__(self):
+        self.values = [3, 1, 2]
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if len(self.values) == 0:
+            raise StopIteration
+        return self.values.pop(0)
+
+ranked = sorted(unsorted_values(), reverse=ReverseOrder())
+assert ranked[0].value == 3
+assert ranked[1].value == 2
+assert ranked[2].value == 1
+assert sorted(UnsortedIterator(), reverse=ReverseOrder()) == [3, 2, 1]
+assert callable(sorted)

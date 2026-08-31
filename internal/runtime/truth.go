@@ -22,6 +22,8 @@ type truthCall struct {
 	aggregate     *truthAggregateCall
 	filtering     *filterCall
 	listRemoval   *listRemoveCall
+	sorting       *sortCall
+	sortReverse   *sortCall
 	splitlines    *stringSplitlinesCall
 }
 
@@ -228,6 +230,13 @@ func completeTruthCall(
 	}
 	if call.listRemoval != nil {
 		return finishListRemoveTruth(frame, call.listRemoval, truth)
+	}
+	if call.sortReverse != nil {
+		return finishSortReverse(frame, call.sortReverse, truth)
+	}
+	if call.sorting != nil {
+		finishSortInsertionStep(call.sorting, truth)
+		return continueSortInsertion(frame, call.sorting)
 	}
 	if call.splitlines != nil {
 		return finishStringSplitlines(frame, call.splitlines, truth)

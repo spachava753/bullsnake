@@ -1052,6 +1052,15 @@ func finishGenerator(
 		if err != nil {
 			return nil, nil, err
 		}
+		if outcome.kind == called {
+			if outcome.frame == nil || outcome.frame.previous != caller {
+				return nil, nil, caller.failure(
+					resume.collection.instruction,
+					"invalid collection constructor frame transition",
+				)
+			}
+			return outcome.frame, nil, nil
+		}
 		if outcome.kind == raised {
 			return caller, outcome.exception, nil
 		}

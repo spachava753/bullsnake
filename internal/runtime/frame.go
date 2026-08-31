@@ -55,6 +55,7 @@ type frame struct {
 	hash                *hashCall
 	mapping             *mapCall
 	filtering           *filterCall
+	sorting             *sortCall
 	representation      *representationCall
 	attributeBuiltin    *attributeBuiltinCall
 	iteration           *iterationCall

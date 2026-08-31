@@ -12,6 +12,7 @@ const (
 	collectionDict
 	collectionListExtend
 	collectionStringJoin
+	collectionSorted
 )
 
 type collectionConstructorCall struct {
@@ -23,6 +24,7 @@ type collectionConstructorCall struct {
 	keywords    *dictValue
 	list        *listValue
 	separator   *stringValue
+	sorting     *sortCall
 }
 
 // executeCollectionTypeCall validates list, tuple, set, or dict construction
@@ -254,6 +256,18 @@ func finishCollectionConstructor(
 		return pushOutcome(frame, call.instruction, None)
 	case collectionStringJoin:
 		return finishStringJoin(frame, call, elements)
+	case collectionSorted:
+		if call.sorting == nil {
+			return instructionOutcome{}, frame.failure(
+				call.instruction,
+				"sorted collection has no continuation state",
+			)
+		}
+		call.sorting.values = elements
+		return executeTruthWithCall(frame, call.sorting.reverseValue, &truthCall{
+			instruction: call.instruction,
+			sortReverse: call.sorting,
+		})
 	case collectionTuple:
 		return pushOutcome(frame, call.instruction, &tupleValue{elements: elements})
 	case collectionSet:

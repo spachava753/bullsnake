@@ -42,7 +42,10 @@ func executeComparison(
 		_, leftUser := left.(*instanceValue)
 		_, rightUser := right.(*instanceValue)
 		if leftUser || rightUser {
-			return executeUserOrdering(frame, index, operand, left, right)
+			return continueComparisonCall(
+				frame,
+				newOrderingCall(index, operand, left, right),
+			)
 		}
 	}
 

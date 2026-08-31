@@ -17,6 +17,7 @@ type comparisonCall struct {
 	next        int
 	invert      bool
 	listRemoval *listRemoveCall
+	sorting     *sortCall
 }
 
 // newEqualityCall records the user comparison candidates so bytecode and
@@ -50,15 +51,14 @@ func newEqualityCall(
 	return call
 }
 
-// executeUserOrdering maps the source operator to left and reflected method
-// names, then applies the same strict-subclass ordering as equality.
-func executeUserOrdering(
-	frame *frame,
+// newOrderingCall records normal and reflected ordering candidates in Python's
+// strict-subclass dispatch order.
+func newOrderingCall(
 	instruction int,
 	operand uint32,
 	left Value,
 	right Value,
-) (instructionOutcome, error) {
+) *comparisonCall {
 	call := &comparisonCall{
 		instruction: instruction,
 		operand:     operand,
@@ -80,7 +80,7 @@ func executeUserOrdering(
 			call.appendOrderingCandidate(rightInstance, left, rightName)
 		}
 	}
-	return continueComparisonCall(frame, call)
+	return call
 }
 
 func (call *comparisonCall) appendOrderingCandidate(
@@ -243,6 +243,13 @@ func finishComparisonResult(
 	call *comparisonCall,
 	result Value,
 ) (instructionOutcome, error) {
+	if call.sorting != nil {
+		return executeTruthWithCall(frame, result, &truthCall{
+			instruction: call.instruction,
+			original:    result,
+			sorting:     call.sorting,
+		})
+	}
 	if call.listRemoval != nil {
 		truth := &truthCall{
 			instruction: call.instruction,

@@ -363,6 +363,54 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.sorting != nil {
+				call := active.sorting
+				active.sorting = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"sort key has no caller",
+					)
+				}
+				sortOutcome, sortErr := finishSortKey(thread.current, call, result)
+				if sortErr != nil {
+					return nil, nil, sortErr
+				}
+				switch sortOutcome.kind {
+				case advance:
+					continue
+				case called:
+					if sortOutcome.frame == nil ||
+						sortOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.instruction,
+							"invalid chained sort frame transition",
+						)
+					}
+					thread.current = sortOutcome.frame
+					continue
+				case raised:
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						sortOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				default:
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid sort key outcome",
+					)
+				}
+			}
 			if active.truth != nil {
 				call := active.truth
 				active.truth = nil
@@ -1027,6 +1075,17 @@ route:
 				}
 				thread.current = caller
 				if iterationOutcome.kind == advance {
+					return nil, nil
+				}
+				if iterationOutcome.kind == called {
+					if iterationOutcome.frame == nil ||
+						iterationOutcome.frame.previous != caller {
+						return nil, caller.failure(
+							call.instruction,
+							"invalid iteration exhaustion frame transition",
+						)
+					}
+					thread.current = iterationOutcome.frame
 					return nil, nil
 				}
 				if iterationOutcome.kind != raised {

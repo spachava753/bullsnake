@@ -1433,3 +1433,41 @@ zip(FailingZipIterable())
 # error: NotImplementedError
 # message: "zip keyword arguments are not supported"
 zip([], strict=True)
+# ---
+# case: sorted missing iterable
+# error: TypeError
+# message: "sorted expected 1 argument, got 0"
+sorted()
+# ---
+# case: sorted extra positional argument
+# error: TypeError
+# message: "sorted expected 1 argument, got 2"
+sorted([], None)
+# ---
+# case: sorted unknown keyword
+# error: TypeError
+# message: "'unknown' is an invalid keyword argument for sort()"
+sorted([], unknown=True)
+# ---
+# case: sorted non-iterable
+# error: TypeError
+# message: "'int' object is not iterable"
+sorted(1)
+# ---
+# case: sorted non-callable key
+# error: TypeError
+# message: "'int' object is not callable"
+sorted([1], key=1)
+# ---
+# case: sorted key failure
+# error: RuntimeError
+# message: "sort key failed"
+def failing_sort_key(value):
+    raise RuntimeError('sort key failed')
+
+sorted([1], key=failing_sort_key)
+# ---
+# case: sorted incomparable values
+# error: TypeError
+# message: "'<' not supported between instances of 'str' and 'int'"
+sorted([1, 'a'])
