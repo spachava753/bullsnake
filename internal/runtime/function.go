@@ -157,6 +157,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringJoinMethod:
+		return executeStringJoinCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *listAppendMethod:
 		return executeListAppendCall(
 			caller,
@@ -448,6 +457,7 @@ func isCallableValue(value Value) bool {
 	case *builtinFunctionValue,
 		*nativeTypeValue,
 		*propertyAccessorMethod,
+		*stringJoinMethod,
 		*listAppendMethod,
 		*listPopMethod,
 		*listExtendMethod,

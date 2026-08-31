@@ -11,6 +11,7 @@ const (
 	collectionFrozenSet
 	collectionDict
 	collectionListExtend
+	collectionStringJoin
 )
 
 type collectionConstructorCall struct {
@@ -21,6 +22,7 @@ type collectionConstructorCall struct {
 	elements    []Value
 	keywords    *dictValue
 	list        *listValue
+	separator   *stringValue
 }
 
 // executeCollectionTypeCall validates list, tuple, set, or dict construction
@@ -107,17 +109,11 @@ func startCollectionConstructor(
 	}
 	instance, ok := call.iterable.(*instanceValue)
 	if !ok {
-		return raiseOutcome(newException(
-			"TypeError",
-			"'"+call.iterable.TypeName()+"' object is not iterable",
-		)), nil
+		return raiseOutcome(collectionIterableException(call)), nil
 	}
 	method, found := lookupInstanceSpecial(instance, "__iter__")
 	if !found || method == None {
-		return raiseOutcome(newException(
-			"TypeError",
-			"'"+call.iterable.TypeName()+"' object is not iterable",
-		)), nil
+		return raiseOutcome(collectionIterableException(call)), nil
 	}
 	call.iterable = nil
 	return executeIterationSpecial(frame, method, &iterationCall{
@@ -125,6 +121,16 @@ func startCollectionConstructor(
 		instruction: call.instruction,
 		collection:  call,
 	})
+}
+
+func collectionIterableException(call *collectionConstructorCall) *Exception {
+	if call.kind == collectionStringJoin {
+		return newException("TypeError", "can only join an iterable")
+	}
+	return newException(
+		"TypeError",
+		"'"+call.iterable.TypeName()+"' object is not iterable",
+	)
 }
 
 func appendCollectionElement(call *collectionConstructorCall, value Value) {
@@ -236,6 +242,8 @@ func finishCollectionConstructor(
 	switch call.kind {
 	case collectionListExtend:
 		return pushOutcome(frame, call.instruction, None)
+	case collectionStringJoin:
+		return finishStringJoin(frame, call, elements)
 	case collectionTuple:
 		return pushOutcome(frame, call.instruction, &tupleValue{elements: elements})
 	case collectionSet:

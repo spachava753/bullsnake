@@ -463,8 +463,10 @@ constructors are not implemented yet.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
-slice subscription, and dictionary item mutation. List instances expose bound
-`append`, `pop`, `extend`, and `remove` methods. Extend consumes native,
+slice subscription, and dictionary item mutation. String instances expose bound
+`join`; the method collects through the resumable iterator path before
+validating all items. List instances expose bound `append`, `pop`, `extend`, and
+`remove` methods. Extend consumes native,
 generator, or user iterators through the frame loop and mutates the target as
 each item arrives. Remove scans left to right, prefers identity, and resumes user
 `__eq__` and truth methods through the same frame loop. Dictionary instances
@@ -473,10 +475,10 @@ live `dict_items` and `dict_keys` values with independent iterators. Replacing a
 value remains visible, while key-set changes during iteration raise
 `RuntimeError`. Set instances expose bound `add` and `discard` methods using the
 same fixed hashability and equality rules as set displays. Set-like view
-operations and other native collection
-methods are not implemented yet. List equality uses the runtime's fixed
-recursive rules for scalars, tuples, lists, and identical values. It does not
-yet suspend for user `__eq__`, unlike `list.remove`.
+operations and other native collection or text methods are not implemented yet.
+List equality uses the runtime's fixed recursive rules for scalars, tuples,
+lists, and identical values. It does not yet suspend for user `__eq__`, unlike
+`list.remove`.
 Built-in values use fixed truth and length rules. `len` supports strings, bytes,
 ranges, tuples, lists, dictionaries, and sets; string lengths count decoded code
 points, including preserved lone surrogates. A user instance looks up `__bool__`

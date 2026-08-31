@@ -945,3 +945,37 @@ keys = iter(values.keys())
 del values['first']
 values['third'] = 3
 next(keys)
+# ---
+# case: string join missing iterable
+# error: TypeError
+# message: "str.join() takes exactly one argument (0 given)"
+''.join()
+# ---
+# case: string join extra argument
+# error: TypeError
+# message: "str.join() takes exactly one argument (2 given)"
+''.join((), ())
+# ---
+# case: string join keyword argument
+# error: TypeError
+# message: "str.join() takes no keyword arguments"
+''.join(iterable=())
+# ---
+# case: string join non-iterable
+# error: TypeError
+# message: "can only join an iterable"
+''.join(1)
+# ---
+# case: string join non-string item
+# error: TypeError
+# message: "sequence item 1: expected str instance, int found"
+','.join(('first', 2, 'third'))
+# ---
+# case: string join iterator failure
+# error: ValueError
+# message: "join iteration failed"
+def failing_join_values():
+    yield 'kept'
+    raise ValueError('join iteration failed')
+
+','.join(failing_join_values())

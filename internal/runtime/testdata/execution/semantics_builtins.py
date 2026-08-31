@@ -904,3 +904,33 @@ assert next(first) == 'first'
 assert next(second) == 'first'
 assert list({}.keys()) == []
 assert not {}.keys()
+# ---
+# case: string join native and retained method
+assert ','.join(()) == ''
+assert ','.join(('one',)) == 'one'
+assert '-'.join(('one', 'two', 'three')) == 'one-two-three'
+assert ''.join(('a', '', 'b')) == 'ab'
+join = ' | '.join
+assert callable(join)
+assert join(['left', 'right']) == 'left | right'
+assert getattr(':', 'join')(('a', 'b')) == 'a:b'
+# ---
+# case: string join generators and user iterators
+join_steps = 0
+
+def joined_values():
+    global join_steps
+    join_steps += 1
+    yield 'first'
+    join_steps += 1
+    yield 'second'
+
+assert '/'.join(joined_values()) == 'first/second'
+assert join_steps == 2
+
+class JoinedValues:
+    def __iter__(self):
+        yield 'alpha'
+        yield 'beta'
+
+assert '\u2603'.join(JoinedValues()) == 'alpha\u2603beta'
