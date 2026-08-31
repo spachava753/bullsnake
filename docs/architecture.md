@@ -202,8 +202,9 @@ annotations are active. Default expressions still run in the defining scope;
 their completed tuple and keyword map become arguments to the hidden function so
 the user function retains the original objects. Decorator expressions run before
 default expressions, and their results wrap the completed generic function in
-reverse order. The hidden scope does not appear in the user function's qualified
-name.
+reverse order. The user function keeps the ordinary argument layout and binder,
+including variadic positional and keyword parameters. The hidden scope does not
+appear in the user function's qualified name.
 
 A bound, tuple constraint, or default owns another hidden evaluator that captures
 the same definition scope. Reading `T.__bound__`, `T.__constraints__`, or

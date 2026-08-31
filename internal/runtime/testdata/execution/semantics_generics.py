@@ -116,3 +116,22 @@ decorated_parameter = decorated.__type_params__[0]
 decorated_result = decorated()
 assert decorated_result[0] == 7
 assert decorated_result[1] is decorated_parameter
+
+# ---
+# case: generic functions bind variadic positional and keyword arguments
+def collect[T](head: T, *items: T, flag: T = True, **options: T) -> T:
+    return (head, items, flag, options, T)
+
+collect_parameter = collect.__type_params__[0]
+collected = collect(1, 2, 3, flag=False, extra=4)
+assert collected[0] == 1
+assert collected[1] == (2, 3)
+assert collected[2] is False
+assert collected[3]['extra'] == 4
+assert collected[4] is collect_parameter
+collect_annotations = collect.__annotations__
+assert collect_annotations['head'] is collect_parameter
+assert collect_annotations['items'] is collect_parameter
+assert collect_annotations['flag'] is collect_parameter
+assert collect_annotations['options'] is collect_parameter
+assert collect_annotations['return'] is collect_parameter

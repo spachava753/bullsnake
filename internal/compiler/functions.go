@@ -76,8 +76,14 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 func (compiler *compilerState) compileGenericFunctionDefinition(
 	statement *compilerast.FunctionDefStmt,
 ) error {
-	if err := validateBasicGenericFunction(compiler, statement); err != nil {
-		return err
+	for _, parameter := range statement.TypeParameters {
+		if parameter.Kind != compilerast.TypeVariable ||
+			parameter.Bound != nil || parameter.Default != nil {
+			return compiler.error(
+				parameter.Range,
+				"generic function type parameter bounds, defaults, and variadics are not compiled",
+			)
+		}
 	}
 	typeScope := compiler.table.ScopeFor(statement, resolver.TypeParameters, 0)
 	if typeScope == nil || typeScope.Kind != resolver.TypeParametersScope {
@@ -218,27 +224,6 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 		}
 	}
 	return compiler.emitNameStore(statement.Name, statement.Span())
-}
-
-// validateBasicGenericFunction keeps this first slice to plain TypeVars and
-// ordinary synchronous function construction.
-func validateBasicGenericFunction(
-	compiler *compilerState,
-	statement *compilerast.FunctionDefStmt,
-) error {
-	for _, parameter := range statement.TypeParameters {
-		if parameter.Kind != compilerast.TypeVariable ||
-			parameter.Bound != nil || parameter.Default != nil {
-			return compiler.error(
-				parameter.Range,
-				"generic function type parameter bounds, defaults, and variadics are not compiled",
-			)
-		}
-	}
-	if statement.Parameters.VarArg != nil || statement.Parameters.KeywordVarArg != nil {
-		return compiler.error(statement.Span(), "generic function variadic parameters are not compiled")
-	}
-	return nil
 }
 
 // newFunctionCompiler creates one child with callable metadata and resolver-

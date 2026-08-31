@@ -246,13 +246,14 @@ source strings and require no TypeVar capture. Default expressions run in the
 defining scope before TypeVar creation; their completed tuple and keyword map
 are passed into the hidden child and attached without reevaluation. Decorator
 expressions run first in source order; their values wrap the completed generic
-function in reverse order. Type parameter names do not enter the defining
+function in reverse order. Generic decorators, defaults, and annotations use
+their ordinary code paths; all function parameter kinds retain the same local
+layout and call binding. Type parameter names do not enter the defining
 namespace, and the hidden child's name does not alter user-facing function or
 annotation qualified names.
 
-The compiler rejects template-string execution, generic classes, generic
-function variadic parameters, non-TypeVar type parameters,
-type-parameter bounds and defaults, async definitions, asynchronous
+The compiler rejects template-string execution, generic classes, non-TypeVar
+type parameters, type-parameter bounds and defaults, async definitions, asynchronous
 comprehensions, `async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.

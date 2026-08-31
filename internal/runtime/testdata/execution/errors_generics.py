@@ -28,3 +28,12 @@ def invalid_default[T](value=T):
 @T
 def invalid_decorator[T]():
     return None
+
+# ---
+# case: variadic generic functions still require ordinary parameters
+# error: TypeError
+# message: "require() missing 1 required positional argument: 'head'"
+def require[T](head, *items, **options):
+    return head
+
+require()
