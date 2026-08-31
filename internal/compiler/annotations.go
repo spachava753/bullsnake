@@ -85,9 +85,6 @@ func (compiler *compilerState) compileFunctionAnnotations(
 	if scope.Flags&resolver.UsesAnnotations == 0 {
 		return false, nil
 	}
-	if compiler.table.Features&resolver.FutureAnnotations != 0 {
-		return false, compiler.error(statement.Span(), "future function annotations are not compiled")
-	}
 
 	child := compiler.newAnnotationCompiler(
 		statement,
@@ -397,5 +394,16 @@ func (compiler *compilerState) compileAnnotationEntry(name string, expression co
 	); err != nil {
 		return err
 	}
-	return compiler.compileExpr(expression)
+	if compiler.table.Features&resolver.FutureAnnotations == 0 {
+		return compiler.compileExpr(expression)
+	}
+	text, err := compiler.annotationSource(expression)
+	if err != nil {
+		return err
+	}
+	return compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.TextString(text)),
+		expression.Span(),
+	)
 }

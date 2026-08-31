@@ -217,16 +217,18 @@ call. The runtime exposes the generated child as `f.__annotate__`; the first
 caches that object. An unannotated function receives one stable empty
 dictionary. Failed evaluation is retried. Class bodies record each executed
 simple annotation and publish a lazy `__annotate__` child that can read the live
-class namespace, enclosing cells, globals, and builtins. With the future import,
-module and class scopes create `__annotations__` dictionaries eagerly. Each
-executed simple-name annotation stores its retained source spelling without
-evaluating the expression. Complex annotation-only targets do nothing in this
-mode.
+class namespace, enclosing cells, globals, and builtins.
 
-The compiler rejects template-string execution, future function annotation
-strings, generic definitions, async definitions, asynchronous comprehensions,
-`async for`, `async with`, and coroutines. Unsupported AST forms return compiler
-errors; they are not approximated with similar bytecode.
+With the future import, function annotation children return retained source
+spellings without evaluating or capturing names. Module and class scopes create
+`__annotations__` dictionaries eagerly. Each executed simple-name annotation
+stores the same source-backed string. Complex annotation-only targets do
+nothing in this mode.
+
+The compiler rejects template-string execution, generic definitions, async
+definitions, asynchronous comprehensions, `async for`, `async with`, and
+coroutines. Unsupported AST forms return compiler errors; they are not
+approximated with similar bytecode.
 
 ## Runtime preparation
 

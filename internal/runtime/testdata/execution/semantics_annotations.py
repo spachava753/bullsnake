@@ -262,3 +262,58 @@ except ValueError:
 assert first_function_failure
 assert second_function_failure
 assert function_annotation_events == 2
+# ---
+# case: future function annotations preserve source strings
+from __future__ import annotations
+future_function_events = 0
+
+def future_mark():
+    global future_function_events
+    future_function_events = future_function_events + 1
+    return int
+
+def future_signature(
+    positional_only: PosOnly,
+    /,
+    ordinary: list [ int | str ],
+    *items: tuple[int, ...],
+    keyword_only: future_mark(),
+    **options: dict[str, int]
+) -> Result [ int ]:
+    return ordinary
+
+before_future_function = future_function_events
+future_function_annotations = future_signature.__annotations__
+after_future_function = future_function_events
+assert before_future_function == 0
+assert after_future_function == 0
+assert future_function_annotations['ordinary'] == 'list [ int | str ]'
+assert future_function_annotations['positional_only'] == 'PosOnly'
+assert future_function_annotations['items'] == 'tuple[int, ...]'
+assert future_function_annotations['keyword_only'] == 'future_mark()'
+assert future_function_annotations['options'] == 'dict[str, int]'
+assert future_function_annotations['return'] == 'Result [ int ]'
+assert future_function_annotations is future_signature.__annotations__
+# ---
+# case: nested future function annotations do not capture values
+from __future__ import annotations
+
+def future_factory(Type):
+    def nested_future(value: Type) -> tuple [ Type, Missing ]:
+        return value
+    return nested_future
+
+nested_future_function = future_factory(42)
+nested_future_annotations = nested_future_function.__annotations__
+assert nested_future_annotations['value'] == 'Type'
+assert nested_future_annotations['return'] == 'tuple [ Type, Missing ]'
+
+class FutureMethodModel:
+    Field = 99
+
+    def convert(self, value: Field) -> Field:
+        return value
+
+method_future_annotations = FutureMethodModel.convert.__annotations__
+assert method_future_annotations['value'] == 'Field'
+assert method_future_annotations['return'] == 'Field'

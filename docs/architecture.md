@@ -155,12 +155,14 @@ expression use the comprehension scope. This simpler compiler model preserves
 name isolation and closure behavior. The extra frame may change when Bullsnake
 exposes Python frame introspection.
 
-Function definitions with annotations also create a child code object. The child
-captures the names needed to evaluate those expressions. Reading
-`f.__annotate__` returns that callable. The first `f.__annotations__` access
-calls it with value format `1`, requires a dictionary, and caches the exact
-result. A failed call leaves the cache empty so a later access retries it.
-Unannotated functions cache one empty dictionary.
+Function definitions with annotations also create a child code object. Without
+the future import, the child captures the names needed to evaluate those
+expressions. With the future import, it uses retained source strings and creates
+no annotation-driven closure cells. Reading `f.__annotate__` returns the child
+callable. The first `f.__annotations__` access calls it with value format `1`,
+requires a dictionary, and caches the exact result. A failed call leaves the
+cache empty so a later access retries it. Unannotated functions cache one empty
+dictionary.
 
 Without `from __future__ import annotations`, class annotations use a child code
 object. The class body records which annotation statements ran, while the child
@@ -174,10 +176,10 @@ precedence.
 
 With the future import, module and class scopes create `__annotations__` at
 scope entry. An executed simple-name annotation stores the retained source text
-without evaluating it. CPython 3.14 instead unparses the annotation AST, which
+without evaluating it. CPython 3.14 instead unparses each annotation AST, which
 normalizes spacing and some parentheses. Bullsnake's exact source spelling is a
-temporary observable difference. Future function annotation strings and
-complete mutation rules for annotation attributes remain future work.
+temporary observable difference for function, class, and module annotations.
+Complete mutation rules for annotation attributes remain future work.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches
