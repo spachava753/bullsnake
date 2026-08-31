@@ -49,9 +49,7 @@ func (compiler *compilerState) compileLocalAnnotatedAssignment(
 func (compiler *compilerState) compileDeferredAnnotatedAssignment(
 	statement *compilerast.AnnAssignStmt,
 ) error {
-	if compiler.table.Features&resolver.FutureAnnotations != 0 {
-		return compiler.error(statement.Span(), "future annotated assignments are not compiled")
-	}
+	futureAnnotations := compiler.table.Features&resolver.FutureAnnotations != 0
 	if statement.Value != nil {
 		if err := compiler.compileExpr(statement.Value); err != nil {
 			return err
@@ -59,6 +57,12 @@ func (compiler *compilerState) compileDeferredAnnotatedAssignment(
 		if err := compiler.compileStore(statement.Target); err != nil {
 			return err
 		}
+	}
+	if futureAnnotations {
+		if name, ok := statement.Target.(*compilerast.Name); ok && statement.Simple {
+			return compiler.compileFutureAnnotation(statement, name.ID)
+		}
+		return nil
 	}
 	if name, ok := statement.Target.(*compilerast.Name); ok && statement.Simple {
 		return compiler.deferAnnotation(statement, name.ID)

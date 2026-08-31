@@ -132,3 +132,68 @@ except ValueError:
 assert first_failure
 assert second_failure
 assert events == 2
+# ---
+# case: future module annotations store source strings
+from __future__ import annotations
+ready = False
+stored: Missing = 7
+if ready:
+    skipped: list[int]
+else:
+    kept: list [ int | str ]
+
+assert stored == 7
+assert __annotations__['stored'] == 'Missing'
+assert __annotations__['kept'] == 'list [ int | str ]'
+try:
+    __annotations__['skipped']
+except KeyError:
+    skipped_absent = True
+assert skipped_absent
+# ---
+# case: future annotation-only complex targets do nothing
+from __future__ import annotations
+calls = 0
+
+class Holder:
+    pass
+
+holder = Holder()
+
+def target():
+    global calls
+    calls = calls + 1
+    return holder
+
+target().field: Missing
+assert calls == 0
+# ---
+# case: future class annotations store source strings
+from __future__ import annotations
+events = 0
+ready = False
+
+def mark():
+    global events
+    events = events + 1
+    return int
+
+class FutureModel:
+    stored: tuple [ int, str ] = 7
+    observed: mark()
+    if ready:
+        skipped: Missing
+    else:
+        kept: dict[str, list[int]]
+
+assert FutureModel.stored == 7
+assert events == 0
+class_annotations = FutureModel.__annotations__
+assert class_annotations['stored'] == 'tuple [ int, str ]'
+assert class_annotations['observed'] == 'mark()'
+assert class_annotations['kept'] == 'dict[str, list[int]]'
+try:
+    class_annotations['skipped']
+except KeyError:
+    class_skipped_absent = True
+assert class_skipped_absent

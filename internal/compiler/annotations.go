@@ -9,12 +9,68 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
-const conditionalAnnotationsName = "__conditional_annotations__"
+const (
+	annotationsName            = "__annotations__"
+	conditionalAnnotationsName = "__conditional_annotations__"
+)
 
 type deferredAnnotation struct {
 	statement *compilerast.AnnAssignStmt
 	name      string
 	index     int
+}
+
+func (compiler *compilerState) emitFutureAnnotationsMap(span lexer.Span) error {
+	if err := compiler.emit(bytecode.BuildMap, 0, span); err != nil {
+		return err
+	}
+	return compiler.emit(
+		bytecode.StoreName,
+		compiler.nameIndex(annotationsName),
+		span,
+	)
+}
+
+func (compiler *compilerState) compileFutureAnnotation(
+	statement *compilerast.AnnAssignStmt,
+	name string,
+) error {
+	text, err := compiler.annotationSource(statement.Annotation)
+	if err != nil {
+		return err
+	}
+	span := statement.Span()
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.TextString(text)),
+		statement.Annotation.Span(),
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadName,
+		compiler.nameIndex(annotationsName),
+		span,
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.TextString(name)),
+		statement.Target.Span(),
+	); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.StoreSubscript, 0, span)
+}
+
+func (compiler *compilerState) annotationSource(expression compilerast.Expr) (string, error) {
+	span := expression.Span()
+	source := compiler.module.Source()
+	if span.Start.Offset < 0 || span.Start.Offset > span.End.Offset || span.End.Offset > len(source) {
+		return "", compiler.error(span, "annotation span is outside module source")
+	}
+	return source[span.Start.Offset:span.End.Offset], nil
 }
 
 // compileFunctionAnnotations creates the lazy PEP 649 annotation callable and

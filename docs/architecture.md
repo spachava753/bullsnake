@@ -155,15 +155,22 @@ expression use the comprehension scope. This simpler compiler model preserves
 name isolation and closure behavior. The extra frame may change when Bullsnake
 exposes Python frame introspection.
 
-Class annotations also use a child code object. The class body records which
-annotation statements ran, while the child captures the live class namespace
-and any required enclosing cells. Calling `C.__annotate__(1)` evaluates those
-annotations and returns a new dictionary. An explicit class `__annotate__`
-method takes precedence, and subclasses do not inherit the generated callable.
-The first `C.__annotations__` access calls that function, requires a dictionary,
-and caches the exact result. A failed evaluation is not cached. An explicit
-class `__annotations__` value takes precedence. Future-annotation source strings
-and complete mutation rules for these attributes remain future work.
+Without `from __future__ import annotations`, class annotations use a child code
+object. The class body records which annotation statements ran, while the child
+captures the live class namespace and any required enclosing cells. Calling
+`C.__annotate__(1)` evaluates those annotations and returns a new dictionary. An
+explicit class `__annotate__` method takes precedence, and subclasses do not
+inherit the generated callable. The first `C.__annotations__` access calls that
+function, requires a dictionary, and caches the exact result. A failed
+evaluation is not cached. An explicit class `__annotations__` value takes
+precedence.
+
+With the future import, module and class scopes create `__annotations__` at
+scope entry. An executed simple-name annotation stores the retained source text
+without evaluating it. CPython 3.14 instead unparses the annotation AST, which
+normalizes spacing and some parentheses. Bullsnake's exact source spelling is a
+temporary observable difference. Future function annotation strings and
+complete mutation rules for annotation attributes remain future work.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches
@@ -313,15 +320,17 @@ This ownership makes isolation explicit. Separate runtimes may execute in
 parallel without silently sharing modules or mutable Python values.
 
 The current importer asks a host-supplied loader for a module description with
-immutable code and package metadata. For a dotted absolute name, the runtime
+immutable code and package metadata. Each runtime begins with a small cached
+`__future__` module so recognized future statements retain their import and
+binding behavior without a loader. For a dotted absolute name, the runtime
 loads each parent first, verifies that it is a package, and publishes each child
 on that parent. Relative from-imports resolve their level against the executing
 module's package name. A from-import also tries a missing package attribute as a
 child module. Wildcard imports honor an explicit `__all__` list and load listed
 package children. Modules execute in the existing frame loop. Repeated imports
 reuse one object. Because the cache entry exists before execution, circular
-see the names assigned so far. If execution fails, the runtime removes only
-that module; dependencies that finished successfully remain cached.
+imports see the names assigned so far. If execution fails, the runtime removes
+only that module; dependencies that finished successfully remain cached.
 
 The filesystem loader searches configured roots for top-level modules and
 regular packages. Within one location it prefers `name/__init__.py` over

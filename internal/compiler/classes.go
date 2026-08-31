@@ -42,8 +42,9 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 	}
 	needsClassClosure := scope.Flags&resolver.NeedsClassClosure != 0
 	needsClassDict := scope.Flags&resolver.NeedsClassDict != 0
-	deferredClassAnnotations := compiler.table.Features&resolver.FutureAnnotations == 0 &&
-		scope.Flags&resolver.UsesAnnotations != 0
+	usesAnnotations := scope.Flags&resolver.UsesAnnotations != 0
+	futureClassAnnotations := compiler.table.Features&resolver.FutureAnnotations != 0 && usesAnnotations
+	deferredClassAnnotations := compiler.table.Features&resolver.FutureAnnotations == 0 && usesAnnotations
 	if needsClassClosure {
 		child.addCell("__class__")
 	}
@@ -56,6 +57,11 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 	child.initializeDerefLayout(scope)
 	if err := child.emitClassNamespace(statement.Span()); err != nil {
 		return err
+	}
+	if futureClassAnnotations {
+		if err := child.emitFutureAnnotationsMap(statement.Span()); err != nil {
+			return err
+		}
 	}
 	if needsClassDict {
 		index, indexErr := child.derefIndex("__classdict__")

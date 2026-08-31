@@ -53,9 +53,11 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}
+	modules := make(map[string]*Module)
+	modules[futureModuleName] = newFutureModule()
 	return &Runtime{
 		builtins: builtins,
-		modules:  make(map[string]*Module),
+		modules:  modules,
 		prepared: make(map[*bytecode.Code]*preparedCode),
 		loader:   loader,
 	}
