@@ -424,8 +424,10 @@ clipping and positive or negative steps. Template strings retain parallel
 `strings` and `interpolations` tuples; each interpolation exposes `value`,
 `expression`, `conversion`, and `format_spec`, and a template derives its `values`
 tuple from them. Iteration alternates non-empty literal strings with the original
-interpolation objects and skips empty literal strings. Template concatenation,
-explicit constructors, and the `string.templatelib` module remain unsupported.
+interpolation objects and skips empty literal strings. Adding two templates joins
+the touching literal strings in a new template and preserves interpolation
+identity and order. Explicit constructors and the `string.templatelib` module
+remain unsupported.
 
 Dictionary iteration detects key-set changes; replacing an existing value is
 allowed. Set display and iteration order is stable for Bullsnake tests but is not

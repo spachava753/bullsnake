@@ -110,6 +110,12 @@ func executeBinary(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
+	if result, exception, handled := templateBinary(left, right, operand); handled {
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		return pushOutcome(frame, index, result)
+	}
 	_, leftUser := left.(*instanceValue)
 	_, rightUser := right.(*instanceValue)
 	if leftUser || rightUser {

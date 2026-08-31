@@ -59,6 +59,53 @@ func (iterator *templateIterator) next() (Value, bool, *Exception) {
 	return nil, false, nil
 }
 
+// templateBinary handles Template's exact addition contract before generic
+// numeric or user-object dispatch, including the asymmetric mixed-type errors.
+func templateBinary(left, right Value, operand uint32) (Value, *Exception, bool) {
+	leftTemplate, leftIsTemplate := left.(*templateValue)
+	rightTemplate, rightIsTemplate := right.(*templateValue)
+	if operand != bytecode.BinaryAdd {
+		return nil, nil, false
+	}
+	if leftIsTemplate {
+		if !rightIsTemplate {
+			return nil, newException(
+				"TypeError",
+				"can only concatenate string.templatelib.Template (not \""+
+					right.TypeName()+"\") to string.templatelib.Template",
+			), true
+		}
+		return concatenateTemplates(leftTemplate, rightTemplate), nil, true
+	}
+	if _, leftIsString := left.(*stringValue); leftIsString && rightIsTemplate {
+		return nil, newException(
+			"TypeError",
+			"can only concatenate str (not \"string.templatelib.Template\") to str",
+		), true
+	}
+	return nil, nil, false
+}
+
+func concatenateTemplates(left, right *templateValue) *templateValue {
+	leftStrings := left.strings.elements
+	rightStrings := right.strings.elements
+	strings := make([]Value, 0, len(leftStrings)+len(rightStrings)-1)
+	strings = append(strings, leftStrings[:len(leftStrings)-1]...)
+	boundary := leftStrings[len(leftStrings)-1].(*stringValue).value +
+		rightStrings[0].(*stringValue).value
+	strings = append(strings, &stringValue{value: boundary})
+	strings = append(strings, rightStrings[1:]...)
+
+	interpolations := make([]Value, 0,
+		len(left.interpolations.elements)+len(right.interpolations.elements))
+	interpolations = append(interpolations, left.interpolations.elements...)
+	interpolations = append(interpolations, right.interpolations.elements...)
+	return &templateValue{
+		strings:        &tupleValue{elements: strings},
+		interpolations: &tupleValue{elements: interpolations},
+	}
+}
+
 // executeBuildInterpolation validates compiler-created metadata and retains the
 // evaluated value without applying its conversion or format string.
 func executeBuildInterpolation(

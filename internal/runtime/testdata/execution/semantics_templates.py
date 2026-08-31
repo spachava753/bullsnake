@@ -102,3 +102,33 @@ assert parts == only_interpolations.interpolations
 assert empty_count == 0
 assert empty_completed is True
 assert second_pass == parts
+# ---
+# case: template concatenation merges boundary strings
+left_value = 'left'
+right_value = 'right'
+left = t'A{left_value}B'
+right = t'C{right_value}D'
+combined = left + right
+
+assert combined.strings == ('A', 'BC', 'D')
+assert combined.interpolations[0] is left.interpolations[0]
+assert combined.interpolations[1] is right.interpolations[0]
+assert combined.values == ('left', 'right')
+assert left.strings == ('A', 'B')
+assert right.strings == ('C', 'D')
+# ---
+# case: template concatenation handles empty boundaries
+first = 1
+second = 2
+plain = t'' + t'plain'
+adjacent = t'{first}' + t'{second}'
+in_place = t'prefix '
+in_place += t'{first}'
+
+assert plain.strings == ('plain',)
+assert plain.interpolations == ()
+assert adjacent.strings == ('', '', '')
+assert adjacent.interpolations[0].value == 1
+assert adjacent.interpolations[1].value == 2
+assert in_place.strings == ('prefix ', '')
+assert in_place.values == (1,)
