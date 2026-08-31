@@ -19,6 +19,7 @@ type truthCall struct {
 	original      Value
 	method        truthMethod
 	returnBoolean bool
+	aggregate     *truthAggregateCall
 }
 
 // executeTruthOperation resolves one value for a bytecode truth operation.
@@ -40,6 +41,22 @@ func executeTruthValue(
 	value Value,
 	returnBoolean bool,
 ) (instructionOutcome, error) {
+	call := &truthCall{
+		instruction:   instruction,
+		operation:     operation,
+		original:      value,
+		returnBoolean: returnBoolean,
+	}
+	return executeTruthWithCall(frame, value, call)
+}
+
+// executeTruthWithCall resolves one value and preserves the caller-specific
+// completion state across a user __bool__ or __len__ frame.
+func executeTruthWithCall(
+	frame *frame,
+	value Value,
+	call *truthCall,
+) (instructionOutcome, error) {
 	if value == notImplementedSingleton {
 		return instructionOutcome{
 			kind: raised,
@@ -48,12 +65,6 @@ func executeTruthValue(
 				"NotImplemented should not be used in a boolean context",
 			),
 		}, nil
-	}
-	call := &truthCall{
-		instruction:   instruction,
-		operation:     operation,
-		original:      value,
-		returnBoolean: returnBoolean,
 	}
 	if truth, immediate := immediateTruth(value); immediate {
 		return completeTruthCall(frame, call, truth)
@@ -81,7 +92,7 @@ func executeTruthValue(
 
 	outcome, err := executeFunctionCall(
 		frame,
-		instruction,
+		call.instruction,
 		len(frame.stack),
 		method,
 		nil,
@@ -100,7 +111,7 @@ func executeTruthValue(
 	result, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(
-			instruction,
+			call.instruction,
 			"truth special method returned without a value",
 		)
 	}
@@ -198,6 +209,9 @@ func completeTruthCall(
 	call *truthCall,
 	truth bool,
 ) (instructionOutcome, error) {
+	if call.aggregate != nil {
+		return finishTruthAggregateTruth(frame, call.aggregate, truth)
+	}
 	if call.returnBoolean {
 		result := falseSingleton
 		if truth {

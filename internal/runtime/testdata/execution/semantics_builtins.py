@@ -367,3 +367,57 @@ many = list(enumerate(range(5000)))
 assert len(many) == 5000
 assert many[0] == (0, 0)
 assert many[4999] == (4999, 4999)
+# ---
+# case: all over native values
+assert all(()) is True
+assert all((1, True, 'value')) is True
+assert all((1, 0, 2)) is False
+assert all(range(1, 5)) is True
+assert all(range(0, 5)) is False
+# ---
+# case: all short circuits generators
+all_steps = 0
+
+def all_values():
+    global all_steps
+    all_steps += 1
+    yield 1
+    all_steps += 1
+    yield 0
+    all_steps += 1
+    yield 1
+
+assert all(all_values()) is False
+assert all_steps == 2
+assert all(value > 0 for value in (1, 2, 3)) is True
+# ---
+# case: all uses user iteration and truth protocols
+class AllTruth:
+    def __init__(self, value):
+        self.value = value
+
+    def __bool__(self):
+        return self.value
+
+class AllValues:
+    def __iter__(self):
+        yield AllTruth(True)
+        yield AllTruth(False)
+        yield AllTruth(True)
+
+assert all(AllValues()) is False
+
+class AllIterator:
+    def __init__(self):
+        self.current = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == 2:
+            raise StopIteration
+        self.current += 1
+        return self.current
+
+assert all(AllIterator()) is True

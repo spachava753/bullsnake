@@ -31,6 +31,7 @@ const (
 	generatorIteration generatorResumeKind = iota
 	generatorCollection
 	generatorEnumerate
+	generatorTruthAggregate
 	generatorCall
 	generatorClose
 	generatorDelegate
@@ -47,6 +48,7 @@ type generatorResume struct {
 	hasDefault   bool
 	collection   *collectionConstructorCall
 	enumeration  *enumerateCall
+	aggregate    *truthAggregateCall
 	asyncNext    *asyncGeneratorNextValue
 	asyncThrow   *asyncGeneratorThrowValue
 }
@@ -830,6 +832,34 @@ func suspendGenerator(
 		}
 		return caller, nil, nil
 	}
+	if generator.resume.kind == generatorTruthAggregate {
+		call := generator.resume.aggregate
+		if call == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator truth aggregate has no continuation state",
+			)
+		}
+		active.previous = nil
+		generator.state = generatorSuspended
+		outcome, err := executeTruthAggregateItem(caller, call, value)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind == called {
+			return outcome.frame, nil, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				call.instruction,
+				"invalid truth aggregate generator yield outcome",
+			)
+		}
+		return caller, nil, nil
+	}
 	if (generator.resume.kind == generatorIteration ||
 		generator.resume.kind == generatorDelegate) &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
@@ -925,6 +955,28 @@ func finishGenerator(
 			return nil, nil, caller.failure(
 				resume.enumeration.request.instruction,
 				"invalid enumerate generator completion",
+			)
+		}
+		return caller, nil, nil
+	case generatorTruthAggregate:
+		if resume.aggregate == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator truth aggregate completion has no continuation state",
+			)
+		}
+		generator.complete()
+		outcome, err := finishTruthAggregateStop(caller, resume.aggregate)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				resume.aggregate.instruction,
+				"invalid truth aggregate generator completion",
 			)
 		}
 		return caller, nil, nil

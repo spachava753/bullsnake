@@ -17,6 +17,8 @@ const (
 	iterationCollectionNext
 	iterationEnumerateIterator
 	iterationEnumerateNext
+	iterationTruthAggregateIterator
+	iterationTruthAggregateNext
 )
 
 type iterationCall struct {
@@ -28,6 +30,7 @@ type iterationCall struct {
 	hasDefault   bool
 	collection   *collectionConstructorCall
 	enumeration  *enumerateCall
+	aggregate    *truthAggregateCall
 }
 
 type sequenceIterator struct {
@@ -391,6 +394,7 @@ func executeIterationSpecial(
 	}
 	if outcome.kind == raised && call.kind != iterationGetIterator &&
 		call.kind != iterationEnumerateIterator &&
+		call.kind != iterationTruthAggregateIterator &&
 		isStopIteration(outcome.exception) {
 		return finishIterationStop(frame, call, outcome.exception)
 	}
@@ -465,6 +469,10 @@ func finishIterationCall(
 		return finishEnumerateIterator(frame, call.enumeration, result)
 	case iterationEnumerateNext:
 		return finishEnumerateItem(frame, call.enumeration, result)
+	case iterationTruthAggregateIterator:
+		return finishTruthAggregateIterator(frame, call.aggregate, result)
+	case iterationTruthAggregateNext:
+		return executeTruthAggregateItem(frame, call.aggregate, result)
 	default:
 		return instructionOutcome{}, frame.failure(
 			call.instruction,
@@ -499,6 +507,8 @@ func finishIterationStop(
 		return finishCollectionConstructor(frame, call.collection)
 	case iterationEnumerateNext:
 		return finishEnumerateStop(frame, call.enumeration)
+	case iterationTruthAggregateNext:
+		return finishTruthAggregateStop(frame, call.aggregate)
 	default:
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}

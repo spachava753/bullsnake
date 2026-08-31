@@ -499,10 +499,12 @@ A user iterable resolves `__iter__` on its class and requires the returned value
 to have class `__next__`. The one-argument `iter` builtin and loop iteration use
 the same path. Each loop step or user-iterator `next()` call may run a Python
 frame. `enumerate` retains that iterator and applies its index only after an item
-is produced, so failed pulls do not advance the count. `StopIteration` leaving
-that active `__next__` call means exhaustion; the same exception raised by loop
-body code remains an ordinary exception. Bullsnake does not yet use
-`__getitem__` as the legacy iteration fallback.
+is produced, so failed pulls do not advance the count. `all` truth-tests each
+item through the same resumable protocol, stops on the first false result, and
+returns true when the iterator is exhausted. `StopIteration` leaving that active
+`__next__` call means exhaustion; the same exception raised by loop body code
+remains an ordinary exception. Bullsnake does not yet use `__getitem__` as the
+legacy iteration fallback.
 
 A user container resolves `__contains__` on its class and truth-tests the result,
 including another user `__bool__` or `__len__` call. A class attribute set to
@@ -563,11 +565,11 @@ a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes; native `bool`,
 `int`, `str`, `range`, `enumerate`, `list`, `tuple`, `set`, `frozenset`, `dict`,
-`object`, and `type` objects; `callable`; `classmethod`; `getattr`; `hasattr`;
-`isinstance`; `issubclass`; one-argument `iter`; `len`; positional `max` and
-`min` calls with two or more arguments; `next`; `repr`; and `staticmethod`. The
-`next` builtin accepts one optional default for generators, internal iterators,
-and user iterators. String and base forms of `int`, the iterable and keyword
+`object`, and `type` objects; `all`; `callable`; `classmethod`; `getattr`;
+`hasattr`; `isinstance`; `issubclass`; one-argument `iter`; `len`; positional
+`max` and `min` calls with two or more arguments; `next`; `repr`; and
+`staticmethod`. The `next` builtin accepts one optional default for generators,
+internal iterators, and user iterators. String and base forms of `int`, the
 `max` and `min`, the encoding form of `str`, and callable-sentinel `iter` remain
 unsupported.
 

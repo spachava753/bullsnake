@@ -405,3 +405,44 @@ class FailingEnumeratedIterator:
         raise ValueError('enumerate failed')
 
 next(enumerate(FailingEnumeratedIterator()))
+# ---
+# case: all missing iterable
+# error: TypeError
+# message: "all() takes exactly one argument (0 given)"
+all()
+# ---
+# case: all extra arguments
+# error: TypeError
+# message: "all() takes exactly one argument (2 given)"
+all((), ())
+# ---
+# case: all keyword argument
+# error: TypeError
+# message: "all() takes no keyword arguments"
+all(iterable=())
+# ---
+# case: all non-iterable value
+# error: TypeError
+# message: "'int' object is not iterable"
+all(1)
+# ---
+# case: all iterator failure
+# error: ValueError
+# message: "all iteration failed"
+class FailingAllIterator:
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raise ValueError('all iteration failed')
+
+all(FailingAllIterator())
+# ---
+# case: all truth failure
+# error: ValueError
+# message: "all truth failed"
+class FailingAllTruth:
+    def __bool__(self):
+        raise ValueError('all truth failed')
+
+all((FailingAllTruth(),))
