@@ -254,3 +254,37 @@ box_parameter = box_parameters[0]
 assert Box.parameter is box_parameter
 assert Box().reveal() is box_parameter
 assert Box.__type_params__ is box_parameters
+
+# ---
+# case: generic class TypeVar bounds and constraints evaluate lazily
+class ClassBound:
+    pass
+
+class ClassFirst:
+    pass
+
+class ClassSecond:
+    pass
+
+class_bound_calls = 0
+
+def resolve_class_bound():
+    global class_bound_calls
+    class_bound_calls += 1
+    return ClassBound
+
+class BoundedClass[T: resolve_class_bound()]:
+    parameter = T
+
+class ConstrainedClass[T: (ClassFirst, ClassSecond)]:
+    parameter = T
+
+assert class_bound_calls == 0
+bounded_class_parameter = BoundedClass.__type_params__[0]
+assert bounded_class_parameter.__bound__ is ClassBound
+assert class_bound_calls == 1
+assert bounded_class_parameter.__bound__ is ClassBound
+assert class_bound_calls == 1
+class_constraints = ConstrainedClass.__type_params__[0].__constraints__
+assert class_constraints[0] is ClassFirst
+assert class_constraints[1] is ClassSecond

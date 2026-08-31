@@ -73,3 +73,12 @@ class HiddenClassParameter[T]:
     value = T
 
 T
+
+# ---
+# case: generic class TypeVar bound failures remain lazy
+# error: NameError
+# message: "name 'MissingClassBound' is not defined"
+class MissingClassBoundOwner[T: MissingClassBound]:
+    value = T
+
+MissingClassBoundOwner.__type_params__[0].__bound__

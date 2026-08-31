@@ -214,8 +214,8 @@ the parameter tuple in a closure cell. The class body stores the tuple as
 parameters through ordinary cells. Bullsnake does not yet add CPython's implicit
 `Generic[...]` base or support class specialization by subscription.
 
-For aliases and generic functions, a bound, tuple constraint, or default owns
-another hidden evaluator that captures the same definition scope. Reading
+For aliases, generic functions, and generic classes, a bound, tuple constraint, or
+default owns another hidden evaluator that captures the same definition scope. Reading
 `T.__bound__`, `T.__constraints__`, or `T.__default__` runs the corresponding
 evaluator once and caches a successful result. A failure remains uncached so a
 later access can retry. Parameters without a default return one immutable marker
