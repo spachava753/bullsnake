@@ -760,3 +760,30 @@ abs(FailingAbsolute())
 # error: TypeError
 # message: "cannot use 'list' as a dict key (unhashable type: 'list')"
 {}.get([])
+# ---
+# case: dictionary items argument
+# error: TypeError
+# message: "dict.items() takes no arguments (1 given)"
+{}.items(1)
+# ---
+# case: dictionary items keyword argument
+# error: TypeError
+# message: "dict.items() takes no keyword arguments"
+{}.items(value=1)
+# ---
+# case: dictionary items iterator key mutation
+# error: RuntimeError
+# message: "dictionary changed size during iteration"
+values = {'first': 1}
+items = iter(values.items())
+values['second'] = 2
+next(items)
+# ---
+# case: dictionary items iterator replaced key set
+# error: RuntimeError
+# message: "dictionary keys changed during iteration"
+values = {'first': 1, 'second': 2}
+items = iter(values.items())
+del values['first']
+values['third'] = 3
+next(items)

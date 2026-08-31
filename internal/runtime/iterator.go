@@ -211,6 +211,12 @@ func newIterator(value Value) (Value, bool) {
 			return value, true
 		}
 		return nil, false
+	case *dictionaryItemsView:
+		return &dictionaryItemsIterator{
+			dictionary: value.dictionary,
+			length:     len(value.dictionary.entries),
+			version:    value.dictionary.version,
+		}, true
 	case *tupleValue, *listValue:
 		return &sequenceIterator{sequence: value}, true
 	case *rangeValue:

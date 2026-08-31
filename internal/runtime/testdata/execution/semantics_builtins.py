@@ -763,3 +763,21 @@ assert get('present') is marker
 assert get('missing') is None
 assert get('missing', marker) is marker
 assert list(values) == ['present', 'other']
+# ---
+# case: dictionary items view
+values = {'first': 1, 'second': 2}
+items = values.items()
+assert type(items).__name__ == 'dict_items'
+assert len(items) == 2
+assert bool(items)
+assert list(items) == [('first', 1), ('second', 2)]
+values['third'] = 3
+assert len(items) == 3
+assert list(items) == [('first', 1), ('second', 2), ('third', 3)]
+first = iter(items)
+second = iter(items)
+values['first'] = 10
+assert next(first) == ('first', 10)
+assert next(second) == ('first', 10)
+assert list({}.items()) == []
+assert not {}.items()

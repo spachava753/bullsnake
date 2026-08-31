@@ -152,6 +152,8 @@ func immediateLength(value Value) (int, bool) {
 		return len(value.elements), true
 	case *dictValue:
 		return len(value.entries), true
+	case *dictionaryItemsView:
+		return len(value.dictionary.entries), true
 	case *setValue:
 		return len(value.entries), true
 	case *frozenSetValue:

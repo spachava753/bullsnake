@@ -10,6 +10,10 @@ type dictionaryGetMethod struct {
 	dictionary *dictValue
 }
 
+type dictionaryItemsMethod struct {
+	dictionary *dictValue
+}
+
 func (*dictionaryPopMethod) TypeName() string { return "builtin_function_or_method" }
 func (*dictionaryPopMethod) Repr() string {
 	return "<built-in method pop of dict object>"
@@ -21,6 +25,12 @@ func (*dictionaryGetMethod) Repr() string {
 	return "<built-in method get of dict object>"
 }
 func (*dictionaryGetMethod) isValue() {}
+
+func (*dictionaryItemsMethod) TypeName() string { return "builtin_function_or_method" }
+func (*dictionaryItemsMethod) Repr() string {
+	return "<built-in method items of dict object>"
+}
+func (*dictionaryItemsMethod) isValue() {}
 
 func executeDictionaryAttributeLoad(
 	frame *frame,
@@ -41,12 +51,47 @@ func executeDictionaryAttributeLoad(
 			instruction,
 			&dictionaryGetMethod{dictionary: dictionary},
 		)
+	case "items":
+		return pushOutcome(
+			frame,
+			instruction,
+			&dictionaryItemsMethod{dictionary: dictionary},
+		)
 	default:
 		return raiseOutcome(newException(
 			"AttributeError",
 			"'dict' object has no attribute '"+name+"'",
 		)), nil
 	}
+}
+
+func executeDictionaryItemsCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *dictionaryItemsMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"dict.items() takes no keyword arguments",
+		)), nil
+	}
+	if len(arguments) != 0 {
+		count := strconv.Itoa(len(arguments))
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"dict.items() takes no arguments ("+count+" given)",
+		)), nil
+	}
+	discardCallSegment(caller, base)
+	return pushOutcome(caller, instruction, &dictionaryItemsView{
+		dictionary: method.dictionary,
+	})
 }
 
 // executeDictionaryGetCall returns an existing value or the optional default
