@@ -412,15 +412,18 @@ and exceptions.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
-slice subscription, and dictionary item mutation. Built-in values use their
-fixed truth rules. A user instance looks up `__bool__` on its class and falls
-back to class `__len__`; same-named instance attributes do not participate.
-`__bool__` must return a boolean. `__len__` must return a nonnegative integer
-that fits the host index size. The special-method call can suspend in another
-Python frame before the original condition, short-circuit expression, or `not`
-operation continues. Dictionaries and sets currently use ordered linear
-storage. This keeps Python identity and equality checks explicit until
-user-defined hashing and equality can call back into Python.
+slice subscription, and dictionary item mutation. Built-in values use fixed
+truth and length rules. `len` supports strings, bytes, tuples, lists,
+dictionaries, and sets; string lengths count decoded code points, including
+preserved lone surrogates. A user instance looks up `__bool__` on its class for
+truth and falls back to class `__len__`; same-named instance attributes do not
+participate. A direct `len` call uses that same class `__len__` path. `__bool__`
+must return a boolean. `__len__` must return a nonnegative integer that fits
+the host index size. The special-method call can suspend in another Python
+frame before the requesting operation continues. Dictionaries and sets
+currently use ordered linear storage. This keeps Python identity and equality
+checks explicit until user-defined hashing and equality can call back into
+Python.
 
 Strings index and iterate by decoded code point, including preserved lone
 surrogates. Bytes index and iterate as integers. Slices use Python-style bound
@@ -494,10 +497,10 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes, scalar numeric
-`int`, positional `max` and `min` calls with two or more arguments, and `next`
-for generators, internal iterators, and user iterators. `next` accepts one
-optional default. String and base forms of `int`, the iterable and keyword forms
-of `max` and `min`, and the general `iter` builtin remain unsupported.
+`int`, `len`, positional `max` and `min` calls with two or more arguments, and
+`next` for generators, internal iterators, and user iterators. `next` accepts
+one optional default. String and base forms of `int`, the iterable and keyword
+forms of `max` and `min`, and the general `iter` builtin remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

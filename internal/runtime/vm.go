@@ -300,6 +300,43 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.length != nil {
+				call := active.length
+				active.length = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"length special method has no caller",
+					)
+				}
+				lengthOutcome, lengthErr := finishLengthCall(thread.current, call, result)
+				if lengthErr != nil {
+					return nil, nil, lengthErr
+				}
+				if lengthOutcome.kind == raised {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						lengthOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+				if lengthOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid length special method outcome",
+					)
+				}
+				continue
+			}
 			if active.iteration != nil {
 				call := active.iteration
 				active.iteration = nil

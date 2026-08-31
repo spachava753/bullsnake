@@ -374,9 +374,11 @@ language features or packages require it.
 
 A Python special method may call arbitrary Python code. The VM therefore keeps
 the requesting instruction suspended while the method's frame runs in the same
-iterative dispatch loop. User-defined truth testing, synchronous iteration,
+iterative dispatch loop. User-defined truth testing, `len`, synchronous iteration,
 direct containment, subscription, rich comparison, and unary arithmetic all
-use this rule. Truth lookup tries class `__bool__` before class `__len__`.
+use this rule. Truth lookup tries class `__bool__` before class `__len__`. The
+`len` builtin handles built-in containers and text directly, and otherwise
+calls class `__len__` with the same nonnegative host-index result checks.
 Iteration calls class `__iter__`,
 validates its result, and resumes class `__next__` from `for` or `next()`.
 Containment calls class `__contains__` and sends its result through the same

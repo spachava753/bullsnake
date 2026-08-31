@@ -1,10 +1,6 @@
 package runtime
 
-import (
-	"math/big"
-
-	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
-)
+import "github.com/spachava753/bullsnake/internal/compiler/bytecode"
 
 type truthMethod uint8
 
@@ -160,24 +156,11 @@ func truthMethodResult(method truthMethod, result Value) (bool, *Exception) {
 		return boolean.value, nil
 	}
 
-	integer, ok := integerOperand(result)
-	if !ok {
-		return false, newException(
-			"TypeError",
-			"'"+result.TypeName()+"' object cannot be interpreted as an integer",
-		)
+	length, exception := checkedLengthResult(result)
+	if exception != nil {
+		return false, exception
 	}
-	if integer.Sign() < 0 {
-		return false, newException("ValueError", "__len__() should return >= 0")
-	}
-	maximum := new(big.Int).SetUint64(uint64(^uint(0) >> 1))
-	if integer.Cmp(maximum) > 0 {
-		return false, newException(
-			"OverflowError",
-			"cannot fit 'int' into an index-sized integer",
-		)
-	}
-	return integer.Sign() != 0, nil
+	return length.value.Sign() != 0, nil
 }
 
 // completeTruthOperation applies one resolved truth value to the original
