@@ -395,6 +395,17 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				if iterationErr != nil {
 					return nil, nil, iterationErr
 				}
+				if iterationOutcome.kind == called {
+					if iterationOutcome.frame == nil ||
+						iterationOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.instruction,
+							"invalid chained iteration frame transition",
+						)
+					}
+					thread.current = iterationOutcome.frame
+					continue
+				}
 				if iterationOutcome.kind == raised {
 					unhandled, routeErr := routeException(
 						thread,
@@ -826,6 +837,7 @@ route:
 
 			if current.iteration != nil &&
 				current.iteration.kind != iterationGetIterator &&
+				current.iteration.kind != iterationCollectionIterator &&
 				isStopIteration(exception) {
 				call := current.iteration
 				current.iteration = nil

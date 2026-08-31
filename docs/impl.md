@@ -415,9 +415,12 @@ values, the defining class for a user instance, and the concrete class for an
 exception. Native types and built-in exception classes expose `__name__`,
 `__qualname__`, and `__module__`; user classes expose the corresponding compiler
 and class-builder metadata. `type(type) is type`. The `bool`, `int`, and `str`
-bindings are their native type objects and retain their existing constructor
-behavior. `isinstance` checks native identity, the C3 ancestry of a user
-instance, and built-in or user exception ancestry. `issubclass` applies those
+bindings are native type objects and retain their implemented constructor
+behavior. The `list` and `tuple` type objects accept zero or one iterable,
+preserve tuple identity for `tuple(existing_tuple)`, and otherwise collect
+native, user, or generator iterators through the frame loop. `isinstance`
+checks native identity, the C3 ancestry of a user instance, and built-in or user
+exception ancestry. `issubclass` applies those
 same ancestry rules directly to class objects. A tuple of candidates is
 processed left to right and may contain nested tuples; a match suppresses errors
 from later entries. `bool` is a native subclass of `int`. Type unions and custom
@@ -534,12 +537,11 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes; native `bool`,
-`int`, `str`, and `type` objects; `callable`; `classmethod`; `getattr`; `hasattr`;
-`isinstance`; `issubclass`; one-argument `iter`; `len`; and positional `max` and
-`min` calls
-with two or more arguments; `next`; `repr`; and `staticmethod`. The `next`
-builtin accepts one optional
-default for generators, internal iterators, and user iterators. String and base
+`int`, `str`, `list`, `tuple`, and `type` objects; `callable`; `classmethod`;
+`getattr`; `hasattr`; `isinstance`; `issubclass`; one-argument `iter`; `len`;
+positional `max` and `min` calls with two or more arguments; `next`; `repr`; and
+`staticmethod`. The `next` builtin accepts one optional default for generators,
+internal iterators, and user iterators. String and base
 forms of `int`, the iterable and keyword forms of `max` and `min`, the encoding
 form of `str`, and callable-sentinel `iter` remain unsupported.
 

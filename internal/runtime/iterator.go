@@ -13,6 +13,8 @@ const (
 	iterationGetIterator iterationCallKind = iota
 	iterationForNext
 	iterationBuiltinNext
+	iterationCollectionIterator
+	iterationCollectionNext
 )
 
 type iterationCall struct {
@@ -22,6 +24,7 @@ type iterationCall struct {
 	iterator     Value
 	defaultValue Value
 	hasDefault   bool
+	collection   *collectionConstructorCall
 }
 
 type sequenceIterator struct {
@@ -399,6 +402,30 @@ func finishIterationCall(
 		return instructionOutcome{kind: advance}, nil
 	case iterationBuiltinNext:
 		return pushOutcome(frame, call.instruction, result)
+	case iterationCollectionIterator:
+		if call.collection == nil {
+			return instructionOutcome{}, frame.failure(
+				call.instruction,
+				"collection iterator lookup has no constructor state",
+			)
+		}
+		if !isIteratorValue(result) {
+			return raiseOutcome(newException(
+				"TypeError",
+				"iter() returned non-iterator of type '"+result.TypeName()+"'",
+			)), nil
+		}
+		call.collection.iterator = result
+		return continueCollectionConstructor(frame, call.collection)
+	case iterationCollectionNext:
+		if call.collection == nil {
+			return instructionOutcome{}, frame.failure(
+				call.instruction,
+				"collection next call has no constructor state",
+			)
+		}
+		call.collection.elements = append(call.collection.elements, result)
+		return continueCollectionConstructor(frame, call.collection)
 	default:
 		return instructionOutcome{}, frame.failure(
 			call.instruction,
@@ -407,6 +434,8 @@ func finishIterationCall(
 	}
 }
 
+// finishIterationStop applies loop, next builtin, or collection-constructor
+// exhaustion semantics to one StopIteration from a user __next__ call.
 func finishIterationStop(
 	frame *frame,
 	call *iterationCall,
@@ -421,6 +450,14 @@ func finishIterationStop(
 			return pushOutcome(frame, call.instruction, call.defaultValue)
 		}
 		return instructionOutcome{kind: raised, exception: exception}, nil
+	case iterationCollectionNext:
+		if call.collection == nil {
+			return instructionOutcome{}, frame.failure(
+				call.instruction,
+				"collection exhaustion has no constructor state",
+			)
+		}
+		return finishCollectionConstructor(frame, call.collection)
 	default:
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}

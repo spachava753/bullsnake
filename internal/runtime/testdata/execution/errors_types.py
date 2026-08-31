@@ -97,3 +97,48 @@ issubclass(type(None), None)
 # error: TypeError
 # message: "issubclass() arg 2 must be a class, a tuple of classes, or a union"
 issubclass(type(None), (str, (int, None)))
+# ---
+# case: list constructor extra argument
+# error: TypeError
+# message: "list expected at most 1 argument, got 2"
+list(None, None)
+# ---
+# case: tuple constructor keyword argument
+# error: TypeError
+# message: "tuple() takes no keyword arguments"
+tuple(iterable=())
+# ---
+# case: list constructor non-iterable
+# error: TypeError
+# message: "'int' object is not iterable"
+list(1)
+# ---
+# case: tuple constructor iterator failure
+# error: ValueError
+# message: "iterator failed"
+class FailingSequenceIterator:
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raise ValueError('iterator failed')
+
+tuple(FailingSequenceIterator())
+# ---
+# case: list constructor iterator lookup stop
+# error: StopIteration
+# message: "lookup stopped"
+class StoppedSequenceLookup:
+    def __iter__(self):
+        raise StopIteration('lookup stopped')
+
+list(StoppedSequenceLookup())
+# ---
+# case: tuple constructor generator failure
+# error: ValueError
+# message: "generator failed"
+def failing_sequence_generator():
+    yield 1
+    raise ValueError('generator failed')
+
+tuple(failing_sequence_generator())

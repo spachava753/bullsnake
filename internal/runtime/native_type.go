@@ -66,6 +66,8 @@ var builtinNativeTypes = []*nativeTypeValue{
 	boolNativeType,
 	intNativeType,
 	stringNativeType,
+	tupleNativeType,
+	listNativeType,
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
@@ -170,6 +172,15 @@ func executeNativeTypeCall(
 		return pushOutcome(caller, instruction, result)
 	case stringNativeType:
 		return executeBuiltinStr(caller, instruction, base, arguments, keywords)
+	case tupleNativeType, listNativeType:
+		return executeSequenceTypeCall(
+			caller,
+			instruction,
+			base,
+			class,
+			arguments,
+			keywords,
+		)
 	}
 	discardCallSegment(caller, base)
 	return raiseOutcome(newException(

@@ -206,3 +206,66 @@ try:
 except ValueError as caught:
     assert type(caught) is DynamicError
     assert str(caught) == 'dynamic failure'
+# ---
+# case: list and tuple constructors
+empty_tuple = tuple()
+empty_list = list()
+original_tuple = (1, 2)
+original_list = [1, 2]
+assert empty_tuple == ()
+assert type(empty_list) is list
+assert len(empty_list) == 0
+assert tuple(original_tuple) is original_tuple
+assert tuple(original_list) == (1, 2)
+list_from_tuple = list(original_tuple)
+assert len(list_from_tuple) == 2
+assert list_from_tuple[0] == 1
+assert list_from_tuple[1] == 2
+list_copy = list(original_list)
+assert len(list_copy) == 2
+assert list_copy[0] == 1
+assert list_copy[1] == 2
+assert list_copy is not original_list
+text_list = list('ab')
+assert len(text_list) == 2
+assert text_list[0] == 'a'
+assert text_list[1] == 'b'
+assert tuple(b'ab') == (97, 98)
+assert type(empty_tuple) is tuple
+assert type(empty_list) is list
+# ---
+# case: sequence constructors use iterator protocol
+class CountingIterator:
+    def __init__(self, stop):
+        self.current = 0
+        self.stop = stop
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == self.stop:
+            raise StopIteration
+        value = self.current
+        self.current += 1
+        return value
+
+counting_list = list(CountingIterator(3))
+assert len(counting_list) == 3
+assert counting_list[0] == 0
+assert counting_list[1] == 1
+assert counting_list[2] == 2
+assert tuple(CountingIterator(3)) == (0, 1, 2)
+# ---
+# case: sequence constructors consume generators
+def generated():
+    yield 4
+    yield 5
+    yield 6
+
+generated_list = list(generated())
+assert len(generated_list) == 3
+assert generated_list[0] == 4
+assert generated_list[1] == 5
+assert generated_list[2] == 6
+assert tuple(value * 2 for value in generated()) == (8, 10, 12)

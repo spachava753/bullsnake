@@ -29,6 +29,7 @@ type generatorResumeKind uint8
 
 const (
 	generatorIteration generatorResumeKind = iota
+	generatorCollection
 	generatorCall
 	generatorClose
 	generatorDelegate
@@ -43,6 +44,7 @@ type generatorResume struct {
 	instruction  int
 	defaultValue Value
 	hasDefault   bool
+	collection   *collectionConstructorCall
 	asyncNext    *asyncGeneratorNextValue
 	asyncThrow   *asyncGeneratorThrowValue
 }
@@ -765,6 +767,27 @@ func suspendGenerator(
 			return finishAsyncGeneratorYield(active, instruction, wrapped)
 		}
 	}
+	if generator.resume.kind == generatorCollection {
+		collection := generator.resume.collection
+		if collection == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator collection has no constructor state",
+			)
+		}
+		collection.elements = append(collection.elements, value)
+		active.previous = nil
+		generator.state = generatorSuspended
+		if !active.push(None) {
+			return nil, nil, active.failure(
+				instruction,
+				"operand stack overflow while resuming collected generator",
+			)
+		}
+		generator.state = generatorRunning
+		active.previous = caller
+		return active, nil, nil
+	}
 	if (generator.resume.kind == generatorIteration ||
 		generator.resume.kind == generatorDelegate) &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
@@ -818,6 +841,28 @@ func finishGenerator(
 		caller.pop()
 		generator.complete()
 		caller.instruction = resume.target
+		return caller, nil, nil
+	case generatorCollection:
+		if resume.collection == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator collection completion has no constructor state",
+			)
+		}
+		generator.complete()
+		outcome, err := finishCollectionConstructor(caller, resume.collection)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				resume.collection.instruction,
+				"invalid collection constructor completion",
+			)
+		}
 		return caller, nil, nil
 	case generatorCall:
 		generator.complete()
