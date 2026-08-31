@@ -429,6 +429,11 @@ including another user `__bool__` or `__len__` call. A class attribute set to
 `None` disables containment. If the class omits `__contains__`, Bullsnake does
 not yet search an iterator for an equal item.
 
+User item reads, writes, and deletes resolve `__getitem__`, `__setitem__`, and
+`__delitem__` on the class. Keys and assigned values pass through unchanged.
+Mutation waits for the Python method but discards its return value, matching the
+statement operation. Same-named instance attributes do not participate.
+
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative
 integer exponent returns an integer, subject to the documented 1,048,576-bit

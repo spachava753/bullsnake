@@ -369,6 +369,47 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					)
 				}
 			}
+			if active.subscription != nil {
+				call := active.subscription
+				active.subscription = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"subscription special method has no caller",
+					)
+				}
+				subscriptionOutcome, subscriptionErr := finishSubscriptionCall(
+					thread.current,
+					call,
+					result,
+				)
+				if subscriptionErr != nil {
+					return nil, nil, subscriptionErr
+				}
+				if subscriptionOutcome.kind == raised {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						subscriptionOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+				if subscriptionOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid subscription special method outcome",
+					)
+				}
+				continue
+			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil

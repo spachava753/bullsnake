@@ -287,3 +287,85 @@ except ValueError as error:
     contains_error = f'{error!r}'
 
 assert contains_error == 'ValueError("contains failed")'
+# ---
+# case: user subscription protocols
+class Store:
+    def __init__(self):
+        self.values = {}
+        self.gets = 0
+        self.sets = 0
+        self.deletes = 0
+    def __getitem__(self, key):
+        self.gets = self.gets + 1
+        return self.values[key]
+    def __setitem__(self, key, value):
+        self.sets = self.sets + 1
+        self.values[key] = value
+        return 'ignored set result'
+    def __delitem__(self, key):
+        self.deletes = self.deletes + 1
+        del self.values[key]
+        return 'ignored delete result'
+
+store = Store()
+store['answer'] = 40
+initial = store['answer']
+store['answer'] += 2
+updated = store['answer']
+store[(1, 2)] = 'tuple key'
+tuple_value = store[(1, 2)]
+del store['answer']
+missing_after_delete = 'answer' not in store.values
+
+class SliceEcho:
+    def __getitem__(self, key):
+        return key
+
+slice_value = SliceEcho()[1:4:2]
+
+class BaseStore:
+    def __getitem__(self, key):
+        return key * 2
+
+class ChildStore(BaseStore):
+    pass
+
+inherited = ChildStore()[6]
+
+assert initial == 40
+assert updated == 42
+assert tuple_value == 'tuple key'
+assert f'{slice_value!r}' == 'slice(1, 4, 2)'
+assert missing_after_delete is True
+assert store.gets == 4
+assert store.sets == 3
+assert store.deletes == 1
+assert inherited == 12
+# ---
+# case: subscription exceptions are catchable
+class BrokenSubscription:
+    def __getitem__(self, key):
+        raise ValueError('get failed')
+    def __setitem__(self, key, value):
+        raise ValueError('set failed')
+    def __delitem__(self, key):
+        raise ValueError('delete failed')
+
+broken = BrokenSubscription()
+errors = []
+try:
+    broken[0]
+except ValueError as error:
+    errors = [*errors, f'{error!r}']
+try:
+    broken[0] = 1
+except ValueError as error:
+    errors = [*errors, f'{error!r}']
+try:
+    del broken[0]
+except ValueError as error:
+    errors = [*errors, f'{error!r}']
+
+assert errors[0] == 'ValueError("get failed")'
+assert errors[1] == 'ValueError("set failed")'
+assert errors[2] == 'ValueError("delete failed")'

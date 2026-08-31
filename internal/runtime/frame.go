@@ -53,6 +53,7 @@ type frame struct {
 	truth               *truthCall
 	iteration           *iterationCall
 	membership          *membershipCall
+	subscription        *subscriptionCall
 	generator           *generatorValue
 	delegation          *delegationState
 	handledExceptions   []handledException

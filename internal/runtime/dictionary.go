@@ -327,6 +327,15 @@ func executeStoreSubscript(frame *frame, instruction int) (instructionOutcome, e
 	}
 	dictionary, ok := container.(*dictValue)
 	if !ok {
+		if instance, userObject := container.(*instanceValue); userObject {
+			return executeUserSubscription(
+				frame,
+				instruction,
+				subscriptionSet,
+				instance,
+				[]Value{key, value},
+			)
+		}
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(
@@ -354,6 +363,15 @@ func executeDeleteSubscript(frame *frame, instruction int) (instructionOutcome, 
 	}
 	dictionary, ok := container.(*dictValue)
 	if !ok {
+		if instance, userObject := container.(*instanceValue); userObject {
+			return executeUserSubscription(
+				frame,
+				instruction,
+				subscriptionDelete,
+				instance,
+				[]Value{key},
+			)
+		}
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(

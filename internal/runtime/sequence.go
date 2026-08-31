@@ -272,6 +272,15 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 		}
 		return pushOutcome(frame, instruction, value)
 	}
+	if instance, ok := container.(*instanceValue); ok {
+		return executeUserSubscription(
+			frame,
+			instruction,
+			subscriptionGet,
+			instance,
+			[]Value{indexValue},
+		)
+	}
 
 	var elements []Value
 	var sequenceName string

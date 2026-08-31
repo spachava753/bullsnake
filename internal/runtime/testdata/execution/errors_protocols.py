@@ -131,3 +131,42 @@ class InvalidResultContainer:
         return InvalidTruth()
 
 result = 1 in InvalidResultContainer()
+# ---
+# case: instance-only getitem method
+# error: TypeError
+# message: "'InstanceOnlySubscript' object is not subscriptable"
+class InstanceOnlySubscript:
+    pass
+
+def getitem(key):
+    return key
+
+value = InstanceOnlySubscript()
+value.__getitem__ = getitem
+result = value[1]
+# ---
+# case: disabled getitem method
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledGetitem:
+    __getitem__ = None
+
+result = DisabledGetitem()[1]
+# ---
+# case: disabled setitem method
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledSetitem:
+    __setitem__ = None
+
+value = DisabledSetitem()
+value[1] = 2
+# ---
+# case: disabled delitem method
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledDelitem:
+    __delitem__ = None
+
+value = DisabledDelitem()
+del value[1]
