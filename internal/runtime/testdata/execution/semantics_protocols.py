@@ -369,3 +369,114 @@ except ValueError as error:
 assert errors[0] == 'ValueError("get failed")'
 assert errors[1] == 'ValueError("set failed")'
 assert errors[2] == 'ValueError("delete failed")'
+# ---
+# case: user equality protocols
+class EqualValue:
+    def __init__(self, value):
+        self.value = value
+    def __eq__(self, other):
+        return self.value == other.value
+
+same = EqualValue(4) == EqualValue(4)
+different = EqualValue(4) == EqualValue(5)
+implicit_not_equal = EqualValue(4) != EqualValue(5)
+
+class RawEquality:
+    def __eq__(self, other):
+        return 'raw equality result'
+    def __ne__(self, other):
+        return 'raw inequality result'
+
+raw_equal = RawEquality() == RawEquality()
+raw_not_equal = RawEquality() != RawEquality()
+
+class TruthResultForNe:
+    def __init__(self):
+        self.calls = 0
+    def __bool__(self):
+        self.calls = self.calls + 1
+        return False
+
+class ImplicitNe:
+    def __init__(self, result):
+        self.result = result
+    def __eq__(self, other):
+        return self.result
+
+truth_result_for_ne = TruthResultForNe()
+inverted_user_truth = ImplicitNe(truth_result_for_ne) != ImplicitNe(None)
+
+assert same is True
+assert different is False
+assert implicit_not_equal is True
+assert raw_equal == 'raw equality result'
+assert raw_not_equal == 'raw inequality result'
+assert inverted_user_truth is True
+assert truth_result_for_ne.calls == 1
+# ---
+# case: equality reflection and identity fallback
+order = 0
+class LeftEquality:
+    def __eq__(self, other):
+        global order
+        order = order * 10 + 1
+        return NotImplemented
+
+class RightEquality:
+    def __eq__(self, other):
+        global order
+        order = order * 10 + 2
+        return True
+
+reflected = LeftEquality() == RightEquality()
+reflected_order = order
+
+class BaseEquality:
+    def __eq__(self, other):
+        return 'base equality'
+
+class ChildEquality(BaseEquality):
+    def __eq__(self, other):
+        return 'child equality'
+
+subclass_first = BaseEquality() == ChildEquality()
+
+class DeclinesEquality:
+    def __eq__(self, other):
+        return NotImplemented
+
+same_object = DeclinesEquality()
+identity_equal = same_object == same_object
+identity_unequal = DeclinesEquality() != DeclinesEquality()
+not_implemented_repr = f'{NotImplemented!r}'
+
+class InstanceOnlyEquality:
+    pass
+
+def always_equal(other):
+    return True
+
+first_instance = InstanceOnlyEquality()
+second_instance = InstanceOnlyEquality()
+first_instance.__eq__ = always_equal
+instance_attribute_ignored = first_instance == second_instance
+
+assert reflected is True
+assert reflected_order == 12
+assert subclass_first == 'child equality'
+assert identity_equal is True
+assert identity_unequal is True
+assert not_implemented_repr == 'NotImplemented'
+assert instance_attribute_ignored is False
+# ---
+# case: equality exceptions are catchable
+class BrokenEquality:
+    def __eq__(self, other):
+        raise ValueError('equality failed')
+
+try:
+    result = BrokenEquality() == BrokenEquality()
+except ValueError as error:
+    equality_error = f'{error!r}'
+
+assert equality_error == 'ValueError("equality failed")'

@@ -28,6 +28,15 @@ func executeTruthOperation(
 	operation bytecode.Instruction,
 	value Value,
 ) (instructionOutcome, error) {
+	if value == notImplementedSingleton {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"NotImplemented should not be used in a boolean context",
+			),
+		}, nil
+	}
 	if truth, immediate := immediateTruth(value); immediate {
 		return completeTruthOperation(frame, instruction, operation, value, truth)
 	}
@@ -208,13 +217,15 @@ func completeTruthOperation(
 		return pushOutcome(frame, instruction, original)
 	case bytecode.CompareOp:
 		if operation.Operand != bytecode.CompareIn &&
-			operation.Operand != bytecode.CompareNotIn {
+			operation.Operand != bytecode.CompareNotIn &&
+			operation.Operand != bytecode.CompareNotEqual {
 			return instructionOutcome{}, frame.failure(
 				instruction,
 				"unsupported comparison truth operation",
 			)
 		}
-		if operation.Operand == bytecode.CompareNotIn {
+		if operation.Operand == bytecode.CompareNotIn ||
+			operation.Operand == bytecode.CompareNotEqual {
 			truth = !truth
 		}
 		result := falseSingleton

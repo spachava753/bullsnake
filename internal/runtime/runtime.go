@@ -53,6 +53,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}
+	builtins.values["NotImplemented"] = notImplementedSingleton
 	modules := make(map[string]*Module)
 	modules[futureModuleName] = newFutureModule()
 	return &Runtime{

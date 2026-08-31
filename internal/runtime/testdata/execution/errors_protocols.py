@@ -170,3 +170,30 @@ class DisabledDelitem:
 
 value = DisabledDelitem()
 del value[1]
+# ---
+# case: disabled equality method
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledEquality:
+    __eq__ = None
+
+result = DisabledEquality() == DisabledEquality()
+# ---
+# case: invalid implicit inequality truth
+# error: TypeError
+# message: "__bool__ should return bool, returned int"
+class InvalidInequalityTruth:
+    def __bool__(self):
+        return 1
+
+class ImplicitInvalidInequality:
+    def __eq__(self, other):
+        return InvalidInequalityTruth()
+
+result = ImplicitInvalidInequality() != ImplicitInvalidInequality()
+# ---
+# case: NotImplemented boolean context
+# error: TypeError
+# message: "NotImplemented should not be used in a boolean context"
+if NotImplemented:
+    pass

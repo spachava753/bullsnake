@@ -14,9 +14,10 @@ type boolValue struct {
 }
 
 var (
-	falseSingleton    Value = &boolValue{}
-	trueSingleton     Value = &boolValue{value: true}
-	ellipsisSingleton Value = &ellipsisValue{}
+	falseSingleton          Value = &boolValue{}
+	trueSingleton           Value = &boolValue{value: true}
+	ellipsisSingleton       Value = &ellipsisValue{}
+	notImplementedSingleton Value = &notImplementedValue{}
 )
 
 func (*boolValue) TypeName() string { return "bool" }
@@ -33,6 +34,12 @@ type ellipsisValue struct{}
 func (*ellipsisValue) TypeName() string { return "ellipsis" }
 func (*ellipsisValue) Repr() string     { return "Ellipsis" }
 func (*ellipsisValue) isValue()         {}
+
+type notImplementedValue struct{}
+
+func (*notImplementedValue) TypeName() string { return "NotImplementedType" }
+func (*notImplementedValue) Repr() string     { return "NotImplemented" }
+func (*notImplementedValue) isValue()         {}
 
 type floatValue struct {
 	value float64

@@ -434,6 +434,12 @@ User item reads, writes, and deletes resolve `__getitem__`, `__setitem__`, and
 Mutation waits for the Python method but discards its return value, matching the
 statement operation. Same-named instance attributes do not participate.
 
+User equality and inequality resolve class `__eq__` or `__ne__`. A strict right
+subclass gets the first attempt. Returning `NotImplemented` tries the other
+operand, then falls back to identity. If `__ne__` is absent, Bullsnake
+truth-tests and inverts `__eq__`; an explicit comparison method otherwise keeps
+its return value unchanged. User ordering methods remain unsupported.
+
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative
 integer exponent returns an integer, subject to the documented 1,048,576-bit

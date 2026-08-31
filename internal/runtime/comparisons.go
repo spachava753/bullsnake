@@ -28,6 +28,13 @@ func executeComparison(
 	if operand == bytecode.CompareIn || operand == bytecode.CompareNotIn {
 		return executeMembership(frame, index, operand, right, left)
 	}
+	if operand == bytecode.CompareEqual || operand == bytecode.CompareNotEqual {
+		_, leftUser := left.(*instanceValue)
+		_, rightUser := right.(*instanceValue)
+		if leftUser || rightUser {
+			return executeUserEquality(frame, index, operand, left, right)
+		}
+	}
 
 	var result bool
 	switch operand {
@@ -87,6 +94,9 @@ func executeComparison(
 // valuesEqual implements equality for current scalar and tuple values. Numeric
 // equality includes booleans and exact integer-to-binary64 comparison.
 func valuesEqual(left, right Value) bool {
+	if left == right {
+		return true
+	}
 	if leftInteger, ok := integerOperand(left); ok {
 		if rightInteger, ok := integerOperand(right); ok {
 			return leftInteger.Cmp(&rightInteger) == 0

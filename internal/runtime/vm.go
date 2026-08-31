@@ -410,6 +410,58 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.comparison != nil {
+				call := active.comparison
+				active.comparison = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"comparison special method has no caller",
+					)
+				}
+				comparisonOutcome, comparisonErr := finishComparisonCall(
+					thread.current,
+					call,
+					result,
+				)
+				if comparisonErr != nil {
+					return nil, nil, comparisonErr
+				}
+				switch comparisonOutcome.kind {
+				case advance:
+					continue
+				case called:
+					if comparisonOutcome.frame == nil ||
+						comparisonOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.instruction,
+							"invalid comparison call transition",
+						)
+					}
+					thread.current = comparisonOutcome.frame
+					continue
+				case raised:
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						comparisonOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				default:
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid comparison special method outcome",
+					)
+				}
+			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil
