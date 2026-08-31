@@ -468,11 +468,12 @@ slice subscription, and dictionary item mutation. List instances expose bound
 generator, or user iterators through the frame loop and mutates the target as
 each item arrives. Remove scans left to right, prefers identity, and resumes user
 `__eq__` and truth methods through the same frame loop. Dictionary instances
-expose bound `get`, `pop`, and `items` methods. The items method returns a live
-`dict_items` view with independent iterators; replacing a value remains visible,
-while key-set changes during iteration raise `RuntimeError`. Set instances expose
-bound `add` and `discard` methods using the same fixed hashability and equality
-rules as set displays. Set-like view operations and other native collection
+expose bound `get`, `pop`, `items`, and `keys` methods. The view methods return
+live `dict_items` and `dict_keys` values with independent iterators. Replacing a
+value remains visible, while key-set changes during iteration raise
+`RuntimeError`. Set instances expose bound `add` and `discard` methods using the
+same fixed hashability and equality rules as set displays. Set-like view
+operations and other native collection
 methods are not implemented yet. List equality uses the runtime's fixed
 recursive rules for scalars, tuples, lists, and identical values. It does not
 yet suspend for user `__eq__`, unlike `list.remove`.

@@ -100,6 +100,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"tuple":                            tupleNativeType,
 	"list":                             listNativeType,
 	"dict":                             dictNativeType,
+	"dict_keys":                        builtinNativeType("dict_keys"),
 	"dict_items":                       builtinNativeType("dict_items"),
 	"dict_itemiterator":                builtinNativeType("dict_itemiterator"),
 	"set":                              setNativeType,

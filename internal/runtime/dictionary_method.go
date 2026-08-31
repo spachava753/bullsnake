@@ -14,6 +14,10 @@ type dictionaryItemsMethod struct {
 	dictionary *dictValue
 }
 
+type dictionaryKeysMethod struct {
+	dictionary *dictValue
+}
+
 func (*dictionaryPopMethod) TypeName() string { return "builtin_function_or_method" }
 func (*dictionaryPopMethod) Repr() string {
 	return "<built-in method pop of dict object>"
@@ -31,6 +35,12 @@ func (*dictionaryItemsMethod) Repr() string {
 	return "<built-in method items of dict object>"
 }
 func (*dictionaryItemsMethod) isValue() {}
+
+func (*dictionaryKeysMethod) TypeName() string { return "builtin_function_or_method" }
+func (*dictionaryKeysMethod) Repr() string {
+	return "<built-in method keys of dict object>"
+}
+func (*dictionaryKeysMethod) isValue() {}
 
 func executeDictionaryAttributeLoad(
 	frame *frame,
@@ -56,6 +66,12 @@ func executeDictionaryAttributeLoad(
 			frame,
 			instruction,
 			&dictionaryItemsMethod{dictionary: dictionary},
+		)
+	case "keys":
+		return pushOutcome(
+			frame,
+			instruction,
+			&dictionaryKeysMethod{dictionary: dictionary},
 		)
 	default:
 		return raiseOutcome(newException(
@@ -90,6 +106,35 @@ func executeDictionaryItemsCall(
 	}
 	discardCallSegment(caller, base)
 	return pushOutcome(caller, instruction, &dictionaryItemsView{
+		dictionary: method.dictionary,
+	})
+}
+
+func executeDictionaryKeysCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *dictionaryKeysMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"dict.keys() takes no keyword arguments",
+		)), nil
+	}
+	if len(arguments) != 0 {
+		count := strconv.Itoa(len(arguments))
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"dict.keys() takes no arguments ("+count+" given)",
+		)), nil
+	}
+	discardCallSegment(caller, base)
+	return pushOutcome(caller, instruction, &dictionaryKeysView{
 		dictionary: method.dictionary,
 	})
 }

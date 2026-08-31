@@ -2,6 +2,25 @@ package runtime
 
 import "strings"
 
+type dictionaryKeysView struct {
+	dictionary *dictValue
+}
+
+func (*dictionaryKeysView) TypeName() string { return "dict_keys" }
+func (view *dictionaryKeysView) Repr() string {
+	var builder strings.Builder
+	builder.WriteString("dict_keys([")
+	for index, entry := range view.dictionary.entries {
+		if index != 0 {
+			builder.WriteString(", ")
+		}
+		builder.WriteString(entry.key.Repr())
+	}
+	builder.WriteString("])")
+	return builder.String()
+}
+func (*dictionaryKeysView) isValue() {}
+
 type dictionaryItemsView struct {
 	dictionary *dictValue
 }

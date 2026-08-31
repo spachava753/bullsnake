@@ -388,10 +388,10 @@ filter predicate and truth method runs. A list instance exposes bound `append`,
 `pop`, `extend`, and `remove` methods. Extend uses the same resumable iterator
 path and mutates the target as each item arrives. Remove scans left to right,
 prefers object identity, and may suspend for user equality and truth methods.
-Dictionary instances expose bound `get`, `pop`, and `items` methods. The items
-method returns a live view whose iterators reject key-set changes. Set instances
-expose bound `add` and `discard` methods that use the same fixed hashability and
-equality rules as set displays.
+Dictionary instances expose bound `get`, `pop`, `items`, and `keys` methods.
+The view methods return live values whose iterators reject key-set changes. Set
+instances expose bound `add` and `discard` methods that use the same fixed
+hashability and equality rules as set displays.
 Set-like operations on dictionary views and other native collection methods
 remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the

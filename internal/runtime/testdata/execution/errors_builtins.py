@@ -918,3 +918,30 @@ round(FailingRound(), 2)
 # error: TypeError
 # message: "keywords must be strings"
 round(**{1: 2})
+# ---
+# case: dictionary keys argument
+# error: TypeError
+# message: "dict.keys() takes no arguments (1 given)"
+{}.keys(1)
+# ---
+# case: dictionary keys keyword argument
+# error: TypeError
+# message: "dict.keys() takes no keyword arguments"
+{}.keys(value=1)
+# ---
+# case: dictionary keys iterator key mutation
+# error: RuntimeError
+# message: "dictionary changed size during iteration"
+values = {'first': 1}
+keys = iter(values.keys())
+values['second'] = 2
+next(keys)
+# ---
+# case: dictionary keys iterator replaced key set
+# error: RuntimeError
+# message: "dictionary keys changed during iteration"
+values = {'first': 1, 'second': 2}
+keys = iter(values.keys())
+del values['first']
+values['third'] = 3
+next(keys)

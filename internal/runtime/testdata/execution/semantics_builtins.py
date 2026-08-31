@@ -884,3 +884,23 @@ assert round(value) == ('rounded', None)
 assert round(value, None) == ('rounded', None)
 assert round(value, 3) == ('rounded', 3)
 assert round_calls == [None, None, 3]
+# ---
+# case: dictionary keys view
+values = {'first': 1, 'second': 2}
+keys = values.keys()
+assert type(keys).__name__ == 'dict_keys'
+assert repr(keys) == "dict_keys(['first', 'second'])"
+assert len(keys) == 2
+assert bool(keys)
+assert list(keys) == ['first', 'second']
+values['third'] = 3
+assert len(keys) == 3
+assert list(keys) == ['first', 'second', 'third']
+values['first'] = 10
+assert list(keys) == ['first', 'second', 'third']
+first = iter(keys)
+second = iter(keys)
+assert next(first) == 'first'
+assert next(second) == 'first'
+assert list({}.keys()) == []
+assert not {}.keys()
