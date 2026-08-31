@@ -73,10 +73,11 @@ func (compiler *compilerState) annotationSource(expression compilerast.Expr) (st
 	return source[span.Start.Offset:span.End.Offset], nil
 }
 
-// compileFunctionAnnotations creates the lazy PEP 649 annotation callable and
-// leaves it below the function body payload for later attribute attachment.
+// compileFunctionAnnotations creates the lazy PEP 649 annotation callable with
+// its public qualified name and leaves it below the function body payload.
 func (compiler *compilerState) compileFunctionAnnotations(
 	statement *compilerast.FunctionDefStmt,
+	qualifiedName string,
 ) (bool, error) {
 	scope := compiler.table.ScopeFor(statement, resolver.Annotations, 0)
 	if scope == nil || scope.Kind != resolver.AnnotationScope {
@@ -89,7 +90,7 @@ func (compiler *compilerState) compileFunctionAnnotations(
 	child := compiler.newAnnotationCompiler(
 		statement,
 		scope,
-		compiler.childQualifiedName(statement.Name)+".__annotate__",
+		qualifiedName,
 		false,
 	)
 	if err := child.emitAnnotationFormatGuard(statement.Span()); err != nil {

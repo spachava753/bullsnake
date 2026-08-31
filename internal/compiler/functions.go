@@ -33,7 +33,10 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	if err != nil {
 		return err
 	}
-	annotations, err := compiler.compileFunctionAnnotations(statement)
+	annotations, err := compiler.compileFunctionAnnotations(
+		statement,
+		compiler.childQualifiedName(statement.Name)+".__annotate__",
+	)
 	if err != nil {
 		return err
 	}
@@ -121,6 +124,13 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	); err != nil {
 		return err
 	}
+	annotations, err := generic.compileFunctionAnnotations(
+		statement,
+		compiler.childQualifiedName(statement.Name)+".__annotate__",
+	)
+	if err != nil {
+		return err
+	}
 
 	function := generic.newFunctionCompiler(
 		statement,
@@ -145,7 +155,7 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 		functionCode,
 		false,
 		false,
-		false,
+		annotations,
 		statement.Span(),
 	); err != nil {
 		return err
@@ -193,9 +203,6 @@ func validateBasicGenericFunction(
 	if len(statement.Decorators) != 0 {
 		return compiler.error(statement.Span(), "generic function decorators are not compiled")
 	}
-	if statement.Returns != nil || parametersHaveAnnotations(statement.Parameters) {
-		return compiler.error(statement.Span(), "generic function annotations are not compiled")
-	}
 	if parametersHaveDefaults(statement.Parameters) {
 		return compiler.error(statement.Span(), "generic function defaults are not compiled")
 	}
@@ -203,24 +210,6 @@ func validateBasicGenericFunction(
 		return compiler.error(statement.Span(), "generic function variadic parameters are not compiled")
 	}
 	return nil
-}
-
-// parametersHaveAnnotations checks every parameter category represented by the
-// AST, including variadic parameters stored outside the ordinary slices.
-func parametersHaveAnnotations(parameters compilerast.Parameters) bool {
-	for _, group := range [][]compilerast.Parameter{
-		parameters.PositionalOnly,
-		parameters.Positional,
-		parameters.KeywordOnly,
-	} {
-		for _, parameter := range group {
-			if parameter.Annotation != nil {
-				return true
-			}
-		}
-	}
-	return (parameters.VarArg != nil && parameters.VarArg.Annotation != nil) ||
-		(parameters.KeywordVarArg != nil && parameters.KeywordVarArg.Annotation != nil)
 }
 
 func parametersHaveDefaults(parameters compilerast.Parameters) bool {

@@ -195,9 +195,11 @@ the parameter names out of the defining namespace.
 
 A basic generic function uses the same hidden-scope rule. The hidden function
 creates fresh `TypeVar` objects, builds the user function with closure cells for
-any parameters its body reads, attaches the stable `__type_params__` tuple, and
-returns the function to the defining scope. The hidden scope does not appear in
-the user function's qualified name.
+any parameters its body or annotations read, attaches the stable
+`__type_params__` tuple, and returns the function to the defining scope. Its lazy
+annotation callable uses the same cells, or retained source strings when future
+annotations are active. The hidden scope does not appear in the user function's
+qualified name.
 
 A bound, tuple constraint, or default owns another hidden evaluator that captures
 the same definition scope. Reading `T.__bound__`, `T.__constraints__`, or

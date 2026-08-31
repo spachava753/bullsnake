@@ -28,3 +28,35 @@ def ordinary(value):
 ordinary_parameters = ordinary.__type_params__
 assert ordinary_parameters == ()
 assert ordinary.__type_params__ is ordinary_parameters
+
+# ---
+# case: generic function annotations capture their type parameters lazily
+annotation_calls = 0
+
+def observe(value):
+    global annotation_calls
+    annotation_calls += 1
+    return value
+
+def identity[T](value: observe(T)) -> T:
+    return value
+
+identity_parameter = identity.__type_params__[0]
+assert annotation_calls == 0
+identity_annotations = identity.__annotations__
+assert annotation_calls == 1
+assert identity_annotations['value'] is identity_parameter
+assert identity_annotations['return'] is identity_parameter
+assert identity.__annotations__ is identity_annotations
+
+# ---
+# case: future generic function annotations retain source strings
+from __future__ import annotations
+
+def future_identity[T](value: T) -> T:
+    return value
+
+future_annotations = future_identity.__annotations__
+assert future_annotations['value'] == 'T'
+assert future_annotations['return'] == 'T'
+assert future_identity.__type_params__[0].__name__ == 'T'
