@@ -55,3 +55,12 @@ def missing_default[T = MissingDefault]():
     return T
 
 missing_default.__type_params__[0].__default__
+
+# ---
+# case: variadic generic function default failures remain lazy
+# error: NameError
+# message: "name 'MissingVariadicDefault' is not defined"
+def missing_variadic_default[*Ts = MissingVariadicDefault]():
+    return Ts
+
+missing_variadic_default.__type_params__[0].__default__

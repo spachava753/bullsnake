@@ -193,8 +193,8 @@ them in closure cells, builds the lazy alias, and attaches the same objects as
 `Alias.__type_params__`. Calling the hidden function at the alias statement keeps
 the parameter names out of the defining namespace.
 
-A basic generic function uses the same hidden-scope rule. The hidden function
-creates fresh `TypeVar` objects, builds the user function with closure cells for
+A generic function uses the same hidden-scope rule. The hidden function creates
+fresh type-parameter objects, builds the user function with closure cells for
 any parameters its body or annotations read, attaches the stable
 `__type_params__` tuple, and returns the function to the defining scope. Its lazy
 annotation callable uses the same cells, or retained source strings when future

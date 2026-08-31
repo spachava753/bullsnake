@@ -200,3 +200,27 @@ assert function_default_calls == 1
 dependent_parameters = dependent.__type_params__
 assert dependent_parameters[1].__default__ is dependent_parameters[0]
 assert f'{no_default.__type_params__[0].__default__!r}' == 'typing.NoDefault'
+
+# ---
+# case: generic functions create variadic type parameters and defaults
+class VariadicFallback:
+    pass
+
+def variadic[*Ts, **P]():
+    return (Ts, P)
+
+def variadic_defaults[*Ts = (VariadicFallback,), **P = (VariadicFallback,)]():
+    return (Ts, P)
+
+variadic_parameters = variadic.__type_params__
+assert f'{variadic_parameters[0]!r}' == 'Ts'
+assert f'{variadic_parameters[1]!r}' == 'P'
+variadic_result = variadic()
+assert variadic_result[0] is variadic_parameters[0]
+assert variadic_result[1] is variadic_parameters[1]
+assert variadic_parameters[1].args is not variadic_parameters[1].kwargs
+assert f'{variadic_parameters[0].__default__!r}' == 'typing.NoDefault'
+assert f'{variadic_parameters[1].__default__!r}' == 'typing.NoDefault'
+default_parameters = variadic_defaults.__type_params__
+assert default_parameters[0].__default__[0] is VariadicFallback
+assert default_parameters[1].__default__[0] is VariadicFallback

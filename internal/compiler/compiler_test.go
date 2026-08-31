@@ -66,7 +66,7 @@ func TestMissingResolverTableError(t *testing.T) {
 }
 
 func TestGenericFunctionCompilerBoundary(t *testing.T) {
-	module, err := parser.Parse("input.py", "def generic[*Ts]():\n    pass\n")
+	module, err := parser.Parse("input.py", "def generic[T]():\n    yield T\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestGenericFunctionCompilerBoundary(t *testing.T) {
 	if !errors.As(err, &compileErr) {
 		t.Fatalf("error = %#v, want *compiler.Error", err)
 	}
-	if compileErr.Message != "generic function variadic type parameters are not compiled" {
+	if compileErr.Message != "generic generator functions are not compiled" {
 		t.Fatalf("message = %q", compileErr.Message)
 	}
 }

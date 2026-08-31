@@ -76,14 +76,6 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 func (compiler *compilerState) compileGenericFunctionDefinition(
 	statement *compilerast.FunctionDefStmt,
 ) error {
-	for _, parameter := range statement.TypeParameters {
-		if parameter.Kind != compilerast.TypeVariable {
-			return compiler.error(
-				parameter.Range,
-				"generic function variadic type parameters are not compiled",
-			)
-		}
-	}
 	typeScope := compiler.table.ScopeFor(statement, resolver.TypeParameters, 0)
 	if typeScope == nil || typeScope.Kind != resolver.TypeParametersScope {
 		return compiler.error(
@@ -129,7 +121,14 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 		); err != nil {
 			return err
 		}
-		if err := generic.emit(bytecode.MakeTypeVar, 0, parameter.Range); err != nil {
+		makeOpcode := bytecode.MakeTypeVar
+		switch parameter.Kind {
+		case compilerast.TypeVariableTuple:
+			makeOpcode = bytecode.MakeTypeVarTuple
+		case compilerast.ParameterSpecification:
+			makeOpcode = bytecode.MakeParamSpec
+		}
+		if err := generic.emit(makeOpcode, 0, parameter.Range); err != nil {
 			return err
 		}
 		if parameter.Bound != nil {

@@ -187,8 +187,8 @@ The current compiler translates:
   patterns with `**rest`, and class patterns with positional or named fields
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, lazy function annotations, and generic functions
-  with ordinary `TypeVar` parameters, lazy bounds or tuple constraints, and lazy
-  defaults
+  with `TypeVar`, `TypeVarTuple`, and `ParamSpec` parameters, including lazy
+  bounds, tuple constraints, and defaults
 - type aliases with lazy values and definition-scope captures, including
   `TypeVar`, `TypeVarTuple`, and `ParamSpec` parameters with lazy defaults;
   ordinary TypeVars also support lazy bounds and tuple constraints
@@ -239,24 +239,27 @@ an outer hidden child that creates fresh type parameters and closes the value
 child over them. Bound, tuple-constraint, and default expressions use their own
 lazy children with the same scope rules.
 
-A basic generic function also uses an outer hidden child. It creates plain
-unbounded TypeVars, stores them in cells captured by the function body and lazy
-annotation callable, attaches the same objects as one stable
-`f.__type_params__` tuple, and returns the function. Future annotations retain
-source strings and require no TypeVar capture. Default expressions run in the
-defining scope before TypeVar creation; their completed tuple and keyword map
-are passed into the hidden child and attached without reevaluation. Decorator
-expressions run first in source order; their values wrap the completed generic
-function in reverse order. Generic decorators, defaults, and annotations use
-their ordinary code paths; all function parameter kinds retain the same local
-layout and call binding. An ordinary TypeVar bound, tuple constraint, or default
-uses the same lazy child and cache behavior as a generic alias. Type parameter
-names do not enter the defining namespace, and the hidden child's name does not
-alter user-facing function or annotation qualified names.
+A generic function also uses an outer hidden child. It creates `TypeVar`,
+`TypeVarTuple`, and `ParamSpec` objects. Parameters used by the function body or
+lazy annotation callable live in cells. The child attaches the same objects as
+one stable `f.__type_params__` tuple and returns the function. Future annotations
+retain source strings and require no type-parameter capture.
 
-The compiler rejects template-string execution, generic classes, variadic type
-parameters on generic functions, async definitions, asynchronous
-comprehensions, `async for`, `async with`, and coroutines.
+Default expressions run in the defining scope before type-parameter creation.
+Their completed tuple and keyword map pass into the hidden child without
+reevaluation. Decorator expressions run first in source order, then their values
+wrap the completed generic function in reverse order. Decorators, defaults, and
+annotations use their ordinary function code paths. Every parameter kind keeps
+the ordinary local layout and call binding.
+
+An ordinary TypeVar bound, tuple constraint, or default uses the same lazy child
+and cache behavior as a generic alias. Type parameter names do not enter the
+defining namespace. The hidden child's name does not alter user-facing function
+or annotation qualified names.
+
+The compiler rejects template-string execution, generic classes, generic
+generator functions, async definitions, asynchronous comprehensions,
+`async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.
 
@@ -379,8 +382,9 @@ keyword unpacking. Defaults retain the objects created when the definition ran.
 Calls reject duplicate, missing, unexpected, or non-string keyword arguments
 with Python exceptions. Generator calls use the same binding path but retain the
 new frame without running its body. Every function exposes one stable
-`__type_params__` tuple. A basic generic function's tuple contains the same plain
-TypeVars captured by its body; an ordinary function's tuple is empty.
+`__type_params__` tuple. A generic function's tuple contains the same parameter
+objects captured by its body and annotations; an ordinary function's tuple is
+empty.
 
 A type alias has runtime type name `typing.TypeAliasType`. Its repr is its
 declared name. It exposes `__name__`, `__module__`, `__type_params__`, and lazy
