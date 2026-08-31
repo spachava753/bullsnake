@@ -166,12 +166,25 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
-	case *stringStartswithMethod:
-		return executeStringStartswithCall(
+	case *stringEndswithMethod:
+		return executeStringTailmatchCall(
 			caller,
 			instruction,
 			base,
-			callable,
+			callable.value,
+			"endswith",
+			true,
+			arguments,
+			keywords,
+		)
+	case *stringStartswithMethod:
+		return executeStringTailmatchCall(
+			caller,
+			instruction,
+			base,
+			callable.value,
+			"startswith",
+			false,
 			arguments,
 			keywords,
 		)
@@ -485,6 +498,7 @@ func isCallableValue(value Value) bool {
 		*nativeTypeValue,
 		*propertyAccessorMethod,
 		*stringJoinMethod,
+		*stringEndswithMethod,
 		*stringStartswithMethod,
 		*stringSplitMethod,
 		*stringStripMethod,

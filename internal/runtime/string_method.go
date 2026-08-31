@@ -14,6 +14,10 @@ type stringStartswithMethod struct {
 	value *stringValue
 }
 
+type stringEndswithMethod struct {
+	value *stringValue
+}
+
 func (*stringJoinMethod) TypeName() string { return "builtin_function_or_method" }
 func (*stringJoinMethod) Repr() string {
 	return "<built-in method join of str object>"
@@ -26,6 +30,14 @@ func (*stringStartswithMethod) Repr() string {
 }
 func (*stringStartswithMethod) isValue() {}
 
+func (*stringEndswithMethod) TypeName() string { return "builtin_function_or_method" }
+func (*stringEndswithMethod) Repr() string {
+	return "<built-in method endswith of str object>"
+}
+func (*stringEndswithMethod) isValue() {}
+
+// executeStringAttributeLoad returns the bound native method implemented for
+// one immutable string or raises the normal missing-attribute error.
 func executeStringAttributeLoad(
 	frame *frame,
 	instruction int,
@@ -35,6 +47,8 @@ func executeStringAttributeLoad(
 	switch name {
 	case "join":
 		return pushOutcome(frame, instruction, &stringJoinMethod{separator: value})
+	case "endswith":
+		return pushOutcome(frame, instruction, &stringEndswithMethod{value: value})
 	case "startswith":
 		return pushOutcome(frame, instruction, &stringStartswithMethod{value: value})
 	case "split":
@@ -84,13 +98,15 @@ func executeStringJoinCall(
 	return startCollectionConstructor(caller, call)
 }
 
-// executeStringStartswithCall applies positional-only prefix and slice bounds
+// executeStringTailmatchCall applies positional-only candidate and slice bounds
 // before checking one string or an ordered tuple of strings.
-func executeStringStartswithCall(
+func executeStringTailmatchCall(
 	caller *frame,
 	instruction int,
 	base int,
-	method *stringStartswithMethod,
+	value *stringValue,
+	methodName string,
+	suffix bool,
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
@@ -98,21 +114,21 @@ func executeStringStartswithCall(
 		discardCallSegment(caller, base)
 		return raiseOutcome(newException(
 			"TypeError",
-			"startswith() takes no keyword arguments",
+			methodName+"() takes no keyword arguments",
 		)), nil
 	}
 	if len(arguments) == 0 {
 		discardCallSegment(caller, base)
 		return raiseOutcome(newException(
 			"TypeError",
-			"startswith() takes at least 1 argument (0 given)",
+			methodName+"() takes at least 1 argument (0 given)",
 		)), nil
 	}
 	if len(arguments) > 3 {
 		discardCallSegment(caller, base)
 		return raiseOutcome(newException(
 			"TypeError",
-			"startswith() takes at most 3 arguments ("+
+			methodName+"() takes at most 3 arguments ("+
 				strconv.Itoa(len(arguments))+" given)",
 		)), nil
 	}
@@ -125,17 +141,19 @@ func executeStringStartswithCall(
 	if len(arguments) == 3 {
 		endValue = arguments[2]
 	}
-	length := len(stringCodepointOffsets(method.value.value)) - 1
-	start, exception := normalizeStartswithBound(startValue, length, true)
+	length := len(stringCodepointOffsets(value.value)) - 1
+	start, exception := normalizeStringTailBound(startValue, length, true)
 	if exception == nil {
 		var end int
-		end, exception = normalizeStartswithBound(endValue, length, false)
+		end, exception = normalizeStringTailBound(endValue, length, false)
 		if exception == nil {
-			matched, matchException := stringStartswith(
-				method.value.value,
+			matched, matchException := stringTailmatch(
+				value.value,
 				arguments[0],
 				start,
 				end,
+				methodName,
+				suffix,
 			)
 			exception = matchException
 			if exception == nil {
@@ -148,9 +166,9 @@ func executeStringStartswithCall(
 	return raiseOutcome(exception), nil
 }
 
-// normalizeStartswithBound maps None and arbitrary-size integers into one
+// normalizeStringTailBound maps None and arbitrary-size integers into one
 // tail-match bound while preserving a start beyond the string's end.
-func normalizeStartswithBound(
+func normalizeStringTailBound(
 	value Value,
 	length int,
 	start bool,
@@ -182,28 +200,30 @@ func normalizeStartswithBound(
 	return int(index.Int64()), nil
 }
 
-// stringStartswith validates one prefix or tuple entries in source order and
-// stops before inspecting later tuple entries once one matches.
-func stringStartswith(
+// stringTailmatch validates tuple entries in source order and stops before
+// inspecting later entries once one prefix or suffix matches.
+func stringTailmatch(
 	value string,
-	prefix Value,
+	candidate Value,
 	start int,
 	end int,
+	methodName string,
+	suffix bool,
 ) (bool, *Exception) {
-	switch prefix := prefix.(type) {
+	switch candidate := candidate.(type) {
 	case *stringValue:
-		return stringStartswithCandidate(value, prefix.value, start, end), nil
+		return stringTailmatchCandidate(value, candidate.value, start, end, suffix), nil
 	case *tupleValue:
-		for _, candidate := range prefix.elements {
-			text, ok := candidate.(*stringValue)
+		for _, alternative := range candidate.elements {
+			text, ok := alternative.(*stringValue)
 			if !ok {
 				return false, newException(
 					"TypeError",
-					"tuple for startswith must only contain str, not "+
-						candidate.TypeName(),
+					"tuple for "+methodName+" must only contain str, not "+
+						alternative.TypeName(),
 				)
 			}
-			if stringStartswithCandidate(value, text.value, start, end) {
+			if stringTailmatchCandidate(value, text.value, start, end, suffix) {
 				return true, nil
 			}
 		}
@@ -211,20 +231,25 @@ func stringStartswith(
 	default:
 		return false, newException(
 			"TypeError",
-			"startswith first arg must be str or a tuple of str, not "+
-				prefix.TypeName(),
+			methodName+" first arg must be str or a tuple of str, not "+
+				candidate.TypeName(),
 		)
 	}
 }
 
-func stringStartswithCandidate(value, prefix string, start, end int) bool {
+func stringTailmatchCandidate(value, candidate string, start, end int, suffix bool) bool {
 	valueOffsets := stringCodepointOffsets(value)
-	prefixLength := len(stringCodepointOffsets(prefix)) - 1
+	candidateLength := len(stringCodepointOffsets(candidate)) - 1
 	valueLength := len(valueOffsets) - 1
-	if start > end || start > valueLength || prefixLength > end-start {
+	if start > end || start > valueLength || candidateLength > end-start {
 		return false
 	}
-	return value[valueOffsets[start]:valueOffsets[start+prefixLength]] == prefix
+	matchStart := start
+	if suffix {
+		matchStart = end - candidateLength
+	}
+	return value[valueOffsets[matchStart]:valueOffsets[matchStart+candidateLength]] ==
+		candidate
 }
 
 // finishStringJoin checks every materialized item before concatenating the

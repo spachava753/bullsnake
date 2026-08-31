@@ -1054,3 +1054,33 @@ def failing_join_values():
 # error: TypeError
 # message: "strip arg must be None or str"
 'a'.strip(1)
+# ---
+# case: string endswith missing suffix
+# error: TypeError
+# message: "endswith() takes at least 1 argument (0 given)"
+''.endswith()
+# ---
+# case: string endswith extra argument
+# error: TypeError
+# message: "endswith() takes at most 3 arguments (4 given)"
+''.endswith('', 0, 0, 0)
+# ---
+# case: string endswith keyword argument
+# error: TypeError
+# message: "endswith() takes no keyword arguments"
+''.endswith(suffix='')
+# ---
+# case: string endswith invalid suffix
+# error: TypeError
+# message: "endswith first arg must be str or a tuple of str, not int"
+''.endswith(1)
+# ---
+# case: string endswith invalid tuple suffix
+# error: TypeError
+# message: "tuple for endswith must only contain str, not int"
+'abc'.endswith(('missing', 1))
+# ---
+# case: string endswith invalid bound
+# error: TypeError
+# message: "slice indices must be integers or None or have an __index__ method"
+'abc'.endswith('c', 'start')

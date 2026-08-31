@@ -990,3 +990,22 @@ strip = '  value  '.strip
 assert callable(strip)
 assert strip() == 'value'
 assert getattr('..value..', 'strip')('.') == 'value'
+# ---
+# case: string endswith suffixes and bounds
+text = 'alpha\u2603omega'
+assert text.endswith('omega')
+assert text.endswith('\u2603', 0, 6)
+assert text.endswith('alpha', 0, 5)
+assert not text.endswith('alpha', 1, 5)
+assert text.endswith(('missing', 'omega'))
+assert text.endswith(('omega', 1))
+assert not text.endswith(())
+assert 'abc'.endswith('', 3)
+assert not 'abc'.endswith('', 4)
+# ---
+# case: retained string endswith method
+endswith = 'prefix-value'.endswith
+assert callable(endswith)
+assert endswith('value')
+assert not endswith('prefix')
+assert getattr('value', 'endswith')('lue')
