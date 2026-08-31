@@ -433,9 +433,12 @@ or user `__next__` frame. `map` currently accepts one iterable and applies its
 callable lazily. `filter` accepts one predicate and iterable, retains the original
 item while the predicate and its truth method run, and treats `None` as the
 identity predicate. Pulling either kind of item may suspend in the source
-iterator or in Python call and truth frames. Multiple map iterables and Python
-3.14's `strict` keyword remain unsupported. User `__index__` conversion, range
-subscription, and range-specific methods also remain unsupported.
+iterator or in Python call and truth frames. `zip` accepts any number of
+positional iterables, resolves their iterators from left to right at construction,
+and lazily yields tuples until the shortest source is exhausted. Multiple map
+iterables and Python 3.14's `strict` modes for map and zip remain unsupported.
+User `__index__` conversion, range subscription, and range-specific methods also
+remain unsupported.
 
 The `list`, `tuple`, `set`, `frozenset`, and `dict` type objects accept zero or
 one positional source. Sequence, set, and frozen-set constructors collect
@@ -628,8 +631,8 @@ rounding for an optional decimal digit count. User instances dispatch class
 `__round__` through the frame loop.
 
 The builtin namespace contains the current exception classes; native `bool`,
-`int`, `str`, `range`, `enumerate`, `map`, `filter`, `list`, `tuple`, `set`,
-`frozenset`, `dict`, `object`, and `type` objects; `abs`; `all`; `any`;
+`int`, `str`, `range`, `enumerate`, `map`, `filter`, `zip`, `list`, `tuple`,
+`set`, `frozenset`, `dict`, `object`, and `type` objects; `abs`; `all`; `any`;
 `callable`; `classmethod`; `delattr`; `dir`; `getattr`; `hasattr`; `hash`;
 `isinstance`; `issubclass`; one-argument `iter`; `len`; positional `max` and
 `min` calls with two or more arguments; `next`; `repr`; native-sequence

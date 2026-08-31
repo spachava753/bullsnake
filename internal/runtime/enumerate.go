@@ -198,6 +198,15 @@ func executeEnumerateNext(
 			}
 			appendCollectionElement(call.request.collection, pair)
 		}
+	case *zipValue:
+		return executeZipNext(frame, &zipCall{
+			zipper: iterator,
+			request: &iterationCall{
+				kind:        iterationEnumerateNext,
+				instruction: call.request.instruction,
+				enumeration: call,
+			},
+		})
 	case *generatorValue:
 		if iterator.kind != generatorObject {
 			return raiseOutcome(newException(

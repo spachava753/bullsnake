@@ -1321,3 +1321,62 @@ assert next(iterator, 'done') == 'done'
 reverse = reversed
 assert callable(reverse)
 assert list(reverse(['a', 'b'])) == ['b', 'a']
+# ---
+# case: lazy zip values
+assert list(zip()) == []
+assert list(zip([1, 2, 3], 'ab')) == [(1, 'a'), (2, 'b')]
+assert list(zip(range(3), b'ab', (10, 20, 30))) == [
+    (0, 97, 10),
+    (1, 98, 20),
+]
+assert type(zip()).__name__ == 'zip'
+assert repr(zip()) == '<zip object>'
+assert next(zip(), 'done') == 'done'
+total = 0
+for left, right in zip([1, 2], [10, 20]):
+    total += left + right
+assert total == 33
+# ---
+# case: zip iterator composition
+class Counter:
+    def __init__(self):
+        self.value = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.value == 2:
+            raise StopIteration
+        self.value += 1
+        return self.value
+
+def generate():
+    yield 4
+    yield 5
+
+assert list(zip(Counter(), generate())) == [(1, 4), (2, 5)]
+assert list(zip(map(lambda value: value * 2, [1, 2]),
+                filter(lambda value: value > 1, [1, 2, 3]))) == [
+    (2, 2),
+    (4, 3),
+]
+assert list(enumerate(zip(['a'], ['b']))) == [(0, ('a', 'b'))]
+assert list(map(lambda pair: pair[0] + pair[1], zip([1, 2], [10, 20]))) == [
+    11,
+    22,
+]
+assert list(filter(lambda pair: pair[0],
+                   zip([True, False], [1, 2]))) == [(True, 1)]
+# ---
+# case: zip shortest input consumption
+first = iter([1, 2, 3])
+second = iter([10])
+iterator = zip(first, second)
+assert next(iterator) == (1, 10)
+assert next(iterator, 'done') == 'done'
+assert next(first) == 3
+assert next(second, 'done') == 'done'
+zip_type = zip
+assert callable(zip_type)
+assert list(zip_type(['a'], ['b'])) == [('a', 'b')]

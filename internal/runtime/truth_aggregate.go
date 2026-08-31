@@ -187,6 +187,15 @@ func continueTruthAggregate(
 				aggregate:   call,
 			},
 		})
+	case *zipValue:
+		return executeZipNext(frame, &zipCall{
+			zipper: iterator,
+			request: &iterationCall{
+				kind:        iterationTruthAggregateNext,
+				instruction: call.instruction,
+				aggregate:   call,
+			},
+		})
 	case *enumerateValue:
 		return executeEnumerateNext(frame, &enumerateCall{
 			enumeration: iterator,

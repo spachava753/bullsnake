@@ -377,14 +377,17 @@ ordinary attribute path. The `dir` builtin reports sorted names from the current
 frame or from implemented module, class-MRO, and instance stores. Custom
 `__dir__` dispatch remains later work. `object` is the native root class for
 native values, built-in exceptions, and ordinary user classes. A user class may
-sole base; combining native and user direct bases still requires a unified MRO
-representation. The existing `bool`, `int`, `str`, `range`, `enumerate`, `map`,
-`list`, `tuple`, `set`, `frozenset`, and `dict` constructors are those same type
-objects rather than separate function stand-ins. Ranges retain
-arbitrary-precision integer bounds and produce values lazily through the ordinary
-native iterator path. Enumerate, map, and filter objects wrap that iterator
-contract and may suspend while a generator, user iterator, mapped callable, or
-filter predicate and truth method runs. String instances expose bound `count`,
+use `object` as its sole base; combining native and user direct bases still
+requires a unified MRO representation. The existing `bool`, `int`, `str`,
+`range`, `enumerate`, `map`, `filter`, `zip`, `list`, `tuple`, `set`, `frozenset`,
+and `dict` constructors are those same type objects rather than separate
+function stand-ins. Ranges retain arbitrary-precision integer bounds and produce
+values lazily through the ordinary native iterator path. Enumerate, map, filter,
+and zip objects wrap that iterator contract and may suspend while a generator,
+user iterator, mapped callable, or filter predicate and truth method runs. Zip
+resolves every source iterator from left to right when constructed, then yields
+tuples until the shortest source is exhausted. Strict zip mode remains later
+work. String instances expose bound `count`,
 `endswith`, `format`, `join`, `lower`, `removeprefix`, `replace`, `split`,
 `splitlines`, `startswith`, and `strip`. Join collects through that iterator path
 before validating and concatenating its items. Format handles automatic fields,

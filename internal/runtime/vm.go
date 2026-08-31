@@ -1001,6 +1001,7 @@ route:
 				current.iteration.kind != iterationTruthAggregateIterator &&
 				current.iteration.kind != iterationMapIterator &&
 				current.iteration.kind != iterationFilterIterator &&
+				current.iteration.kind != iterationZipIterator &&
 				isStopIteration(exception) {
 				call := current.iteration
 				current.iteration = nil

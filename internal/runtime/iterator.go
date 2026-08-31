@@ -23,20 +23,24 @@ const (
 	iterationMapNext
 	iterationFilterIterator
 	iterationFilterNext
+	iterationZipIterator
+	iterationZipNext
 )
 
 type iterationCall struct {
-	kind         iterationCallKind
-	instruction  int
-	target       int
-	iterator     Value
-	defaultValue Value
-	hasDefault   bool
-	collection   *collectionConstructorCall
-	enumeration  *enumerateCall
-	aggregate    *truthAggregateCall
-	mapping      *mapCall
-	filtering    *filterCall
+	kind           iterationCallKind
+	instruction    int
+	target         int
+	iterator       Value
+	defaultValue   Value
+	hasDefault     bool
+	collection     *collectionConstructorCall
+	enumeration    *enumerateCall
+	aggregate      *truthAggregateCall
+	mapping        *mapCall
+	filtering      *filterCall
+	zipConstructor *zipConstructorCall
+	zipping        *zipCall
 }
 
 type sequenceIterator struct {
@@ -206,6 +210,8 @@ func newIterator(value Value) (Value, bool) {
 		return value, true
 	case *filterValue:
 		return value, true
+	case *zipValue:
+		return value, true
 	case *generatorValue:
 		if value.kind == generatorObject {
 			return value, true
@@ -363,6 +369,19 @@ func executeForIter(
 			request: request,
 		})
 	}
+	if zipping, ok := value.(*zipValue); ok {
+		frame.pop()
+		request := &iterationCall{
+			kind:        iterationForNext,
+			instruction: index,
+			target:      target,
+			iterator:    zipping,
+		}
+		return executeZipNext(frame, &zipCall{
+			zipper:  zipping,
+			request: request,
+		})
+	}
 	if enumeration, ok := value.(*enumerateValue); ok {
 		frame.pop()
 		request := &iterationCall{
@@ -451,6 +470,7 @@ func executeIterationSpecial(
 		call.kind != iterationTruthAggregateIterator &&
 		call.kind != iterationMapIterator &&
 		call.kind != iterationFilterIterator &&
+		call.kind != iterationZipIterator &&
 		isStopIteration(outcome.exception) {
 		return finishIterationStop(frame, call, outcome.exception)
 	}
@@ -537,6 +557,10 @@ func finishIterationCall(
 		return finishFilterIterator(frame, call.filtering, result)
 	case iterationFilterNext:
 		return executeFilterItem(frame, call.filtering, result)
+	case iterationZipIterator:
+		return finishZipIterator(frame, call.zipConstructor, result)
+	case iterationZipNext:
+		return finishZipItem(frame, call.zipping, result)
 	default:
 		return instructionOutcome{}, frame.failure(
 			call.instruction,
@@ -577,6 +601,8 @@ func finishIterationStop(
 		return finishMapStop(frame, call.mapping)
 	case iterationFilterNext:
 		return finishFilterStop(frame, call.filtering)
+	case iterationZipNext:
+		return finishZipStop(frame, call.zipping)
 	default:
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
@@ -593,6 +619,8 @@ func isIteratorValue(value Value) bool {
 	case *mapValue:
 		return true
 	case *filterValue:
+		return true
+	case *zipValue:
 		return true
 	case *generatorValue:
 		return value.kind == generatorObject

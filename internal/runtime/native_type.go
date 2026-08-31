@@ -46,6 +46,7 @@ var (
 	enumerateNativeType       = builtinNativeType("enumerate")
 	mapNativeType             = builtinNativeType("map")
 	filterNativeType          = builtinNativeType("filter")
+	zipNativeType             = builtinNativeType("zip")
 	tupleNativeType           = builtinNativeType("tuple")
 	listNativeType            = builtinNativeType("list")
 	dictNativeType            = builtinNativeType("dict")
@@ -77,6 +78,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 	enumerateNativeType,
 	mapNativeType,
 	filterNativeType,
+	zipNativeType,
 	tupleNativeType,
 	listNativeType,
 	setNativeType,
@@ -97,6 +99,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"enumerate":                        enumerateNativeType,
 	"map":                              mapNativeType,
 	"filter":                           filterNativeType,
+	"zip":                              zipNativeType,
 	"tuple":                            tupleNativeType,
 	"list":                             listNativeType,
 	"dict":                             dictNativeType,
@@ -210,6 +213,8 @@ func executeNativeTypeCall(
 		return executeMapTypeCall(caller, instruction, base, arguments, keywords)
 	case filterNativeType:
 		return executeFilterTypeCall(caller, instruction, base, arguments, keywords)
+	case zipNativeType:
+		return executeZipTypeCall(caller, instruction, base, arguments, keywords)
 	case tupleNativeType, listNativeType, setNativeType, frozenSetNativeType,
 		dictNativeType:
 		return executeCollectionTypeCall(

@@ -145,6 +145,15 @@ func executeFilterNext(frame *frame, call *filterCall) (instructionOutcome, erro
 				filtering:   call,
 			},
 		})
+	case *zipValue:
+		return executeZipNext(frame, &zipCall{
+			zipper: iterator,
+			request: &iterationCall{
+				kind:        iterationFilterNext,
+				instruction: call.request.instruction,
+				filtering:   call,
+			},
+		})
 	case *generatorValue:
 		if iterator.kind != generatorObject {
 			return raiseOutcome(newException(

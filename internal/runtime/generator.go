@@ -34,6 +34,7 @@ const (
 	generatorTruthAggregate
 	generatorMap
 	generatorFilter
+	generatorZip
 	generatorCall
 	generatorClose
 	generatorDelegate
@@ -53,6 +54,7 @@ type generatorResume struct {
 	aggregate    *truthAggregateCall
 	mapping      *mapCall
 	filtering    *filterCall
+	zipping      *zipCall
 	asyncNext    *asyncGeneratorNextValue
 	asyncThrow   *asyncGeneratorThrowValue
 }
@@ -213,6 +215,18 @@ func executeBuiltinNext(
 		}
 		return executeMapNext(caller, &mapCall{
 			mapping: iterator,
+			request: request,
+		})
+	case *zipValue:
+		discardCallSegment(caller, base)
+		request := &iterationCall{
+			kind:         iterationBuiltinNext,
+			instruction:  instruction,
+			defaultValue: defaultValue,
+			hasDefault:   hasDefault,
+		}
+		return executeZipNext(caller, &zipCall{
+			zipper:  iterator,
 			request: request,
 		})
 	case *enumerateValue:
@@ -944,6 +958,34 @@ func suspendGenerator(
 		}
 		return caller, nil, nil
 	}
+	if generator.resume.kind == generatorZip {
+		call := generator.resume.zipping
+		if call == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator zip has no continuation state",
+			)
+		}
+		active.previous = nil
+		generator.state = generatorSuspended
+		outcome, err := finishZipItem(caller, call, value)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind == called {
+			return outcome.frame, nil, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				call.request.instruction,
+				"invalid zip generator yield outcome",
+			)
+		}
+		return caller, nil, nil
+	}
 	if (generator.resume.kind == generatorIteration ||
 		generator.resume.kind == generatorDelegate) &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
@@ -1105,6 +1147,28 @@ func finishGenerator(
 			return nil, nil, caller.failure(
 				resume.filtering.request.instruction,
 				"invalid filter generator completion",
+			)
+		}
+		return caller, nil, nil
+	case generatorZip:
+		if resume.zipping == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator zip completion has no continuation state",
+			)
+		}
+		generator.complete()
+		outcome, err := finishZipStop(caller, resume.zipping)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				resume.zipping.request.instruction,
+				"invalid zip generator completion",
 			)
 		}
 		return caller, nil, nil

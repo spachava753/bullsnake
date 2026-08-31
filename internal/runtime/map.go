@@ -139,6 +139,15 @@ func executeMapNext(frame *frame, call *mapCall) (instructionOutcome, error) {
 				mapping:     call,
 			},
 		})
+	case *zipValue:
+		return executeZipNext(frame, &zipCall{
+			zipper: iterator,
+			request: &iterationCall{
+				kind:        iterationMapNext,
+				instruction: call.request.instruction,
+				mapping:     call,
+			},
+		})
 	case *generatorValue:
 		if iterator.kind != generatorObject {
 			return raiseOutcome(newException(

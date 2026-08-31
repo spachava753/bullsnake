@@ -179,6 +179,16 @@ func continueCollectionConstructor(
 			mapping: iterator,
 			request: request,
 		})
+	case *zipValue:
+		request := &iterationCall{
+			kind:        iterationCollectionNext,
+			instruction: call.instruction,
+			collection:  call,
+		}
+		return executeZipNext(frame, &zipCall{
+			zipper:  iterator,
+			request: request,
+		})
 	case *enumerateValue:
 		request := &iterationCall{
 			kind:        iterationCollectionNext,

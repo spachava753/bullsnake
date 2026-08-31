@@ -1405,3 +1405,31 @@ class UserReversed:
         return iter(())
 
 reversed(UserReversed())
+# ---
+# case: zip non-iterable source
+# error: TypeError
+# message: "'int' object is not iterable"
+zip([], 1)
+# ---
+# case: zip invalid user iterator
+# error: TypeError
+# message: "iter() returned non-iterator of type 'int'"
+class InvalidZipIterable:
+    def __iter__(self):
+        return 1
+
+zip(InvalidZipIterable())
+# ---
+# case: zip iterator lookup failure
+# error: RuntimeError
+# message: "zip iterator failed"
+class FailingZipIterable:
+    def __iter__(self):
+        raise RuntimeError('zip iterator failed')
+
+zip(FailingZipIterable())
+# ---
+# case: zip strict boundary
+# error: NotImplementedError
+# message: "zip keyword arguments are not supported"
+zip([], strict=True)
