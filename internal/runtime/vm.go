@@ -239,6 +239,43 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 			if active.classBuild != nil {
 				result = active.classBuild.finish(result)
 			}
+			if active.truth != nil {
+				call := active.truth
+				active.truth = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"truth special method has no caller",
+					)
+				}
+				truthOutcome, truthErr := finishTruthCall(thread.current, call, result)
+				if truthErr != nil {
+					return nil, nil, truthErr
+				}
+				if truthOutcome.kind == raised {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						truthOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+				if truthOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid truth special method outcome",
+					)
+				}
+				continue
+			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil
@@ -993,29 +1030,13 @@ func executeInstruction(
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
-		takeJump := truthValue(value)
-		if instruction.Opcode == bytecode.PopJumpIfFalse {
-			takeJump = !takeJump
-		}
-		if takeJump {
-			frame.instruction = int(instruction.Operand)
-		}
-		return instructionOutcome{kind: advance}, nil
+		return executeTruthOperation(frame, index, instruction, value)
 	case bytecode.JumpIfFalseOrPop, bytecode.JumpIfTrueOrPop:
-		if len(frame.stack) == 0 {
+		value, ok := frame.pop()
+		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
-		value := frame.stack[len(frame.stack)-1]
-		takeJump := truthValue(value)
-		if instruction.Opcode == bytecode.JumpIfFalseOrPop {
-			takeJump = !takeJump
-		}
-		if takeJump {
-			frame.instruction = int(instruction.Operand)
-		} else {
-			frame.pop()
-		}
-		return instructionOutcome{kind: advance}, nil
+		return executeTruthOperation(frame, index, instruction, value)
 	case bytecode.BuildTuple:
 		return executeBuildSequence(frame, index, int(instruction.Operand), true)
 	case bytecode.BuildList:

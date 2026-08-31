@@ -50,6 +50,7 @@ type frame struct {
 	typeAlias           *typeAliasLoad
 	moduleImport        *moduleImport
 	pendingImport       *importRequest
+	truth               *truthCall
 	generator           *generatorValue
 	delegation          *delegationState
 	handledExceptions   []handledException

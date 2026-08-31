@@ -401,11 +401,15 @@ and exceptions.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
-slice subscription, and dictionary item mutation. Current values also support
-truth testing, selected scalar operations and comparisons, and attribute access
-for modules, basic classes, and instances. Dictionaries and sets currently use
-ordered linear storage. This keeps Python identity and equality checks explicit
-until user-defined hashing and equality can call back into Python.
+slice subscription, and dictionary item mutation. Built-in values use their
+fixed truth rules. A user instance looks up `__bool__` on its class and falls
+back to class `__len__`; same-named instance attributes do not participate.
+`__bool__` must return a boolean. `__len__` must return a nonnegative integer
+that fits the host index size. The special-method call can suspend in another
+Python frame before the original condition, short-circuit expression, or `not`
+operation continues. Dictionaries and sets currently use ordered linear
+storage. This keeps Python identity and equality checks explicit until
+user-defined hashing and equality can call back into Python.
 
 Strings index and iterate by decoded code point, including preserved lone
 surrogates. Bytes index and iterate as integers. Slices use Python-style bound

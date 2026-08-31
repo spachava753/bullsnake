@@ -16,11 +16,12 @@ func executeUnary(frame *frame, index int, operand uint32) (instructionOutcome, 
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
 	if operand == bytecode.UnaryNot {
-		result := falseSingleton
-		if !truthValue(value) {
-			result = trueSingleton
-		}
-		return pushOutcome(frame, index, result)
+		return executeTruthOperation(
+			frame,
+			index,
+			bytecode.Instruction{Opcode: bytecode.UnaryOp, Operand: operand},
+			value,
+		)
 	}
 
 	var result Value
@@ -78,37 +79,6 @@ func integerUnary(value *big.Int, operand uint32) *intValue {
 		result.Not(value)
 	}
 	return &intValue{value: result}
-}
-
-// truthValue implements the fixed truth behavior of every scalar value in the
-// current runtime. User-defined truth protocols enter in a later object slice.
-func truthValue(value Value) bool {
-	switch value := value.(type) {
-	case *noneValue:
-		return false
-	case *boolValue:
-		return value.value
-	case *intValue:
-		return value.value.Sign() != 0
-	case *floatValue:
-		return value.value != 0
-	case *complexValue:
-		return value.real != 0 || value.imaginary != 0
-	case *stringValue:
-		return len(value.value) != 0
-	case *bytesValue:
-		return len(value.value) != 0
-	case *tupleValue:
-		return len(value.elements) != 0
-	case *listValue:
-		return len(value.elements) != 0
-	case *dictValue:
-		return len(value.entries) != 0
-	case *setValue:
-		return len(value.entries) != 0
-	default:
-		return true
-	}
 }
 
 // executeBinary applies the selected numeric operations. Booleans enter integer
