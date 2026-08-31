@@ -739,3 +739,17 @@ except ValueError as error:
 else:
     assert False
 assert items == ['start', 'kept']
+# ---
+# case: abs builtin and user protocol
+assert abs(-5) == 5
+assert abs(True) == 1
+assert type(abs(True)) is int
+assert abs(-2.5) == 2.5
+assert abs(-4j) == 4.0
+marker = object()
+
+class AbsoluteValue:
+    def __abs__(self):
+        return marker
+
+assert abs(AbsoluteValue()) is marker

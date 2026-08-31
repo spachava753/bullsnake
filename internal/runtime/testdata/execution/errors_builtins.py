@@ -711,3 +711,32 @@ next(filter(failing_filter_truth, (1,)))
 # error: TypeError
 # message: "'int' object is not iterable"
 [].extend(1)
+# ---
+# case: abs missing argument
+# error: TypeError
+# message: "abs() takes exactly one argument (0 given)"
+abs()
+# ---
+# case: abs extra argument
+# error: TypeError
+# message: "abs() takes exactly one argument (2 given)"
+abs(1, 2)
+# ---
+# case: abs keyword argument
+# error: TypeError
+# message: "abs() takes no keyword arguments"
+abs(value=1)
+# ---
+# case: abs unsupported type
+# error: TypeError
+# message: "bad operand type for abs(): 'str'"
+abs('value')
+# ---
+# case: abs user method failure
+# error: ValueError
+# message: "abs failed"
+class FailingAbsolute:
+    def __abs__(self):
+        raise ValueError('abs failed')
+
+abs(FailingAbsolute())

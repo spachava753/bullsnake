@@ -580,17 +580,20 @@ float and complex power remain unsupported.
 
 Current float arithmetic covers addition, subtraction, multiplication, true
 division, and modulo. These operations coerce integer and boolean operands when
-a float participates; true division also converts two integer operands.
+a float participates; true division also converts two integer operands. The
+`abs` builtin returns native integer, float, or complex magnitudes and dispatches
+a user instance's class `__abs__` method through the frame loop.
 
 The builtin namespace contains the current exception classes; native `bool`,
 `int`, `str`, `range`, `enumerate`, `map`, `filter`, `list`, `tuple`, `set`,
-`frozenset`, `dict`, `object`, and `type` objects; `all`; `any`; `callable`;
-`classmethod`; `dir`; `getattr`; `hasattr`; `hash`; `isinstance`; `issubclass`;
-one-argument `iter`; `len`; positional `max` and `min` calls with two or more
-arguments; `next`; `repr`; and `staticmethod`. The `next` builtin accepts one
-optional default for generators, internal iterators, and user iterators. String
-and base forms of `int`, the iterable and keyword forms of `max` and `min`, the
-encoding form of `str`, and callable-sentinel `iter` remain unsupported.
+`frozenset`, `dict`, `object`, and `type` objects; `abs`; `all`; `any`;
+`callable`; `classmethod`; `dir`; `getattr`; `hasattr`; `hash`; `isinstance`;
+`issubclass`; one-argument `iter`; `len`; positional `max` and `min` calls with
+two or more arguments; `next`; `repr`; and `staticmethod`. The `next` builtin
+accepts one optional default for generators, internal iterators, and user
+iterators. String and base forms of `int`, the iterable and keyword forms of
+`max` and `min`, the encoding form of `str`, and callable-sentinel `iter` remain
+unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and
