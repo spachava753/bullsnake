@@ -934,3 +934,24 @@ class JoinedValues:
         yield 'beta'
 
 assert '\u2603'.join(JoinedValues()) == 'alpha\u2603beta'
+# ---
+# case: string startswith prefixes and bounds
+text = 'alpha\u2603omega'
+assert text.startswith('alpha')
+assert text.startswith('\u2603', 5)
+assert text.startswith('omega', -5)
+assert text.startswith('alpha', None, 5)
+assert not text.startswith('omega', 0, -1)
+assert text.startswith(('missing', 'alpha'))
+assert text.startswith(('alpha', 1))
+assert not text.startswith(())
+assert 'abc'.startswith('', 3)
+assert not 'abc'.startswith('', 4)
+assert 'abc'.startswith('bc', 1, 99)
+# ---
+# case: retained string startswith method
+startswith = 'prefix-value'.startswith
+assert callable(startswith)
+assert startswith('prefix')
+assert not startswith('value')
+assert getattr('value', 'startswith')('val')

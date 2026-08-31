@@ -979,3 +979,33 @@ def failing_join_values():
     raise ValueError('join iteration failed')
 
 ','.join(failing_join_values())
+# ---
+# case: string startswith missing prefix
+# error: TypeError
+# message: "startswith() takes at least 1 argument (0 given)"
+''.startswith()
+# ---
+# case: string startswith extra argument
+# error: TypeError
+# message: "startswith() takes at most 3 arguments (4 given)"
+''.startswith('', 0, 0, 0)
+# ---
+# case: string startswith keyword argument
+# error: TypeError
+# message: "startswith() takes no keyword arguments"
+''.startswith(prefix='')
+# ---
+# case: string startswith invalid prefix
+# error: TypeError
+# message: "startswith first arg must be str or a tuple of str, not int"
+''.startswith(1)
+# ---
+# case: string startswith invalid tuple prefix
+# error: TypeError
+# message: "tuple for startswith must only contain str, not int"
+'abc'.startswith(('missing', 1))
+# ---
+# case: string startswith invalid bound
+# error: TypeError
+# message: "slice indices must be integers or None or have an __index__ method"
+'abc'.startswith('a', 'start')

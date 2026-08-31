@@ -166,6 +166,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringStartswithMethod:
+		return executeStringStartswithCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *listAppendMethod:
 		return executeListAppendCall(
 			caller,
@@ -458,6 +467,7 @@ func isCallableValue(value Value) bool {
 		*nativeTypeValue,
 		*propertyAccessorMethod,
 		*stringJoinMethod,
+		*stringStartswithMethod,
 		*listAppendMethod,
 		*listPopMethod,
 		*listExtendMethod,
