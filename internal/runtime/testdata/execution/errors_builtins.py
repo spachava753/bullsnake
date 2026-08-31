@@ -1471,3 +1471,31 @@ sorted([1], key=failing_sort_key)
 # error: TypeError
 # message: "'<' not supported between instances of 'str' and 'int'"
 sorted([1, 'a'])
+# ---
+# case: list sort positional argument
+# error: TypeError
+# message: "sort() takes no positional arguments"
+[].sort(None)
+# ---
+# case: list sort unknown keyword
+# error: TypeError
+# message: "'unknown' is an invalid keyword argument for sort()"
+[].sort(unknown=True)
+# ---
+# case: list sort non-callable key
+# error: TypeError
+# message: "'int' object is not callable"
+[1].sort(key=1)
+# ---
+# case: list sort incomparable values
+# error: TypeError
+# message: "'<' not supported between instances of 'str' and 'int'"
+[1, 'a'].sort()
+# ---
+# case: list sort key failure
+# error: RuntimeError
+# message: "list sort failed"
+def raising_list_sort_key(value):
+    raise RuntimeError('list sort failed')
+
+[1].sort(key=raising_list_sort_key)

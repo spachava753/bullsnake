@@ -22,6 +22,10 @@ type listRemoveMethod struct {
 	list *listValue
 }
 
+type listSortMethod struct {
+	list *listValue
+}
+
 type listRemoveCall struct {
 	instruction int
 	list        *listValue
@@ -53,6 +57,14 @@ func (*listRemoveMethod) Repr() string {
 }
 func (*listRemoveMethod) isValue() {}
 
+func (*listSortMethod) TypeName() string { return "builtin_function_or_method" }
+func (*listSortMethod) Repr() string {
+	return "<built-in method sort of list object>"
+}
+func (*listSortMethod) isValue() {}
+
+// executeListAttributeLoad binds the implemented native list methods to their
+// receiver and reports ordinary missing attributes.
 func executeListAttributeLoad(
 	frame *frame,
 	instruction int,
@@ -68,6 +80,8 @@ func executeListAttributeLoad(
 		return pushOutcome(frame, instruction, &listExtendMethod{list: list})
 	case "remove":
 		return pushOutcome(frame, instruction, &listRemoveMethod{list: list})
+	case "sort":
+		return pushOutcome(frame, instruction, &listSortMethod{list: list})
 	default:
 		return raiseOutcome(newException(
 			"AttributeError",
@@ -244,6 +258,39 @@ func executeListRemoveCall(
 	}
 	discardCallSegment(caller, base)
 	return continueListRemoveCall(caller, call)
+}
+
+// executeListSortCall snapshots the current elements and mutates the receiver
+// only after the shared resumable sort completes successfully.
+func executeListSortCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *listSortMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if len(arguments) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"sort() takes no positional arguments",
+		)), nil
+	}
+	key, reverse, exception := bindSortControls(keywords)
+	if exception != nil {
+		discardCallSegment(caller, base)
+		return raiseOutcome(exception), nil
+	}
+	values := append([]Value(nil), method.list.elements...)
+	call := &sortCall{
+		instruction:  instruction,
+		key:          key,
+		reverseValue: reverse,
+		target:       method.list,
+	}
+	discardCallSegment(caller, base)
+	return startSortValues(caller, call, values)
 }
 
 // continueListRemoveCall scans fixed values inline and suspends only when a

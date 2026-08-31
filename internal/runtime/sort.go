@@ -23,6 +23,7 @@ type sortCall struct {
 	scan         int
 	current      sortItem
 	inserting    bool
+	target       *listValue
 }
 
 // executeBuiltinSorted validates the keyword-only controls, then collects the
@@ -65,6 +66,16 @@ func bindSortedArguments(
 			"sorted expected 1 argument, got "+strconv.Itoa(len(arguments)),
 		)
 	}
+	key, reverse, exception := bindSortControls(keywords)
+	if exception != nil {
+		return nil, nil, nil, exception
+	}
+	return arguments[0], key, reverse, nil
+}
+
+// bindSortControls accepts the shared keyword-only controls for sorted and
+// list.sort, retaining Python's list.sort name in unknown-keyword errors.
+func bindSortControls(keywords *dictValue) (Value, Value, *Exception) {
 	key := Value(None)
 	reverse := Value(falseSingleton)
 	if keywords != nil {
@@ -76,14 +87,32 @@ func bindSortedArguments(
 			case "reverse":
 				reverse = entry.value
 			default:
-				return nil, nil, nil, newException(
+				return nil, nil, newException(
 					"TypeError",
 					"'"+name+"' is an invalid keyword argument for sort()",
 				)
 			}
 		}
 	}
-	return arguments[0], key, reverse, nil
+	return key, reverse, nil
+}
+
+func startSortValues(
+	frame *frame,
+	call *sortCall,
+	values []Value,
+) (instructionOutcome, error) {
+	if call == nil {
+		return instructionOutcome{}, frame.failure(
+			frame.instruction-1,
+			"sort has no continuation state",
+		)
+	}
+	call.values = values
+	return executeTruthWithCall(frame, call.reverseValue, &truthCall{
+		instruction: call.instruction,
+		sortReverse: call,
+	})
 }
 
 func finishSortReverse(
@@ -210,6 +239,10 @@ func continueSortInsertion(
 	values := make([]Value, len(call.items))
 	for index, item := range call.items {
 		values[index] = item.value
+	}
+	if call.target != nil {
+		call.target.elements = values
+		return pushOutcome(frame, call.instruction, None)
 	}
 	return pushOutcome(frame, call.instruction, &listValue{elements: values})
 }

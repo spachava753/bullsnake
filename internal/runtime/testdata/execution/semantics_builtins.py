@@ -1451,3 +1451,69 @@ assert ranked[1].value == 2
 assert ranked[2].value == 1
 assert sorted(UnsortedIterator(), reverse=ReverseOrder()) == [3, 2, 1]
 assert callable(sorted)
+# ---
+# case: native list in-place sort
+values = [3, 1, 2]
+identity = values
+assert values.sort() is None
+assert values is identity
+assert values == [1, 2, 3]
+assert [].sort() is None
+single = [1]
+assert single.sort() is None
+assert single == [1]
+method = values.sort
+assert callable(method)
+assert repr(method) == '<built-in method sort of list object>'
+assert getattr([2, 1], 'sort')() is None
+# ---
+# case: list sort keys and reverse stability
+seen = []
+def list_sort_key(item):
+    seen.append(item[0])
+    return item[1]
+
+items = [('first', 1), ('second', 1), ('third', 2)]
+assert items.sort(key=list_sort_key, reverse=True) is None
+assert items == [('third', 2), ('first', 1), ('second', 1)]
+assert seen == ['first', 'second', 'third']
+# ---
+# case: list sort suspended protocols
+class ListSortTruth:
+    def __init__(self, value):
+        self.value = value
+
+    def __bool__(self):
+        return self.value
+
+class ListSortValue:
+    def __init__(self, value):
+        self.value = value
+
+    def __lt__(self, other):
+        return ListSortTruth(self.value < other.value)
+
+class ListSortReverse:
+    def __bool__(self):
+        return True
+
+values = [ListSortValue(1), ListSortValue(3), ListSortValue(2)]
+assert values.sort(reverse=ListSortReverse()) is None
+assert values[0].value == 3
+assert values[1].value == 2
+assert values[2].value == 1
+# ---
+# case: list sort key failure preserves contents
+values = [3, 1, 2]
+def failed_list_sort_key(value):
+    if value == 1:
+        raise RuntimeError('list sort key failed')
+    return value
+
+try:
+    values.sort(key=failed_list_sort_key)
+except RuntimeError:
+    pass
+else:
+    assert False
+assert values == [3, 1, 2]

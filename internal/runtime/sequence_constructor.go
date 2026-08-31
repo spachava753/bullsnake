@@ -257,17 +257,7 @@ func finishCollectionConstructor(
 	case collectionStringJoin:
 		return finishStringJoin(frame, call, elements)
 	case collectionSorted:
-		if call.sorting == nil {
-			return instructionOutcome{}, frame.failure(
-				call.instruction,
-				"sorted collection has no continuation state",
-			)
-		}
-		call.sorting.values = elements
-		return executeTruthWithCall(frame, call.sorting.reverseValue, &truthCall{
-			instruction: call.instruction,
-			sortReverse: call.sorting,
-		})
+		return startSortValues(frame, call.sorting, elements)
 	case collectionTuple:
 		return pushOutcome(frame, call.instruction, &tupleValue{elements: elements})
 	case collectionSet:

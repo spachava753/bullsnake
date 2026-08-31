@@ -407,10 +407,12 @@ or a supplied code-point set. Lowercase conversion uses full Unicode mappings
 while retaining lone-surrogate bytes. Bullsnake uses Go's Unicode 17 tables, so
 casing added after CPython 3.14's Unicode 16 baseline may differ.
 
-A list instance exposes bound `append`, `pop`, `extend`, and `remove` methods.
-Extend uses the same resumable iterator path and mutates the target as each item
-arrives. Remove scans left to right, prefers object identity, and may suspend for
-user equality and truth methods.
+A list instance exposes bound `append`, `pop`, `extend`, `remove`, and `sort`
+methods. Extend uses the same resumable iterator path and mutates the target as
+each item arrives. Remove scans left to right, prefers object identity, and may
+suspend for user equality and truth methods. Sort shares the stable key,
+comparison, and reverse continuations used by `sorted`, then replaces the
+receiver after successful completion.
 Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
 `keys`, `update`, and `values` methods. Copy clones ordered entry storage while
 retaining key and value identities. The live views expose keys, items, or values;

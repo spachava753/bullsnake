@@ -488,15 +488,17 @@ Unicode mappings and preserves lone-surrogate bytes. Its tables come from
 `golang.org/x/text` Unicode 17, so code points whose casing changed after CPython
 3.14's Unicode 16 baseline may differ.
 
-List instances expose bound `append`, `pop`, `extend`, and `remove` methods.
-Extend consumes native, generator, or user iterators through the frame loop and
-mutates the target as each item arrives. Remove scans left to right, prefers
-identity, and resumes user `__eq__` and truth methods through the same frame loop.
-The `sorted` builtin collects any current iterable into a new list, evaluates an
-optional key once per item from left to right, and supports reverse ordering via
-ordinary truth conversion. Sorting is stable in both directions. User key,
-`__lt__`, and comparison-truth methods may suspend through the frame loop.
-In-place `list.sort` remains unsupported.
+List instances expose bound `append`, `pop`, `extend`, `remove`, and `sort`
+methods. Extend consumes native, generator, or user iterators through the frame
+loop and mutates the target as each item arrives. Remove scans left to right,
+prefers identity, and resumes user `__eq__` and truth methods through the same
+frame loop. The `sorted` builtin collects any current iterable into a new list,
+evaluates an optional key once per item from left to right, and supports reverse
+ordering via ordinary truth conversion. Sorting is stable in both directions.
+User key, `__lt__`, and comparison-truth methods may suspend through the frame
+loop. `list.sort` uses the same behavior, returns `None`, and replaces the target
+contents only after success. Bullsnake does not yet expose an empty target to
+sort callbacks or detect target mutation during sorting as CPython does.
 
 Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
 `keys`, `update`, and `values` methods. Copy clones ordered entry storage while
