@@ -109,12 +109,6 @@ func (compiler *compilerState) compileGeneratorExpression(
 	if err != nil {
 		return err
 	}
-	if scope.Flags&resolver.Coroutine != 0 {
-		return compiler.error(
-			expression.Span(),
-			"asynchronous generator expressions are not compiled",
-		)
-	}
 	child := compiler.newComprehensionCompiler(expression, scope, "<genexpr>", false)
 	if err := child.compileComprehensionClauses(
 		expression.Clauses,
@@ -122,6 +116,15 @@ func (compiler *compilerState) compileGeneratorExpression(
 		func(child *compilerState) error {
 			if err := child.compileExpr(expression.Element); err != nil {
 				return err
+			}
+			if scope.Flags&resolver.Coroutine != 0 {
+				if err := child.emit(
+					bytecode.AsyncGenWrap,
+					0,
+					expression.Element.Span(),
+				); err != nil {
+					return err
+				}
 			}
 			if err := child.emit(bytecode.YieldValue, 0, expression.Element.Span()); err != nil {
 				return err
@@ -152,12 +155,18 @@ func (compiler *compilerState) compileGeneratorExpression(
 	if err := compiler.compileExpr(first.Iterable); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.GetIter, 0, first.Iterable.Span()); err != nil {
+	if first.Async {
+		if err := compiler.compileAsyncIteratorStackTop(first.Iterable.Span()); err != nil {
+			return err
+		}
+	} else if err := compiler.emit(bytecode.GetIter, 0, first.Iterable.Span()); err != nil {
 		return err
 	}
 	return compiler.emit(bytecode.Call, 1, expression.Span())
 }
 
+// newComprehensionCompiler creates the hidden child, maps resolver suspension
+// flags to one code kind, and reserves its iterator and optional result locals.
 func (compiler *compilerState) newComprehensionCompiler(
 	owner compilerast.Node,
 	scope *resolver.Scope,
@@ -168,10 +177,11 @@ func (compiler *compilerState) newComprehensionCompiler(
 	if scope.Flags&resolver.Nested != 0 {
 		flags |= bytecode.Nested
 	}
-	if scope.Flags&resolver.Generator != 0 {
+	if scope.Flags&resolver.Generator != 0 && scope.Flags&resolver.Coroutine != 0 {
+		flags |= bytecode.AsyncGenerator
+	} else if scope.Flags&resolver.Generator != 0 {
 		flags |= bytecode.Generator
-	}
-	if scope.Flags&resolver.Coroutine != 0 {
+	} else if scope.Flags&resolver.Coroutine != 0 {
 		flags |= bytecode.Coroutine
 	}
 	child := &compilerState{

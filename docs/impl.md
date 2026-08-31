@@ -175,7 +175,8 @@ The current compiler translates:
 - eager list, set, and dictionary comprehensions with synchronous or asynchronous
   clauses, filters, nested clauses, destructuring, isolated targets, closure
   captures, and enclosing assignment-expression targets
-- lazy generator expressions with the same synchronous clause and scope rules
+- lazy synchronous and asynchronous generator expressions with filters, nested
+  clauses, closure capture, and isolated targets
 - names, attributes, calls, subscriptions, slices, operators, comparisons, and
   conditional expressions
 - simple, chained, destructuring, annotated, augmented, and deletion targets
@@ -223,8 +224,9 @@ or async generator creates its runtime object without executing its child code.
 For every comprehension, the enclosing code evaluates the first iterable and
 passes its iterator to the child. A synchronous eager child builds and returns a
 collection; an asynchronous eager child is a coroutine that the enclosing
-coroutine awaits. Generator-expression children yield values lazily. Each child
-owns its target names.
+coroutine awaits. A synchronous generator-expression child returns a generator;
+an asynchronous one returns an async generator. Both yield values lazily, and
+each child owns its target names.
 
 Without `from __future__ import annotations`, deferred annotation bodies are
 also children. Function annotations do not run during an ordinary definition or
@@ -268,9 +270,9 @@ and cache behavior as a generic alias. Type parameter names do not enter the
 defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
-The compiler rejects template-string execution, generic async functions, and
-asynchronous generator expressions. Unsupported AST forms return compiler
-errors; they are not approximated with similar bytecode.
+The compiler rejects template-string execution and generic async functions.
+Unsupported AST forms return compiler errors; they are not approximated with
+similar bytecode.
 
 ## Runtime preparation
 
@@ -594,8 +596,7 @@ The largest current gaps are:
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
 - no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
-  automatic async-generator finalization, asynchronous generator expressions,
-  or Python threads
+  automatic async-generator finalization, or Python threads
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

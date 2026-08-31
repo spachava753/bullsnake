@@ -150,8 +150,9 @@ CPython 3.14 inlines eager comprehensions into the enclosing frame. Bullsnake
 currently runs every comprehension in a hidden child frame. The enclosing frame
 evaluates the first iterable and creates its iterator. A synchronous eager child
 runs at once and returns its collection. An asynchronous eager child is a
-coroutine that the enclosing coroutine awaits. A generator-expression child
-stays suspended until iteration. In every form, targets, filters, later
+coroutine that the enclosing coroutine awaits. Synchronous and asynchronous
+generator-expression children remain suspended until their corresponding
+iteration protocol resumes them. In every form, targets, filters, later
 iterables, and the result expression use the comprehension scope. This simpler
 compiler model preserves name isolation and closure behavior. The extra frame
 may change when Bullsnake exposes Python frame introspection.
@@ -464,17 +465,16 @@ but they must not mutate Python objects directly.
 ## Async and Python threads
 
 Native coroutine awaiting, asynchronous context management, asynchronous
-iteration, eager asynchronous comprehensions, and basic async generators exist.
-Async generators support `asend`, `athrow`, and `aclose`. Custom awaitables,
-automatic async-generator finalization, asynchronous generator expressions,
-scheduling, and Python threads remain future work.
+iteration, eager asynchronous comprehensions, and async generators exist. Async
+generators support `asend`, `athrow`, and `aclose`; generator expressions may
+use asynchronous clauses. Custom awaitables, automatic async-generator
+finalization, scheduling, and Python threads remain future work.
 
 Generators, coroutines, and async generators retain suspended Python frames and
-resume through the VM's ordinary frame loop. The next language step is the rest
-of the async-generator protocol. An event loop will eventually manage ready
-tasks, timers, I/O completion, cancellation, and task context. Async tasks will
-not be modeled as one goroutine each because Python task scheduling and
-cancellation need explicit interpreter state.
+resume through the VM's ordinary frame loop. An event loop will eventually
+manage ready tasks, timers, I/O completion, cancellation, and task context.
+Async tasks will not be modeled as one goroutine each because Python task
+scheduling and cancellation need explicit interpreter state.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread
