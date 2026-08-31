@@ -32,7 +32,7 @@ func (compiler *compilerState) compileGenericTypeAlias(
 		)
 	}
 	name := "<generic parameters of " + statement.Name + ">"
-	child := compiler.newTypeParametersCompiler(statement, scope, name)
+	child := compiler.newTypeParametersCompiler(statement, scope, name, nil)
 	for index, parameter := range statement.TypeParameters {
 		if err := child.emit(
 			bytecode.LoadConst,
@@ -113,26 +113,31 @@ func (compiler *compilerState) newTypeParametersCompiler(
 	owner compilerast.Node,
 	scope *resolver.Scope,
 	name string,
+	parameters []string,
 ) *compilerState {
 	flags := bytecode.Optimized | bytecode.NewLocals
 	if scope.Flags&resolver.Nested != 0 {
 		flags |= bytecode.Nested
 	}
 	child := &compilerState{
-		filename:      compiler.filename,
-		module:        compiler.module,
-		owner:         owner,
-		table:         compiler.table,
-		scope:         scope,
-		codeName:      name,
-		qualifiedName: compiler.childQualifiedName(name),
-		firstLine:     owner.Span().Start.Line,
-		codeFlags:     flags,
-		localIDs:      make(map[string]uint32),
-		derefIDs:      make(map[string]uint32),
-		constantIDs:   make(map[bytecode.Constant]uint32),
-		nameIDs:       make(map[string]uint32),
-		reachable:     true,
+		filename:        compiler.filename,
+		module:          compiler.module,
+		owner:           owner,
+		table:           compiler.table,
+		scope:           scope,
+		codeName:        name,
+		qualifiedName:   compiler.childQualifiedName(name),
+		firstLine:       owner.Span().Start.Line,
+		codeFlags:       flags,
+		positionalCount: len(parameters),
+		localIDs:        make(map[string]uint32),
+		derefIDs:        make(map[string]uint32),
+		constantIDs:     make(map[bytecode.Constant]uint32),
+		nameIDs:         make(map[string]uint32),
+		reachable:       true,
+	}
+	for _, parameter := range parameters {
+		child.addLocal(parameter)
 	}
 	child.initializeScopeLayout(scope)
 	if scope.Flags&resolver.CanSeeClassScope != 0 {

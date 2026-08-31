@@ -94,9 +94,23 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	if functionScope.Flags&resolver.Generator != 0 {
 		return compiler.error(statement.Span(), "generic generator functions are not compiled")
 	}
+	defaults, keywordDefaults, err := compiler.compileFunctionDefaults(
+		statement.Parameters,
+		statement.Span(),
+	)
+	if err != nil {
+		return err
+	}
+	payloadNames := make([]string, 0, 2)
+	if defaults {
+		payloadNames = append(payloadNames, ".defaults")
+	}
+	if keywordDefaults {
+		payloadNames = append(payloadNames, ".kwdefaults")
+	}
 
 	name := "<generic parameters of " + statement.Name + ">"
-	generic := compiler.newTypeParametersCompiler(statement, typeScope, name)
+	generic := compiler.newTypeParametersCompiler(statement, typeScope, name, payloadNames)
 	for _, parameter := range statement.TypeParameters {
 		if err := generic.emit(
 			bytecode.LoadConst,
@@ -123,6 +137,11 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 		statement.Span(),
 	); err != nil {
 		return err
+	}
+	for index := range payloadNames {
+		if err := generic.emit(bytecode.LoadFast, uint32(index), statement.Span()); err != nil {
+			return err
+		}
 	}
 	annotations, err := generic.compileFunctionAnnotations(
 		statement,
@@ -153,8 +172,8 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	}
 	if err := generic.emitFunction(
 		functionCode,
-		false,
-		false,
+		defaults,
+		keywordDefaults,
 		annotations,
 		statement.Span(),
 	); err != nil {
@@ -179,7 +198,12 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.Call, 0, statement.Span()); err != nil {
+	for depth := len(payloadNames) + 1; depth >= 2; depth-- {
+		if err := compiler.emit(bytecode.Swap, uint32(depth), statement.Span()); err != nil {
+			return err
+		}
+	}
+	if err := compiler.emit(bytecode.Call, uint32(len(payloadNames)), statement.Span()); err != nil {
 		return err
 	}
 	return compiler.emitNameStore(statement.Name, statement.Span())
@@ -203,28 +227,10 @@ func validateBasicGenericFunction(
 	if len(statement.Decorators) != 0 {
 		return compiler.error(statement.Span(), "generic function decorators are not compiled")
 	}
-	if parametersHaveDefaults(statement.Parameters) {
-		return compiler.error(statement.Span(), "generic function defaults are not compiled")
-	}
 	if statement.Parameters.VarArg != nil || statement.Parameters.KeywordVarArg != nil {
 		return compiler.error(statement.Span(), "generic function variadic parameters are not compiled")
 	}
 	return nil
-}
-
-func parametersHaveDefaults(parameters compilerast.Parameters) bool {
-	for _, group := range [][]compilerast.Parameter{
-		parameters.PositionalOnly,
-		parameters.Positional,
-		parameters.KeywordOnly,
-	} {
-		for _, parameter := range group {
-			if parameter.Default != nil {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // newFunctionCompiler creates one child with callable metadata and resolver-

@@ -60,3 +60,30 @@ future_annotations = future_identity.__annotations__
 assert future_annotations['value'] == 'T'
 assert future_annotations['return'] == 'T'
 assert future_identity.__type_params__[0].__name__ == 'T'
+
+# ---
+# case: generic function defaults are created in the defining scope
+created = 0
+default_value = []
+
+def make_default():
+    global created
+    created += 1
+    return default_value
+
+def choose[T](value=make_default(), *, flag=True):
+    return (value, flag, T)
+
+assert created == 1
+choose_parameter = choose.__type_params__[0]
+first_choice = choose()
+second_choice = choose()
+assert first_choice[0] is default_value
+assert second_choice[0] is default_value
+assert first_choice[1] is True
+assert first_choice[2] is choose_parameter
+explicit_choice = choose('value', flag=False)
+assert explicit_choice[0] == 'value'
+assert explicit_choice[1] is False
+assert explicit_choice[2] is choose_parameter
+assert created == 1

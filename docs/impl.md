@@ -242,12 +242,14 @@ A basic generic function also uses an outer hidden child. It creates plain
 unbounded TypeVars, stores them in cells captured by the function body and lazy
 annotation callable, attaches the same objects as one stable
 `f.__type_params__` tuple, and returns the function. Future annotations retain
-source strings and require no TypeVar capture. Type parameter names do not enter
-the defining namespace, and the hidden child's name does not alter user-facing
-function or annotation qualified names.
+source strings and require no TypeVar capture. Default expressions run in the
+defining scope before TypeVar creation; their completed tuple and keyword map
+are passed into the hidden child and attached without reevaluation. Type
+parameter names do not enter the defining namespace, and the hidden child's name
+does not alter user-facing function or annotation qualified names.
 
 The compiler rejects template-string execution, generic classes, generic
-function decorators, defaults, variadic parameters, non-TypeVar type parameters,
+function decorators, variadic parameters, non-TypeVar type parameters,
 type-parameter bounds and defaults, async definitions, asynchronous
 comprehensions, `async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with

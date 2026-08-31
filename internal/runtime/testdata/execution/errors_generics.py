@@ -13,3 +13,10 @@ def missing_annotation[T](value: Missing):
     return value
 
 missing_annotation.__annotations__
+
+# ---
+# case: generic function defaults cannot see their type parameters
+# error: NameError
+# message: "name 'T' is not defined"
+def invalid_default[T](value=T):
+    return value
