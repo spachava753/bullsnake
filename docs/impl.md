@@ -464,10 +464,11 @@ constructors are not implemented yet.
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
 slice subscription, and dictionary item mutation. List instances expose bound
-`append` and `pop` methods. Append mutates the list and returns `None`; pop
-removes and returns its selected item. Dictionary instances expose a bound `pop`
-method that removes a key or returns an optional default. Other native
-collection methods are not implemented yet. Lists compare structurally
+`append`, `pop`, and `extend` methods. Extend consumes native, generator, or user
+iterators through the frame loop and mutates the target as each item arrives.
+Dictionary instances expose a bound `pop` method that removes a key or returns
+an optional default. Other native collection methods are not implemented yet.
+Lists compare structurally
 when their elements use the runtime's fixed scalar, tuple, list, or identity
 equality. Comparing list elements through user `__eq__` is not implemented yet.
 Built-in values use fixed truth and length rules. `len` supports strings, bytes,

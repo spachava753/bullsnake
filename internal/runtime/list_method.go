@@ -10,6 +10,10 @@ type listPopMethod struct {
 	list *listValue
 }
 
+type listExtendMethod struct {
+	list *listValue
+}
+
 func (*listAppendMethod) TypeName() string { return "builtin_function_or_method" }
 func (*listAppendMethod) Repr() string {
 	return "<built-in method append of list object>"
@@ -22,6 +26,12 @@ func (*listPopMethod) Repr() string {
 }
 func (*listPopMethod) isValue() {}
 
+func (*listExtendMethod) TypeName() string { return "builtin_function_or_method" }
+func (*listExtendMethod) Repr() string {
+	return "<built-in method extend of list object>"
+}
+func (*listExtendMethod) isValue() {}
+
 func executeListAttributeLoad(
 	frame *frame,
 	instruction int,
@@ -33,6 +43,8 @@ func executeListAttributeLoad(
 		return pushOutcome(frame, instruction, &listAppendMethod{list: list})
 	case "pop":
 		return pushOutcome(frame, instruction, &listPopMethod{list: list})
+	case "extend":
+		return pushOutcome(frame, instruction, &listExtendMethod{list: list})
 	default:
 		return raiseOutcome(newException(
 			"AttributeError",
@@ -67,6 +79,48 @@ func executeListAppendCall(
 	method.list.elements = append(method.list.elements, arguments[0])
 	discardCallSegment(caller, base)
 	return pushOutcome(caller, instruction, None)
+}
+
+// executeListExtendCall starts iterator-driven in-place extension and snapshots
+// direct self-extension before the target begins to grow.
+func executeListExtendCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *listExtendMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"list.extend() takes no keyword arguments",
+		)), nil
+	}
+	if len(arguments) != 1 {
+		count := strconv.Itoa(len(arguments))
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"list.extend() takes exactly one argument ("+count+" given)",
+		)), nil
+	}
+
+	iterable := arguments[0]
+	if source, sameType := iterable.(*listValue); sameType && source == method.list {
+		elements := make([]Value, len(source.elements))
+		copy(elements, source.elements)
+		iterable = &tupleValue{elements: elements}
+	}
+	call := &collectionConstructorCall{
+		instruction: instruction,
+		kind:        collectionListExtend,
+		iterable:    iterable,
+		list:        method.list,
+	}
+	discardCallSegment(caller, base)
+	return startCollectionConstructor(caller, call)
 }
 
 // executeListPopCall removes one selected element after applying Python's

@@ -691,3 +691,23 @@ next(filter(failing_filter_truth, (1,)))
 # error: TypeError
 # message: "dict.pop() takes no keyword arguments"
 {}.pop(key='missing')
+# ---
+# case: list extend missing argument
+# error: TypeError
+# message: "list.extend() takes exactly one argument (0 given)"
+[].extend()
+# ---
+# case: list extend extra argument
+# error: TypeError
+# message: "list.extend() takes exactly one argument (2 given)"
+[].extend((), ())
+# ---
+# case: list extend keyword argument
+# error: TypeError
+# message: "list.extend() takes no keyword arguments"
+[].extend(iterable=())
+# ---
+# case: list extend non-iterable value
+# error: TypeError
+# message: "'int' object is not iterable"
+[].extend(1)

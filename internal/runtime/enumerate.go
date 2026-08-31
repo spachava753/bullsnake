@@ -196,10 +196,7 @@ func executeEnumerateNext(
 					"enumerate collection has no constructor state",
 				)
 			}
-			call.request.collection.elements = append(
-				call.request.collection.elements,
-				pair,
-			)
+			appendCollectionElement(call.request.collection, pair)
 		}
 	case *generatorValue:
 		if iterator.kind != generatorObject {

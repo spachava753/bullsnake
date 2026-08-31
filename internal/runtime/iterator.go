@@ -501,7 +501,7 @@ func finishIterationCall(
 				"collection next call has no constructor state",
 			)
 		}
-		call.collection.elements = append(call.collection.elements, result)
+		appendCollectionElement(call.collection, result)
 		return continueCollectionConstructor(frame, call.collection)
 	case iterationEnumerateIterator:
 		return finishEnumerateIterator(frame, call.enumeration, result)

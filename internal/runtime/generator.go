@@ -819,7 +819,7 @@ func suspendGenerator(
 				"generator collection has no constructor state",
 			)
 		}
-		collection.elements = append(collection.elements, value)
+		appendCollectionElement(collection, value)
 		active.previous = nil
 		generator.state = generatorSuspended
 		if !active.push(None) {

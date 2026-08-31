@@ -693,3 +693,49 @@ assert pop('missing', marker) is marker
 assert list(values) == ['first', 'third']
 assert values.pop('first', 99) == 1
 assert list(values) == ['third']
+# ---
+# case: list extend method
+items = [0]
+extend = items.extend
+assert callable(extend)
+assert extend((1, 2)) is None
+assert items == [0, 1, 2]
+assert items.extend('ab') is None
+assert items == [0, 1, 2, 'a', 'b']
+items.extend(value for value in (3, 4))
+assert items == [0, 1, 2, 'a', 'b', 3, 4]
+copy = [5, 6]
+copy.extend(copy)
+assert copy == [5, 6, 5, 6]
+# ---
+# case: list extend consumes user iterators
+class ExtendIterator:
+    def __init__(self):
+        self.current = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == 3:
+            raise StopIteration
+        self.current += 1
+        return self.current
+
+items = []
+assert items.extend(ExtendIterator()) is None
+assert items == [1, 2, 3]
+# ---
+# case: list extend keeps values before iterator failure
+def failing_extension():
+    yield 'kept'
+    raise ValueError('extend failed')
+
+items = ['start']
+try:
+    items.extend(failing_extension())
+except ValueError as error:
+    assert str(error) == 'extend failed'
+else:
+    assert False
+assert items == ['start', 'kept']

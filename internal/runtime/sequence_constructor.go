@@ -10,6 +10,7 @@ const (
 	collectionSet
 	collectionFrozenSet
 	collectionDict
+	collectionListExtend
 )
 
 type collectionConstructorCall struct {
@@ -19,6 +20,7 @@ type collectionConstructorCall struct {
 	iterator    Value
 	elements    []Value
 	keywords    *dictValue
+	list        *listValue
 }
 
 // executeCollectionTypeCall validates list, tuple, set, or dict construction
@@ -125,6 +127,14 @@ func startCollectionConstructor(
 	})
 }
 
+func appendCollectionElement(call *collectionConstructorCall, value Value) {
+	if call.kind == collectionListExtend {
+		call.list.elements = append(call.list.elements, value)
+		return
+	}
+	call.elements = append(call.elements, value)
+}
+
 // continueCollectionConstructor drains native iterators directly and suspends
 // for generator or user __next__ execution when Python code must run.
 func continueCollectionConstructor(
@@ -141,7 +151,7 @@ func continueCollectionConstructor(
 			if !present {
 				return finishCollectionConstructor(frame, call)
 			}
-			call.elements = append(call.elements, value)
+			appendCollectionElement(call, value)
 		}
 	case *filterValue:
 		request := &iterationCall{
@@ -224,6 +234,8 @@ func finishCollectionConstructor(
 	elements := make([]Value, len(call.elements))
 	copy(elements, call.elements)
 	switch call.kind {
+	case collectionListExtend:
+		return pushOutcome(frame, call.instruction, None)
 	case collectionTuple:
 		return pushOutcome(frame, call.instruction, &tupleValue{elements: elements})
 	case collectionSet:

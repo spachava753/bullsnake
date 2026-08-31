@@ -175,6 +175,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *listExtendMethod:
+		return executeListExtendCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *dictionaryPopMethod:
 		return executeDictionaryPopCall(
 			caller,
@@ -387,6 +396,7 @@ func isCallableValue(value Value) bool {
 		*propertyAccessorMethod,
 		*listAppendMethod,
 		*listPopMethod,
+		*listExtendMethod,
 		*dictionaryPopMethod,
 		*buildClassValue,
 		*typeValue,
