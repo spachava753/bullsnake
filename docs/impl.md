@@ -454,7 +454,10 @@ tuple of currently supported bases, and a dictionary with string keys. It
 supplies default module and qualified-name metadata, honors explicit values,
 and supports methods, C3 inheritance, and user exception classes. Metaclass
 selection, `__mro_entries__`, and non-string namespace keys remain unsupported.
-The remaining built-in type constructors are not implemented yet.
+The `dir` builtin returns sorted bound names from the current frame or from a
+module, user class MRO, or instance namespace. It includes computed class
+metadata and does not yet invoke custom `__dir__`. The remaining built-in type
+constructors are not implemented yet.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
@@ -574,10 +577,10 @@ a float participates; true division also converts two integer operands.
 The builtin namespace contains the current exception classes; native `bool`,
 `int`, `str`, `range`, `enumerate`, `map`, `list`, `tuple`, `set`, `frozenset`,
 `dict`, `object`, and `type` objects; `all`; `any`; `callable`; `classmethod`;
-`getattr`; `hasattr`; `hash`; `isinstance`; `issubclass`; one-argument `iter`;
-`len`; positional `max` and `min` calls with two or more arguments; `next`;
-`repr`; and `staticmethod`. The `next` builtin accepts one optional default for
-internal iterators, and user iterators. String and base forms of `int`, the
+`dir`; `getattr`; `hasattr`; `hash`; `isinstance`; `issubclass`; one-argument
+`iter`; `len`; positional `max` and `min` calls with two or more arguments;
+`next`; `repr`; and `staticmethod`. The `next` builtin accepts one optional
+default for generators, internal iterators, and user iterators. String and base
 iterable and keyword forms of `max` and `min`, the encoding form of `str`, and
 callable-sentinel `iter` remain unsupported.
 

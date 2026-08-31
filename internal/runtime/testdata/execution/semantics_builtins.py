@@ -544,3 +544,36 @@ class MappedIterator:
         return self.current
 
 assert list(map(lambda value: value * 3, MappedIterator())) == [3, 6]
+# ---
+# case: dir current namespace
+local_directory_marker = 1
+local_names = dir()
+assert 'local_directory_marker' in local_names
+assert 'local_names' not in local_names
+# ---
+# case: dir class and instance names
+class DirectoryBase:
+    base_value = 1
+
+    def base_method(self):
+        return None
+
+class DirectoryChild(DirectoryBase):
+    child_value = 2
+
+    def __init__(self):
+        self.instance_value = 3
+
+class_names = dir(DirectoryChild)
+assert '__name__' in class_names
+assert '__mro__' in class_names
+assert 'base_value' in class_names
+assert 'base_method' in class_names
+assert 'child_value' in class_names
+
+subject = DirectoryChild()
+instance_names = dir(subject)
+assert 'instance_value' in instance_names
+assert 'base_value' in instance_names
+assert 'child_value' in instance_names
+assert 'missing_value' not in instance_names

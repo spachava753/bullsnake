@@ -50,6 +50,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "any", frameCall: executeBuiltinAny},
 	{name: "callable", call: builtinCallable},
 	{name: "classmethod", call: builtinClassMethod},
+	{name: "dir", frameCall: executeBuiltinDir},
 	{name: "getattr", frameCall: executeBuiltinGetattr},
 	{name: "hasattr", frameCall: executeBuiltinHasattr},
 	{name: "hash", frameCall: executeBuiltinHash},

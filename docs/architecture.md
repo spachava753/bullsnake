@@ -373,8 +373,10 @@ objects, and the one-argument `type` form returns those objects or an existing
 user or exception class. `isinstance` and `issubclass` check these identities,
 user class MROs, and exception ancestry. Tuple candidates run from left to right.
 Native, user, and exception classes expose their basic name metadata through the
-ordinary attribute path. `object` is the native root class for native values,
-built-in exceptions, and ordinary user classes. A user class may name it as its
+ordinary attribute path. The `dir` builtin reports sorted names from the current
+frame or from implemented module, class-MRO, and instance stores. Custom
+`__dir__` dispatch remains later work. `object` is the native root class for
+native values, built-in exceptions, and ordinary user classes. A user class may
 sole base; combining native and user direct bases still requires a unified MRO
 representation. The existing `bool`, `int`, `str`, `range`, `enumerate`, `map`,
 `list`, `tuple`, `set`, `frozenset`, and `dict` constructors are those same type

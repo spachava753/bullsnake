@@ -571,3 +571,13 @@ class FailingMappedIterator:
         raise ValueError('map iteration failed')
 
 next(map(str, FailingMappedIterator()))
+# ---
+# case: dir extra arguments
+# error: TypeError
+# message: "dir expected at most 1 argument, got 2"
+dir(None, None)
+# ---
+# case: dir keyword argument
+# error: TypeError
+# message: "dir() takes no keyword arguments"
+dir(obj=None)
