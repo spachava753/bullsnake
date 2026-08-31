@@ -1,6 +1,11 @@
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+)
 
 type namespaceValue struct {
 	namespace *Namespace
@@ -9,6 +14,81 @@ type namespaceValue struct {
 func (*namespaceValue) TypeName() string { return "dict" }
 func (*namespaceValue) Repr() string     { return "<class namespace>" }
 func (*namespaceValue) isValue()         {}
+
+type classAnnotationLoad struct {
+	class       *typeValue
+	instruction int
+}
+
+// executeClassAnnotationsLoad returns an explicit or cached dictionary first;
+// otherwise it starts the class's own annotation function and records the
+// return-time cache work on that child frame.
+func executeClassAnnotationsLoad(
+	frame *frame,
+	instruction int,
+	class *typeValue,
+) (instructionOutcome, error) {
+	if annotations, found := class.namespace.get("__annotations__"); found {
+		return pushOutcome(frame, instruction, annotations)
+	}
+	if annotations, found := class.namespace.get("__annotations_cache__"); found {
+		return pushOutcome(frame, instruction, annotations)
+	}
+
+	annotate, found := class.namespace.get("__annotate__")
+	if !found {
+		annotate, found = class.namespace.get("__annotate_func__")
+	}
+	function, callable := annotate.(*functionValue)
+	if !found || !callable {
+		annotations := &dictValue{}
+		class.namespace.values["__annotations_cache__"] = annotations
+		return pushOutcome(frame, instruction, annotations)
+	}
+	if function.code.code.Flags()&bytecode.Generator != 0 {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"__annotate__ returned non-dict of type 'generator'",
+			),
+		}, nil
+	}
+	format := &intValue{value: *big.NewInt(1)}
+	child, exception, err := newFunctionFrame(
+		frame,
+		instruction,
+		function,
+		[]Value{format},
+		nil,
+	)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	child.classAnnotations = &classAnnotationLoad{
+		class:       class,
+		instruction: instruction,
+	}
+	return instructionOutcome{kind: called, frame: child}, nil
+}
+
+func finishClassAnnotationsLoad(
+	load *classAnnotationLoad,
+	value Value,
+) (Value, *Exception) {
+	annotations, ok := value.(*dictValue)
+	if !ok {
+		return nil, newException(
+			"TypeError",
+			"__annotate__ returned non-dict of type '"+value.TypeName()+"'",
+		)
+	}
+	load.class.namespace.values["__annotations_cache__"] = annotations
+	return annotations, nil
+}
 
 func executeLoadFromDictOrGlobals(
 	frame *frame,

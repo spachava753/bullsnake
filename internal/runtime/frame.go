@@ -44,6 +44,7 @@ type frame struct {
 	previous          *frame
 	classBuild        *classBuild
 	instanceInit      *instanceInit
+	classAnnotations  *classAnnotationLoad
 	moduleImport      *moduleImport
 	pendingImport     *importRequest
 	generator         *generatorValue

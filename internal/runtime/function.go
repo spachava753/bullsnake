@@ -182,36 +182,23 @@ func executeFunctionCall(
 			),
 		}, nil
 	}
-	locals, exception := bindFunctionArguments(function, arguments, keywords)
+	child, exception, err := newFunctionFrame(
+		caller,
+		instruction,
+		function,
+		arguments,
+		keywords,
+	)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
 	if exception != nil {
 		return instructionOutcome{kind: raised, exception: exception}, nil
-	}
-	deref, ok := initializeDeref(function.code, locals, function.closure)
-	if !ok {
-		return instructionOutcome{}, caller.failure(
-			instruction,
-			fmt.Sprintf(
-				"function closure has %d cells for %d free variables",
-				len(function.closure),
-				len(function.code.freeVars),
-			),
-		)
 	}
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil
 	}
 	caller.stack = caller.stack[:base]
-	child := &frame{
-		runtime:    caller.runtime,
-		code:       function.code,
-		stack:      make([]Value, 0, function.code.stackSize),
-		fastLocals: locals,
-		deref:      deref,
-		locals:     newNamespace(),
-		globals:    function.globals,
-		builtins:   caller.builtins,
-		previous:   caller,
-	}
 	if function.code.code.Flags()&bytecode.Generator != 0 {
 		generator := &generatorValue{
 			frame:         child,
@@ -223,6 +210,41 @@ func executeFunctionCall(
 		return pushOutcome(caller, instruction, generator)
 	}
 	return instructionOutcome{kind: called, frame: child}, nil
+}
+
+func newFunctionFrame(
+	caller *frame,
+	instruction int,
+	function *functionValue,
+	arguments []Value,
+	keywords *dictValue,
+) (*frame, *Exception, error) {
+	locals, exception := bindFunctionArguments(function, arguments, keywords)
+	if exception != nil {
+		return nil, exception, nil
+	}
+	deref, ok := initializeDeref(function.code, locals, function.closure)
+	if !ok {
+		return nil, nil, caller.failure(
+			instruction,
+			fmt.Sprintf(
+				"function closure has %d cells for %d free variables",
+				len(function.closure),
+				len(function.code.freeVars),
+			),
+		)
+	}
+	return &frame{
+		runtime:    caller.runtime,
+		code:       function.code,
+		stack:      make([]Value, 0, function.code.stackSize),
+		fastLocals: locals,
+		deref:      deref,
+		locals:     newNamespace(),
+		globals:    function.globals,
+		builtins:   caller.builtins,
+		previous:   caller,
+	}, nil, nil
 }
 
 func keywordOnlyRange(code *preparedCode) (int, int) {

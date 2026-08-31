@@ -158,7 +158,10 @@ annotation statements ran, while the child captures the live class namespace
 and any required enclosing cells. Calling `C.__annotate__(1)` evaluates those
 annotations and returns a new dictionary. An explicit class `__annotate__`
 method takes precedence, and subclasses do not inherit the generated callable.
-Automatic `C.__annotations__` evaluation and caching remain future work.
+The first `C.__annotations__` access calls that function, requires a dictionary,
+and caches the exact result. A failed evaluation is not cached. An explicit
+class `__annotations__` value takes precedence. Future-annotation source strings
+and complete mutation rules for these attributes remain future work.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches

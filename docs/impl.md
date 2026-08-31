@@ -339,12 +339,14 @@ Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, lazy class annotation
 callables, and user exception subclasses. A generated `C.__annotate__(1)`
 returns annotations from statements that ran in the class body; an explicit
-class method of that name wins. The runtime does not yet evaluate or cache
-`C.__annotations__`. Synchronous context managers look up `__enter__` and
-`__exit__` on that class chain, ignoring same-named instance attributes. The
-object model does not yet implement class keyword arguments, multiple
-inheritance, C3 method order, metaclasses, `super`, `__new__`, or general
-descriptors. Custom exception initializers and methods remain unsupported.
+class method of that name wins. The first `C.__annotations__` access requires
+and caches the generated dictionary. Explicit class dictionaries take
+precedence, and failed evaluation is retried. Synchronous context managers look
+up `__enter__` and `__exit__` on that class chain, ignoring same-named instance
+attributes. The object model does not yet implement complete annotation
+attribute mutation rules, class keyword arguments, multiple inheritance, C3
+method order, metaclasses, `super`, `__new__`, or general descriptors. Custom
+exception initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general

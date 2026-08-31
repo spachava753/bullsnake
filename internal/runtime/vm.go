@@ -139,6 +139,33 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 			}
 			thread.current = active.previous
 			result := outcome.value
+			if active.classAnnotations != nil {
+				load := active.classAnnotations
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"class annotation load has no caller",
+					)
+				}
+				var annotationException *Exception
+				result, annotationException = finishClassAnnotationsLoad(load, result)
+				if annotationException != nil {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						load.instruction,
+						annotationException,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+			}
 			if active.instanceInit != nil {
 				initialization := active.instanceInit
 				if result != None {
@@ -521,6 +548,9 @@ func executeInstruction(
 			}
 			return pushOutcome(frame, index, value)
 		case *typeValue:
+			if name == "__annotations__" {
+				return executeClassAnnotationsLoad(frame, index, owner)
+			}
 			if name == "__annotate__" {
 				value, found := owner.namespace.get("__annotate__")
 				if !found {
