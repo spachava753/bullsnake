@@ -493,7 +493,34 @@ func TestBytecodeValidation(t *testing.T) {
 				Constants: []bytecode.Constant{bytecode.None()},
 				Flags:     bytecode.Generator,
 			}),
-			wantFragment: "generator code requires optimized new locals",
+			wantFragment: "suspended code requires optimized new locals",
+		},
+		{
+			name: "coroutine metadata",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Coroutine,
+			}),
+			wantFragment: "suspended code requires optimized new locals",
+		},
+		{
+			name: "generator coroutine conflict",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags: bytecode.Optimized | bytecode.NewLocals |
+					bytecode.Generator | bytecode.Coroutine,
+			}),
+			wantFragment: "code cannot be both a generator and a coroutine",
 		},
 		{
 			name: "yield outside generator code",

@@ -65,14 +65,24 @@ func TestMissingResolverTableError(t *testing.T) {
 	}
 }
 
-func TestGenericCompilerBoundaries(t *testing.T) {
+func TestFunctionCompilerBoundaries(t *testing.T) {
 	tests := []struct {
 		name, source, message string
 	}{
 		{
-			name:    "async function",
+			name:    "generic coroutine",
 			source:  "async def generic[T]():\n    return T\n",
-			message: "async functions are not compiled",
+			message: "generic async functions are not compiled",
+		},
+		{
+			name:    "await expression",
+			source:  "async def outer():\n    return await inner()\n",
+			message: "await expressions are not compiled",
+		},
+		{
+			name:    "async generator",
+			source:  "async def stream():\n    yield 1\n",
+			message: "async generators are not compiled",
 		},
 	}
 	for _, test := range tests {

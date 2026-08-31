@@ -273,7 +273,8 @@ not use Go recursion as the Python call stack. This choice has several benefits:
 - recursive Python code does not require one Go call per Python frame
 - exception unwinding can walk Python frames directly
 - tracebacks use the same frame chain as calls
-- suspended generators retain the same frame representation used by calls
+- suspended generators and coroutines retain the same frame representation used
+  by calls
 
 A generator call binds arguments and creates a generator that owns a detached
 frame. Iteration attaches that frame to the caller. `yield` detaches it again
@@ -306,6 +307,13 @@ closing raises `RuntimeError`. A different delegate failure enters the outer
 generator instead. Native iterators have no close operation and are skipped.
 The protocol does not yet expose a general `iter` builtin, and garbage
 collection does not implicitly close an abandoned generator.
+
+A coroutine call uses the same detached-frame ownership without making the
+coroutine iterable. Direct `send(None)` starts the frame; a return exposes its
+value through `StopIteration`. The runtime rejects an initial non-`None` value,
+normal iteration, and reuse after completion. This direct protocol makes
+coroutine objects executable before Bullsnake has `await`, tasks, or an event
+loop.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
@@ -420,16 +428,16 @@ but they must not mutate Python objects directly.
 
 ## Async and Python threads
 
-Async execution and Python threads are design directions, not implemented
-features.
+Coroutine objects exist, but `await`, async iteration, scheduling, and Python
+threads remain future work.
 
-Synchronous generators already retain suspended Python frames and resume through
-the VM's ordinary frame loop. Future coroutine and async-generator work should
-extend that state model with delegated iteration, awaiting, cancellation, and
-asynchronous iteration. An event loop will manage ready tasks, timers, I/O
-completion, cancellation, and task context. Async tasks will not be modeled as
-one goroutine each because Python task scheduling and cancellation need explicit
-interpreter state.
+Generators and coroutines retain suspended Python frames and resume through the
+VM's ordinary frame loop. The next steps extend the existing send loop with
+awaitable validation, then add asynchronous context management and iteration.
+An event loop will eventually manage ready tasks, timers, I/O completion,
+cancellation, and task context. Async tasks will not be modeled as one goroutine
+each because Python task scheduling and cancellation need explicit interpreter
+state.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread

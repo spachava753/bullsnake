@@ -2,7 +2,15 @@ package runtime
 
 import "strconv"
 
-// generatorState records whether a generator frame can be entered.
+// suspendedKind distinguishes synchronous generators from native coroutines.
+type suspendedKind uint8
+
+const (
+	generatorObject suspendedKind = iota
+	coroutineObject
+)
+
+// generatorState records whether a suspended frame can be entered.
 type generatorState uint8
 
 const (
@@ -33,6 +41,7 @@ type generatorResume struct {
 type generatorValue struct {
 	frame         *frame
 	qualifiedName string
+	kind          suspendedKind
 	state         generatorState
 	resume        generatorResume
 }
@@ -67,11 +76,20 @@ func (method *generatorCloseMethod) Repr() string {
 }
 func (*generatorCloseMethod) isValue() {}
 
-func (*generatorValue) TypeName() string { return "generator" }
+func (generator *generatorValue) TypeName() string {
+	if generator.kind == coroutineObject {
+		return "coroutine"
+	}
+	return "generator"
+}
 func (generator *generatorValue) Repr() string {
-	return "<generator object " + generator.qualifiedName + ">"
+	return "<" + generator.TypeName() + " object " + generator.qualifiedName + ">"
 }
 func (*generatorValue) isValue() {}
+
+func (generator *generatorValue) executingMessage() string {
+	return generator.TypeName() + " already executing"
+}
 
 func (generator *generatorValue) complete() {
 	generator.state = generatorCompleted
@@ -90,7 +108,8 @@ func transformGeneratorStopIteration(
 	if !isStopIteration(exception) {
 		return exception
 	}
-	transformed := newException("RuntimeError", "generator raised StopIteration")
+	message := generatorFrame.generator.TypeName() + " raised StopIteration"
+	transformed := newException("RuntimeError", message)
 	transformed.cause = exception
 	transformed.context = exception
 	transformed.suppressContext = true
@@ -140,6 +159,15 @@ func executeBuiltinNext(
 	switch iterator := iterator.(type) {
 	case *generatorValue:
 		discardCallSegment(caller, base)
+		if iterator.kind == coroutineObject {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"TypeError",
+					"'coroutine' object is not an iterator",
+				),
+			}, nil
+		}
 		if iterator.state == generatorCompleted {
 			if hasDefault {
 				return pushOutcome(caller, instruction, defaultValue)
@@ -202,8 +230,11 @@ func executeGeneratorSendCall(
 	if keywords != nil && len(keywords.entries) != 0 {
 		discardCallSegment(caller, base)
 		return instructionOutcome{
-			kind:      raised,
-			exception: newException("TypeError", "generator.send() takes no keyword arguments"),
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				method.generator.TypeName()+".send() takes no keyword arguments",
+			),
 		}, nil
 	}
 	if len(arguments) != 1 {
@@ -212,7 +243,7 @@ func executeGeneratorSendCall(
 			kind: raised,
 			exception: newException(
 				"TypeError",
-				"generator.send() takes exactly one argument ("+
+				method.generator.TypeName()+".send() takes exactly one argument ("+
 					strconv.Itoa(len(arguments))+" given)",
 			),
 		}, nil
@@ -221,6 +252,12 @@ func executeGeneratorSendCall(
 	generator := method.generator
 	discardCallSegment(caller, base)
 	if generator.state == generatorCompleted {
+		if generator.kind == coroutineObject {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("RuntimeError", "cannot reuse already awaited coroutine"),
+			}, nil
+		}
 		return instructionOutcome{
 			kind:      raised,
 			exception: newStopIteration(None),
@@ -231,7 +268,7 @@ func executeGeneratorSendCall(
 			kind: raised,
 			exception: newException(
 				"TypeError",
-				"can't send non-None value to a just-started generator",
+				"can't send non-None value to a just-started "+generator.TypeName(),
 			),
 		}, nil
 	}
@@ -286,7 +323,7 @@ func executeGeneratorThrowCall(
 	case generatorRunning:
 		return instructionOutcome{
 			kind:      raised,
-			exception: newException("ValueError", "generator already executing"),
+			exception: newException("ValueError", generator.executingMessage()),
 		}, nil
 	case generatorCompleted:
 		return instructionOutcome{kind: raised, exception: injected}, nil
@@ -375,8 +412,11 @@ func executeGeneratorCloseCall(
 	if keywords != nil && len(keywords.entries) != 0 {
 		discardCallSegment(caller, base)
 		return instructionOutcome{
-			kind:      raised,
-			exception: newException("TypeError", "generator.close() takes no keyword arguments"),
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				method.generator.TypeName()+".close() takes no keyword arguments",
+			),
 		}, nil
 	}
 	if len(arguments) != 0 {
@@ -385,7 +425,7 @@ func executeGeneratorCloseCall(
 			kind: raised,
 			exception: newException(
 				"TypeError",
-				"generator.close() takes no arguments ("+
+				method.generator.TypeName()+".close() takes no arguments ("+
 					strconv.Itoa(len(arguments))+" given)",
 			),
 		}, nil
@@ -396,7 +436,7 @@ func executeGeneratorCloseCall(
 	case generatorRunning:
 		return instructionOutcome{
 			kind:      raised,
-			exception: newException("ValueError", "generator already executing"),
+			exception: newException("ValueError", generator.executingMessage()),
 		}, nil
 	case generatorCreated:
 		generator.complete()
@@ -754,7 +794,7 @@ func resumeGenerator(
 	case generatorRunning:
 		return instructionOutcome{
 			kind:      raised,
-			exception: newException("ValueError", "generator already executing"),
+			exception: newException("ValueError", generator.executingMessage()),
 		}, nil
 	case generatorSuspended:
 		if generator.frame == nil {

@@ -10,8 +10,8 @@ import (
 // compileFunctionDefinition validates the required-parameter subset, compiles
 // one independent child code object, and binds the resulting function.
 func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.FunctionDefStmt) error {
-	if statement.Async {
-		return compiler.error(statement.Span(), "async functions are not compiled")
+	if statement.Async && len(statement.TypeParameters) != 0 {
+		return compiler.error(statement.Span(), "generic async functions are not compiled")
 	}
 	if len(statement.TypeParameters) != 0 {
 		return compiler.compileGenericFunctionDefinition(statement)
@@ -20,6 +20,9 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	scope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
 	if scope == nil || scope.Kind != resolver.FunctionScope {
 		return compiler.error(statement.Span(), "resolver has no function scope for %q", statement.Name)
+	}
+	if statement.Async && scope.Flags&resolver.Generator != 0 {
+		return compiler.error(statement.Span(), "async generators are not compiled")
 	}
 	for _, decorator := range statement.Decorators {
 		if err := compiler.compileExpr(decorator); err != nil {
@@ -214,6 +217,9 @@ func (compiler *compilerState) newFunctionCompiler(
 	}
 	if scope.Flags&resolver.Generator != 0 {
 		flags |= bytecode.Generator
+	}
+	if scope.Flags&resolver.Coroutine != 0 {
+		flags |= bytecode.Coroutine
 	}
 	child := &compilerState{
 		filename:            compiler.filename,

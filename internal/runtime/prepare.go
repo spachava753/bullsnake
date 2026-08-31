@@ -127,12 +127,15 @@ func (code *preparedCode) validateMetadata() error {
 			keywordStart+keywordOnly,
 		)
 	}
-	if flags&bytecode.Generator != 0 &&
+	if flags&bytecode.Generator != 0 && flags&bytecode.Coroutine != 0 {
+		return code.failure(-1, "code cannot be both a generator and a coroutine")
+	}
+	if flags&(bytecode.Generator|bytecode.Coroutine) != 0 &&
 		flags&(bytecode.Optimized|bytecode.NewLocals) != bytecode.Optimized|bytecode.NewLocals {
-		return code.failure(-1, "generator code requires optimized new locals")
+		return code.failure(-1, "suspended code requires optimized new locals")
 	}
 	supportedFlags := bytecode.Optimized | bytecode.NewLocals | bytecode.Nested |
-		bytecode.VarArgs | bytecode.VarKeywords | bytecode.Generator
+		bytecode.VarArgs | bytecode.VarKeywords | bytecode.Generator | bytecode.Coroutine
 	if unsupported := flags &^ supportedFlags; unsupported != 0 {
 		return code.failure(-1, "unsupported code flags %s", unsupported)
 	}

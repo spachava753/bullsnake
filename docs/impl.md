@@ -19,10 +19,10 @@ execute every instruction. Each stage rejects behavior it does not yet own.
 | Lexer | Initial Python 3.14 tokenization, including f-strings and template strings |
 | Parser | A broad Python 3.14 statement and expression grammar |
 | Resolver | Name scopes, closures, contextual checks, annotations, generics, and comprehensions |
-| Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
-| Runtime | Modules, values, collections, functions, basic classes, and structured exceptions |
+| Compiler | Executable functions, classes, imports, exceptions, generators, and basic coroutines |
+| Runtime | Modules, values, collections, functions, basic classes, exceptions, and suspended frames |
 | Imports | Regular packages and modules from configured filesystem roots |
-| Go API, broad standard library, async, and REPL | Not implemented |
+| Go API, broad standard library, async scheduling, and REPL | Not implemented |
 
 The parser and resolver intentionally cover more language forms than the
 compiler. The compiler also defines some bytecode that the runtime still
@@ -195,10 +195,11 @@ The current compiler translates:
 - synchronous generator functions, including generic functions, with lazy calls,
   `yield`, `yield from`, iteration, sent values, closure captures, and cleanup
   across suspension
+- basic coroutine functions with lazy calls, ordinary argument binding, closure
+  captures, and direct `send(None)` completion; `await` remains unsupported
 - basic classes with decorators, bases, class keywords, methods, enclosing
-  closures, lazy class annotations, plain `TypeVar` generic parameters with lazy
-  bounds, tuple constraints, or defaults, and cells for class-visible annotations and
-  `__class__`
+  closures, lazy class annotations, all three PEP 695 parameter kinds with lazy
+  metadata, and cells for class-visible annotations and `__class__`
 - ordinary imports and assertions
 - ordinary exception handlers, `else`, `finally`, exception groups, `except*`,
   bare reraising, explicit causes, and cleanup during return or loop transfer
@@ -209,13 +210,13 @@ WTF-8-compatible form, while bytes constants preserve arbitrary bytes.
 Formatted-string compilation retains conversion, format-specification, raw
 prefix, and debug-field behavior needed by the current runtime formatter.
 
-Functions, generator functions, class bodies, and comprehensions are child code
-objects. Closures contain explicit cell references instead of Go closures.
-Calling a generator creates its runtime object without executing its child code.
-For every comprehension, the enclosing code evaluates the first iterable and
-passes its iterator to the child. Eager children build and return a collection;
-generator-expression children yield values lazily. Each child owns its target
-names.
+Functions, generator functions, coroutine functions, class bodies, and
+comprehensions are child code objects. Closures contain explicit cell references
+instead of Go closures. Calling a generator or coroutine creates its runtime
+object without executing its child code. For every comprehension, the enclosing
+code evaluates the first iterable and passes its iterator to the child. Eager
+children build and return a collection; generator-expression children yield
+values lazily. Each child owns its target names.
 
 Without `from __future__ import annotations`, deferred annotation bodies are
 also children. Function annotations do not run during an ordinary definition or
@@ -259,10 +260,10 @@ and cache behavior as a generic alias. Type parameter names do not enter the
 defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
-The compiler rejects template-string execution, async definitions,
-asynchronous comprehensions, comprehensions, `async for`, `async with`, and
-coroutines. Unsupported AST forms return compiler errors; they are not
-approximated with similar bytecode.
+The compiler rejects template-string execution, generic async functions, async
+generators, `await`, asynchronous comprehensions, `async for`, and `async with`.
+Unsupported AST forms return compiler errors; they are not approximated with
+similar bytecode.
 
 ## Runtime preparation
 
@@ -312,6 +313,13 @@ default. Re-entering a running generator raises `ValueError`. The legacy
 three-argument `throw` form accepts only `None` for its traceback until Python
 traceback objects exist. Garbage collection does not implicitly close abandoned
 generators.
+
+Native coroutine objects reuse the detached-frame state machine but remain
+separate from Python iteration. Calling a coroutine function binds its arguments
+without running the body. Its `send` method starts or resumes the frame, and a
+normal return raises `StopIteration` with the returned value. A first send must
+be `None`; a completed coroutine cannot be reused. `next`, `for`, and `GET_ITER`
+reject coroutines. `await` and scheduler-driven execution remain unsupported.
 
 `yield from` keeps the delegate below each yielded value on the outer frame's
 operand stack. `SEND` forwards `None` or a sent value, falls through when the
@@ -538,8 +546,8 @@ The largest current gaps are:
 - no namespace packages, broad standard library, or native extension loading
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
-- no asynchronous comprehensions, coroutines, async execution, or Python
-  threads
+- no `await`, async scheduling, asynchronous comprehensions, async generators,
+  async iteration, or Python threads
 - no asynchronous context managers
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance

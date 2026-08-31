@@ -155,8 +155,13 @@ func (iterator *collectionIterator) next() (Value, bool, *Exception) {
 // whose element contract matches each currently iterable built-in value.
 func newIterator(value Value) (Value, bool) {
 	switch value := value.(type) {
-	case valueIterator, *generatorValue:
+	case valueIterator:
 		return value, true
+	case *generatorValue:
+		if value.kind == generatorObject {
+			return value, true
+		}
+		return nil, false
 	case *tupleValue, *listValue:
 		return &sequenceIterator{sequence: value}, true
 	case *stringValue, *bytesValue:

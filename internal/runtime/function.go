@@ -241,10 +241,16 @@ func executeFunctionCall(
 		caller.stack[index] = nil
 	}
 	caller.stack = caller.stack[:base]
-	if function.code.code.Flags()&bytecode.Generator != 0 {
+	flags := function.code.code.Flags()
+	if flags&(bytecode.Generator|bytecode.Coroutine) != 0 {
+		kind := generatorObject
+		if flags&bytecode.Coroutine != 0 {
+			kind = coroutineObject
+		}
 		generator := &generatorValue{
 			frame:         child,
 			qualifiedName: function.code.code.QualifiedName(),
+			kind:          kind,
 			state:         generatorCreated,
 		}
 		child.previous = nil
