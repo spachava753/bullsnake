@@ -207,3 +207,63 @@ except StopIteration as stopped:
 else:
     assert False
 assert new_throw_activity == 0
+
+# ---
+# case: async generator aclose runs cleanup and is repeatable
+close_activity = 0
+
+async def close_pause(value):
+    return value
+
+async def closable_async_values():
+    global close_activity
+    try:
+        yield 1
+        yield 2
+    finally:
+        await close_pause(None)
+        close_activity += 1
+
+async def close_async_values():
+    stream = closable_async_values()
+    first = await stream.asend(None)
+    closed = await stream.aclose()
+    closed_again = await stream.aclose()
+    exhausted = False
+    try:
+        await stream.__anext__()
+    except StopAsyncIteration:
+        exhausted = True
+    return (first, closed is None, closed_again is None, exhausted)
+
+closing = close_async_values()
+try:
+    closing.send(None)
+except StopIteration as stopped:
+    assert stopped.value == (1, True, True, True)
+else:
+    assert False
+assert close_activity == 1
+
+# ---
+# case: aclose on a new async generator skips its body
+new_close_activity = 0
+
+async def unopened_async_values():
+    global new_close_activity
+    new_close_activity += 1
+    yield 1
+
+async def close_new_async_values():
+    stream = unopened_async_values()
+    result = await stream.aclose()
+    return result is None
+
+new_closing = close_new_async_values()
+try:
+    new_closing.send(None)
+except StopIteration as stopped:
+    assert stopped.value is True
+else:
+    assert False
+assert new_close_activity == 0

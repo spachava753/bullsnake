@@ -210,6 +210,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *asyncGeneratorACloseMethod:
+		return executeAsyncGeneratorACloseCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *generatorSendMethod:
 		return executeGeneratorSendCall(
 			caller,

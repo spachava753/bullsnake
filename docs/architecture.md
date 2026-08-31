@@ -324,12 +324,14 @@ a one-shot awaitable that resumes the frame until a wrapped user yield, normal
 completion, or failure. `asend(value)` uses the same awaitable but supplies its
 value when resuming a suspended yield expression. `athrow(exception)` uses a
 separate one-shot awaitable and routes a normalized exception through the
-protected ranges around that suspension. A caught injection may produce another
-item; an uncaught injection closes the generator. Throwing into a new async
-generator skips its body. A new async generator accepts only `None`. Suspension
-caused by an inner `await` passes through the protocol awaitable without being
-mistaken for an item. Normal completion raises `StopAsyncIteration` at the
-awaiting loop operation.
+protected ranges around that suspension. `aclose()` uses the throw awaitable to
+inject `GeneratorExit`, run cleanup, and suppress ordinary close completion. A
+caught throw may produce another item; an uncaught throw closes the generator.
+Yielding while handling close raises `RuntimeError`, while a replacement close
+exception propagates. Throwing or closing a new async generator skips its body.
+A new async generator accepts only `None`. Suspension caused by an inner `await`
+passes through the protocol awaitable without being mistaken for an item. Normal
+completion raises `StopAsyncIteration` at the awaiting loop operation.
 
 Asynchronous context managers reuse the ordinary context-cleanup stack. Entry
 awaits the class-level `__aenter__` result before the protected body starts.
@@ -463,9 +465,9 @@ but they must not mutate Python objects directly.
 
 Native coroutine awaiting, asynchronous context management, asynchronous
 iteration, eager asynchronous comprehensions, and basic async generators exist.
-Async generators support `asend` and `athrow`; custom awaitables, `aclose`,
-asynchronous generator expressions, scheduling, and Python threads remain
-future work.
+Async generators support `asend`, `athrow`, and `aclose`. Custom awaitables,
+automatic async-generator finalization, asynchronous generator expressions,
+scheduling, and Python threads remain future work.
 
 Generators, coroutines, and async generators retain suspended Python frames and
 resume through the VM's ordinary frame loop. The next language step is the rest

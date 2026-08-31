@@ -139,3 +139,53 @@ async def throw_invalid_async_value():
     await stream.athrow(1)
 
 throw_invalid_async_value().send(None)
+
+# ---
+# case: yielding while closing an async generator is rejected
+# error: RuntimeError
+# message: "async generator ignored GeneratorExit"
+async def yielding_async_close():
+    try:
+        yield 1
+    except GeneratorExit:
+        yield 2
+
+async def close_yielding_async_generator():
+    stream = yielding_async_close()
+    await stream.asend(None)
+    await stream.aclose()
+
+close_yielding_async_generator().send(None)
+
+# ---
+# case: replacement async generator close exceptions propagate
+# error: ValueError
+# message: "async close failed"
+async def failing_async_close():
+    try:
+        yield 1
+    finally:
+        raise ValueError('async close failed')
+
+async def close_failing_async_generator():
+    stream = failing_async_close()
+    await stream.asend(None)
+    await stream.aclose()
+
+close_failing_async_generator().send(None)
+
+# ---
+# case: async generator aclose awaitables are one shot
+# error: RuntimeError
+# message: "cannot reuse already awaited aclose()/athrow()"
+async def reusable_async_close():
+    yield 1
+
+async def reuse_async_close_awaitable():
+    stream = reusable_async_close()
+    await stream.asend(None)
+    pending = stream.aclose()
+    await pending
+    await pending
+
+reuse_async_close_awaitable().send(None)

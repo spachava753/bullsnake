@@ -835,6 +835,19 @@ func finishGenerator(
 				"async generator completion has no athrow awaitable",
 			)
 		}
+		if resume.asyncThrow.close {
+			if err := completeAsyncGeneratorClose(
+				active,
+				caller,
+				resume.instruction,
+				resume.target,
+				resume.asyncThrow,
+			); err != nil {
+				return nil, nil, err
+			}
+			generator.complete()
+			return caller, nil, nil
+		}
 		resume.asyncThrow.state = asyncGeneratorNextClosed
 		generator.complete()
 		return caller, newExceptionOfType(stopAsyncIterationType, ""), nil

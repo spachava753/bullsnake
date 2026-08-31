@@ -339,14 +339,17 @@ lazy and returns an `async_generator`, which is an async iterator but neither a
 synchronous iterator nor an awaitable. `__anext__` returns a one-shot awaitable;
 `asend(value)` creates the same awaitable with a value for the suspended `yield`
 expression. `athrow(exception)` creates a separate one-shot awaitable that
-injects a normalized exception at the suspended yield. A caught injection may
-yield another item; an uncaught injection completes the generator and
-propagates. A wrapped user `yield` completes the active protocol awaitable with
-the yielded item, while an ordinary suspension from an inner `await` continues
-through the caller. A new async generator accepts only `None`; a rejected first
-send closes that awaitable without closing the generator. Throwing into a new
-async generator skips its body and closes it. Normal return completes iteration
-with `StopAsyncIteration`. An explicit `StopIteration` or `StopAsyncIteration`
+injects a normalized exception at the suspended yield. `aclose()` uses that
+awaitable to inject `GeneratorExit`, run cleanup, and suppress normal close
+completion. A caught injection may yield another item; an uncaught injection
+completes the generator and propagates. Yielding while handling close raises
+`RuntimeError`; a replacement close exception propagates. A wrapped user `yield`
+completes the active protocol awaitable with the yielded item, while an ordinary
+suspension from an inner `await` continues through the caller. A new async
+generator accepts only `None`; a rejected first send closes that awaitable
+without closing the generator. Throwing or closing a new async generator skips
+its body and closes it. Normal return completes iteration with
+`StopAsyncIteration`. An explicit `StopIteration` or `StopAsyncIteration`
 escaping the body becomes `RuntimeError`.
 
 `async for` calls class-level `__aiter__` synchronously, requires its result to
@@ -591,8 +594,8 @@ The largest current gaps are:
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
 - no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
-  async generator `aclose`, asynchronous generator expressions, or Python
-  threads
+  automatic async-generator finalization, asynchronous generator expressions,
+  or Python threads
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

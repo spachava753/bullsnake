@@ -395,6 +395,25 @@ route:
 					}
 					generator.resume.asyncThrow.state = asyncGeneratorNextClosed
 				}
+				if resumeKind == generatorAsyncThrow &&
+					generator.resume.asyncThrow.close &&
+					(exception.class != nil &&
+						exception.class.isSubclassOf(generatorExitType) ||
+						isStopAsyncIteration(exception)) {
+					resume := generator.resume
+					if err := completeAsyncGeneratorClose(
+						current,
+						caller,
+						resume.instruction,
+						resume.target,
+						resume.asyncThrow,
+					); err != nil {
+						return nil, err
+					}
+					generator.complete()
+					thread.current = caller
+					return nil, nil
+				}
 				if resumeKind == generatorClose && exception.class != nil &&
 					exception.class.isSubclassOf(generatorExitType) {
 					generator.complete()
@@ -702,6 +721,12 @@ func executeInstruction(
 						frame,
 						index,
 						&asyncGeneratorAThrowMethod{generator: owner},
+					)
+				case "aclose":
+					return pushOutcome(
+						frame,
+						index,
+						&asyncGeneratorACloseMethod{generator: owner},
 					)
 				default:
 					return instructionOutcome{
