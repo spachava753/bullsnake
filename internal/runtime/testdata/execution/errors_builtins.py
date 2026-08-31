@@ -1329,3 +1329,21 @@ delattr(FailingDelattrOwner(), 'field')
 # error: NotImplementedError
 # message: "dict.update iterable and user mapping inputs are not supported"
 {}.update([('a', 1)])
+# ---
+# case: dictionary clear argument
+# error: TypeError
+# message: "dict.clear() takes no arguments (1 given)"
+{}.clear(1)
+# ---
+# case: dictionary clear keyword argument
+# error: TypeError
+# message: "dict.clear() takes no keyword arguments"
+{}.clear(value=1)
+# ---
+# case: dictionary clear invalidates iterator
+# error: RuntimeError
+# message: "dictionary changed size during iteration"
+values = {'a': 1, 'b': 2}
+iterator = iter(values)
+values.clear()
+next(iterator)

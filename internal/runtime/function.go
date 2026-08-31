@@ -296,6 +296,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *dictionaryClearMethod:
+		return executeDictionaryClearCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *dictionaryPopMethod:
 		return executeDictionaryPopCall(
 			caller,
@@ -575,6 +584,7 @@ func isCallableValue(value Value) bool {
 		*listPopMethod,
 		*listExtendMethod,
 		*listRemoveMethod,
+		*dictionaryClearMethod,
 		*dictionaryPopMethod,
 		*dictionaryGetMethod,
 		*dictionaryItemsMethod,

@@ -1227,3 +1227,23 @@ assert update({'b': 2}) is None
 dictionary = {}
 assert getattr(dictionary, 'update')(value=7) is None
 assert list(dictionary.items()) == [('value', 7)]
+# ---
+# case: dictionary clear and refill
+values = {'a': 1, 'b': 2}
+assert values.clear() is None
+assert len(values) == 0
+assert list(values.items()) == []
+assert values.clear() is None
+values['c'] = 3
+values['a'] = 4
+assert list(values.items()) == [('c', 3), ('a', 4)]
+# ---
+# case: retained dictionary clear method
+values = {'a': 1}
+clear = values.clear
+assert callable(clear)
+assert clear() is None
+assert len(values) == 0
+values['b'] = 2
+assert getattr(values, 'clear')() is None
+assert len(values) == 0

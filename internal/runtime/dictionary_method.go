@@ -51,6 +51,12 @@ func executeDictionaryAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "clear":
+		return pushOutcome(
+			frame,
+			instruction,
+			&dictionaryClearMethod{dictionary: dictionary},
+		)
 	case "pop":
 		return pushOutcome(
 			frame,
