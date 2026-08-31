@@ -35,6 +35,7 @@ func (compiler *compilerState) compileFutureAnnotation(
 	statement *compilerast.AnnAssignStmt,
 	name string,
 ) error {
+	name = compiler.scope.Mangle(name)
 	text, err := compiler.annotationSource(statement.Annotation)
 	if err != nil {
 		return err
@@ -128,6 +129,7 @@ func (compiler *compilerState) deferAnnotation(
 	statement *compilerast.AnnAssignStmt,
 	name string,
 ) error {
+	name = compiler.scope.Mangle(name)
 	index := len(compiler.deferredAnnotations)
 	compiler.deferredAnnotations = append(compiler.deferredAnnotations, deferredAnnotation{
 		statement: statement,
@@ -388,6 +390,7 @@ func (compiler *compilerState) compileParameterAnnotations(
 }
 
 func (compiler *compilerState) compileAnnotationEntry(name string, expression compilerast.Expr) error {
+	name = compiler.scope.Mangle(name)
 	if err := compiler.emit(
 		bytecode.LoadConst,
 		compiler.constantIndex(bytecode.TextString(name)),

@@ -11,6 +11,7 @@ import (
 // emitNameLoad selects namespace, fast-local, closure, or global access from
 // the current resolver scope.
 func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error {
+	name = compiler.scope.Mangle(name)
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
 		return err
@@ -100,6 +101,7 @@ func (compiler *compilerState) emitClassVisibleNameLoad(
 // emitNameStore selects namespace, fast-local, closure, or global storage from
 // the resolver classification.
 func (compiler *compilerState) emitNameStore(name string, span lexer.Span) error {
+	name = compiler.scope.Mangle(name)
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
 		return err
@@ -144,6 +146,7 @@ func (compiler *compilerState) emitNameStore(name string, span lexer.Span) error
 // emitNameDelete selects namespace, fast-local, closure, or global deletion from
 // the resolver classification.
 func (compiler *compilerState) emitNameDelete(name string, span lexer.Span) error {
+	name = compiler.scope.Mangle(name)
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
 		return err

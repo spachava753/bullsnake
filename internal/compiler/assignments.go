@@ -142,7 +142,11 @@ func (compiler *compilerState) compileStore(expression compilerast.Expr) error {
 		if err := compiler.compileExpr(expression.Value); err != nil {
 			return err
 		}
-		return compiler.emit(bytecode.StoreAttr, compiler.nameIndex(expression.Name), expression.Span())
+		return compiler.emit(
+			bytecode.StoreAttr,
+			compiler.nameIndex(compiler.scope.Mangle(expression.Name)),
+			expression.Span(),
+		)
 	case *compilerast.SubscriptExpr:
 		if expression.Context != compilerast.Store {
 			return compiler.error(expression.Span(), "subscript target is not a store")

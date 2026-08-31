@@ -130,3 +130,31 @@ assert f'{inherited_method!r}' == "13", "inherited_method"
 assert f'{class_method!r}' == "14", "class_method"
 assert f'{initialized!r}' == "10", "initialized"
 assert f'{overridden!r}' == "99", "overridden"
+# ---
+# case: private names are mangled consistently
+class Hidden:
+    __marker = []
+    __field: int
+
+    def __set(self, __value=__marker):
+        self.__field = __value
+        return self.__field
+
+    def reveal(self):
+        return self.__set(__value=42)
+
+hidden = Hidden()
+revealed = hidden.reveal()
+external = hidden._Hidden__field
+marker = Hidden._Hidden__marker
+annotations = Hidden.__annotations__
+try:
+    hidden.__field
+except AttributeError:
+    raw_attribute_absent = True
+
+assert revealed == 42
+assert external == 42
+assert f'{marker!r}' == '[]'
+assert annotations['_Hidden__field'] is int
+assert raw_attribute_absent is True

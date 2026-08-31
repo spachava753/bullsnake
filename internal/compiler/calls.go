@@ -67,7 +67,9 @@ func (compiler *compilerState) compileKeywordArguments(
 		} else {
 			if err := compiler.emit(
 				bytecode.LoadConst,
-				compiler.constantIndex(bytecode.TextString(keyword.Name)),
+				compiler.constantIndex(
+					bytecode.TextString(compiler.scope.Mangle(keyword.Name)),
+				),
 				keyword.Range,
 			); err != nil {
 				return err

@@ -12,7 +12,11 @@ func (compiler *compilerState) compileAttribute(expression *compilerast.Attribut
 	if err := compiler.compileExpr(expression.Value); err != nil {
 		return err
 	}
-	return compiler.emit(bytecode.LoadAttr, compiler.nameIndex(expression.Name), expression.Span())
+	return compiler.emit(
+		bytecode.LoadAttr,
+		compiler.nameIndex(compiler.scope.Mangle(expression.Name)),
+		expression.Span(),
+	)
 }
 
 func (compiler *compilerState) compileSubscript(expression *compilerast.SubscriptExpr) error {

@@ -149,8 +149,11 @@ closure cells. The resolver also records generator and coroutine flags and
 checks where control-flow and suspension syntax may appear. Unknown names
 remain implicit globals for runtime lookup.
 
-The resolver decides what a name means. It does not assign bytecode indexes or
-choose load and store instructions. Those decisions belong to the compiler.
+The resolver decides what a name means. It also exposes each scope's private-name
+rewrite so the compiler uses one spelling for bare names, attributes, keyword
+arguments, annotation keys, and class-pattern fields. The resolver does not
+assign bytecode indexes or choose load and store instructions. Those decisions
+belong to the compiler.
 
 ## Compiler and bytecode
 
