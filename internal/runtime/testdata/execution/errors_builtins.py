@@ -340,3 +340,31 @@ class FailingRepresentation:
         raise ValueError('representation failed')
 
 repr(FailingRepresentation())
+# ---
+# case: str extra arguments
+# error: TypeError
+# message: "str() takes at most 3 arguments (4 given)"
+str(None, None, None, None)
+# ---
+# case: str encoding form boundary
+# error: NotImplementedError
+# message: "str() encoding form is not supported"
+str(b'value', 'ascii')
+# ---
+# case: str method result type
+# error: TypeError
+# message: "__str__ returned non-string (type int)"
+class InvalidString:
+    def __str__(self):
+        return 1
+
+str(InvalidString())
+# ---
+# case: str method exception
+# error: ValueError
+# message: "string failed"
+class FailingString:
+    def __str__(self):
+        raise ValueError('string failed')
+
+str(FailingString())

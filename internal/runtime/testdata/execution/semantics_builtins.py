@@ -277,3 +277,33 @@ class RepresentedValue:
 value = RepresentedValue()
 value.__repr__ = None
 assert repr(value) is representation
+# ---
+# case: str builtin values and protocol
+assert str() == ''
+text = 'existing text'
+assert str(text) is text
+assert str(None) == 'None'
+assert str(False) == 'False'
+assert str(123) == '123'
+assert str(b'value') == "b'value'"
+assert str([1, 'two']) == "[1, 'two']"
+assert str(ValueError('message')) == 'message'
+
+string_value = 'custom string'
+
+class StringValue:
+    def __str__(self):
+        return string_value
+
+value = StringValue()
+value.__str__ = None
+assert str(value) is string_value
+# ---
+# case: str falls back to repr
+representation = 'fallback representation'
+
+class ReprOnlyValue:
+    def __repr__(self):
+        return representation
+
+assert str(ReprOnlyValue()) is representation

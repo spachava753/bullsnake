@@ -382,6 +382,9 @@ class `__bool__` before class `__len__`.
 
 The `len` builtin handles built-in containers and text directly, and otherwise
 calls class `__len__` with the same nonnegative host-index result checks.
+`repr` and the object form of `str` use class `__repr__` and `__str__` through
+the same suspended-frame mechanism.
+
 Iteration calls class `__iter__`, validates its result, and resumes class
 `__next__` from `for` or `next()`.
 Containment calls class `__contains__` and sends its result through the same
