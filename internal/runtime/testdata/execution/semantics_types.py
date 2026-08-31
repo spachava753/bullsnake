@@ -57,3 +57,61 @@ assert type(bool()) is bool
 assert type(bool(1)) is bool
 assert type(int(3.5)) is int
 assert type(str(42)) is str
+# ---
+# case: isinstance native values and classes
+list_type = type([])
+assert isinstance(None, type(None))
+assert isinstance(True, bool)
+assert isinstance(True, int)
+assert not isinstance(1, bool)
+assert isinstance(1, int)
+assert isinstance('text', str)
+assert isinstance([], list_type)
+assert not isinstance((), list_type)
+assert isinstance(type, type)
+assert isinstance(bool, type)
+assert isinstance(ValueError, type)
+assert not isinstance(1, type)
+# ---
+# case: isinstance user and exception ancestry
+class InstanceBase:
+    pass
+
+class InstanceChild(InstanceBase):
+    pass
+
+class InstanceOther:
+    pass
+
+class ParentError(ValueError):
+    pass
+
+class ChildError(ParentError):
+    pass
+
+base = InstanceBase()
+child = InstanceChild()
+assert isinstance(base, InstanceBase)
+assert isinstance(child, InstanceChild)
+assert isinstance(child, InstanceBase)
+assert not isinstance(base, InstanceChild)
+assert not isinstance(child, InstanceOther)
+assert isinstance(InstanceBase, type)
+assert isinstance(ValueError('bad'), Exception)
+assert isinstance(ParentError('bad'), ValueError)
+assert isinstance(ChildError('bad'), ParentError)
+assert isinstance(ChildError('bad'), ValueError)
+assert not isinstance(ValueError('bad'), ParentError)
+# ---
+# case: isinstance tuple candidates
+class TupleBase:
+    pass
+
+class TupleChild(TupleBase):
+    pass
+
+value = TupleChild()
+assert isinstance(value, (str, TupleBase))
+assert isinstance(value, (str, (int, TupleBase)))
+assert not isinstance(value, (str, int))
+assert isinstance(1, (int, None))

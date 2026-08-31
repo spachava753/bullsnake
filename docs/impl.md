@@ -416,8 +416,12 @@ exception. Native types and built-in exception classes expose `__name__`,
 `__qualname__`, and `__module__`; user classes expose the corresponding compiler
 and class-builder metadata. `type(type) is type`. The `bool`, `int`, and `str`
 bindings are their native type objects and retain their existing constructor
-behavior. Three-argument `type` and the remaining built-in type constructors are
-not implemented yet.
+behavior. `isinstance` checks native identity, the C3 ancestry of a user
+instance, and built-in or user exception ancestry. A tuple of candidates is
+processed left to right and may contain nested tuples; a match suppresses errors
+from later entries. `bool` is a native subclass of `int`. Type unions and custom
+metaclass `__instancecheck__` methods are not implemented. Three-argument `type`
+and the remaining built-in type constructors are not implemented yet.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
@@ -525,8 +529,9 @@ a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes; native `bool`,
 `int`, `str`, and `type` objects; `callable`; `classmethod`; `getattr`; `hasattr`;
-one-argument `iter`; `len`; positional `max` and `min` calls with two or more
-arguments; `next`; `repr`; and `staticmethod`. `next` accepts one optional
+`isinstance`; one-argument `iter`; `len`; and positional `max` and `min` calls
+with two or more arguments; `next`; `repr`; and `staticmethod`. The `next`
+builtin accepts one optional
 default for generators, internal iterators, and user iterators. String and base
 forms of `int`, the iterable and keyword forms of `max` and `min`, the encoding
 form of `str`, three-argument `type`, and callable-sentinel `iter` remain

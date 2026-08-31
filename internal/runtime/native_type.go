@@ -6,6 +6,7 @@ type nativeTypeValue struct {
 	name     string
 	qualname string
 	module   string
+	base     *nativeTypeValue
 }
 
 func (*nativeTypeValue) TypeName() string { return "type" }
@@ -30,10 +31,12 @@ func builtinNativeType(name string) *nativeTypeValue {
 }
 
 var (
-	typeNativeType            = builtinNativeType("type")
-	noneNativeType            = builtinNativeType("NoneType")
-	boolNativeType            = builtinNativeType("bool")
-	intNativeType             = builtinNativeType("int")
+	typeNativeType = builtinNativeType("type")
+	noneNativeType = builtinNativeType("NoneType")
+	intNativeType  = builtinNativeType("int")
+	boolNativeType = &nativeTypeValue{
+		name: "bool", qualname: "bool", module: "builtins", base: intNativeType,
+	}
 	floatNativeType           = builtinNativeType("float")
 	complexNativeType         = builtinNativeType("complex")
 	stringNativeType          = builtinNativeType("str")
