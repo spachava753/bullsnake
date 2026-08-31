@@ -430,10 +430,12 @@ size. `enumerate` accepts one iterable and an optional integer or boolean start,
 resolves the iterator during construction, and retains an arbitrary-precision
 index. It is its own iterator. Pulling an indexed pair may suspend in a generator
 or user `__next__` frame. `map` currently accepts one iterable and applies its
-callable lazily. Pulling a mapped item may suspend in the source iterator or in a
-Python function, callable instance, or class constructor. Multiple iterables and
-Python 3.14's `strict` keyword remain unsupported. User `__index__` conversion,
-range subscription, and range-specific methods also remain unsupported.
+callable lazily. `filter` accepts one predicate and iterable, retains the original
+item while the predicate and its truth method run, and treats `None` as the
+identity predicate. Pulling either kind of item may suspend in the source
+iterator or in Python call and truth frames. Multiple map iterables and Python
+3.14's `strict` keyword remain unsupported. User `__index__` conversion, range
+subscription, and range-specific methods also remain unsupported.
 
 The `list`, `tuple`, `set`, `frozenset`, and `dict` type objects accept zero or
 one positional source. Sequence, set, and frozen-set constructors collect
@@ -508,7 +510,8 @@ to have class `__next__`. The one-argument `iter` builtin and loop iteration use
 the same path. Each loop step or user-iterator `next()` call may run a Python
 frame. `enumerate` retains that iterator and applies its index only after an item
 is produced, so failed pulls do not advance the count. `map` retains its source
-iterator and calls its function only after a source item is available. Both
+iterator and calls its function only after a source item is available. `filter`
+retains a candidate until its predicate result has been truth-tested. All three
 remain self-iterators and preserve their state across `for`, `next`, and
 collection construction. `all` and `any` truth-test each item through the same
 resumable protocol and stop when the result is known. `all` returns true and
@@ -575,14 +578,14 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes; native `bool`,
-`int`, `str`, `range`, `enumerate`, `map`, `list`, `tuple`, `set`, `frozenset`,
-`dict`, `object`, and `type` objects; `all`; `any`; `callable`; `classmethod`;
-`dir`; `getattr`; `hasattr`; `hash`; `isinstance`; `issubclass`; one-argument
-`iter`; `len`; positional `max` and `min` calls with two or more arguments;
-`next`; `repr`; and `staticmethod`. The `next` builtin accepts one optional
-default for generators, internal iterators, and user iterators. String and base
-iterable and keyword forms of `max` and `min`, the encoding form of `str`, and
-callable-sentinel `iter` remain unsupported.
+`int`, `str`, `range`, `enumerate`, `map`, `filter`, `list`, `tuple`, `set`,
+`frozenset`, `dict`, `object`, and `type` objects; `all`; `any`; `callable`;
+`classmethod`; `dir`; `getattr`; `hasattr`; `hash`; `isinstance`; `issubclass`;
+one-argument `iter`; `len`; positional `max` and `min` calls with two or more
+arguments; `next`; `repr`; and `staticmethod`. The `next` builtin accepts one
+optional default for generators, internal iterators, and user iterators. String
+and base forms of `int`, the iterable and keyword forms of `max` and `min`, the
+encoding form of `str`, and callable-sentinel `iter` remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

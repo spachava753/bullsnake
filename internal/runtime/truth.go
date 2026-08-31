@@ -20,6 +20,7 @@ type truthCall struct {
 	method        truthMethod
 	returnBoolean bool
 	aggregate     *truthAggregateCall
+	filtering     *filterCall
 }
 
 // executeTruthOperation resolves one value for a bytecode truth operation.
@@ -209,6 +210,9 @@ func completeTruthCall(
 	call *truthCall,
 	truth bool,
 ) (instructionOutcome, error) {
+	if call.filtering != nil {
+		return finishFilterTruth(frame, call.filtering, truth)
+	}
 	if call.aggregate != nil {
 		return finishTruthAggregateTruth(frame, call.aggregate, truth)
 	}

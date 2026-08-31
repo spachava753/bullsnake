@@ -169,6 +169,15 @@ func continueTruthAggregate(
 			}
 			return executeTruthAggregateItem(frame, call, value)
 		}
+	case *filterValue:
+		return executeFilterNext(frame, &filterCall{
+			filtering: iterator,
+			request: &iterationCall{
+				kind:        iterationTruthAggregateNext,
+				instruction: call.instruction,
+				aggregate:   call,
+			},
+		})
 	case *mapValue:
 		return executeMapNext(frame, &mapCall{
 			mapping: iterator,

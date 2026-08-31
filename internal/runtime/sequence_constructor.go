@@ -143,6 +143,16 @@ func continueCollectionConstructor(
 			}
 			call.elements = append(call.elements, value)
 		}
+	case *filterValue:
+		request := &iterationCall{
+			kind:        iterationCollectionNext,
+			instruction: call.instruction,
+			collection:  call,
+		}
+		return executeFilterNext(frame, &filterCall{
+			filtering: iterator,
+			request:   request,
+		})
 	case *mapValue:
 		request := &iterationCall{
 			kind:        iterationCollectionNext,

@@ -1,22 +1,25 @@
 package runtime
 
-type mapValue struct {
-	callable Value
-	iterator Value
+import "strconv"
+
+type filterValue struct {
+	predicate Value
+	iterator  Value
 }
 
-func (*mapValue) TypeName() string { return "map" }
-func (*mapValue) Repr() string     { return "<map object>" }
-func (*mapValue) isValue()         {}
+func (*filterValue) TypeName() string { return "filter" }
+func (*filterValue) Repr() string     { return "<filter object>" }
+func (*filterValue) isValue()         {}
 
-type mapCall struct {
-	mapping *mapValue
-	request *iterationCall
+type filterCall struct {
+	filtering *filterValue
+	request   *iterationCall
+	item      Value
 }
 
-// executeMapTypeCall creates the currently supported one-iterable lazy map and
-// resolves its source iterator before returning the map object.
-func executeMapTypeCall(
+// executeFilterTypeCall creates a lazy predicate and source iterator pair,
+// resolving user __iter__ through the ordinary iteration continuation.
+func executeFilterTypeCall(
 	caller *frame,
 	instruction int,
 	base int,
@@ -26,30 +29,23 @@ func executeMapTypeCall(
 	if keywords != nil && len(keywords.entries) != 0 {
 		discardCallSegment(caller, base)
 		return raiseOutcome(newException(
-			"NotImplementedError",
-			"map keyword arguments are not supported",
+			"TypeError",
+			"filter() takes no keyword arguments",
 		)), nil
 	}
-	if len(arguments) < 2 {
+	if len(arguments) != 2 {
 		discardCallSegment(caller, base)
 		return raiseOutcome(newException(
 			"TypeError",
-			"map() must have at least two arguments.",
+			"filter expected 2 arguments, got "+strconv.Itoa(len(arguments)),
 		)), nil
 	}
-	if len(arguments) > 2 {
-		discardCallSegment(caller, base)
-		return raiseOutcome(newException(
-			"NotImplementedError",
-			"map with multiple iterables is not supported",
-		)), nil
-	}
-	mapping := &mapValue{callable: arguments[0]}
+	filtering := &filterValue{predicate: arguments[0]}
 	iterable := arguments[1]
 	discardCallSegment(caller, base)
 	if iterator, builtin := newIterator(iterable); builtin {
-		mapping.iterator = iterator
-		return pushOutcome(caller, instruction, mapping)
+		filtering.iterator = iterator
+		return pushOutcome(caller, instruction, filtering)
 	}
 	instance, ok := iterable.(*instanceValue)
 	if !ok {
@@ -66,21 +62,21 @@ func executeMapTypeCall(
 		)), nil
 	}
 	return executeIterationSpecial(caller, method, &iterationCall{
-		kind:        iterationMapIterator,
+		kind:        iterationFilterIterator,
 		instruction: instruction,
-		mapping:     &mapCall{mapping: mapping},
+		filtering:   &filterCall{filtering: filtering},
 	})
 }
 
-func finishMapIterator(
+func finishFilterIterator(
 	frame *frame,
-	call *mapCall,
+	call *filterCall,
 	iterator Value,
 ) (instructionOutcome, error) {
-	if call == nil || call.mapping == nil {
+	if call == nil || call.filtering == nil {
 		return instructionOutcome{}, frame.failure(
 			frame.instruction-1,
-			"map iterator lookup has no constructor state",
+			"filter iterator lookup has no constructor state",
 		)
 	}
 	if !isIteratorValue(iterator) {
@@ -89,54 +85,64 @@ func finishMapIterator(
 			"iter() returned non-iterator of type '"+iterator.TypeName()+"'",
 		)), nil
 	}
-	call.mapping.iterator = iterator
-	return pushOutcome(frame, frame.instruction-1, call.mapping)
+	call.filtering.iterator = iterator
+	return pushOutcome(frame, frame.instruction-1, call.filtering)
 }
 
-// executeMapNext pulls one source value and runs the mapped callable only after
-// the source reports a successful item.
-func executeMapNext(frame *frame, call *mapCall) (instructionOutcome, error) {
-	if call == nil || call.mapping == nil || call.request == nil {
+// executeFilterNext pulls candidates until one passes or source execution must
+// suspend, preserving the outer iterator request across every skipped item.
+func executeFilterNext(frame *frame, call *filterCall) (instructionOutcome, error) {
+	if call == nil || call.filtering == nil || call.request == nil {
 		return instructionOutcome{}, frame.failure(
 			frame.instruction-1,
-			"map next has incomplete continuation state",
+			"filter next has incomplete continuation state",
 		)
 	}
-	switch iterator := call.mapping.iterator.(type) {
+	switch iterator := call.filtering.iterator.(type) {
 	case valueIterator:
-		value, present, exception := iterator.next()
-		if exception != nil {
-			return raiseOutcome(exception), nil
+		for {
+			value, present, exception := iterator.next()
+			if exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			if !present {
+				return finishFilterStop(frame, call)
+			}
+			if call.filtering.predicate == None && value != notImplementedSingleton {
+				if truth, immediate := immediateTruth(value); immediate {
+					if truth {
+						return finishIterationCall(frame, call.request, value)
+					}
+					continue
+				}
+			}
+			return executeFilterItem(frame, call, value)
 		}
-		if !present {
-			return finishMapStop(frame, call)
-		}
-		return executeMappedCall(frame, call, value)
 	case *enumerateValue:
 		return executeEnumerateNext(frame, &enumerateCall{
 			enumeration: iterator,
 			request: &iterationCall{
-				kind:        iterationMapNext,
+				kind:        iterationFilterNext,
 				instruction: call.request.instruction,
-				mapping:     call,
+				filtering:   call,
 			},
 		})
 	case *mapValue:
 		return executeMapNext(frame, &mapCall{
 			mapping: iterator,
 			request: &iterationCall{
-				kind:        iterationMapNext,
+				kind:        iterationFilterNext,
 				instruction: call.request.instruction,
-				mapping:     call,
+				filtering:   call,
 			},
 		})
 	case *filterValue:
 		return executeFilterNext(frame, &filterCall{
 			filtering: iterator,
 			request: &iterationCall{
-				kind:        iterationMapNext,
+				kind:        iterationFilterNext,
 				instruction: call.request.instruction,
-				mapping:     call,
+				filtering:   call,
 			},
 		})
 	case *generatorValue:
@@ -147,7 +153,7 @@ func executeMapNext(frame *frame, call *mapCall) (instructionOutcome, error) {
 			)), nil
 		}
 		if iterator.state == generatorCompleted {
-			return finishMapStop(frame, call)
+			return finishFilterStop(frame, call)
 		}
 		return resumeGenerator(
 			frame,
@@ -155,9 +161,9 @@ func executeMapNext(frame *frame, call *mapCall) (instructionOutcome, error) {
 			iterator,
 			None,
 			generatorResume{
-				kind:        generatorMap,
+				kind:        generatorFilter,
 				instruction: call.request.instruction,
-				mapping:     call,
+				filtering:   call,
 			},
 		)
 	case *instanceValue:
@@ -169,36 +175,42 @@ func executeMapNext(frame *frame, call *mapCall) (instructionOutcome, error) {
 			)), nil
 		}
 		return executeIterationSpecial(frame, method, &iterationCall{
-			kind:        iterationMapNext,
+			kind:        iterationFilterNext,
 			instruction: call.request.instruction,
-			mapping:     call,
+			filtering:   call,
 		})
 	default:
 		return instructionOutcome{}, frame.failure(
 			call.request.instruction,
-			"map retained a non-iterator",
+			"filter retained a non-iterator",
 		)
 	}
 }
 
-func executeMappedCall(
+// executeFilterItem retains one candidate, evaluates the identity or callable
+// predicate, and sends the predicate result through resumable truth testing.
+func executeFilterItem(
 	frame *frame,
-	call *mapCall,
-	value Value,
+	call *filterCall,
+	item Value,
 ) (instructionOutcome, error) {
+	call.item = item
+	if call.filtering.predicate == None {
+		return finishFilterPredicate(frame, call, item)
+	}
 	outcome, err := executeFunctionCall(
 		frame,
 		call.request.instruction,
 		len(frame.stack),
-		call.mapping.callable,
-		[]Value{value},
+		call.filtering.predicate,
+		[]Value{item},
 		nil,
 	)
 	if err != nil {
 		return instructionOutcome{}, err
 	}
 	if outcome.kind == called {
-		outcome.frame.mapping = call
+		outcome.frame.filtering = call
 		return outcome, nil
 	}
 	if outcome.kind != advance {
@@ -208,37 +220,49 @@ func executeMappedCall(
 	if !ok {
 		return instructionOutcome{}, frame.failure(
 			call.request.instruction,
-			"map callable returned without a value",
+			"filter predicate returned without a value",
 		)
 	}
-	return finishMapItem(frame, call, result)
+	return finishFilterPredicate(frame, call, result)
 }
 
-func finishMapItem(
+func finishFilterPredicate(
 	frame *frame,
-	call *mapCall,
+	call *filterCall,
 	result Value,
 ) (instructionOutcome, error) {
-	if call == nil || call.request == nil {
-		return instructionOutcome{}, frame.failure(
-			frame.instruction-1,
-			"map result has no outer request",
-		)
-	}
-	return finishIterationCall(frame, call.request, result)
+	return executeTruthWithCall(frame, result, &truthCall{
+		instruction: call.request.instruction,
+		original:    result,
+		filtering:   call,
+	})
 }
 
-func finishMapStop(
+func finishFilterTruth(
 	frame *frame,
-	call *mapCall,
+	call *filterCall,
+	truth bool,
+) (instructionOutcome, error) {
+	if truth {
+		item := call.item
+		call.item = nil
+		return finishIterationCall(frame, call.request, item)
+	}
+	call.item = nil
+	return executeFilterNext(frame, call)
+}
+
+func finishFilterStop(
+	frame *frame,
+	call *filterCall,
 ) (instructionOutcome, error) {
 	if call == nil || call.request == nil {
 		return instructionOutcome{}, frame.failure(
 			frame.instruction-1,
-			"map exhaustion has no outer request",
+			"filter exhaustion has no outer request",
 		)
 	}
 	return finishIterationStop(frame, call.request, newStopIteration(None))
 }
 
-var _ Value = (*mapValue)(nil)
+var _ Value = (*filterValue)(nil)

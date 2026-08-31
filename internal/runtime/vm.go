@@ -311,6 +311,58 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.filtering != nil {
+				call := active.filtering
+				active.filtering = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"filter predicate has no caller",
+					)
+				}
+				filterOutcome, filterErr := finishFilterPredicate(
+					thread.current,
+					call,
+					result,
+				)
+				if filterErr != nil {
+					return nil, nil, filterErr
+				}
+				if filterOutcome.kind == called {
+					if filterOutcome.frame == nil ||
+						filterOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.request.instruction,
+							"invalid chained filter frame transition",
+						)
+					}
+					thread.current = filterOutcome.frame
+					continue
+				}
+				if filterOutcome.kind == raised {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.request.instruction,
+						filterOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+				if filterOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.request.instruction,
+						"invalid filter predicate outcome",
+					)
+				}
+				continue
+			}
 			if active.truth != nil {
 				call := active.truth
 				active.truth = nil
@@ -937,6 +989,7 @@ route:
 				current.iteration.kind != iterationEnumerateIterator &&
 				current.iteration.kind != iterationTruthAggregateIterator &&
 				current.iteration.kind != iterationMapIterator &&
+				current.iteration.kind != iterationFilterIterator &&
 				isStopIteration(exception) {
 				call := current.iteration
 				current.iteration = nil

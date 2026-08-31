@@ -577,3 +577,77 @@ assert 'instance_value' in instance_names
 assert 'base_value' in instance_names
 assert 'child_value' in instance_names
 assert 'missing_value' not in instance_names
+# ---
+# case: filter native values and None predicate
+assert list(filter(None, (0, 1, '', 'value', False, True))) == [
+    1,
+    'value',
+    True,
+]
+iterator = filter(None, ())
+assert type(iterator) is filter
+assert isinstance(iterator, filter)
+assert iter(iterator) is iterator
+assert next(iterator, None) is None
+# ---
+# case: filter is lazy and calls Python predicates
+filter_steps = 0
+
+def keep_even(value):
+    global filter_steps
+    filter_steps += 1
+    return value % 2 == 0
+
+iterator = filter(keep_even, range(5))
+assert filter_steps == 0
+assert next(iterator) == 0
+assert filter_steps == 1
+assert list(iterator) == [2, 4]
+assert filter_steps == 5
+# ---
+# case: filter composes with dir and generator iteration
+class FilteredMethods:
+    def test_first(self):
+        return None
+
+    def helper(self):
+        return None
+
+    def test_second(self):
+        return None
+
+def keep_test_name(name):
+    return name == 'test_first' or name == 'test_second'
+
+method_names = list(filter(keep_test_name, dir(FilteredMethods)))
+assert method_names == ['test_first', 'test_second']
+assert list(filter(lambda value: value > 1, (value for value in (1, 2, 3)))) == [
+    2,
+    3,
+]
+# ---
+# case: filter consumes user iterators and truth results
+class FilterTruth:
+    def __init__(self, value):
+        self.value = value
+
+    def __bool__(self):
+        return self.value
+
+class FilteredIterator:
+    def __init__(self):
+        self.current = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == 3:
+            raise StopIteration
+        self.current += 1
+        return self.current
+
+def user_filter(value):
+    return FilterTruth(value == 2)
+
+assert list(filter(user_filter, FilteredIterator())) == [2]

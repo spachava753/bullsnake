@@ -21,6 +21,8 @@ const (
 	iterationTruthAggregateNext
 	iterationMapIterator
 	iterationMapNext
+	iterationFilterIterator
+	iterationFilterNext
 )
 
 type iterationCall struct {
@@ -34,6 +36,7 @@ type iterationCall struct {
 	enumeration  *enumerateCall
 	aggregate    *truthAggregateCall
 	mapping      *mapCall
+	filtering    *filterCall
 }
 
 type sequenceIterator struct {
@@ -201,6 +204,8 @@ func newIterator(value Value) (Value, bool) {
 		return value, true
 	case *mapValue:
 		return value, true
+	case *filterValue:
+		return value, true
 	case *generatorValue:
 		if value.kind == generatorObject {
 			return value, true
@@ -314,6 +319,19 @@ func executeForIter(
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
 	value := frame.stack[len(frame.stack)-1]
+	if filtering, ok := value.(*filterValue); ok {
+		frame.pop()
+		request := &iterationCall{
+			kind:        iterationForNext,
+			instruction: index,
+			target:      target,
+			iterator:    filtering,
+		}
+		return executeFilterNext(frame, &filterCall{
+			filtering: filtering,
+			request:   request,
+		})
+	}
 	if mapping, ok := value.(*mapValue); ok {
 		frame.pop()
 		request := &iterationCall{
@@ -414,6 +432,7 @@ func executeIterationSpecial(
 		call.kind != iterationEnumerateIterator &&
 		call.kind != iterationTruthAggregateIterator &&
 		call.kind != iterationMapIterator &&
+		call.kind != iterationFilterIterator &&
 		isStopIteration(outcome.exception) {
 		return finishIterationStop(frame, call, outcome.exception)
 	}
@@ -496,6 +515,10 @@ func finishIterationCall(
 		return finishMapIterator(frame, call.mapping, result)
 	case iterationMapNext:
 		return executeMappedCall(frame, call.mapping, result)
+	case iterationFilterIterator:
+		return finishFilterIterator(frame, call.filtering, result)
+	case iterationFilterNext:
+		return executeFilterItem(frame, call.filtering, result)
 	default:
 		return instructionOutcome{}, frame.failure(
 			call.instruction,
@@ -534,6 +557,8 @@ func finishIterationStop(
 		return finishTruthAggregateStop(frame, call.aggregate)
 	case iterationMapNext:
 		return finishMapStop(frame, call.mapping)
+	case iterationFilterNext:
+		return finishFilterStop(frame, call.filtering)
 	default:
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
@@ -548,6 +573,8 @@ func isIteratorValue(value Value) bool {
 	case *enumerateValue:
 		return true
 	case *mapValue:
+		return true
+	case *filterValue:
 		return true
 	case *generatorValue:
 		return value.kind == generatorObject

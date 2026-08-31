@@ -33,6 +33,7 @@ const (
 	generatorEnumerate
 	generatorTruthAggregate
 	generatorMap
+	generatorFilter
 	generatorCall
 	generatorClose
 	generatorDelegate
@@ -51,6 +52,7 @@ type generatorResume struct {
 	enumeration  *enumerateCall
 	aggregate    *truthAggregateCall
 	mapping      *mapCall
+	filtering    *filterCall
 	asyncNext    *asyncGeneratorNextValue
 	asyncThrow   *asyncGeneratorThrowValue
 }
@@ -189,6 +191,18 @@ func executeBuiltinNext(
 	}
 
 	switch iterator := iterator.(type) {
+	case *filterValue:
+		discardCallSegment(caller, base)
+		request := &iterationCall{
+			kind:         iterationBuiltinNext,
+			instruction:  instruction,
+			defaultValue: defaultValue,
+			hasDefault:   hasDefault,
+		}
+		return executeFilterNext(caller, &filterCall{
+			filtering: iterator,
+			request:   request,
+		})
 	case *mapValue:
 		discardCallSegment(caller, base)
 		request := &iterationCall{
@@ -902,6 +916,34 @@ func suspendGenerator(
 		}
 		return caller, nil, nil
 	}
+	if generator.resume.kind == generatorFilter {
+		call := generator.resume.filtering
+		if call == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator filter has no continuation state",
+			)
+		}
+		active.previous = nil
+		generator.state = generatorSuspended
+		outcome, err := executeFilterItem(caller, call, value)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind == called {
+			return outcome.frame, nil, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				call.request.instruction,
+				"invalid filter generator yield outcome",
+			)
+		}
+		return caller, nil, nil
+	}
 	if (generator.resume.kind == generatorIteration ||
 		generator.resume.kind == generatorDelegate) &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
@@ -1041,6 +1083,28 @@ func finishGenerator(
 			return nil, nil, caller.failure(
 				resume.mapping.request.instruction,
 				"invalid map generator completion",
+			)
+		}
+		return caller, nil, nil
+	case generatorFilter:
+		if resume.filtering == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator filter completion has no continuation state",
+			)
+		}
+		generator.complete()
+		outcome, err := finishFilterStop(caller, resume.filtering)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				resume.filtering.request.instruction,
+				"invalid filter generator completion",
 			)
 		}
 		return caller, nil, nil

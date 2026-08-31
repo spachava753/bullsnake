@@ -581,3 +581,48 @@ dir(None, None)
 # error: TypeError
 # message: "dir() takes no keyword arguments"
 dir(obj=None)
+# ---
+# case: filter missing argument
+# error: TypeError
+# message: "filter expected 2 arguments, got 1"
+filter(None)
+# ---
+# case: filter extra argument
+# error: TypeError
+# message: "filter expected 2 arguments, got 3"
+filter(None, (), ())
+# ---
+# case: filter keyword argument
+# error: TypeError
+# message: "filter() takes no keyword arguments"
+filter(None, iterable=())
+# ---
+# case: filter non-iterable value
+# error: TypeError
+# message: "'int' object is not iterable"
+filter(None, 1)
+# ---
+# case: filter non-callable predicate
+# error: TypeError
+# message: "'int' object is not callable"
+next(filter(1, (2,)))
+# ---
+# case: filter predicate failure
+# error: ValueError
+# message: "filter predicate failed"
+def failing_filter(value):
+    raise ValueError('filter predicate failed')
+
+next(filter(failing_filter, (1,)))
+# ---
+# case: filter truth failure
+# error: ValueError
+# message: "filter truth failed"
+class FailingFilterTruth:
+    def __bool__(self):
+        raise ValueError('filter truth failed')
+
+def failing_filter_truth(value):
+    return FailingFilterTruth()
+
+next(filter(failing_filter_truth, (1,)))
