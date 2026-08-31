@@ -220,6 +220,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *setDiscardMethod:
+		return executeSetDiscardCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,
@@ -428,6 +437,7 @@ func isCallableValue(value Value) bool {
 		*dictionaryGetMethod,
 		*dictionaryItemsMethod,
 		*setAddMethod,
+		*setDiscardMethod,
 		*buildClassValue,
 		*typeValue,
 		*exceptionTypeValue,

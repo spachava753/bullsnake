@@ -64,6 +64,23 @@ func (set *setValue) add(value Value) *Exception {
 	return nil
 }
 
+func (set *setValue) discard(value Value) (bool, *Exception) {
+	if exception := validateSetElement(value); exception != nil {
+		return false, exception
+	}
+	for index, entry := range set.entries {
+		if entry != value && !valuesEqual(entry, value) {
+			continue
+		}
+		copy(set.entries[index:], set.entries[index+1:])
+		last := len(set.entries) - 1
+		set.entries[last] = nil
+		set.entries = set.entries[:last]
+		return true, nil
+	}
+	return false, nil
+}
+
 func (set *setValue) contains(value Value) (bool, *Exception) {
 	if exception := validateSetElement(value); exception != nil {
 		return false, exception

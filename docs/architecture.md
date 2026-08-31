@@ -388,10 +388,10 @@ filter predicate and truth method runs. A list instance exposes bound `append`,
 `pop`, and `extend` methods. Extend uses the same resumable iterator path and
 mutates the target as each item arrives. Dictionary instances expose bound
 `get`, `pop`, and `items` methods. The items method returns a live view whose
-iterators reject key-set changes. Set instances expose a bound `add` method that
-uses the same fixed hashability and equality rules as set displays. Set-like
-operations on dictionary views and other native collection methods remain later
-work.
+iterators reject key-set changes. Set instances expose bound `add` and `discard`
+methods that use the same fixed hashability and equality rules as set displays.
+Set-like operations on dictionary views and other native collection methods
+remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
 descriptor behavior. Metaclass selection, MRO-entry rewriting, unions, and

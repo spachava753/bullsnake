@@ -807,3 +807,23 @@ set().add(element=1)
 # error: TypeError
 # message: "cannot use 'list' as a set element (unhashable type: 'list')"
 set().add([])
+# ---
+# case: set discard missing argument
+# error: TypeError
+# message: "set.discard() takes exactly one argument (0 given)"
+set().discard()
+# ---
+# case: set discard extra argument
+# error: TypeError
+# message: "set.discard() takes exactly one argument (2 given)"
+set().discard(1, 2)
+# ---
+# case: set discard keyword argument
+# error: TypeError
+# message: "set.discard() takes no keyword arguments"
+set().discard(element=1)
+# ---
+# case: set discard unhashable value
+# error: TypeError
+# message: "cannot use 'list' as a set element (unhashable type: 'list')"
+set().discard([])

@@ -793,3 +793,13 @@ assert len(values) == 2
 assert 'first' in values
 assert 'second' in values
 assert list(values) == ['first', 'second']
+# ---
+# case: set discard method
+values = {'first', 'second'}
+discard = values.discard
+assert callable(discard)
+assert discard('first') is None
+assert 'first' not in values
+assert list(values) == ['second']
+assert discard('missing') is None
+assert list(values) == ['second']
