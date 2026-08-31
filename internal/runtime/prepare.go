@@ -485,6 +485,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.LoadHandledExceptionType, bytecode.MatchSequence, bytecode.GetLen,
 		bytecode.MatchMapping, bytecode.MatchMappingKey, bytecode.CopyMapping,
 		bytecode.CheckMappingKey, bytecode.MakeTypeAlias, bytecode.MakeTypeVar,
+		bytecode.MakeTypeVarTuple, bytecode.MakeParamSpec,
 		bytecode.SetTypeAliasParameters, bytecode.SetTypeVarBound,
 		bytecode.SetTypeVarConstraints, bytecode.SetTypeVarDefault:
 		return nil
@@ -773,7 +774,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		bytecode.SetTypeAliasParameters, bytecode.SetTypeVarBound,
 		bytecode.SetTypeVarConstraints, bytecode.SetTypeVarDefault:
 		return 2, 1
-	case bytecode.MakeTypeVar:
+	case bytecode.MakeTypeVar, bytecode.MakeTypeVarTuple, bytecode.MakeParamSpec:
 		return 1, 1
 	case bytecode.Call:
 		return int(instruction.Operand) + 1, 1

@@ -187,9 +187,9 @@ the ordinary VM frame loop and caches the returned object; a failure is not
 cached. The hidden function preserves global, enclosing-function, and
 class-visible lookup at the definition site.
 
-A generic alias with ordinary TypeVars adds one outer hidden function. That
-function creates fresh inferred-variance TypeVars, stores them in closure cells,
-builds the lazy alias, and attaches the same objects as
+A generic alias with `TypeVar`, `TypeVarTuple`, or `ParamSpec` parameters adds
+one outer hidden function. That function creates fresh parameter objects, stores
+them in closure cells, builds the lazy alias, and attaches the same objects as
 `Alias.__type_params__`. Calling the hidden function at the alias statement keeps
 the parameter names out of the defining namespace.
 
@@ -198,8 +198,8 @@ the same definition scope. Reading `T.__bound__`, `T.__constraints__`, or
 `T.__default__` runs the corresponding evaluator once and caches a successful
 result. A failure remains uncached so a later access can retry. TypeVars without
 a default return one immutable marker whose repr is `typing.NoDefault`.
-Variadic type parameters, public evaluator callables, and alias subscription
-remain later work.
+Defaults on `TypeVarTuple` and `ParamSpec`, public evaluator callables, and alias
+subscription remain later work.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches

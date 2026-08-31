@@ -10,8 +10,11 @@ import (
 // alias, then binds the resulting alias in the defining scope.
 func (compiler *compilerState) compileTypeAlias(statement *compilerast.TypeAliasStmt) error {
 	for _, parameter := range statement.TypeParameters {
-		if parameter.Kind != compilerast.TypeVariable {
-			return compiler.error(parameter.Range, "variadic type parameters are not compiled")
+		if parameter.Kind != compilerast.TypeVariable && parameter.Default != nil {
+			return compiler.error(
+				parameter.Range,
+				"variadic type parameter defaults are not compiled",
+			)
 		}
 	}
 	if len(statement.TypeParameters) == 0 {
@@ -69,7 +72,14 @@ func (compiler *compilerState) compileGenericTypeAlias(
 		); err != nil {
 			return err
 		}
-		if err := child.emit(bytecode.MakeTypeVar, 0, parameter.Range); err != nil {
+		makeOpcode := bytecode.MakeTypeVar
+		switch parameter.Kind {
+		case compilerast.TypeVariableTuple:
+			makeOpcode = bytecode.MakeTypeVarTuple
+		case compilerast.ParameterSpecification:
+			makeOpcode = bytecode.MakeParamSpec
+		}
+		if err := child.emit(makeOpcode, 0, parameter.Range); err != nil {
 			return err
 		}
 		if parameter.Bound != nil {

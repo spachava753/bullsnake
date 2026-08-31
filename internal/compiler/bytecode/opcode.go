@@ -173,6 +173,8 @@ const (
 	MatchClass
 	MakeTypeAlias
 	MakeTypeVar
+	MakeTypeVarTuple
+	MakeParamSpec
 	SetTypeAliasParameters
 	SetTypeVarBound
 	SetTypeVarConstraints
@@ -268,6 +270,8 @@ var opcodeNames = [...]string{
 	"MATCH_CLASS",
 	"MAKE_TYPE_ALIAS",
 	"MAKE_TYPE_VAR",
+	"MAKE_TYPE_VAR_TUPLE",
+	"MAKE_PARAM_SPEC",
 	"SET_TYPE_ALIAS_PARAMETERS",
 	"SET_TYPE_VAR_BOUND",
 	"SET_TYPE_VAR_CONSTRAINTS",

@@ -575,6 +575,46 @@ func executeInstruction(
 					),
 				}, nil
 			}
+		case *typeVarTupleValue:
+			switch name {
+			case "__name__":
+				return pushOutcome(frame, index, &stringValue{value: owner.name})
+			case "__default__":
+				return pushOutcome(frame, index, noDefaultSingleton)
+			default:
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"'typing.TypeVarTuple' object has no attribute '"+name+"'",
+					),
+				}, nil
+			}
+		case *paramSpecValue:
+			switch name {
+			case "__name__":
+				return pushOutcome(frame, index, &stringValue{value: owner.name})
+			case "__bound__":
+				return pushOutcome(frame, index, None)
+			case "__covariant__", "__contravariant__":
+				return pushOutcome(frame, index, falseSingleton)
+			case "__infer_variance__":
+				return pushOutcome(frame, index, trueSingleton)
+			case "__default__":
+				return pushOutcome(frame, index, noDefaultSingleton)
+			case "args":
+				return pushOutcome(frame, index, &paramSpecArgsValue{parameter: owner})
+			case "kwargs":
+				return pushOutcome(frame, index, &paramSpecKwargsValue{parameter: owner})
+			default:
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"'typing.ParamSpec' object has no attribute '"+name+"'",
+					),
+				}, nil
+			}
 		case *typeAliasValue:
 			switch name {
 			case "__name__":
@@ -919,8 +959,8 @@ func executeInstruction(
 		return pushOutcome(frame, index, function)
 	case bytecode.MakeTypeAlias:
 		return executeMakeTypeAlias(frame, index)
-	case bytecode.MakeTypeVar:
-		return executeMakeTypeVar(frame, index)
+	case bytecode.MakeTypeVar, bytecode.MakeTypeVarTuple, bytecode.MakeParamSpec:
+		return executeMakeTypeParameter(frame, index, instruction.Opcode)
 	case bytecode.SetTypeAliasParameters:
 		return executeSetTypeAliasParameters(frame, index)
 	case bytecode.SetTypeVarBound:

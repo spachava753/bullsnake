@@ -1161,6 +1161,33 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "type variable name is not a string",
 		},
 		{
+			name: "type variable tuple construction underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.MakeTypeVarTuple},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "parameter specification name payload",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeParamSpec},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "parameter specification name is not a string",
+		},
+		{
 			name: "type alias parameter attachment underflow",
 			code: testCode(
 				1,
@@ -1228,7 +1255,7 @@ func TestBytecodeValidation(t *testing.T) {
 				},
 				Children: []*bytecode.Code{aliasValueCode},
 			}),
-			wantFragment: "type alias parameter payload contains a non-TypeVar value",
+			wantFragment: "type alias parameter payload contains a non-type-parameter value",
 		},
 		{
 			name: "type variable bound attachment underflow",

@@ -29,6 +29,46 @@ func (variable *typeVarValue) Repr() string {
 }
 func (*typeVarValue) isValue() {}
 
+type typeVarTupleValue struct {
+	name string
+}
+
+func (*typeVarTupleValue) TypeName() string { return "typing.TypeVarTuple" }
+func (variable *typeVarTupleValue) Repr() string {
+	return variable.name
+}
+func (*typeVarTupleValue) isValue() {}
+
+type paramSpecValue struct {
+	name string
+}
+
+func (*paramSpecValue) TypeName() string { return "typing.ParamSpec" }
+func (parameter *paramSpecValue) Repr() string {
+	return parameter.name
+}
+func (*paramSpecValue) isValue() {}
+
+type paramSpecArgsValue struct {
+	parameter *paramSpecValue
+}
+
+func (*paramSpecArgsValue) TypeName() string { return "typing.ParamSpecArgs" }
+func (arguments *paramSpecArgsValue) Repr() string {
+	return arguments.parameter.name + ".args"
+}
+func (*paramSpecArgsValue) isValue() {}
+
+type paramSpecKwargsValue struct {
+	parameter *paramSpecValue
+}
+
+func (*paramSpecKwargsValue) TypeName() string { return "typing.ParamSpecKwargs" }
+func (arguments *paramSpecKwargsValue) Repr() string {
+	return arguments.parameter.name + ".kwargs"
+}
+func (*paramSpecKwargsValue) isValue() {}
+
 type typeVarLoadKind uint8
 
 const (
@@ -63,17 +103,36 @@ type typeAliasLoad struct {
 	instruction int
 }
 
-// executeMakeTypeVar creates one inferred-variance PEP 695 type variable.
-func executeMakeTypeVar(frame *frame, instruction int) (instructionOutcome, error) {
+// executeMakeTypeParameter creates one inferred-variance PEP 695 parameter.
+func executeMakeTypeParameter(
+	frame *frame,
+	instruction int,
+	opcode bytecode.Opcode,
+) (instructionOutcome, error) {
 	nameValue, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
 	name, ok := nameValue.(*stringValue)
 	if !ok {
-		return instructionOutcome{}, frame.failure(instruction, "type variable name is not a string")
+		kind := "type variable"
+		if opcode == bytecode.MakeTypeVarTuple {
+			kind = "type variable tuple"
+		} else if opcode == bytecode.MakeParamSpec {
+			kind = "parameter specification"
+		}
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			kind+" name is not a string",
+		)
 	}
-	return pushOutcome(frame, instruction, &typeVarValue{name: name.value})
+	var parameter Value = &typeVarValue{name: name.value}
+	if opcode == bytecode.MakeTypeVarTuple {
+		parameter = &typeVarTupleValue{name: name.value}
+	} else if opcode == bytecode.MakeParamSpec {
+		parameter = &paramSpecValue{name: name.value}
+	}
+	return pushOutcome(frame, instruction, parameter)
 }
 
 // executeSetTypeVarEvaluator attaches one compiler-created lazy evaluator and
@@ -217,10 +276,12 @@ func executeSetTypeAliasParameters(frame *frame, instruction int) (instructionOu
 		)
 	}
 	for _, parameter := range parameters.elements {
-		if _, ok := parameter.(*typeVarValue); !ok {
+		switch parameter.(type) {
+		case *typeVarValue, *typeVarTupleValue, *paramSpecValue:
+		default:
 			return instructionOutcome{}, frame.failure(
 				instruction,
-				"type alias parameter payload contains a non-TypeVar value",
+				"type alias parameter payload contains a non-type-parameter value",
 			)
 		}
 	}

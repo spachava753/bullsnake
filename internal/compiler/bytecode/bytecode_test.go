@@ -405,6 +405,18 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := MakeTypeVar.StackEffect(0); got != 0 {
 		t.Fatalf("MAKE_TYPE_VAR stack effect = %d, want 0", got)
 	}
+	if got := (Instruction{Opcode: MakeTypeVarTuple}).String(); got != "MAKE_TYPE_VAR_TUPLE" {
+		t.Fatalf("type variable tuple instruction = %q", got)
+	}
+	if got := MakeTypeVarTuple.StackEffect(0); got != 0 {
+		t.Fatalf("MAKE_TYPE_VAR_TUPLE stack effect = %d, want 0", got)
+	}
+	if got := (Instruction{Opcode: MakeParamSpec}).String(); got != "MAKE_PARAM_SPEC" {
+		t.Fatalf("parameter specification instruction = %q", got)
+	}
+	if got := MakeParamSpec.StackEffect(0); got != 0 {
+		t.Fatalf("MAKE_PARAM_SPEC stack effect = %d, want 0", got)
+	}
 	if got := (Instruction{Opcode: SetTypeAliasParameters}).String(); got != "SET_TYPE_ALIAS_PARAMETERS" {
 		t.Fatalf("type alias parameter instruction = %q", got)
 	}

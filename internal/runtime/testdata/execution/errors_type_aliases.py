@@ -27,3 +27,9 @@ MissingBound.__type_params__[0].__bound__
 # message: "name 'missing_default' is not defined"
 type MissingDefault[T = missing_default] = T
 MissingDefault.__type_params__[0].__default__
+# ---
+# case: variadic generic alias parameters do not leak
+# error: NameError
+# message: "name 'Ts' is not defined"
+type HiddenVariadic[*Ts, **P] = (Ts, P)
+Ts

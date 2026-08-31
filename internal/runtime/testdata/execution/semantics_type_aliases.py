@@ -209,3 +209,26 @@ except NameError:
 assert first_default_failure
 missing_default = 'available'
 assert retry_default_parameter.__default__ == 'available'
+# ---
+# case: variadic generic aliases create TypeVarTuple and ParamSpec values
+type Variadic[*Ts, **P] = (Ts, P)
+variadic_parameters = Variadic.__type_params__
+Ts = variadic_parameters[0]
+P = variadic_parameters[1]
+assert f'{variadic_parameters!r}' == '(Ts, P)'
+assert Ts.__name__ == 'Ts'
+assert f'{Ts!r}' == 'Ts'
+variadic_no_default = Ts.__default__
+assert f'{variadic_no_default!r}' == 'typing.NoDefault'
+assert P.__name__ == 'P'
+assert f'{P!r}' == 'P'
+assert P.__bound__ is None
+assert P.__covariant__ is False
+assert P.__contravariant__ is False
+assert P.__infer_variance__ is True
+assert P.__default__ is variadic_no_default
+assert f'{P.args!r}' == 'P.args'
+assert f'{P.kwargs!r}' == 'P.kwargs'
+variadic_value = Variadic.__value__
+assert variadic_value[0] is Ts
+assert variadic_value[1] is P
