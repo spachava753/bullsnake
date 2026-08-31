@@ -1376,3 +1376,32 @@ iterator = iter(values.values())
 next(iterator)
 values['c'] = 3
 next(iterator)
+# ---
+# case: reversed missing argument
+# error: TypeError
+# message: "reversed expected 1 argument, got 0"
+reversed()
+# ---
+# case: reversed extra argument
+# error: TypeError
+# message: "reversed expected 1 argument, got 2"
+reversed([], [])
+# ---
+# case: reversed keyword argument
+# error: TypeError
+# message: "reversed() takes no keyword arguments"
+reversed(sequence=[])
+# ---
+# case: reversed native non-sequence
+# error: TypeError
+# message: "'int' object is not reversible"
+reversed(1)
+# ---
+# case: reversed user protocol boundary
+# error: NotImplementedError
+# message: "user reversed protocols are not supported"
+class UserReversed:
+    def __reversed__(self):
+        return iter(())
+
+reversed(UserReversed())

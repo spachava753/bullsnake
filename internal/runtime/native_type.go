@@ -130,6 +130,8 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"str_iterator":                     builtinNativeType("str_iterator"),
 	"bytes_iterator":                   builtinNativeType("bytes_iterator"),
 	"range_iterator":                   builtinNativeType("range_iterator"),
+	"reversed":                         builtinNativeType("reversed"),
+	"list_reverseiterator":             builtinNativeType("list_reverseiterator"),
 	"dict_keyiterator":                 builtinNativeType("dict_keyiterator"),
 	"set_iterator":                     builtinNativeType("set_iterator"),
 	"iterator":                         builtinNativeType("iterator"),

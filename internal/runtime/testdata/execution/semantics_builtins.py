@@ -1296,3 +1296,28 @@ values['b'] = 5
 assert next(first) == 5
 assert next(second) == 5
 assert list(getattr(values, 'values')()) == [1, 5]
+# ---
+# case: reversed native sequences
+assert list(reversed([1, 2, 3])) == [3, 2, 1]
+assert list(reversed((1, 2, 3))) == [3, 2, 1]
+assert list(reversed('A\u2603\ud800')) == ['\ud800', '\u2603', 'A']
+assert list(reversed(b'ab')) == [98, 97]
+assert list(reversed(range(1, 8, 2))) == [7, 5, 3, 1]
+assert type(reversed([])).__name__ == 'list_reverseiterator'
+assert type(reversed(())).__name__ == 'reversed'
+assert type(reversed(range(1))).__name__ == 'range_iterator'
+# ---
+# case: reversed list mutation and retained builtin
+values = [1, 2]
+iterator = reversed(values)
+values.append(3)
+assert next(iterator) == 2
+assert next(iterator) == 1
+assert next(iterator, 'done') == 'done'
+shrinking = [1, 2, 3]
+iterator = reversed(shrinking)
+shrinking.pop()
+assert next(iterator, 'done') == 'done'
+reverse = reversed
+assert callable(reverse)
+assert list(reverse(['a', 'b'])) == ['b', 'a']

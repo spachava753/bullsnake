@@ -545,7 +545,11 @@ a Python compatibility promise.
 
 A user iterable resolves `__iter__` on its class and requires the returned value
 to have class `__next__`. The one-argument `iter` builtin and loop iteration use
-the same path. Each loop step or user-iterator `next()` call may run a Python
+the same path. The `reversed` builtin lazily traverses native lists, tuples,
+strings, bytes, and ranges. List reverse iterators retain their initial index,
+ignore later appends, and exhaust if a shrink makes the current index invalid.
+User `__reversed__` and the `__len__` plus `__getitem__` sequence fallback remain
+unsupported. Each loop step or user-iterator `next()` call may run a Python
 frame. `enumerate` retains that iterator and applies its index only after an item
 is produced, so failed pulls do not advance the count. `map` retains its source
 iterator and calls its function only after a source item is available. `filter`
@@ -628,11 +632,12 @@ The builtin namespace contains the current exception classes; native `bool`,
 `frozenset`, `dict`, `object`, and `type` objects; `abs`; `all`; `any`;
 `callable`; `classmethod`; `delattr`; `dir`; `getattr`; `hasattr`; `hash`;
 `isinstance`; `issubclass`; one-argument `iter`; `len`; positional `max` and
-`min` calls with two or more arguments; `next`; `repr`; `round`; `setattr`; and
-`staticmethod`. The `next` builtin accepts one optional default for generators,
-internal iterators, and user iterators. String and base forms of `int`, the
-iterable and keyword forms of `max` and `min`, the encoding form of `str`, and
-callable-sentinel `iter` remain unsupported.
+`min` calls with two or more arguments; `next`; `repr`; native-sequence
+`reversed`; `round`; `setattr`; and `staticmethod`. The `next` builtin accepts
+one optional default for generators, internal iterators, and user iterators.
+String and base forms of `int`, the iterable and keyword forms of `max` and
+`min`, the encoding form of `str`, and callable-sentinel `iter` remain
+unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and
