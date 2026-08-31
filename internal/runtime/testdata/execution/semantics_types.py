@@ -269,3 +269,42 @@ assert generated_list[0] == 4
 assert generated_list[1] == 5
 assert generated_list[2] == 6
 assert tuple(value * 2 for value in generated()) == (8, 10, 12)
+# ---
+# case: set constructor
+empty_set = set()
+values = set([1, 2, 1])
+text_values = set('aba')
+assert type(empty_set) is set
+assert len(empty_set) == 0
+assert len(values) == 2
+assert 1 in values
+assert 2 in values
+assert len(text_values) == 2
+assert 'a' in text_values
+assert 'b' in text_values
+copy = set(values)
+assert copy is not values
+assert len(copy) == 2
+assert 1 in copy and 2 in copy
+# ---
+# case: set constructor consumes user and generator iterators
+class SetIterator:
+    def __init__(self):
+        self.current = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == 3:
+            raise StopIteration
+        value = self.current
+        self.current += 1
+        return value
+
+user_values = set(SetIterator())
+generated_values = set(value % 2 for value in (1, 2, 3, 4))
+assert len(user_values) == 3
+assert 0 in user_values and 1 in user_values and 2 in user_values
+assert len(generated_values) == 2
+assert 0 in generated_values and 1 in generated_values

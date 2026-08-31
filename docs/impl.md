@@ -416,9 +416,10 @@ exception. Native types and built-in exception classes expose `__name__`,
 `__qualname__`, and `__module__`; user classes expose the corresponding compiler
 and class-builder metadata. `type(type) is type`. The `bool`, `int`, and `str`
 bindings are native type objects and retain their implemented constructor
-behavior. The `list` and `tuple` type objects accept zero or one iterable,
-preserve tuple identity for `tuple(existing_tuple)`, and otherwise collect
-native, user, or generator iterators through the frame loop. `isinstance`
+behavior. The `list`, `tuple`, and `set` type objects accept zero or one
+iterable. `tuple(existing_tuple)` preserves identity. Each constructor collects
+native, user, or generator iterators through the frame loop. Set finalization
+uses the same hashability and duplicate rules as set displays. `isinstance`
 checks native identity, the C3 ancestry of a user instance, and built-in or user
 exception ancestry. `issubclass` applies those
 same ancestry rules directly to class objects. A tuple of candidates is
@@ -540,7 +541,7 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes; native `bool`,
-`int`, `str`, `list`, `tuple`, and `type` objects; `callable`; `classmethod`;
+`int`, `str`, `list`, `tuple`, `set`, and `type` objects; `callable`; `classmethod`;
 `getattr`; `hasattr`; `isinstance`; `issubclass`; one-argument `iter`; `len`;
 positional `max` and `min` calls with two or more arguments; `next`; `repr`; and
 `staticmethod`. The `next` builtin accepts one optional default for generators,

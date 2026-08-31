@@ -142,3 +142,23 @@ def failing_sequence_generator():
     raise ValueError('generator failed')
 
 tuple(failing_sequence_generator())
+# ---
+# case: set constructor extra argument
+# error: TypeError
+# message: "set expected at most 1 argument, got 2"
+set(None, None)
+# ---
+# case: set constructor keyword argument
+# error: TypeError
+# message: "set() takes no keyword arguments"
+set(iterable=())
+# ---
+# case: set constructor non-iterable
+# error: TypeError
+# message: "'int' object is not iterable"
+set(1)
+# ---
+# case: set constructor unhashable element
+# error: TypeError
+# message: "cannot use 'list' as a set element (unhashable type: 'list')"
+set(([1],))

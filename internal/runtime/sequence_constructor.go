@@ -2,17 +2,25 @@ package runtime
 
 import "strconv"
 
+type collectionConstructorKind uint8
+
+const (
+	collectionList collectionConstructorKind = iota
+	collectionTuple
+	collectionSet
+)
+
 type collectionConstructorCall struct {
 	instruction int
-	tuple       bool
+	kind        collectionConstructorKind
 	iterable    Value
 	iterator    Value
 	elements    []Value
 }
 
-// executeSequenceTypeCall validates list or tuple construction before starting
-// an iterable collection that may suspend in Python iterator code.
-func executeSequenceTypeCall(
+// executeCollectionTypeCall validates list, tuple, or set construction before
+// starting an iterable collection that may suspend in Python iterator code.
+func executeCollectionTypeCall(
 	caller *frame,
 	instruction int,
 	base int,
@@ -34,16 +42,22 @@ func executeSequenceTypeCall(
 			class.name+" expected at most 1 argument, got "+strconv.Itoa(len(arguments)),
 		)), nil
 	}
-	tuple := class == tupleNativeType
+	kind := collectionList
+	switch class {
+	case tupleNativeType:
+		kind = collectionTuple
+	case setNativeType:
+		kind = collectionSet
+	}
 	if len(arguments) == 0 {
 		discardCallSegment(caller, base)
 		return finishCollectionConstructor(caller, &collectionConstructorCall{
 			instruction: instruction,
-			tuple:       tuple,
+			kind:        kind,
 		})
 	}
 	iterable := arguments[0]
-	if tuple {
+	if kind == collectionTuple {
 		if existing, sameType := iterable.(*tupleValue); sameType {
 			discardCallSegment(caller, base)
 			return pushOutcome(caller, instruction, existing)
@@ -52,7 +66,7 @@ func executeSequenceTypeCall(
 	discardCallSegment(caller, base)
 	return startCollectionConstructor(caller, &collectionConstructorCall{
 		instruction: instruction,
-		tuple:       tuple,
+		kind:        kind,
 		iterable:    iterable,
 	})
 }
@@ -154,8 +168,18 @@ func finishCollectionConstructor(
 ) (instructionOutcome, error) {
 	elements := make([]Value, len(call.elements))
 	copy(elements, call.elements)
-	if call.tuple {
+	switch call.kind {
+	case collectionTuple:
 		return pushOutcome(frame, call.instruction, &tupleValue{elements: elements})
+	case collectionSet:
+		set := &setValue{entries: make([]Value, 0, len(elements))}
+		for _, element := range elements {
+			if exception := set.add(element); exception != nil {
+				return raiseOutcome(exception), nil
+			}
+		}
+		return pushOutcome(frame, call.instruction, set)
+	default:
+		return pushOutcome(frame, call.instruction, &listValue{elements: elements})
 	}
-	return pushOutcome(frame, call.instruction, &listValue{elements: elements})
 }
