@@ -46,6 +46,8 @@ func executeDynamicAttributeLoad(
 		return executeTemplateAttributeLoad(frame, instruction, owner, name)
 	case *interpolationValue:
 		return executeInterpolationAttributeLoad(frame, instruction, owner, name)
+	case *listValue:
+		return executeListAttributeLoad(frame, instruction, owner, name)
 	case *rangeValue:
 		return executeRangeAttributeLoad(frame, instruction, owner, name)
 	case *superValue:

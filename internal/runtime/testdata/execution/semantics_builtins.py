@@ -651,3 +651,15 @@ def user_filter(value):
     return FilterTruth(value == 2)
 
 assert list(filter(user_filter, FilteredIterator())) == [2]
+# ---
+# case: list append method
+items = []
+append_result = items.append('first')
+assert append_result is None
+assert items == ['first']
+append = items.append
+assert callable(append)
+assert append('second') is None
+assert items == ['first', 'second']
+assert getattr(items, 'append')('third') is None
+assert items == ['first', 'second', 'third']

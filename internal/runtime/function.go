@@ -157,6 +157,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *listAppendMethod:
+		return executeListAppendCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,
@@ -358,6 +367,7 @@ func isCallableValue(value Value) bool {
 	case *builtinFunctionValue,
 		*nativeTypeValue,
 		*propertyAccessorMethod,
+		*listAppendMethod,
 		*buildClassValue,
 		*typeValue,
 		*exceptionTypeValue,

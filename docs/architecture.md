@@ -384,7 +384,9 @@ objects rather than separate function stand-ins. Ranges retain
 arbitrary-precision integer bounds and produce values lazily through the ordinary
 native iterator path. Enumerate, map, and filter objects wrap that iterator
 contract and may suspend while a generator, user iterator, mapped callable, or
-filter predicate and truth method runs.
+filter predicate and truth method runs. A list instance exposes a bound
+`append` method that mutates the same list and returns `None`; other native list
+methods remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
 descriptor behavior. Metaclass selection, MRO-entry rewriting, unions, and

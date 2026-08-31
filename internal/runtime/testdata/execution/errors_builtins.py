@@ -626,3 +626,18 @@ def failing_filter_truth(value):
     return FailingFilterTruth()
 
 next(filter(failing_filter_truth, (1,)))
+# ---
+# case: list append missing argument
+# error: TypeError
+# message: "list.append() takes exactly one argument (0 given)"
+[].append()
+# ---
+# case: list append extra argument
+# error: TypeError
+# message: "list.append() takes exactly one argument (2 given)"
+[].append(1, 2)
+# ---
+# case: list append keyword argument
+# error: TypeError
+# message: "list.append() takes no keyword arguments"
+[].append(object=1)

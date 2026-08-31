@@ -1369,6 +1369,8 @@ func executeInstruction(
 			return executeTemplateAttributeLoad(frame, index, owner, name)
 		case *interpolationValue:
 			return executeInterpolationAttributeLoad(frame, index, owner, name)
+		case *listValue:
+			return executeListAttributeLoad(frame, index, owner, name)
 		case *rangeValue:
 			return executeRangeAttributeLoad(frame, index, owner, name)
 		case *superValue:
