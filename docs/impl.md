@@ -187,7 +187,8 @@ The current compiler translates:
   patterns with `**rest`, and class patterns with positional or named fields
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, and lazy function annotations
-- non-generic type aliases with lazy values and definition-scope captures
+- type aliases with lazy values and definition-scope captures, including ordinary
+  unbounded TypeVar parameters
 - synchronous generator functions with lazy calls, `yield`, `yield from`,
   iteration, sent values, closure captures, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
@@ -226,16 +227,19 @@ spellings without evaluating or capturing names. Module and class scopes create
 stores the same source-backed string. Complex annotation-only targets do
 nothing in this mode.
 
-A non-generic type alias stores a hidden zero-argument child function instead of
-evaluating its value at the statement. That child uses the alias definition's
-globals, enclosing cells, and visible class namespace. The runtime evaluates it
-on the first `Alias.__value__` access and caches the returned object. A raised
-exception leaves the alias unevaluated so a later access retries it.
+A type alias stores a hidden zero-argument child function instead of evaluating
+its value at the statement. That child uses the alias definition's globals,
+enclosing cells, and visible class namespace. The runtime evaluates it on the
+first `Alias.__value__` access and caches the returned object. A raised exception
+leaves the alias unevaluated so a later access retries it. A generic alias with
+ordinary unbounded TypeVars adds an outer hidden child that creates fresh type
+parameters and closes the value child over them.
 
-The compiler rejects template-string execution, generic definitions, async
-definitions, asynchronous comprehensions, `async for`, `async with`, and
-coroutines. Unsupported AST forms return compiler errors; they are not
-approximated with similar bytecode.
+The compiler rejects template-string execution, generic functions and classes,
+type parameter bounds and defaults, variadic type parameters, async definitions,
+asynchronous comprehensions, `async for`, `async with`, and coroutines.
+Unsupported AST forms return compiler errors; they are not approximated with
+similar bytecode.
 
 ## Runtime preparation
 
@@ -357,11 +361,13 @@ Calls reject duplicate, missing, unexpected, or non-string keyword arguments
 with Python exceptions. Generator calls use the same binding path but retain the
 new frame without running its body.
 
-A non-generic type alias has runtime type name `typing.TypeAliasType`. Its repr
-is its declared name. It exposes `__name__`, `__module__`, an empty
-`__type_params__` tuple, and lazy `__value__`. Alias calls, generic
-parameterization, alias unions, and mutation of these attributes remain
-unsupported.
+A type alias has runtime type name `typing.TypeAliasType`. Its repr is its
+declared name. It exposes `__name__`, `__module__`, `__type_params__`, and lazy
+`__value__`. A generic alias's parameter tuple contains the same TypeVar objects
+used by its lazy value. Current TypeVars have runtime type name `typing.TypeVar`,
+bare-name repr, inferred variance, no bound, and no constraints. Alias calls,
+subscription, unions, bounds, defaults, variadic parameters, and mutation of
+these attributes remain unsupported.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, lazy class annotation

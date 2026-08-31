@@ -181,12 +181,18 @@ normalizes spacing and some parentheses. Bullsnake's exact source spelling is a
 temporary observable difference for function, class, and module annotations.
 Complete mutation rules for annotation attributes remain future work.
 
-A non-generic type alias owns a hidden zero-argument value function. Constructing
-the alias does not run that function. The first `Alias.__value__` access runs it
-through the ordinary VM frame loop and caches the returned object; a failure is
-not cached. The hidden function preserves global, enclosing-function, and
-class-visible lookup at the definition site. Generic type parameters and alias
-subscription remain later work.
+A type alias owns a hidden zero-argument value function. Constructing the alias
+does not run that function. The first `Alias.__value__` access runs it through
+the ordinary VM frame loop and caches the returned object; a failure is not
+cached. The hidden function preserves global, enclosing-function, and
+class-visible lookup at the definition site.
+
+A generic alias with ordinary unbounded TypeVars adds one outer hidden function.
+That function creates fresh inferred-variance TypeVars, stores them in closure
+cells, builds the lazy alias, and attaches the same objects as
+`Alias.__type_params__`. Calling the hidden function at the alias statement keeps
+the parameter names out of the defining namespace. Bounds, defaults, variadic
+type parameters, and alias subscription remain later work.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches

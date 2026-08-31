@@ -9,3 +9,9 @@ Alias()
 # message: "name 'missing_alias_value' is not defined"
 type MissingAlias = missing_alias_value
 MissingAlias.__value__
+# ---
+# case: generic alias parameters do not leak
+# error: NameError
+# message: "name 'T' is not defined"
+type Hidden[T] = T
+T

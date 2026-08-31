@@ -11,6 +11,15 @@ import (
 )
 
 func TestBytecodeValidation(t *testing.T) {
+	aliasValueCode := testCode(
+		1,
+		[]bytecode.Instruction{
+			{Opcode: bytecode.LoadConst},
+			{Opcode: bytecode.ReturnValue},
+		},
+		[]bytecode.Constant{bytecode.None()},
+		nil,
+	)
 	tests := []struct {
 		name         string
 		code         *bytecode.Code
@@ -1123,6 +1132,103 @@ func TestBytecodeValidation(t *testing.T) {
 				nil,
 			),
 			wantFragment: "type alias value payload is not a function",
+		},
+		{
+			name: "type variable construction underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.MakeTypeVar},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "type variable name payload",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeTypeVar},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "type variable name is not a string",
+		},
+		{
+			name: "type alias parameter attachment underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.SetTypeAliasParameters},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "type alias parameter target",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildTuple},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.SetTypeAliasParameters},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "type alias parameter target is not a type alias",
+		},
+		{
+			name: "type alias parameters payload",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 3,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadConst, Operand: 1},
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.MakeTypeAlias},
+					{Opcode: bytecode.SetTypeAliasParameters},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{
+					bytecode.None(),
+					bytecode.TextString("Alias"),
+				},
+				Children: []*bytecode.Code{aliasValueCode},
+			}),
+			wantFragment: "type alias parameters payload is not a tuple",
+		},
+		{
+			name: "type alias parameter member",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 3,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildTuple, Operand: 1},
+					{Opcode: bytecode.LoadConst, Operand: 1},
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.MakeTypeAlias},
+					{Opcode: bytecode.SetTypeAliasParameters},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{
+					bytecode.None(),
+					bytecode.TextString("Alias"),
+				},
+				Children: []*bytecode.Code{aliasValueCode},
+			}),
+			wantFragment: "type alias parameter payload contains a non-TypeVar value",
 		},
 		{
 			name: "class match underflow",

@@ -399,6 +399,18 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := MakeTypeAlias.StackEffect(0); got != -1 {
 		t.Fatalf("MAKE_TYPE_ALIAS stack effect = %d, want -1", got)
 	}
+	if got := (Instruction{Opcode: MakeTypeVar}).String(); got != "MAKE_TYPE_VAR" {
+		t.Fatalf("type variable instruction = %q", got)
+	}
+	if got := MakeTypeVar.StackEffect(0); got != 0 {
+		t.Fatalf("MAKE_TYPE_VAR stack effect = %d, want 0", got)
+	}
+	if got := (Instruction{Opcode: SetTypeAliasParameters}).String(); got != "SET_TYPE_ALIAS_PARAMETERS" {
+		t.Fatalf("type alias parameter instruction = %q", got)
+	}
+	if got := SetTypeAliasParameters.StackEffect(0); got != -1 {
+		t.Fatalf("SET_TYPE_ALIAS_PARAMETERS stack effect = %d, want -1", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

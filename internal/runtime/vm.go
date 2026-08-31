@@ -543,6 +543,27 @@ func executeInstruction(
 		}
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
+		case *typeVarValue:
+			switch name {
+			case "__name__":
+				return pushOutcome(frame, index, &stringValue{value: owner.name})
+			case "__bound__":
+				return pushOutcome(frame, index, None)
+			case "__constraints__":
+				return pushOutcome(frame, index, &tupleValue{})
+			case "__covariant__", "__contravariant__":
+				return pushOutcome(frame, index, falseSingleton)
+			case "__infer_variance__":
+				return pushOutcome(frame, index, trueSingleton)
+			default:
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"AttributeError",
+						"'typing.TypeVar' object has no attribute '"+name+"'",
+					),
+				}, nil
+			}
 		case *typeAliasValue:
 			switch name {
 			case "__name__":
@@ -887,6 +908,10 @@ func executeInstruction(
 		return pushOutcome(frame, index, function)
 	case bytecode.MakeTypeAlias:
 		return executeMakeTypeAlias(frame, index)
+	case bytecode.MakeTypeVar:
+		return executeMakeTypeVar(frame, index)
+	case bytecode.SetTypeAliasParameters:
+		return executeSetTypeAliasParameters(frame, index)
 	case bytecode.SetFunctionAttribute:
 		target, ok := frame.pop()
 		if !ok {

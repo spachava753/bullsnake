@@ -62,3 +62,42 @@ except ValueError:
 assert first_alias_failure
 assert second_alias_failure
 assert alias_attempts == 2
+# ---
+# case: generic aliases expose inferred type variables
+# CPython 3.14.7: Lib/test/test_type_aliases.py and Objects/typevarobject.c.
+type Pair[T, U] = (T, U)
+pair_parameters = Pair.__type_params__
+T = pair_parameters[0]
+U = pair_parameters[1]
+assert Pair.__type_params__ is pair_parameters
+assert f'{pair_parameters!r}' == '(T, U)'
+assert T.__name__ == 'T'
+assert T.__bound__ is None
+assert T.__constraints__ == ()
+assert T.__covariant__ is False
+assert T.__contravariant__ is False
+assert T.__infer_variance__ is True
+assert f'{T!r}' == 'T'
+assert U.__name__ == 'U'
+pair_value = Pair.__value__
+assert pair_value[0] is T
+assert pair_value[1] is U
+assert Pair.__value__ is pair_value
+# ---
+# case: generic aliases retain enclosing and class scopes
+def make_generic_alias(marker):
+    type Wrapped[T] = (T, marker)
+    return Wrapped
+
+Wrapped = make_generic_alias('enclosing')
+wrapped_parameter = Wrapped.__type_params__[0]
+assert Wrapped.__value__[0] is wrapped_parameter
+assert Wrapped.__value__[1] == 'enclosing'
+
+class GenericAliasOwner:
+    marker = 'class'
+    type Field[T] = (T, marker)
+
+field_parameter = GenericAliasOwner.Field.__type_params__[0]
+assert GenericAliasOwner.Field.__value__[0] is field_parameter
+assert GenericAliasOwner.Field.__value__[1] == 'class'

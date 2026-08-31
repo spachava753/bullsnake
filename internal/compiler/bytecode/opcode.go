@@ -172,6 +172,8 @@ const (
 	CheckMappingKey
 	MatchClass
 	MakeTypeAlias
+	MakeTypeVar
+	SetTypeAliasParameters
 )
 
 var opcodeNames = [...]string{
@@ -262,6 +264,8 @@ var opcodeNames = [...]string{
 	"CHECK_MAPPING_KEY",
 	"MATCH_CLASS",
 	"MAKE_TYPE_ALIAS",
+	"MAKE_TYPE_VAR",
+	"SET_TYPE_ALIAS_PARAMETERS",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -304,7 +308,7 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
 		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, PrepareReraiseStar,
-		Reraise, EnterExcept, MatchClass, MakeTypeAlias:
+		Reraise, EnterExcept, MatchClass, MakeTypeAlias, SetTypeAliasParameters:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript, CheckMappingKey:
 		return -2

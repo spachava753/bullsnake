@@ -2,6 +2,16 @@ package runtime
 
 import "github.com/spachava753/bullsnake/internal/compiler/bytecode"
 
+type typeVarValue struct {
+	name string
+}
+
+func (*typeVarValue) TypeName() string { return "typing.TypeVar" }
+func (variable *typeVarValue) Repr() string {
+	return variable.name
+}
+func (*typeVarValue) isValue() {}
+
 type typeAliasValue struct {
 	name       string
 	module     Value
@@ -20,6 +30,56 @@ func (*typeAliasValue) isValue() {}
 type typeAliasLoad struct {
 	alias       *typeAliasValue
 	instruction int
+}
+
+// executeMakeTypeVar creates one inferred-variance PEP 695 type variable.
+func executeMakeTypeVar(frame *frame, instruction int) (instructionOutcome, error) {
+	nameValue, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	name, ok := nameValue.(*stringValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "type variable name is not a string")
+	}
+	return pushOutcome(frame, instruction, &typeVarValue{name: name.value})
+}
+
+// executeSetTypeAliasParameters attaches compiler-created TypeVars and keeps
+// the alias on the stack for binding or return.
+func executeSetTypeAliasParameters(frame *frame, instruction int) (instructionOutcome, error) {
+	aliasValue, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	parametersValue, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	alias, ok := aliasValue.(*typeAliasValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"type alias parameter target is not a type alias",
+		)
+	}
+	parameters, ok := parametersValue.(*tupleValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"type alias parameters payload is not a tuple",
+		)
+	}
+	for _, parameter := range parameters.elements {
+		if _, ok := parameter.(*typeVarValue); !ok {
+			return instructionOutcome{}, frame.failure(
+				instruction,
+				"type alias parameter payload contains a non-TypeVar value",
+			)
+		}
+	}
+	alias.typeParams = parameters
+	return pushOutcome(frame, instruction, alias)
 }
 
 // executeMakeTypeAlias validates the compiler-created name and value function,
