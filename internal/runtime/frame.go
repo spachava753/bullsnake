@@ -52,6 +52,7 @@ type frame struct {
 	pendingImport       *importRequest
 	truth               *truthCall
 	length              *lengthCall
+	hash                *hashCall
 	representation      *representationCall
 	attributeBuiltin    *attributeBuiltinCall
 	iteration           *iterationCall

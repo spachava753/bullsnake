@@ -348,6 +348,43 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.hash != nil {
+				call := active.hash
+				active.hash = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"hash special method has no caller",
+					)
+				}
+				hashOutcome, hashErr := finishHashCall(thread.current, call, result)
+				if hashErr != nil {
+					return nil, nil, hashErr
+				}
+				if hashOutcome.kind == raised {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						hashOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+				if hashOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid hash special method outcome",
+					)
+				}
+				continue
+			}
 			if active.representation != nil {
 				call := active.representation
 				active.representation = nil

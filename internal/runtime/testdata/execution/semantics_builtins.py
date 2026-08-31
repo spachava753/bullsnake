@@ -454,3 +454,40 @@ class AnyTruth:
         return self.value
 
 assert any((AnyTruth(0), AnyTruth(2), AnyTruth(0))) is True
+# ---
+# case: hash fixed values and invariants
+assert hash(0) == 0
+assert hash(False) == 0
+assert hash(1) == 1
+assert hash(True) == 1
+assert hash(-1) == -2
+assert hash(123) == hash(123.0)
+assert hash('value') == hash('value')
+assert hash(b'value') == hash(b'value')
+assert hash((1, 'value', None)) == hash((1, 'value', None))
+assert hash(frozenset((1, 2))) == hash(frozenset((2, 1)))
+assert hash(range(2, 10, 2)) == hash(range(2, 10, 2))
+assert hash(type) == hash(type)
+# ---
+# case: hash user protocol and tuple use
+class HashValue:
+    def __hash__(self):
+        return 12345
+
+value = HashValue()
+value.__hash__ = None
+assert hash(value) == 12345
+
+class TupleHashValue:
+    def __hash__(self):
+        return hash((type(self), 'case'))
+
+first = TupleHashValue()
+second = TupleHashValue()
+assert hash(first) == hash(second)
+
+class DefaultHashValue:
+    pass
+
+plain = DefaultHashValue()
+assert hash(plain) == hash(plain)

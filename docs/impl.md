@@ -467,9 +467,11 @@ returns the resolved boolean singleton; a direct `len` call uses the same class
 `__len__` path. `__bool__` must return a boolean. `__len__` must return a
 nonnegative integer that fits the host index size. The special-method call can
 suspend in another Python frame before the requesting operation continues.
-Dictionaries and sets currently use ordered linear storage. This keeps Python
-identity and equality checks explicit until user-defined hashing and equality
-can call back into Python.
+Dictionaries and sets currently use ordered linear storage. The `hash` builtin
+uses fixed hashes for current immutable native values and calls class `__hash__`
+for a direct user instance. User methods must return an integer. Tuple and
+frozen-set hashing does not yet invoke user methods recursively, and dictionary
+or set keys still use fixed hashability and equality checks.
 
 The `repr` builtin calls class `__repr__` for a direct user instance and requires
 a string result. The object form of `str` returns strings unchanged, uses an
@@ -566,12 +568,12 @@ a float participates; true division also converts two integer operands.
 The builtin namespace contains the current exception classes; native `bool`,
 `int`, `str`, `range`, `enumerate`, `list`, `tuple`, `set`, `frozenset`, `dict`,
 `object`, and `type` objects; `all`; `any`; `callable`; `classmethod`; `getattr`;
-`hasattr`; `isinstance`; `issubclass`; one-argument `iter`; `len`; positional
-`max` and `min` calls with two or more arguments; `next`; `repr`; and
+`hasattr`; `hash`; `isinstance`; `issubclass`; one-argument `iter`; `len`;
+positional `max` and `min` calls with two or more arguments; `next`; `repr`; and
 `staticmethod`. The `next` builtin accepts one optional default for generators,
 internal iterators, and user iterators. String and base forms of `int`, the
-`max` and `min`, the encoding form of `str`, and callable-sentinel `iter` remain
-unsupported.
+iterable and keyword forms of `max` and `min`, the encoding form of `str`, and
+callable-sentinel `iter` remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and
@@ -747,8 +749,8 @@ The largest current gaps are:
 - no automatic generator closing during Go garbage collection
 - no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
   automatic async-generator finalization, or Python threads
-- no complete Python object protocol, custom attribute interception, or user
-  hashing
+- no complete Python object protocol or custom attribute interception; collection
+  hashing and equality cannot yet invoke arbitrary user methods
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or
   execution budgets
 - no REPL or eval-specific entry point

@@ -475,3 +475,54 @@ class FailingAnyTruth:
         raise ValueError('any truth failed')
 
 any((FailingAnyTruth(),))
+# ---
+# case: hash missing argument
+# error: TypeError
+# message: "hash() takes exactly one argument (0 given)"
+hash()
+# ---
+# case: hash extra arguments
+# error: TypeError
+# message: "hash() takes exactly one argument (2 given)"
+hash(None, None)
+# ---
+# case: hash keyword argument
+# error: TypeError
+# message: "hash() takes no keyword arguments"
+hash(obj=None)
+# ---
+# case: hash mutable list
+# error: TypeError
+# message: "unhashable type: 'list'"
+hash([])
+# ---
+# case: hash tuple with mutable value
+# error: TypeError
+# message: "unhashable type: 'list'"
+hash((1, []))
+# ---
+# case: disabled user hash
+# error: TypeError
+# message: "unhashable type: 'DisabledHash'"
+class DisabledHash:
+    __hash__ = None
+
+hash(DisabledHash())
+# ---
+# case: non-integer user hash
+# error: TypeError
+# message: "__hash__ method should return an integer"
+class InvalidHash:
+    def __hash__(self):
+        return 'invalid'
+
+hash(InvalidHash())
+# ---
+# case: user hash failure
+# error: ValueError
+# message: "hash failed"
+class FailingHash:
+    def __hash__(self):
+        raise ValueError('hash failed')
+
+hash(FailingHash())

@@ -52,6 +52,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "classmethod", call: builtinClassMethod},
 	{name: "getattr", frameCall: executeBuiltinGetattr},
 	{name: "hasattr", frameCall: executeBuiltinHasattr},
+	{name: "hash", frameCall: executeBuiltinHash},
 	{name: "isinstance", call: builtinIsInstance},
 	{name: "issubclass", call: builtinIsSubclass},
 	{name: "iter", frameCall: executeBuiltinIter},
