@@ -2,6 +2,14 @@ package runtime
 
 import "github.com/spachava753/bullsnake/internal/compiler/bytecode"
 
+type noDefaultValue struct{}
+
+func (*noDefaultValue) TypeName() string { return "NoDefaultType" }
+func (*noDefaultValue) Repr() string     { return "typing.NoDefault" }
+func (*noDefaultValue) isValue()         {}
+
+var noDefaultSingleton = &noDefaultValue{}
+
 type typeVarValue struct {
 	name                 string
 	boundEvaluator       *functionValue
@@ -10,6 +18,9 @@ type typeVarValue struct {
 	constraintsEvaluator *functionValue
 	constraints          Value
 	constraintsEvaluated bool
+	defaultEvaluator     *functionValue
+	defaultValue         Value
+	defaultEvaluated     bool
 }
 
 func (*typeVarValue) TypeName() string { return "typing.TypeVar" }
@@ -18,9 +29,17 @@ func (variable *typeVarValue) Repr() string {
 }
 func (*typeVarValue) isValue() {}
 
+type typeVarLoadKind uint8
+
+const (
+	typeVarBoundLoad typeVarLoadKind = iota
+	typeVarConstraintsLoad
+	typeVarDefaultLoad
+)
+
 type typeVarLoad struct {
 	variable    *typeVarValue
-	constraints bool
+	kind        typeVarLoadKind
 	instruction int
 }
 
@@ -62,7 +81,7 @@ func executeMakeTypeVar(frame *frame, instruction int) (instructionOutcome, erro
 func executeSetTypeVarEvaluator(
 	frame *frame,
 	instruction int,
-	constraints bool,
+	kind typeVarLoadKind,
 ) (instructionOutcome, error) {
 	evaluatorValue, ok := frame.pop()
 	if !ok {
@@ -86,36 +105,52 @@ func executeSetTypeVarEvaluator(
 			"type variable evaluator target is not a TypeVar",
 		)
 	}
-	if constraints {
-		variable.constraintsEvaluator = evaluator
-	} else {
+	switch kind {
+	case typeVarBoundLoad:
 		variable.boundEvaluator = evaluator
+	case typeVarConstraintsLoad:
+		variable.constraintsEvaluator = evaluator
+	case typeVarDefaultLoad:
+		variable.defaultEvaluator = evaluator
 	}
 	return pushOutcome(frame, instruction, variable)
 }
 
-// executeTypeVarLoad returns a cached bound or constraints value, or starts its
-// hidden evaluator through the ordinary frame loop.
+// executeTypeVarLoad returns a cached TypeVar attribute or starts its hidden
+// evaluator through the ordinary frame loop.
 func executeTypeVarLoad(
 	frame *frame,
 	instruction int,
 	variable *typeVarValue,
-	constraints bool,
+	kind typeVarLoadKind,
 ) (instructionOutcome, error) {
-	evaluator := variable.boundEvaluator
-	if constraints {
+	var evaluator *functionValue
+	switch kind {
+	case typeVarBoundLoad:
+		if variable.boundEvaluated {
+			return pushOutcome(frame, instruction, variable.bound)
+		}
+		evaluator = variable.boundEvaluator
+	case typeVarConstraintsLoad:
 		if variable.constraintsEvaluated {
 			return pushOutcome(frame, instruction, variable.constraints)
 		}
 		evaluator = variable.constraintsEvaluator
-	} else if variable.boundEvaluated {
-		return pushOutcome(frame, instruction, variable.bound)
+	case typeVarDefaultLoad:
+		if variable.defaultEvaluated {
+			return pushOutcome(frame, instruction, variable.defaultValue)
+		}
+		evaluator = variable.defaultEvaluator
 	}
 	if evaluator == nil {
-		if constraints {
+		switch kind {
+		case typeVarConstraintsLoad:
 			return pushOutcome(frame, instruction, &tupleValue{})
+		case typeVarDefaultLoad:
+			return pushOutcome(frame, instruction, noDefaultSingleton)
+		default:
+			return pushOutcome(frame, instruction, None)
 		}
-		return pushOutcome(frame, instruction, None)
 	}
 	if evaluator.code.code.Flags()&bytecode.Generator != 0 {
 		return instructionOutcome{
@@ -135,19 +170,23 @@ func executeTypeVarLoad(
 	}
 	child.typeVar = &typeVarLoad{
 		variable:    variable,
-		constraints: constraints,
+		kind:        kind,
 		instruction: instruction,
 	}
 	return instructionOutcome{kind: called, frame: child}, nil
 }
 
 func finishTypeVarLoad(load *typeVarLoad, value Value) Value {
-	if load.constraints {
-		load.variable.constraints = value
-		load.variable.constraintsEvaluated = true
-	} else {
+	switch load.kind {
+	case typeVarBoundLoad:
 		load.variable.bound = value
 		load.variable.boundEvaluated = true
+	case typeVarConstraintsLoad:
+		load.variable.constraints = value
+		load.variable.constraintsEvaluated = true
+	case typeVarDefaultLoad:
+		load.variable.defaultValue = value
+		load.variable.defaultEvaluated = true
 	}
 	return value
 }

@@ -486,7 +486,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.MatchMapping, bytecode.MatchMappingKey, bytecode.CopyMapping,
 		bytecode.CheckMappingKey, bytecode.MakeTypeAlias, bytecode.MakeTypeVar,
 		bytecode.SetTypeAliasParameters, bytecode.SetTypeVarBound,
-		bytecode.SetTypeVarConstraints:
+		bytecode.SetTypeVarConstraints, bytecode.SetTypeVarDefault:
 		return nil
 	case bytecode.Copy:
 		if instruction.Operand < 1 {
@@ -771,7 +771,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 3, 1
 	case bytecode.SetFunctionAttribute, bytecode.MakeTypeAlias,
 		bytecode.SetTypeAliasParameters, bytecode.SetTypeVarBound,
-		bytecode.SetTypeVarConstraints:
+		bytecode.SetTypeVarConstraints, bytecode.SetTypeVarDefault:
 		return 2, 1
 	case bytecode.MakeTypeVar:
 		return 1, 1

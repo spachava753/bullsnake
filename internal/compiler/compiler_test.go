@@ -66,7 +66,7 @@ func TestMissingResolverTableError(t *testing.T) {
 }
 
 func TestGenericTypeAliasCompilerBoundary(t *testing.T) {
-	module, err := parser.Parse("input.py", "type Alias[T = int] = T\n")
+	module, err := parser.Parse("input.py", "type Alias[*Ts] = Ts\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestGenericTypeAliasCompilerBoundary(t *testing.T) {
 	if !errors.As(err, &compileErr) {
 		t.Fatalf("error = %#v, want *compiler.Error", err)
 	}
-	if compileErr.Message != "type parameter defaults are not compiled" {
+	if compileErr.Message != "variadic type parameters are not compiled" {
 		t.Fatalf("message = %q", compileErr.Message)
 	}
 }

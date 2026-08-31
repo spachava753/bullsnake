@@ -193,11 +193,13 @@ builds the lazy alias, and attaches the same objects as
 `Alias.__type_params__`. Calling the hidden function at the alias statement keeps
 the parameter names out of the defining namespace.
 
-A bound or tuple constraint owns another hidden evaluator that captures the
-same definition scope. Reading `T.__bound__` or `T.__constraints__` runs the
-corresponding evaluator once and caches a successful result. A failure remains
-uncached so a later access can retry. Defaults, variadic type parameters, public
-evaluator callables, and alias subscription remain later work.
+A bound, tuple constraint, or default owns another hidden evaluator that captures
+the same definition scope. Reading `T.__bound__`, `T.__constraints__`, or
+`T.__default__` runs the corresponding evaluator once and caches a successful
+result. A failure remains uncached so a later access can retry. TypeVars without
+a default return one immutable marker whose repr is `typing.NoDefault`.
+Variadic type parameters, public evaluator callables, and alias subscription
+remain later work.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches

@@ -21,3 +21,9 @@ T
 # message: "name 'missing_bound' is not defined"
 type MissingBound[T: missing_bound] = T
 MissingBound.__type_params__[0].__bound__
+# ---
+# case: missing generic alias defaults raise on access
+# error: NameError
+# message: "name 'missing_default' is not defined"
+type MissingDefault[T = missing_default] = T
+MissingDefault.__type_params__[0].__default__

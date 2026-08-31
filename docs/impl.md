@@ -188,7 +188,7 @@ The current compiler translates:
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, and lazy function annotations
 - type aliases with lazy values and definition-scope captures, including ordinary
-  TypeVar parameters with lazy bounds and tuple constraints
+  TypeVar parameters with lazy bounds, tuple constraints, and defaults
 - synchronous generator functions with lazy calls, `yield`, `yield from`,
   iteration, sent values, closure captures, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
@@ -233,12 +233,12 @@ enclosing cells, and visible class namespace. The runtime evaluates it on the
 first `Alias.__value__` access and caches the returned object. A raised exception
 leaves the alias unevaluated so a later access retries it. A generic alias with
 ordinary TypeVars adds an outer hidden child that creates fresh type parameters
-and closes the value child over them. Bound and tuple-constraint expressions
-use their own lazy children with the same scope rules.
+and closes the value child over them. Bound, tuple-constraint, and default
+expressions use their own lazy children with the same scope rules.
 
 The compiler rejects template-string execution, generic functions and classes,
-type parameter defaults, variadic type parameters, async definitions,
-asynchronous comprehensions, `async for`, `async with`, and coroutines.
+variadic type parameters, async definitions, asynchronous comprehensions,
+`async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.
 
@@ -366,10 +366,12 @@ A type alias has runtime type name `typing.TypeAliasType`. Its repr is its
 declared name. It exposes `__name__`, `__module__`, `__type_params__`, and lazy
 `__value__`. A generic alias's parameter tuple contains the same TypeVar objects
 used by its lazy value. Current TypeVars have runtime type name `typing.TypeVar`,
-bare-name repr, and inferred variance. `__bound__` and `__constraints__` lazily
-evaluate and cache their hidden functions; failures retry. Alias calls,
-subscription, unions, TypeVar defaults, variadic parameters, public evaluator
-callables, and mutation of these attributes remain unsupported.
+bare-name repr, and inferred variance. `__bound__`, `__constraints__`, and
+`__default__` lazily evaluate and cache their hidden functions; failures retry.
+A TypeVar without a default returns one `NoDefaultType` singleton whose repr is
+`typing.NoDefault`. Alias calls, subscription, unions, variadic parameters,
+public evaluator callables, direct `typing.NoDefault` imports, and mutation of
+these attributes remain unsupported.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, lazy class annotation

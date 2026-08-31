@@ -1261,6 +1261,21 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "operand stack underflow",
 		},
 		{
+			name: "type variable default attachment underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeTypeVar},
+					{Opcode: bytecode.SetTypeVarDefault},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("T")},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
 			name: "type variable evaluator payload",
 			code: testCode(
 				2,

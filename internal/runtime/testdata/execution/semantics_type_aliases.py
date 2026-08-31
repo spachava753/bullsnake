@@ -78,6 +78,9 @@ assert T.__covariant__ is False
 assert T.__contravariant__ is False
 assert T.__infer_variance__ is True
 assert f'{T!r}' == 'T'
+no_default = T.__default__
+assert f'{no_default!r}' == 'typing.NoDefault'
+assert U.__default__ is no_default
 assert U.__name__ == 'U'
 pair_value = Pair.__value__
 assert pair_value[0] is T
@@ -157,3 +160,52 @@ except NameError:
 assert first_bound_failure
 missing_bound = 'available'
 assert retry_parameter.__bound__ == 'available'
+# ---
+# case: generic alias defaults are lazy and cached
+default_calls = 0
+
+def make_default():
+    global default_calls
+    default_calls = default_calls + 1
+    return []
+
+type Defaulted[T = make_default()] = T
+defaulted_parameter = Defaulted.__type_params__[0]
+assert default_calls == 0
+first_default = defaulted_parameter.__default__
+assert default_calls == 1
+assert defaulted_parameter.__default__ is first_default
+assert default_calls == 1
+
+type BoundedDefault[T: 'bound' = 'default'] = T
+bounded_default_parameter = BoundedDefault.__type_params__[0]
+assert bounded_default_parameter.__bound__ == 'bound'
+assert bounded_default_parameter.__default__ == 'default'
+
+type DependentDefault[S, T = S] = (S, T)
+dependent_default_parameters = DependentDefault.__type_params__
+assert dependent_default_parameters[1].__default__ is dependent_default_parameters[0]
+# ---
+# case: generic alias defaults retain scopes and retry failures
+def make_defaulted_alias(marker):
+    type Captured[T = marker] = T
+    return Captured
+
+CapturedDefault = make_defaulted_alias('enclosing default')
+assert CapturedDefault.__type_params__[0].__default__ == 'enclosing default'
+
+class DefaultOwner:
+    marker = 'class default'
+    type Field[T = marker] = T
+
+assert DefaultOwner.Field.__type_params__[0].__default__ == 'class default'
+
+type RetryDefault[T = missing_default] = T
+retry_default_parameter = RetryDefault.__type_params__[0]
+try:
+    retry_default_parameter.__default__
+except NameError:
+    first_default_failure = True
+assert first_default_failure
+missing_default = 'available'
+assert retry_default_parameter.__default__ == 'available'

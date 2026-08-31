@@ -13,9 +13,6 @@ func (compiler *compilerState) compileTypeAlias(statement *compilerast.TypeAlias
 		if parameter.Kind != compilerast.TypeVariable {
 			return compiler.error(parameter.Range, "variadic type parameters are not compiled")
 		}
-		if parameter.Default != nil {
-			return compiler.error(parameter.Range, "type parameter defaults are not compiled")
-		}
 	}
 	if len(statement.TypeParameters) == 0 {
 		if err := compiler.emitTypeAliasObject(statement); err != nil {
@@ -80,6 +77,19 @@ func (compiler *compilerState) compileGenericTypeAlias(
 				return err
 			}
 		}
+		if parameter.Default != nil {
+			if err := child.emitTypeParameterEvaluator(
+				statement,
+				parameter,
+				index,
+				resolver.TypeVariableDefault,
+				parameter.Default,
+				"<default of "+parameter.Name+">",
+				bytecode.SetTypeVarDefault,
+			); err != nil {
+				return err
+			}
+		}
 		if err := child.emitNameStore(parameter.Name, parameter.Range); err != nil {
 			return err
 		}
@@ -125,15 +135,40 @@ func (compiler *compilerState) emitTypeParameterBound(
 	parameter compilerast.TypeParameter,
 	index int,
 ) error {
-	scope := compiler.table.ScopeFor(statement, resolver.TypeVariableBound, index)
+	opcode := bytecode.SetTypeVarBound
+	if _, constraints := parameter.Bound.(*compilerast.TupleExpr); constraints {
+		opcode = bytecode.SetTypeVarConstraints
+	}
+	return compiler.emitTypeParameterEvaluator(
+		statement,
+		parameter,
+		index,
+		resolver.TypeVariableBound,
+		parameter.Bound,
+		"<bound of "+parameter.Name+">",
+		opcode,
+	)
+}
+
+// emitTypeParameterEvaluator compiles one lazy bound, constraints, or default
+// child and attaches it to the TypeVar currently on the operand stack.
+func (compiler *compilerState) emitTypeParameterEvaluator(
+	statement *compilerast.TypeAliasStmt,
+	parameter compilerast.TypeParameter,
+	index int,
+	purpose resolver.ScopePurpose,
+	expression compilerast.Expr,
+	name string,
+	opcode bytecode.Opcode,
+) error {
+	scope := compiler.table.ScopeFor(statement, purpose, index)
 	if scope == nil || scope.Kind != resolver.TypeVariableScope {
 		return compiler.error(
 			parameter.Range,
-			"resolver has no bound scope for type parameter %q",
+			"resolver has no evaluator scope for type parameter %q",
 			parameter.Name,
 		)
 	}
-	name := "<bound of " + parameter.Name + ">"
 	flags := bytecode.Optimized | bytecode.NewLocals
 	if scope.Flags&resolver.Nested != 0 {
 		flags |= bytecode.Nested
@@ -158,10 +193,10 @@ func (compiler *compilerState) emitTypeParameterBound(
 	if scope.Flags&resolver.CanSeeClassScope != 0 {
 		child.addFree("__classdict__")
 	}
-	if err := child.compileExpr(parameter.Bound); err != nil {
+	if err := child.compileExpr(expression); err != nil {
 		return err
 	}
-	if err := child.emitTerminator(bytecode.ReturnValue, 0, parameter.Bound.Span()); err != nil {
+	if err := child.emitTerminator(bytecode.ReturnValue, 0, expression.Span()); err != nil {
 		return err
 	}
 	code, err := child.finish()
@@ -170,10 +205,6 @@ func (compiler *compilerState) emitTypeParameterBound(
 	}
 	if err := compiler.emitFunction(code, false, false, false, parameter.Range); err != nil {
 		return err
-	}
-	opcode := bytecode.SetTypeVarBound
-	if _, constraints := parameter.Bound.(*compilerast.TupleExpr); constraints {
-		opcode = bytecode.SetTypeVarConstraints
 	}
 	return compiler.emit(opcode, 0, parameter.Range)
 }

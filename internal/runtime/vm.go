@@ -557,9 +557,11 @@ func executeInstruction(
 			case "__name__":
 				return pushOutcome(frame, index, &stringValue{value: owner.name})
 			case "__bound__":
-				return executeTypeVarLoad(frame, index, owner, false)
+				return executeTypeVarLoad(frame, index, owner, typeVarBoundLoad)
 			case "__constraints__":
-				return executeTypeVarLoad(frame, index, owner, true)
+				return executeTypeVarLoad(frame, index, owner, typeVarConstraintsLoad)
+			case "__default__":
+				return executeTypeVarLoad(frame, index, owner, typeVarDefaultLoad)
 			case "__covariant__", "__contravariant__":
 				return pushOutcome(frame, index, falseSingleton)
 			case "__infer_variance__":
@@ -922,9 +924,11 @@ func executeInstruction(
 	case bytecode.SetTypeAliasParameters:
 		return executeSetTypeAliasParameters(frame, index)
 	case bytecode.SetTypeVarBound:
-		return executeSetTypeVarEvaluator(frame, index, false)
+		return executeSetTypeVarEvaluator(frame, index, typeVarBoundLoad)
 	case bytecode.SetTypeVarConstraints:
-		return executeSetTypeVarEvaluator(frame, index, true)
+		return executeSetTypeVarEvaluator(frame, index, typeVarConstraintsLoad)
+	case bytecode.SetTypeVarDefault:
+		return executeSetTypeVarEvaluator(frame, index, typeVarDefaultLoad)
 	case bytecode.SetFunctionAttribute:
 		target, ok := frame.pop()
 		if !ok {
