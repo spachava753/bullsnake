@@ -184,6 +184,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringStripMethod:
+		return executeStringStripCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *listAppendMethod:
 		return executeListAppendCall(
 			caller,
@@ -478,6 +487,7 @@ func isCallableValue(value Value) bool {
 		*stringJoinMethod,
 		*stringStartswithMethod,
 		*stringSplitMethod,
+		*stringStripMethod,
 		*listAppendMethod,
 		*listPopMethod,
 		*listExtendMethod,

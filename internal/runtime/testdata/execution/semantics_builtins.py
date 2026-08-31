@@ -974,3 +974,19 @@ split = 'left:right'.split
 assert callable(split)
 assert split(':') == ['left', 'right']
 assert getattr('x y', 'split')() == ['x', 'y']
+# ---
+# case: string strip whitespace and character sets
+text = '  \talpha\u2603  \n'
+assert text.strip() == 'alpha\u2603'
+assert '\u00a0\u2003value\u3000'.strip() == 'value'
+assert 'xyxvalueyxx'.strip('xy') == 'value'
+assert '\u2603value\u2603'.strip('\u2603') == 'value'
+unchanged = 'value'
+assert unchanged.strip() is unchanged
+assert unchanged.strip('') is unchanged
+# ---
+# case: retained string strip method
+strip = '  value  '.strip
+assert callable(strip)
+assert strip() == 'value'
+assert getattr('..value..', 'strip')('.') == 'value'

@@ -1039,3 +1039,18 @@ def failing_join_values():
 # error: TypeError
 # message: "'str' object cannot be interpreted as an integer"
 'a'.split(None, 'maximum')
+# ---
+# case: string strip extra argument
+# error: TypeError
+# message: "strip expected at most 1 argument, got 2"
+'a'.strip(None, None)
+# ---
+# case: string strip keyword argument
+# error: TypeError
+# message: "str.strip() takes no keyword arguments"
+'a'.strip(chars='a')
+# ---
+# case: string strip invalid characters
+# error: TypeError
+# message: "strip arg must be None or str"
+'a'.strip(1)
