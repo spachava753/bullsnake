@@ -1009,3 +1009,18 @@ assert callable(endswith)
 assert endswith('value')
 assert not endswith('prefix')
 assert getattr('value', 'endswith')('lue')
+# ---
+# case: string lower Unicode mappings
+assert 'ABC'.lower() == 'abc'
+assert 'Stra\u00dfe'.lower() == 'stra\u00dfe'
+assert '\u0130'.lower() == 'i\u0307'
+assert '\u039f\u03a3'.lower() == '\u03bf\u03c2'
+assert '\ud800A'.lower() == '\ud800a'
+unchanged = 'already lower'
+assert unchanged.lower() is unchanged
+# ---
+# case: retained string lower method
+lower = 'VALUE'.lower
+assert callable(lower)
+assert lower() == 'value'
+assert getattr('Mixed', 'lower')() == 'mixed'

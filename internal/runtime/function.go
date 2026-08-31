@@ -166,6 +166,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringLowerMethod:
+		return executeStringLowerCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *stringEndswithMethod:
 		return executeStringTailmatchCall(
 			caller,
@@ -498,6 +507,7 @@ func isCallableValue(value Value) bool {
 		*nativeTypeValue,
 		*propertyAccessorMethod,
 		*stringJoinMethod,
+		*stringLowerMethod,
 		*stringEndswithMethod,
 		*stringStartswithMethod,
 		*stringSplitMethod,

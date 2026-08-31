@@ -464,12 +464,15 @@ constructors are not implemented yet.
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
 slice subscription, and dictionary item mutation. String instances expose bound
-`endswith`, `join`, `split`, `startswith`, and `strip`. Join collects through the
-resumable iterator path before validating all items. Split handles explicit
-separators and Python whitespace with the current integer-or-boolean `maxsplit`
-subset. Prefix and suffix matching apply code-point bounds from the current
-integer-or-`None` index subset to a string or an ordered tuple. Strip removes
-Python whitespace or a supplied code-point set.
+`endswith`, `join`, `lower`, `split`, `startswith`, and `strip`. Join collects
+through the resumable iterator path before validating all items. Split handles
+explicit separators and Python whitespace with the current integer-or-boolean
+`maxsplit` subset. Prefix and suffix matching apply code-point bounds from the
+current integer-or-`None` index subset to a string or an ordered tuple. Strip
+removes Python whitespace or a supplied code-point set. Lowercase conversion
+uses full Unicode mappings and preserves lone-surrogate bytes. Its tables come
+from `golang.org/x/text` Unicode 17, so code points whose casing changed after
+CPython 3.14's Unicode 16 baseline may differ.
 
 List instances expose bound `append`, `pop`, `extend`, and `remove` methods.
 Extend consumes native, generator, or user iterators through the frame loop and

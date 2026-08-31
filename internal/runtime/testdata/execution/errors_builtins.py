@@ -1084,3 +1084,13 @@ def failing_join_values():
 # error: TypeError
 # message: "slice indices must be integers or None or have an __index__ method"
 'abc'.endswith('c', 'start')
+# ---
+# case: string lower extra argument
+# error: TypeError
+# message: "str.lower() takes no arguments (1 given)"
+'A'.lower(1)
+# ---
+# case: string lower keyword argument
+# error: TypeError
+# message: "str.lower() takes no keyword arguments"
+'A'.lower(value=1)

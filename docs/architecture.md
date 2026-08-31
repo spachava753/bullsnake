@@ -385,15 +385,19 @@ arbitrary-precision integer bounds and produce values lazily through the ordinar
 native iterator path. Enumerate, map, and filter objects wrap that iterator
 contract and may suspend while a generator, user iterator, mapped callable, or
 filter predicate and truth method runs. String instances expose bound `endswith`,
-`join`, `split`, `startswith`, and `strip`. Join collects through that iterator
-path before validating and concatenating its items. Split handles explicit
-separators and Python whitespace. Prefix and suffix matching apply code-point
-slice bounds and accept one string or an ordered tuple of strings. Strip trims
-Python whitespace or a supplied code-point set. A list instance exposes bound
-`append`, `pop`, `extend`, and `remove` methods. Extend uses the same resumable
-iterator path and mutates the target as each item arrives. Remove scans left to
-right, prefers object identity, and may suspend for user equality and truth
-methods.
+`join`, `lower`, `split`, `startswith`, and `strip`. Join collects through that
+iterator path before validating and concatenating its items. Split handles
+explicit separators and Python whitespace. Prefix and suffix matching apply
+code-point slice bounds and accept one string or an ordered tuple of strings.
+Strip trims Python whitespace or a supplied code-point set. Lowercase conversion
+uses full Unicode mappings while retaining lone-surrogate bytes. Bullsnake uses
+Go's Unicode 17 tables, so casing added after CPython 3.14's Unicode 16 baseline
+may differ.
+
+A list instance exposes bound `append`, `pop`, `extend`, and `remove` methods.
+Extend uses the same resumable iterator path and mutates the target as each item
+arrives. Remove scans left to right, prefers object identity, and may suspend for
+user equality and truth methods.
 Dictionary instances expose bound `get`, `pop`, `items`, and `keys` methods.
 The view methods return live values whose iterators reject key-set changes. Set
 instances expose bound `add` and `discard` methods that use the same fixed
