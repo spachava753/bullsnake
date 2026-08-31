@@ -98,8 +98,8 @@ func executeComparison(
 	return pushOutcome(frame, index, value)
 }
 
-// valuesEqual implements equality for current scalar and tuple values. Numeric
-// equality includes booleans and exact integer-to-binary64 comparison.
+// valuesEqual implements equality for current scalar, tuple, and list values.
+// Numeric equality includes booleans and exact integer-to-binary64 comparison.
 func valuesEqual(left, right Value) bool {
 	if left == right {
 		return true
@@ -147,6 +147,17 @@ func valuesEqual(left, right Value) bool {
 		return ok && left.value == right.value
 	case *tupleValue:
 		right, ok := right.(*tupleValue)
+		if !ok || len(left.elements) != len(right.elements) {
+			return false
+		}
+		for index := range left.elements {
+			if !valuesEqual(left.elements[index], right.elements[index]) {
+				return false
+			}
+		}
+		return true
+	case *listValue:
+		right, ok := right.(*listValue)
 		if !ok || len(left.elements) != len(right.elements) {
 			return false
 		}

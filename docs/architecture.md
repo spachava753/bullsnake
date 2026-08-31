@@ -434,7 +434,9 @@ native values would create two subtly different languages.
 
 Python containers cannot be represented as plain Go maps or slices forever.
 Hashing, equality, attribute access, and descriptors may call Python code or
-raise exceptions. Container and object implementations must support those calls
+raise exceptions. Current list equality recurses through values with fixed
+runtime equality; user-defined element equality still needs a suspended
+comparison path. Container and object implementations must support those calls
 when the protocols are added.
 
 ## Exceptions

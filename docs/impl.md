@@ -434,7 +434,10 @@ The remaining built-in type constructors are not implemented yet.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
-slice subscription, and dictionary item mutation. Built-in values use fixed
+slice subscription, and dictionary item mutation. Lists compare structurally
+when their elements use the runtime's fixed scalar, tuple, list, or identity
+equality. Comparing list elements through user `__eq__` is not implemented yet.
+Built-in values use fixed
 truth and length rules. `len` supports strings, bytes, tuples, lists,
 dictionaries, and sets; string lengths count decoded code points, including
 preserved lone surrogates. A user instance looks up `__bool__` on its class for
