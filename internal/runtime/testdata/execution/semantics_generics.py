@@ -288,3 +288,30 @@ assert class_bound_calls == 1
 class_constraints = ConstrainedClass.__type_params__[0].__constraints__
 assert class_constraints[0] is ClassFirst
 assert class_constraints[1] is ClassSecond
+
+# ---
+# case: generic class TypeVar defaults evaluate lazily
+class ClassFallback:
+    pass
+
+class_default_calls = 0
+
+def resolve_class_default():
+    global class_default_calls
+    class_default_calls += 1
+    return ClassFallback
+
+class DefaultedClass[T = resolve_class_default()]:
+    parameter = T
+
+class DependentClass[T, U = T]:
+    parameters = (T, U)
+
+assert class_default_calls == 0
+defaulted_class_parameter = DefaultedClass.__type_params__[0]
+assert defaulted_class_parameter.__default__ is ClassFallback
+assert class_default_calls == 1
+assert defaulted_class_parameter.__default__ is ClassFallback
+assert class_default_calls == 1
+dependent_class_parameters = DependentClass.__type_params__
+assert dependent_class_parameters[1].__default__ is dependent_class_parameters[0]

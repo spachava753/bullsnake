@@ -213,10 +213,10 @@ func (compiler *compilerState) compileGenericClassDefinition(
 	statement *compilerast.ClassDefStmt,
 ) error {
 	for _, parameter := range statement.TypeParameters {
-		if parameter.Kind != compilerast.TypeVariable || parameter.Default != nil {
+		if parameter.Kind != compilerast.TypeVariable {
 			return compiler.error(
 				parameter.Range,
-				"generic class TypeVar defaults and variadic type parameters are not compiled",
+				"generic class variadic type parameters are not compiled",
 			)
 		}
 	}

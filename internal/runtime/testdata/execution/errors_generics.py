@@ -82,3 +82,12 @@ class MissingClassBoundOwner[T: MissingClassBound]:
     value = T
 
 MissingClassBoundOwner.__type_params__[0].__bound__
+
+# ---
+# case: generic class TypeVar default failures remain lazy
+# error: NameError
+# message: "name 'MissingClassDefault' is not defined"
+class MissingClassDefaultOwner[T = MissingClassDefault]:
+    value = T
+
+MissingClassDefaultOwner.__type_params__[0].__default__

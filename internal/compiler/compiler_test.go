@@ -76,8 +76,8 @@ func TestGenericCompilerBoundaries(t *testing.T) {
 		},
 		{
 			name:    "class parameter metadata",
-			source:  "class Generic[T = Default]:\n    pass\n",
-			message: "generic class TypeVar defaults and variadic type parameters are not compiled",
+			source:  "class Generic[*Ts]:\n    pass\n",
+			message: "generic class variadic type parameters are not compiled",
 		},
 	}
 	for _, test := range tests {
