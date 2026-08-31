@@ -305,6 +305,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *dictionaryCopyMethod:
+		return executeDictionaryCopyCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *dictionaryPopMethod:
 		return executeDictionaryPopCall(
 			caller,
@@ -585,6 +594,7 @@ func isCallableValue(value Value) bool {
 		*listExtendMethod,
 		*listRemoveMethod,
 		*dictionaryClearMethod,
+		*dictionaryCopyMethod,
 		*dictionaryPopMethod,
 		*dictionaryGetMethod,
 		*dictionaryItemsMethod,

@@ -1347,3 +1347,13 @@ values = {'a': 1, 'b': 2}
 iterator = iter(values)
 values.clear()
 next(iterator)
+# ---
+# case: dictionary copy argument
+# error: TypeError
+# message: "dict.copy() takes no arguments (1 given)"
+{}.copy(1)
+# ---
+# case: dictionary copy keyword argument
+# error: TypeError
+# message: "dict.copy() takes no keyword arguments"
+{}.copy(value=1)

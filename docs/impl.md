@@ -490,10 +490,12 @@ Extend consumes native, generator, or user iterators through the frame loop and
 mutates the target as each item arrives. Remove scans left to right, prefers
 identity, and resumes user `__eq__` and truth methods through the same frame loop.
 
-Dictionary instances expose bound `clear`, `get`, `pop`, `items`, `keys`, and
-`update` methods. The view methods return live `dict_items` and `dict_keys`
-values with independent iterators. Replacing a value remains visible. Key-set
-changes, including clearing a nonempty dictionary, raise `RuntimeError` in an
+Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
+`keys`, and `update` methods. Copy clones ordered entry storage while retaining
+key and value identities. The view methods return live `dict_items` and
+`dict_keys` values with independent iterators. Replacing a value remains
+visible. Key-set changes, including clearing a nonempty dictionary, raise
+`RuntimeError` in an
 active iterator. Update accepts a native dictionary and keyword entries,
 preserving existing key positions; iterable pairs and user mappings remain
 unsupported. Set instances expose bound `add` and `discard` methods

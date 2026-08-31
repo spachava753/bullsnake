@@ -1247,3 +1247,21 @@ assert len(values) == 0
 values['b'] = 2
 assert getattr(values, 'clear')() is None
 assert len(values) == 0
+# ---
+# case: dictionary shallow copy
+shared = []
+source = {'a': shared, 'b': 2}
+copy = source.copy()
+assert copy is not source
+assert list(copy.items()) == [('a', shared), ('b', 2)]
+assert copy['a'] is shared
+copy['a'] = 3
+copy['c'] = 4
+assert list(source.items()) == [('a', shared), ('b', 2)]
+assert list(copy.items()) == [('a', 3), ('b', 2), ('c', 4)]
+# ---
+# case: retained dictionary copy method
+copy = {'a': 1}.copy
+assert callable(copy)
+assert list(copy().items()) == [('a', 1)]
+assert list(getattr({'b': 2}, 'copy')().items()) == [('b', 2)]

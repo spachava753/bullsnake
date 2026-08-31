@@ -57,6 +57,12 @@ func executeDictionaryAttributeLoad(
 			instruction,
 			&dictionaryClearMethod{dictionary: dictionary},
 		)
+	case "copy":
+		return pushOutcome(
+			frame,
+			instruction,
+			&dictionaryCopyMethod{dictionary: dictionary},
+		)
 	case "pop":
 		return pushOutcome(
 			frame,
