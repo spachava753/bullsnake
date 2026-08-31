@@ -531,6 +531,31 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					)
 				}
 			}
+			if active.attribute != nil {
+				call := active.attribute
+				active.attribute = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"descriptor special method has no caller",
+					)
+				}
+				attributeOutcome, attributeErr := finishAttributeCall(
+					thread.current,
+					call,
+					result,
+				)
+				if attributeErr != nil {
+					return nil, nil, attributeErr
+				}
+				if attributeOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid descriptor special method outcome",
+					)
+				}
+				continue
+			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil
@@ -1125,36 +1150,9 @@ func executeInstruction(
 				}
 				return pushOutcome(frame, index, value)
 			}
-			value, found := owner.lookup(name)
-			if !found {
-				return instructionOutcome{
-					kind: raised,
-					exception: newException(
-						"AttributeError",
-						"type object '"+owner.name+"' has no attribute '"+name+"'",
-					),
-				}, nil
-			}
-			return pushOutcome(frame, index, value)
+			return executeTypeAttributeLoad(frame, index, owner, name)
 		case *instanceValue:
-			value, found := owner.attributes.get(name)
-			fromClass := !found
-			if !found {
-				value, found = owner.class.lookup(name)
-			}
-			if !found {
-				return instructionOutcome{
-					kind: raised,
-					exception: newException(
-						"AttributeError",
-						"'"+owner.class.name+"' object has no attribute '"+name+"'",
-					),
-				}, nil
-			}
-			if function, bind := value.(*functionValue); fromClass && bind {
-				value = &boundMethodValue{function: function, self: owner}
-			}
-			return pushOutcome(frame, index, value)
+			return executeInstanceAttributeLoad(frame, index, owner, name)
 		default:
 			return instructionOutcome{
 				kind: raised,
@@ -1180,7 +1178,7 @@ func executeInstruction(
 		case *typeValue:
 			owner.namespace.values[name] = value
 		case *instanceValue:
-			owner.attributes.values[name] = value
+			return executeInstanceAttributeStore(frame, index, owner, name, value)
 		default:
 			return instructionOutcome{
 				kind: raised,
@@ -1207,8 +1205,7 @@ func executeInstruction(
 			attributes = owner.namespace
 			missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
 		case *instanceValue:
-			attributes = owner.attributes
-			missingMessage = "'" + owner.class.name + "' object has no attribute '" + name + "'"
+			return executeInstanceAttributeDelete(frame, index, owner, name)
 		}
 		if attributes == nil {
 			return instructionOutcome{

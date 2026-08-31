@@ -382,8 +382,10 @@ truth path. Item access calls class `__getitem__`, `__setitem__`, or
 `__delitem__` as appropriate. Rich comparisons may try both operands after
 `NotImplemented`, with the reflected ordering method selected by the operator.
 Binary arithmetic uses the same normal, reflected, and in-place candidate order.
-Later descriptor work should reuse this call path rather than invoke Python
-recursively from Go.
+Attribute reads apply data descriptor, instance attribute, non-data descriptor,
+and plain class attribute precedence. Descriptor writes and deletes run through
+the same frame loop. `property`, custom attribute interception, `super`, and
+multiple inheritance can build on this path without recursive Go execution.
 
 Integers use arbitrary precision, but one exact power operation may produce at
 most 1,048,576 bits. Larger results raise `OverflowError` before Go's allocator

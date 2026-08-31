@@ -281,3 +281,40 @@ class DisabledInPlace:
 
 value = DisabledInPlace()
 value += 1
+# ---
+# case: disabled descriptor get
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledGetDescriptor:
+    __get__ = None
+
+class DisabledGetOwner:
+    field = DisabledGetDescriptor()
+
+result = DisabledGetOwner().field
+# ---
+# case: missing descriptor set half
+# error: AttributeError
+# message: "__set__"
+class DeleteOnlyDescriptor:
+    def __delete__(self, instance):
+        pass
+
+class DeleteOnlyOwner:
+    field = DeleteOnlyDescriptor()
+
+value = DeleteOnlyOwner()
+value.field = 1
+# ---
+# case: missing descriptor delete half
+# error: AttributeError
+# message: "__delete__"
+class SetOnlyDescriptor:
+    def __set__(self, instance, value):
+        pass
+
+class SetOnlyOwner:
+    field = SetOnlyDescriptor()
+
+value = SetOnlyOwner()
+del value.field

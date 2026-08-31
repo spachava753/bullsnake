@@ -57,6 +57,7 @@ type frame struct {
 	comparison          *comparisonCall
 	unary               *unaryCall
 	binary              *binaryCall
+	attribute           *attributeCall
 	generator           *generatorValue
 	delegation          *delegationState
 	handledExceptions   []handledException

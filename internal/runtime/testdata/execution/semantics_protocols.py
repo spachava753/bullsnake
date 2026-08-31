@@ -739,3 +739,113 @@ except ValueError as error:
     binary_error = f'{error!r}'
 
 assert binary_error == 'ValueError("binary failed")'
+# ---
+# case: user data descriptors
+class DataDescriptor:
+    def __init__(self):
+        self.gets = 0
+        self.sets = 0
+        self.deletes = 0
+    def __get__(self, instance, owner):
+        self.gets = self.gets + 1
+        if instance is None:
+            return owner
+        return instance.saved
+    def __set__(self, instance, value):
+        self.sets = self.sets + 1
+        instance.saved = value
+        return 'ignored set result'
+    def __delete__(self, instance):
+        self.deletes = self.deletes + 1
+        del instance.saved
+        return 'ignored delete result'
+
+descriptor = DataDescriptor()
+class Described:
+    field = descriptor
+
+class DescribedChild(Described):
+    pass
+
+instance = Described()
+instance.field = 42
+loaded = instance.field
+class_loaded = Described.field
+subclass_loaded = DescribedChild.field
+del instance.field
+try:
+    instance.saved
+except AttributeError:
+    deleted = True
+
+assert loaded == 42
+assert class_loaded is Described
+assert subclass_loaded is DescribedChild
+assert deleted is True
+assert descriptor.gets == 3
+assert descriptor.sets == 1
+assert descriptor.deletes == 1
+# ---
+# case: non-data descriptor shadowing
+class NonDataDescriptor:
+    def __init__(self):
+        self.gets = 0
+    def __get__(self, instance, owner):
+        self.gets = self.gets + 1
+        return 'descriptor value'
+
+nondata = NonDataDescriptor()
+class Shadowable:
+    field = nondata
+
+shadowed = Shadowable()
+shadowed.field = 'instance value'
+instance_value = shadowed.field
+class_value = Shadowable.field
+
+class PlainDescriptor:
+    pass
+
+plain_descriptor = PlainDescriptor()
+def instance_get(instance, owner):
+    return 'must not run'
+plain_descriptor.__get__ = instance_get
+class PlainOwner:
+    field = plain_descriptor
+instance_special_ignored = PlainOwner().field is plain_descriptor
+
+assert instance_value == 'instance value'
+assert class_value == 'descriptor value'
+assert nondata.gets == 1
+assert instance_special_ignored is True
+# ---
+# case: descriptor exceptions are catchable
+class BrokenDescriptor:
+    def __get__(self, instance, owner):
+        raise ValueError('descriptor get failed')
+    def __set__(self, instance, value):
+        raise ValueError('descriptor set failed')
+    def __delete__(self, instance):
+        raise ValueError('descriptor delete failed')
+
+class BrokenOwner:
+    field = BrokenDescriptor()
+
+broken = BrokenOwner()
+descriptor_errors = []
+try:
+    broken.field
+except ValueError as error:
+    descriptor_errors = [*descriptor_errors, f'{error!r}']
+try:
+    broken.field = 1
+except ValueError as error:
+    descriptor_errors = [*descriptor_errors, f'{error!r}']
+try:
+    del broken.field
+except ValueError as error:
+    descriptor_errors = [*descriptor_errors, f'{error!r}']
+
+assert descriptor_errors[0] == 'ValueError("descriptor get failed")'
+assert descriptor_errors[1] == 'ValueError("descriptor set failed")'
+assert descriptor_errors[2] == 'ValueError("descriptor delete failed")'
