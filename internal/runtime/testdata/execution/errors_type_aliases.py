@@ -15,3 +15,9 @@ MissingAlias.__value__
 # message: "name 'T' is not defined"
 type Hidden[T] = T
 T
+# ---
+# case: missing generic alias bounds raise on access
+# error: NameError
+# message: "name 'missing_bound' is not defined"
+type MissingBound[T: missing_bound] = T
+MissingBound.__type_params__[0].__bound__

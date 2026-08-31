@@ -1231,6 +1231,67 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "type alias parameter payload contains a non-TypeVar value",
 		},
 		{
+			name: "type variable bound attachment underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeTypeVar},
+					{Opcode: bytecode.SetTypeVarBound},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("T")},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "type variable constraints attachment underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeTypeVar},
+					{Opcode: bytecode.SetTypeVarConstraints},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("T")},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "type variable evaluator payload",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeTypeVar},
+					{Opcode: bytecode.LoadConst, Operand: 1},
+					{Opcode: bytecode.SetTypeVarBound},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.TextString("T"), bytecode.None()},
+				nil,
+			),
+			wantFragment: "type variable evaluator payload is not a function",
+		},
+		{
+			name: "type variable evaluator target",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.SetTypeVarBound},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children:  []*bytecode.Code{aliasValueCode},
+			}),
+			wantFragment: "type variable evaluator target is not a TypeVar",
+		},
+		{
 			name: "class match underflow",
 			code: testCode(
 				3,

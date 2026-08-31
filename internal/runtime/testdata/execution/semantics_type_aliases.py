@@ -101,3 +101,59 @@ class GenericAliasOwner:
 field_parameter = GenericAliasOwner.Field.__type_params__[0]
 assert GenericAliasOwner.Field.__value__[0] is field_parameter
 assert GenericAliasOwner.Field.__value__[1] == 'class'
+# ---
+# case: generic alias bounds and constraints are lazy and cached
+bound_calls = 0
+
+def make_bound():
+    global bound_calls
+    bound_calls = bound_calls + 1
+    return 'bound'
+
+type Bounded[T: make_bound()] = T
+bounded_parameter = Bounded.__type_params__[0]
+assert bound_calls == 0
+assert bounded_parameter.__constraints__ == ()
+first_bound = bounded_parameter.__bound__
+assert first_bound == 'bound'
+assert bound_calls == 1
+assert bounded_parameter.__bound__ is first_bound
+assert bound_calls == 1
+
+left_constraint = []
+right_constraint = {}
+type Choice[T: (left_constraint, right_constraint)] = T
+choice_parameter = Choice.__type_params__[0]
+assert choice_parameter.__bound__ is None
+constraints = choice_parameter.__constraints__
+assert constraints[0] is left_constraint
+assert constraints[1] is right_constraint
+assert choice_parameter.__constraints__ is constraints
+
+type Dependent[S, T: S] = (S, T)
+dependent_parameters = Dependent.__type_params__
+assert dependent_parameters[1].__bound__ is dependent_parameters[0]
+# ---
+# case: generic alias bounds retain scopes and retry failures
+def make_bounded_alias(marker):
+    type Captured[T: marker] = T
+    return Captured
+
+Captured = make_bounded_alias('enclosing bound')
+assert Captured.__type_params__[0].__bound__ == 'enclosing bound'
+
+class BoundOwner:
+    marker = 'class bound'
+    type Field[T: marker] = T
+
+assert BoundOwner.Field.__type_params__[0].__bound__ == 'class bound'
+
+type RetryBound[T: missing_bound] = T
+retry_parameter = RetryBound.__type_params__[0]
+try:
+    retry_parameter.__bound__
+except NameError:
+    first_bound_failure = True
+assert first_bound_failure
+missing_bound = 'available'
+assert retry_parameter.__bound__ == 'available'

@@ -3,7 +3,13 @@ package runtime
 import "github.com/spachava753/bullsnake/internal/compiler/bytecode"
 
 type typeVarValue struct {
-	name string
+	name                 string
+	boundEvaluator       *functionValue
+	bound                Value
+	boundEvaluated       bool
+	constraintsEvaluator *functionValue
+	constraints          Value
+	constraintsEvaluated bool
 }
 
 func (*typeVarValue) TypeName() string { return "typing.TypeVar" }
@@ -11,6 +17,12 @@ func (variable *typeVarValue) Repr() string {
 	return variable.name
 }
 func (*typeVarValue) isValue() {}
+
+type typeVarLoad struct {
+	variable    *typeVarValue
+	constraints bool
+	instruction int
+}
 
 type typeAliasValue struct {
 	name       string
@@ -43,6 +55,101 @@ func executeMakeTypeVar(frame *frame, instruction int) (instructionOutcome, erro
 		return instructionOutcome{}, frame.failure(instruction, "type variable name is not a string")
 	}
 	return pushOutcome(frame, instruction, &typeVarValue{name: name.value})
+}
+
+// executeSetTypeVarEvaluator attaches one compiler-created lazy evaluator and
+// keeps the TypeVar on the stack for its hidden generic scope.
+func executeSetTypeVarEvaluator(
+	frame *frame,
+	instruction int,
+	constraints bool,
+) (instructionOutcome, error) {
+	evaluatorValue, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	variableValue, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	evaluator, ok := evaluatorValue.(*functionValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"type variable evaluator payload is not a function",
+		)
+	}
+	variable, ok := variableValue.(*typeVarValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"type variable evaluator target is not a TypeVar",
+		)
+	}
+	if constraints {
+		variable.constraintsEvaluator = evaluator
+	} else {
+		variable.boundEvaluator = evaluator
+	}
+	return pushOutcome(frame, instruction, variable)
+}
+
+// executeTypeVarLoad returns a cached bound or constraints value, or starts its
+// hidden evaluator through the ordinary frame loop.
+func executeTypeVarLoad(
+	frame *frame,
+	instruction int,
+	variable *typeVarValue,
+	constraints bool,
+) (instructionOutcome, error) {
+	evaluator := variable.boundEvaluator
+	if constraints {
+		if variable.constraintsEvaluated {
+			return pushOutcome(frame, instruction, variable.constraints)
+		}
+		evaluator = variable.constraintsEvaluator
+	} else if variable.boundEvaluated {
+		return pushOutcome(frame, instruction, variable.bound)
+	}
+	if evaluator == nil {
+		if constraints {
+			return pushOutcome(frame, instruction, &tupleValue{})
+		}
+		return pushOutcome(frame, instruction, None)
+	}
+	if evaluator.code.code.Flags()&bytecode.Generator != 0 {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"type variable evaluator returned a generator",
+			),
+		}, nil
+	}
+	child, exception, err := newFunctionFrame(frame, instruction, evaluator, nil, nil)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	child.typeVar = &typeVarLoad{
+		variable:    variable,
+		constraints: constraints,
+		instruction: instruction,
+	}
+	return instructionOutcome{kind: called, frame: child}, nil
+}
+
+func finishTypeVarLoad(load *typeVarLoad, value Value) Value {
+	if load.constraints {
+		load.variable.constraints = value
+		load.variable.constraintsEvaluated = true
+	} else {
+		load.variable.bound = value
+		load.variable.boundEvaluated = true
+	}
+	return value
 }
 
 // executeSetTypeAliasParameters attaches compiler-created TypeVars and keeps

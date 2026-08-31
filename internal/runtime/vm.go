@@ -193,6 +193,15 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					continue
 				}
 			}
+			if active.typeVar != nil {
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"type variable evaluator has no caller",
+					)
+				}
+				result = finishTypeVarLoad(active.typeVar, result)
+			}
 			if active.typeAlias != nil {
 				if thread.current == nil {
 					return nil, nil, active.failure(
@@ -548,9 +557,9 @@ func executeInstruction(
 			case "__name__":
 				return pushOutcome(frame, index, &stringValue{value: owner.name})
 			case "__bound__":
-				return pushOutcome(frame, index, None)
+				return executeTypeVarLoad(frame, index, owner, false)
 			case "__constraints__":
-				return pushOutcome(frame, index, &tupleValue{})
+				return executeTypeVarLoad(frame, index, owner, true)
 			case "__covariant__", "__contravariant__":
 				return pushOutcome(frame, index, falseSingleton)
 			case "__infer_variance__":
@@ -912,6 +921,10 @@ func executeInstruction(
 		return executeMakeTypeVar(frame, index)
 	case bytecode.SetTypeAliasParameters:
 		return executeSetTypeAliasParameters(frame, index)
+	case bytecode.SetTypeVarBound:
+		return executeSetTypeVarEvaluator(frame, index, false)
+	case bytecode.SetTypeVarConstraints:
+		return executeSetTypeVarEvaluator(frame, index, true)
 	case bytecode.SetFunctionAttribute:
 		target, ok := frame.pop()
 		if !ok {

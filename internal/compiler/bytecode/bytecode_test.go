@@ -411,6 +411,18 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := SetTypeAliasParameters.StackEffect(0); got != -1 {
 		t.Fatalf("SET_TYPE_ALIAS_PARAMETERS stack effect = %d, want -1", got)
 	}
+	if got := (Instruction{Opcode: SetTypeVarBound}).String(); got != "SET_TYPE_VAR_BOUND" {
+		t.Fatalf("type variable bound instruction = %q", got)
+	}
+	if got := SetTypeVarBound.StackEffect(0); got != -1 {
+		t.Fatalf("SET_TYPE_VAR_BOUND stack effect = %d, want -1", got)
+	}
+	if got := (Instruction{Opcode: SetTypeVarConstraints}).String(); got != "SET_TYPE_VAR_CONSTRAINTS" {
+		t.Fatalf("type variable constraints instruction = %q", got)
+	}
+	if got := SetTypeVarConstraints.StackEffect(0); got != -1 {
+		t.Fatalf("SET_TYPE_VAR_CONSTRAINTS stack effect = %d, want -1", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

@@ -16,7 +16,8 @@ func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error 
 		return err
 	}
 	if (compiler.scope.Kind == resolver.AnnotationScope ||
-		compiler.scope.Kind == resolver.TypeAliasScope) &&
+		compiler.scope.Kind == resolver.TypeAliasScope ||
+		compiler.scope.Kind == resolver.TypeVariableScope) &&
 		compiler.scope.Flags&resolver.CanSeeClassScope != 0 {
 		handled, classErr := compiler.emitClassVisibleNameLoad(name, symbol, span)
 		if classErr != nil {

@@ -46,6 +46,7 @@ type frame struct {
 	instanceInit        *instanceInit
 	classAnnotations    *classAnnotationLoad
 	functionAnnotations *functionAnnotationLoad
+	typeVar             *typeVarLoad
 	typeAlias           *typeAliasLoad
 	moduleImport        *moduleImport
 	pendingImport       *importRequest
