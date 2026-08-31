@@ -463,9 +463,10 @@ constructors are not implemented yet.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
-slice subscription, and dictionary item mutation. List instances expose a bound
-`append` method that mutates the list and returns `None`; other native list
-methods are not implemented yet. Lists compare structurally
+slice subscription, and dictionary item mutation. List instances expose bound
+`append` and `pop` methods. Append mutates the list and returns `None`; pop
+removes and returns its selected item. Other native list methods are not
+implemented yet. Lists compare structurally
 when their elements use the runtime's fixed scalar, tuple, list, or identity
 equality. Comparing list elements through user `__eq__` is not implemented yet.
 Built-in values use fixed truth and length rules. `len` supports strings, bytes,

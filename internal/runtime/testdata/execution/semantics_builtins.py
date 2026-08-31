@@ -663,3 +663,17 @@ assert append('second') is None
 assert items == ['first', 'second']
 assert getattr(items, 'append')('third') is None
 assert items == ['first', 'second', 'third']
+# ---
+# case: list pop method
+items = ['first', 'second', 'third']
+pop = items.pop
+assert callable(pop)
+assert pop() == 'third'
+assert items == ['first', 'second']
+assert items.pop(0) == 'first'
+assert items == ['second']
+numbers = [1, 2, 3]
+assert numbers.pop(-2) == 2
+assert numbers == [1, 3]
+assert numbers.pop(False) == 1
+assert numbers == [3]

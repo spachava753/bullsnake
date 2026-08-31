@@ -641,3 +641,33 @@ next(filter(failing_filter_truth, (1,)))
 # error: TypeError
 # message: "list.append() takes no keyword arguments"
 [].append(object=1)
+# ---
+# case: list pop empty list
+# error: IndexError
+# message: "pop from empty list"
+[].pop()
+# ---
+# case: list pop index out of range
+# error: IndexError
+# message: "pop index out of range"
+[1].pop(2)
+# ---
+# case: list pop non-integer index
+# error: TypeError
+# message: "'str' object cannot be interpreted as an integer"
+[1].pop('index')
+# ---
+# case: list pop oversized index
+# error: OverflowError
+# message: "Python int too large to convert to C ssize_t"
+[1].pop(100000000000000000000000000000000000000000000000000)
+# ---
+# case: list pop extra argument
+# error: TypeError
+# message: "pop expected at most 1 argument, got 2"
+[1].pop(0, 1)
+# ---
+# case: list pop keyword argument
+# error: TypeError
+# message: "list.pop() takes no keyword arguments"
+[1].pop(index=0)
