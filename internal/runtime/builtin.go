@@ -49,6 +49,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "max", call: builtinMax},
 	{name: "min", call: builtinMin},
 	{name: "next", frameCall: executeBuiltinNext},
+	{name: "property", call: builtinProperty},
 }
 
 // builtinInt converts the currently supported scalar numeric values.

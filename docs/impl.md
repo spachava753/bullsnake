@@ -455,6 +455,11 @@ attribute precedence. Class access calls `__get__` with `None` and the accessed
 class. Writes and deletes invoke data descriptors before the instance namespace
 and discard the descriptor method's result.
 
+The built-in `property` supports direct construction and decorator-style
+`getter`, `setter`, and `deleter` copies. Properties expose their accessor fields,
+explicit documentation, and the class-assigned name. Function-docstring
+inference and property subclasses remain unsupported.
+
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative
 integer exponent returns an integer, subject to the documented 1,048,576-bit
@@ -517,9 +522,9 @@ coroutines from both methods. Asynchronous iteration also looks up `__aiter__`
 and `__anext__` on the class, and requires a native coroutine from each
 `__anext__` call. The object model does not yet implement complete annotation
 attribute mutation rules, class keyword arguments, multiple inheritance, C3
-method order, metaclasses, `super`, `__new__`, the `property` builtin, or custom
-`__getattribute__`, `__getattr__`, and `__setattr__`. Custom exception
-initializers and methods remain unsupported.
+method order, metaclasses, `super`, `__new__`, or custom `__getattribute__`,
+`__getattr__`, and `__setattr__`. Custom exception initializers and methods remain
+unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general
@@ -639,8 +644,8 @@ The largest current gaps are:
   collection
 - no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
   automatic async-generator finalization, or Python threads
-- no complete Python object protocol, `property`, custom attribute interception,
-  user hashing, or multiple inheritance
+- no complete Python object protocol, custom attribute interception, user hashing,
+  or multiple inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or
   execution budgets
 - no REPL or eval-specific entry point

@@ -384,7 +384,8 @@ truth path. Item access calls class `__getitem__`, `__setitem__`, or
 Binary arithmetic uses the same normal, reflected, and in-place candidate order.
 Attribute reads apply data descriptor, instance attribute, non-data descriptor,
 and plain class attribute precedence. Descriptor writes and deletes run through
-the same frame loop. `property`, custom attribute interception, `super`, and
+the same frame loop. The built-in `property` type uses that path for getter,
+setter, and deleter functions. Custom attribute interception, `super`, and
 multiple inheritance can build on this path without recursive Go execution.
 
 Integers use arbitrary precision, but one exact power operation may produce at

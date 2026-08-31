@@ -51,6 +51,16 @@ func executeInstanceAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	classValue, classFound := owner.class.lookup(name)
+	if property, ok := classValue.(*propertyValue); ok {
+		return executePropertyDescriptorCall(
+			frame,
+			instruction,
+			attributeGet,
+			property,
+			owner,
+			nil,
+		)
+	}
 	descriptor, isDescriptor := classValue.(*instanceValue)
 	hasGet := isDescriptor && descriptorHasSpecial(descriptor, "__get__")
 	if hasGet && descriptorIsData(descriptor) {
@@ -89,6 +99,8 @@ func executeInstanceAttributeLoad(
 	return pushOutcome(frame, instruction, classValue)
 }
 
+// executeInstanceAttributeStore sends writes through a property or user data
+// descriptor before falling back to the instance namespace.
 func executeInstanceAttributeStore(
 	frame *frame,
 	instruction int,
@@ -97,6 +109,16 @@ func executeInstanceAttributeStore(
 	value Value,
 ) (instructionOutcome, error) {
 	if classValue, found := owner.class.lookup(name); found {
+		if property, ok := classValue.(*propertyValue); ok {
+			return executePropertyDescriptorCall(
+				frame,
+				instruction,
+				attributeSet,
+				property,
+				owner,
+				value,
+			)
+		}
 		if descriptor, ok := classValue.(*instanceValue); ok && descriptorIsData(descriptor) {
 			if !descriptorHasSpecial(descriptor, "__set__") {
 				return instructionOutcome{
@@ -126,6 +148,16 @@ func executeInstanceAttributeDelete(
 	name string,
 ) (instructionOutcome, error) {
 	if classValue, found := owner.class.lookup(name); found {
+		if property, ok := classValue.(*propertyValue); ok {
+			return executePropertyDescriptorCall(
+				frame,
+				instruction,
+				attributeDelete,
+				property,
+				owner,
+				nil,
+			)
+		}
 		if descriptor, ok := classValue.(*instanceValue); ok && descriptorIsData(descriptor) {
 			if !descriptorHasSpecial(descriptor, "__delete__") {
 				return instructionOutcome{
@@ -187,12 +219,22 @@ func executeDescriptorCall(
 			exception: newException("AttributeError", name),
 		}, nil
 	}
+	return executeAttributeCallable(frame, instruction, kind, method, arguments)
+}
+
+func executeAttributeCallable(
+	frame *frame,
+	instruction int,
+	kind attributeCallKind,
+	callable Value,
+	arguments []Value,
+) (instructionOutcome, error) {
 	call := &attributeCall{kind: kind, instruction: instruction}
 	outcome, err := executeFunctionCall(
 		frame,
 		instruction,
 		len(frame.stack),
-		method,
+		callable,
 		arguments,
 		nil,
 	)

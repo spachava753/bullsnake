@@ -109,15 +109,33 @@ func lookupInstanceSpecial(instance *instanceValue, name string) (Value, bool) {
 }
 
 type classBuild struct {
-	name          string
-	qualifiedName string
-	module        string
-	namespace     *Namespace
-	bases         []*typeValue
-	exceptionBase *exceptionTypeValue
+	name              string
+	qualifiedName     string
+	module            string
+	namespace         *Namespace
+	bases             []*typeValue
+	exceptionBase     *exceptionTypeValue
+	namespaceOrder    []string
+	namespacePosition map[string]int
+}
+
+func (build *classBuild) recordStore(name string) {
+	if _, found := build.namespacePosition[name]; found {
+		return
+	}
+	build.namespacePosition[name] = len(build.namespaceOrder)
+	build.namespaceOrder = append(build.namespaceOrder, name)
 }
 
 func (build *classBuild) finish(bodyResult Value) Value {
+	for index, name := range build.namespaceOrder {
+		if build.namespacePosition[name] != index {
+			continue
+		}
+		if property, ok := build.namespace.values[name].(*propertyValue); ok {
+			property.name = name
+		}
+	}
 	class := &typeValue{
 		name:          build.name,
 		qualifiedName: build.qualifiedName,
@@ -221,12 +239,13 @@ func executeBuildClassCall(
 		builtins:   caller.builtins,
 		previous:   caller,
 		classBuild: &classBuild{
-			name:          name.value,
-			qualifiedName: body.code.code.QualifiedName(),
-			module:        module,
-			namespace:     namespace,
-			bases:         bases,
-			exceptionBase: exceptionBase,
+			name:              name.value,
+			qualifiedName:     body.code.code.QualifiedName(),
+			module:            module,
+			namespace:         namespace,
+			bases:             bases,
+			exceptionBase:     exceptionBase,
+			namespacePosition: make(map[string]int),
 		},
 	}
 	return instructionOutcome{kind: called, frame: child}, nil

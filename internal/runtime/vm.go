@@ -1053,6 +1053,8 @@ func executeInstruction(
 					),
 				}, nil
 			}
+		case *propertyValue:
+			return executePropertyAttributeLoad(frame, index, owner, name)
 		case *generatorValue:
 			if owner.kind == asyncGeneratorObject {
 				switch name {
@@ -1226,7 +1228,11 @@ func executeInstruction(
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
-		frame.locals.values[frame.code.names[instruction.Operand]] = value
+		name := frame.code.names[instruction.Operand]
+		frame.locals.values[name] = value
+		if frame.classBuild != nil {
+			frame.classBuild.recordStore(name)
+		}
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.DeleteName:
 		name := frame.code.names[instruction.Operand]
@@ -1237,6 +1243,9 @@ func executeInstruction(
 			}, nil
 		}
 		delete(frame.locals.values, name)
+		if frame.classBuild != nil {
+			delete(frame.classBuild.namespacePosition, name)
+		}
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.StoreFast:
 		value, ok := frame.pop()

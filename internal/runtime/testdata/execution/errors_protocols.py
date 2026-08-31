@@ -318,3 +318,40 @@ class SetOnlyOwner:
 
 value = SetOnlyOwner()
 del value.field
+# ---
+# case: property without getter
+# error: AttributeError
+# message: "property 'value' of 'UnreadableProperty' object has no getter"
+class UnreadableProperty:
+    value = property()
+
+UnreadableProperty().value
+# ---
+# case: property without setter
+# error: AttributeError
+# message: "property 'value' of 'ReadOnlyProperty' object has no setter"
+class ReadOnlyProperty:
+    @property
+    def value(self):
+        return 1
+
+ReadOnlyProperty().value = 2
+# ---
+# case: property without deleter
+# error: AttributeError
+# message: "property 'value' of 'UndeletableProperty' object has no deleter"
+class UndeletableProperty:
+    @property
+    def value(self):
+        return 1
+
+value = UndeletableProperty()
+del value.value
+# ---
+# case: noncallable property getter
+# error: TypeError
+# message: "'int' object is not callable"
+class InvalidPropertyGetter:
+    value = property(1)
+
+InvalidPropertyGetter().value

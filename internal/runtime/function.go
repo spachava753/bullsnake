@@ -148,6 +148,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *propertyAccessorMethod:
+		return executePropertyAccessorCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,

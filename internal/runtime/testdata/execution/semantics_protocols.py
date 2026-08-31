@@ -849,3 +849,89 @@ except ValueError as error:
 assert descriptor_errors[0] == 'ValueError("descriptor get failed")'
 assert descriptor_errors[1] == 'ValueError("descriptor set failed")'
 assert descriptor_errors[2] == 'ValueError("descriptor delete failed")'
+# ---
+# case: property decorators
+class ManagedValue:
+    def __init__(self, value):
+        self._value = value
+        self.gets = 0
+        self.sets = 0
+        self.deletes = 0
+    @property
+    def value(self):
+        self.gets = self.gets + 1
+        return self._value
+    @value.setter
+    def value(self, value):
+        self.sets = self.sets + 1
+        self._value = value
+        return 'ignored setter result'
+    @value.deleter
+    def value(self):
+        self.deletes = self.deletes + 1
+        del self._value
+        return 'ignored deleter result'
+
+class ManagedChild(ManagedValue):
+    pass
+
+descriptor = ManagedValue.value
+managed = ManagedChild(10)
+initial = managed.value
+managed.value = 20
+updated = managed.value
+del managed.value
+try:
+    managed.value
+except AttributeError:
+    missing_after_delete = True
+
+assert ManagedValue.value is descriptor
+assert ManagedChild.value is descriptor
+assert descriptor.__name__ == 'value'
+assert descriptor.fget is not None
+assert descriptor.fset is not None
+assert descriptor.fdel is not None
+assert initial == 10
+assert updated == 20
+assert missing_after_delete is True
+assert managed.gets == 3
+assert managed.sets == 1
+assert managed.deletes == 1
+# ---
+# case: property accessor copies
+class DirectPropertyOwner:
+    def __init__(self):
+        self.saved = 3
+
+def direct_getter(instance):
+    return instance.saved
+
+def direct_setter(instance, value):
+    instance.saved = value
+
+def direct_deleter(instance):
+    del instance.saved
+
+read_only = property(direct_getter, doc='direct property')
+writable = read_only.setter(direct_setter)
+complete = writable.deleter(direct_deleter)
+DirectPropertyOwner.value = complete
+
+owner = DirectPropertyOwner()
+owner.value = 8
+loaded_direct = owner.value
+del owner.value
+
+assert read_only is not writable
+assert writable is not complete
+assert read_only.fget is direct_getter
+assert read_only.fset is None
+assert writable.fget is direct_getter
+assert writable.fset is direct_setter
+assert writable.fdel is None
+assert complete.fget is direct_getter
+assert complete.fset is direct_setter
+assert complete.fdel is direct_deleter
+assert complete.__doc__ == 'direct property'
+assert loaded_direct == 8
