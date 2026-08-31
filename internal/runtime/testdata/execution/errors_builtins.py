@@ -671,3 +671,23 @@ next(filter(failing_filter_truth, (1,)))
 # error: TypeError
 # message: "list.pop() takes no keyword arguments"
 [1].pop(index=0)
+# ---
+# case: dictionary pop missing argument
+# error: TypeError
+# message: "pop expected at least 1 argument, got 0"
+{}.pop()
+# ---
+# case: dictionary pop missing key
+# error: KeyError
+# message: "'missing'"
+{}.pop('missing')
+# ---
+# case: dictionary pop extra argument
+# error: TypeError
+# message: "pop expected at most 2 arguments, got 3"
+{}.pop('missing', None, None)
+# ---
+# case: dictionary pop keyword argument
+# error: TypeError
+# message: "dict.pop() takes no keyword arguments"
+{}.pop(key='missing')

@@ -677,3 +677,19 @@ assert numbers.pop(-2) == 2
 assert numbers == [1, 3]
 assert numbers.pop(False) == 1
 assert numbers == [3]
+# ---
+# case: dictionary pop method
+values = {'first': 1, 'second': 2, 'third': 3}
+pop = values.pop
+assert callable(pop)
+assert pop('second') == 2
+assert len(values) == 2
+assert list(values) == ['first', 'third']
+assert values['first'] == 1
+assert values['third'] == 3
+assert 'second' not in values
+marker = object()
+assert pop('missing', marker) is marker
+assert list(values) == ['first', 'third']
+assert values.pop('first', 99) == 1
+assert list(values) == ['third']
