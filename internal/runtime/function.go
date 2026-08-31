@@ -192,6 +192,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringRemovePrefixMethod:
+		return executeStringRemovePrefixCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *stringEndswithMethod:
 		return executeStringTailmatchCall(
 			caller,
@@ -536,6 +545,7 @@ func isCallableValue(value Value) bool {
 		*stringFormatMethod,
 		*stringLowerMethod,
 		*stringReplaceMethod,
+		*stringRemovePrefixMethod,
 		*stringEndswithMethod,
 		*stringStartswithMethod,
 		*stringSplitMethod,

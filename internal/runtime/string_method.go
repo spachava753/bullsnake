@@ -53,6 +53,8 @@ func executeStringAttributeLoad(
 		return pushOutcome(frame, instruction, &stringLowerMethod{value: value})
 	case "replace":
 		return pushOutcome(frame, instruction, &stringReplaceMethod{value: value})
+	case "removeprefix":
+		return pushOutcome(frame, instruction, &stringRemovePrefixMethod{value: value})
 	case "endswith":
 		return pushOutcome(frame, instruction, &stringEndswithMethod{value: value})
 	case "startswith":

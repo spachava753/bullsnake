@@ -1192,3 +1192,23 @@ class CustomFormat:
 # error: OverflowError
 # message: "Python int too large to convert to C ssize_t"
 'a'.replace('a', 'b', 999999999999999999999999999)
+# ---
+# case: string removeprefix missing argument
+# error: TypeError
+# message: "str.removeprefix() takes exactly one argument (0 given)"
+'a'.removeprefix()
+# ---
+# case: string removeprefix extra argument
+# error: TypeError
+# message: "str.removeprefix() takes exactly one argument (2 given)"
+'a'.removeprefix('a', 'b')
+# ---
+# case: string removeprefix invalid prefix
+# error: TypeError
+# message: "removeprefix() argument must be str, not int"
+'a'.removeprefix(1)
+# ---
+# case: string removeprefix keyword argument
+# error: TypeError
+# message: "str.removeprefix() takes no keyword arguments"
+'a'.removeprefix(prefix='a')

@@ -1098,3 +1098,17 @@ replace = 'a/b/c'.replace
 assert callable(replace)
 assert replace('/', '.', 1) == 'a.b/c'
 assert getattr('x-x', 'replace')('x', 'y') == 'y-y'
+# ---
+# case: string removeprefix values and identity
+text = 'prefix-value'
+assert text.removeprefix('prefix-') == 'value'
+assert '\ud800value'.removeprefix('\ud800') == 'value'
+assert text.removeprefix('missing') is text
+assert text.removeprefix('') is text
+assert ''.removeprefix('prefix') == ''
+# ---
+# case: retained string removeprefix method
+removeprefix = 'prefix-value'.removeprefix
+assert callable(removeprefix)
+assert removeprefix('prefix-') == 'value'
+assert getattr('prefix', 'removeprefix')('pre') == 'fix'

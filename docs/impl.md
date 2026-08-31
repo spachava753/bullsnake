@@ -464,23 +464,24 @@ constructors are not implemented yet.
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
 slice subscription, and dictionary item mutation. String instances expose bound
-`endswith`, `format`, `join`, `lower`, `replace`, `split`, `splitlines`,
-`startswith`, and `strip`. Join collects through the resumable iterator path
-before validating all items. Format supports automatic fields, escaped braces,
-and `!s`, `!r`, or `!a` conversion. User string and representation methods
-resume through the frame loop. Numbered, named, nested, specified, and custom
-`__format__` fields remain unsupported. Replace accepts an integer-or-boolean
-positional or keyword count, handles empty patterns at code-point boundaries,
-and retains no-op identities.
-Split handles explicit separators and Python whitespace with the
-integer-or-boolean `maxsplit` subset. Splitlines recognizes Python's Unicode
-line-boundary set, folds CRLF into one boundary, and resolves `keepends` through
-ordinary truth testing. Prefix and suffix matching apply code-point bounds from
-the current integer-or-`None` index subset to a string or an ordered tuple. Strip
-removes Python whitespace or a supplied code-point set. Lowercase conversion
-uses full Unicode mappings and preserves lone-surrogate bytes. Its tables come
-from `golang.org/x/text` Unicode 17, so code points whose casing changed after
-CPython 3.14's Unicode 16 baseline may differ.
+`endswith`, `format`, `join`, `lower`, `removeprefix`, `replace`, `split`,
+`splitlines`, `startswith`, and `strip`. Join collects through the resumable
+iterator path before validating all items. Format supports automatic fields,
+escaped braces, and `!s`, `!r`, or `!a` conversion. User string and
+representation methods resume through the frame loop. Numbered, named, nested,
+specified, and custom `__format__` fields remain unsupported. Replace accepts an
+integer-or-boolean positional or keyword count, handles empty patterns at
+code-point boundaries, and retains no-op identities. Removeprefix removes one
+exact nonempty prefix and otherwise retains the original string object. Split
+handles explicit separators and Python whitespace with the integer-or-boolean
+`maxsplit` subset. Splitlines recognizes Python's Unicode line-boundary set,
+folds CRLF into one boundary, and resolves `keepends` through ordinary truth
+testing. Prefix and suffix matching apply code-point bounds from the current
+integer-or-`None` index subset to a string or an ordered tuple. Strip removes
+Python whitespace or a supplied code-point set. Lowercase conversion uses full
+Unicode mappings and preserves lone-surrogate bytes. Its tables come from
+`golang.org/x/text` Unicode 17, so code points whose casing changed after CPython
+3.14's Unicode 16 baseline may differ.
 
 List instances expose bound `append`, `pop`, `extend`, and `remove` methods.
 Extend consumes native, generator, or user iterators through the frame loop and

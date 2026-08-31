@@ -384,22 +384,23 @@ objects rather than separate function stand-ins. Ranges retain
 arbitrary-precision integer bounds and produce values lazily through the ordinary
 native iterator path. Enumerate, map, and filter objects wrap that iterator
 contract and may suspend while a generator, user iterator, mapped callable, or
-filter predicate and truth method runs. String instances expose bound `endswith`,
-`format`, `join`, `lower`, `replace`, `split`, `splitlines`, `startswith`, and
-`strip`. Join collects through that iterator path before validating and
-concatenating its items. Format handles automatic fields, escaped braces, and
-`!s`, `!r`, or `!a` conversion. User string and representation methods run
-through frame continuations. Numbered, named, nested, specified, and custom `__format__`
-fields remain later work. Replace applies an integer-or-boolean positional or
-keyword count and inserts empty-pattern replacements at code-point boundaries.
-Split handles explicit separators and Python whitespace. Splitlines recognizes
-Python's Unicode line boundaries, treats CRLF as one boundary, and resolves
-`keepends` through ordinary truth testing. Prefix and suffix matching apply
-code-point slice bounds and accept one string or an ordered tuple of strings.
-Strip trims Python whitespace or a supplied code-point set. Lowercase conversion
-uses full Unicode mappings while retaining lone-surrogate bytes. Bullsnake uses
-Go's Unicode 17 tables, so casing added after CPython 3.14's Unicode 16 baseline
-may differ.
+filter predicate and truth method runs. String instances expose bound
+`endswith`, `format`, `join`, `lower`, `removeprefix`, `replace`, `split`,
+`splitlines`, `startswith`, and `strip`. Join collects through that iterator path
+before validating and concatenating its items. Format handles automatic fields,
+escaped braces, and `!s`, `!r`, or `!a` conversion. User string and
+representation methods run through frame continuations. Numbered, named, nested,
+specified, and custom `__format__` fields remain later work. Replace applies an
+integer-or-boolean positional or keyword count and inserts empty-pattern
+replacements at code-point boundaries. Removeprefix removes one exact nonempty
+prefix and otherwise preserves the receiver identity. Split handles explicit
+separators and Python whitespace. Splitlines recognizes Python's Unicode line
+boundaries, treats CRLF as one boundary, and resolves `keepends` through ordinary
+truth testing. Prefix and suffix matching apply code-point slice bounds and
+accept one string or an ordered tuple of strings. Strip trims Python whitespace
+or a supplied code-point set. Lowercase conversion uses full Unicode mappings
+while retaining lone-surrogate bytes. Bullsnake uses Go's Unicode 17 tables, so
+casing added after CPython 3.14's Unicode 16 baseline may differ.
 
 A list instance exposes bound `append`, `pop`, `extend`, and `remove` methods.
 Extend uses the same resumable iterator path and mutates the target as each item
