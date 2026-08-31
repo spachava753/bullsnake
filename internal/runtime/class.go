@@ -181,6 +181,30 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	return class, nil
 }
 
+func resolveClassBases(
+	baseValues []Value,
+) ([]*typeValue, *exceptionTypeValue, *Exception) {
+	var bases []*typeValue
+	var exceptionBase *exceptionTypeValue
+	for _, baseValue := range baseValues {
+		switch classBase := baseValue.(type) {
+		case *typeValue:
+			bases = append(bases, classBase)
+		case *exceptionTypeValue:
+			if len(baseValues) != 1 {
+				return nil, nil, newException(
+					"TypeError",
+					"multiple inheritance with built-in exception bases is not supported",
+				)
+			}
+			exceptionBase = classBase
+		default:
+			return nil, nil, newException("TypeError", "class base is not a type")
+		}
+	}
+	return bases, exceptionBase, nil
+}
+
 // executeBuildClassCall starts one class body with its own local namespace. The
 // dispatch loop computes its MRO and finishes type creation when that frame returns.
 func executeBuildClassCall(
@@ -217,29 +241,9 @@ func executeBuildClassCall(
 		}, nil
 	}
 	baseValues := arguments[2:]
-	var bases []*typeValue
-	var exceptionBase *exceptionTypeValue
-	for _, baseValue := range baseValues {
-		switch classBase := baseValue.(type) {
-		case *typeValue:
-			bases = append(bases, classBase)
-		case *exceptionTypeValue:
-			if len(baseValues) != 1 {
-				return instructionOutcome{
-					kind: raised,
-					exception: newException(
-						"TypeError",
-						"multiple inheritance with built-in exception bases is not supported",
-					),
-				}, nil
-			}
-			exceptionBase = classBase
-		default:
-			return instructionOutcome{
-				kind:      raised,
-				exception: newException("TypeError", "class base is not a type"),
-			}, nil
-		}
+	bases, exceptionBase, baseException := resolveClassBases(baseValues)
+	if baseException != nil {
+		return instructionOutcome{kind: raised, exception: baseException}, nil
 	}
 	locals, exception := bindFunctionArguments(body, nil, nil)
 	if exception != nil {

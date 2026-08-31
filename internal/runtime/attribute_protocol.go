@@ -160,6 +160,9 @@ func executeTypeAttributeLoad(
 	case "__qualname__":
 		return pushOutcome(frame, instruction, &stringValue{value: owner.qualifiedName})
 	case "__module__":
+		if value, found := owner.namespace.get("__module__"); found {
+			return pushOutcome(frame, instruction, value)
+		}
 		return pushOutcome(frame, instruction, &stringValue{value: owner.module})
 	case "__bases__":
 		return pushOutcome(frame, instruction, typeTuple(owner.bases))

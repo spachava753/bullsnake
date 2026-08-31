@@ -13,10 +13,35 @@ type(None, None)
 # message: "type() takes 1 or 3 arguments"
 type(object=None)
 # ---
-# case: dynamic type construction boundary
-# error: NotImplementedError
-# message: "three-argument type() is not supported"
-type('Dynamic', (), {})
+# case: dynamic type invalid name
+# error: TypeError
+# message: "type.__new__() argument 1 must be str, not int"
+type(1, (), {})
+# ---
+# case: dynamic type invalid bases
+# error: TypeError
+# message: "type.__new__() argument 2 must be tuple, not list"
+type('Dynamic', [], {})
+# ---
+# case: dynamic type invalid namespace
+# error: TypeError
+# message: "type.__new__() argument 3 must be dict, not list"
+type('Dynamic', (), [])
+# ---
+# case: dynamic type invalid base entry
+# error: TypeError
+# message: "class base is not a type"
+type('Dynamic', (1,), {})
+# ---
+# case: dynamic type non-string namespace key
+# error: TypeError
+# message: "type namespace keys must be strings"
+type('Dynamic', (), {1: None})
+# ---
+# case: dynamic type invalid qualified name
+# error: TypeError
+# message: "type __qualname__ must be a str, not int"
+type('Dynamic', (), {'__qualname__': 1})
 # ---
 # case: isinstance missing argument
 # error: TypeError

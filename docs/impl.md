@@ -422,7 +422,12 @@ same ancestry rules directly to class objects. A tuple of candidates is
 processed left to right and may contain nested tuples; a match suppresses errors
 from later entries. `bool` is a native subclass of `int`. Type unions and custom
 metaclass `__instancecheck__` methods are not implemented. Three-argument `type`
-and the remaining built-in type constructors are not implemented yet.
+uses the same class builder as a class statement. It accepts a string name, a
+tuple of currently supported bases, and a dictionary with string keys. It
+supplies default module and qualified-name metadata, honors explicit values,
+and supports methods, C3 inheritance, and user exception classes. Metaclass
+selection, `__mro_entries__`, and non-string namespace keys remain unsupported.
+The remaining built-in type constructors are not implemented yet.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
@@ -536,8 +541,7 @@ with two or more arguments; `next`; `repr`; and `staticmethod`. The `next`
 builtin accepts one optional
 default for generators, internal iterators, and user iterators. String and base
 forms of `int`, the iterable and keyword forms of `max` and `min`, the encoding
-form of `str`, three-argument `type`, and callable-sentinel `iter` remain
-unsupported.
+form of `str`, and callable-sentinel `iter` remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

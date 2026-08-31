@@ -164,3 +164,45 @@ assert issubclass(CandidateChild, (str, CandidateBase))
 assert issubclass(CandidateChild, (str, (int, CandidateBase)))
 assert not issubclass(CandidateChild, (str, int))
 assert issubclass(bool, (int, None))
+# ---
+# case: three argument type construction
+marker = []
+
+def read_value(self):
+    return self.value
+
+Dynamic = type('Dynamic', (), {'value': marker, 'read_value': read_value})
+instance = Dynamic()
+assert Dynamic.__name__ == 'Dynamic'
+assert Dynamic.__qualname__ == 'Dynamic'
+assert Dynamic.__module__ == __name__
+assert type(Dynamic) is type
+assert type(instance) is Dynamic
+assert instance.value is marker
+assert instance.read_value() is marker
+# ---
+# case: dynamic type inheritance and metadata
+class DynamicBase:
+    def inherited(self):
+        return 'base'
+
+DynamicChild = type(
+    'DynamicChild',
+    (DynamicBase,),
+    {'own': lambda self: 'child', '__module__': 'remote', '__qualname__': 'Outer.DynamicChild'},
+)
+child = DynamicChild()
+assert issubclass(DynamicChild, DynamicBase)
+assert isinstance(child, DynamicBase)
+assert child.inherited() == 'base'
+assert child.own() == 'child'
+assert DynamicChild.__module__ == 'remote'
+assert DynamicChild.__qualname__ == 'Outer.DynamicChild'
+# ---
+# case: dynamic exception type
+DynamicError = type('DynamicError', (ValueError,), {})
+try:
+    raise DynamicError('dynamic failure')
+except ValueError as caught:
+    assert type(caught) is DynamicError
+    assert str(caught) == 'dynamic failure'

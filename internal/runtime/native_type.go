@@ -137,11 +137,12 @@ func executeNativeTypeCall(
 			)), nil
 		}
 		if len(arguments) == 3 {
-			discardCallSegment(caller, base)
-			return raiseOutcome(newException(
-				"NotImplementedError",
-				"three-argument type() is not supported",
-			)), nil
+			return executeDynamicTypeCall(
+				caller,
+				instruction,
+				base,
+				arguments,
+			)
 		}
 		if len(arguments) != 1 {
 			discardCallSegment(caller, base)
@@ -175,6 +176,105 @@ func executeNativeTypeCall(
 		"NotImplementedError",
 		class.name+"() constructor is not supported",
 	)), nil
+}
+
+// executeDynamicTypeCall copies one validated namespace into the ordinary class
+// builder so dynamic and statement classes share C3 and descriptor finalization.
+func executeDynamicTypeCall(
+	caller *frame,
+	instruction int,
+	base int,
+	arguments []Value,
+) (instructionOutcome, error) {
+	name, ok := arguments[0].(*stringValue)
+	if !ok {
+		invalidType := arguments[0].TypeName()
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"type.__new__() argument 1 must be str, not "+invalidType,
+		)), nil
+	}
+	baseTuple, ok := arguments[1].(*tupleValue)
+	if !ok {
+		invalidType := arguments[1].TypeName()
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"type.__new__() argument 2 must be tuple, not "+invalidType,
+		)), nil
+	}
+	dictionary, ok := arguments[2].(*dictValue)
+	if !ok {
+		invalidType := arguments[2].TypeName()
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"type.__new__() argument 3 must be dict, not "+invalidType,
+		)), nil
+	}
+	bases, exceptionBase, exception := resolveClassBases(baseTuple.elements)
+	if exception != nil {
+		discardCallSegment(caller, base)
+		return raiseOutcome(exception), nil
+	}
+
+	namespace := newNamespace()
+	build := &classBuild{
+		name:              name.value,
+		qualifiedName:     name.value,
+		namespace:         namespace,
+		bases:             bases,
+		exceptionBase:     exceptionBase,
+		namespacePosition: make(map[string]int),
+	}
+	for _, entry := range dictionary.entries {
+		key, stringKey := entry.key.(*stringValue)
+		if !stringKey {
+			discardCallSegment(caller, base)
+			return raiseOutcome(newException(
+				"TypeError",
+				"type namespace keys must be strings",
+			)), nil
+		}
+		namespace.values[key.value] = entry.value
+		build.recordStore(key.value)
+	}
+
+	if moduleValue, found := namespace.get("__module__"); found {
+		if module, stringModule := moduleValue.(*stringValue); stringModule {
+			build.module = module.value
+		}
+	} else {
+		if callerModule, found := caller.globals.get("__name__"); found {
+			if module, stringModule := callerModule.(*stringValue); stringModule {
+				build.module = module.value
+			}
+		}
+		namespace.values["__module__"] = &stringValue{value: build.module}
+		build.recordStore("__module__")
+	}
+	if qualifiedValue, found := namespace.get("__qualname__"); found {
+		qualified, stringQualified := qualifiedValue.(*stringValue)
+		if !stringQualified {
+			discardCallSegment(caller, base)
+			return raiseOutcome(newException(
+				"TypeError",
+				"type __qualname__ must be a str, not "+qualifiedValue.TypeName(),
+			)), nil
+		}
+		build.qualifiedName = qualified.value
+	} else {
+		namespace.values["__qualname__"] = &stringValue{value: name.value}
+		build.recordStore("__qualname__")
+	}
+
+	result, exception := build.finish(None)
+	discardCallSegment(caller, base)
+	if exception != nil {
+		return raiseOutcome(exception), nil
+	}
+	return pushOutcome(caller, instruction, result)
 }
 
 // typeOf returns an existing user or exception class before consulting the

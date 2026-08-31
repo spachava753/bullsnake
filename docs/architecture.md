@@ -375,8 +375,11 @@ user class MROs, and exception ancestry. Tuple candidates run from left to right
 Native, user,
 and exception classes expose their basic name metadata through the ordinary
 attribute path. The existing `bool`, `int`, and `str` constructors are those same
-type objects rather than separate function stand-ins. Three-argument dynamic
-class construction, unions, and custom metaclass checks remain later work. A
+type objects rather than separate function stand-ins. Three-argument `type`
+construction copies a string-keyed dictionary into the ordinary class builder,
+so dynamic and statement classes share C3 ordering and descriptor behavior.
+Metaclass selection, MRO-entry rewriting, unions, and custom metaclass checks
+remain later work. A
 template keeps literal strings separate from evaluated interpolation values and
 their source metadata; creating one does not format those values. More of
 Python's data model will be added when language features or packages require it.
