@@ -781,3 +781,15 @@ assert next(first) == ('first', 10)
 assert next(second) == ('first', 10)
 assert list({}.items()) == []
 assert not {}.items()
+# ---
+# case: set add method
+values = set()
+add = values.add
+assert callable(add)
+assert add('first') is None
+assert add('second') is None
+assert add('first') is None
+assert len(values) == 2
+assert 'first' in values
+assert 'second' in values
+assert list(values) == ['first', 'second']

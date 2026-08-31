@@ -1373,6 +1373,8 @@ func executeInstruction(
 			return executeDictionaryAttributeLoad(frame, index, owner, name)
 		case *listValue:
 			return executeListAttributeLoad(frame, index, owner, name)
+		case *setValue:
+			return executeSetAttributeLoad(frame, index, owner, name)
 		case *rangeValue:
 			return executeRangeAttributeLoad(frame, index, owner, name)
 		case *superValue:

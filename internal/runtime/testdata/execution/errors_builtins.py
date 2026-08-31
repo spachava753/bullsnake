@@ -787,3 +787,23 @@ items = iter(values.items())
 del values['first']
 values['third'] = 3
 next(items)
+# ---
+# case: set add missing argument
+# error: TypeError
+# message: "set.add() takes exactly one argument (0 given)"
+set().add()
+# ---
+# case: set add extra argument
+# error: TypeError
+# message: "set.add() takes exactly one argument (2 given)"
+set().add(1, 2)
+# ---
+# case: set add keyword argument
+# error: TypeError
+# message: "set.add() takes no keyword arguments"
+set().add(element=1)
+# ---
+# case: set add unhashable value
+# error: TypeError
+# message: "cannot use 'list' as a set element (unhashable type: 'list')"
+set().add([])

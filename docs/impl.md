@@ -469,8 +469,10 @@ iterators through the frame loop and mutates the target as each item arrives.
 Dictionary instances expose bound `get`, `pop`, and `items` methods. The items
 method returns a live `dict_items` view with independent iterators; replacing a
 value remains visible, while key-set changes during iteration raise
-`RuntimeError`. Set-like view operations and other native collection methods
-are not implemented yet. Lists compare structurally
+`RuntimeError`. Set instances expose a bound `add` method using the same fixed
+hashability and equality rules as set displays. Set-like view operations and
+other native collection methods are not implemented yet. Lists compare
+structurally
 when their elements use the runtime's fixed scalar, tuple, list, or identity
 equality. Comparing list elements through user `__eq__` is not implemented yet.
 Built-in values use fixed truth and length rules. `len` supports strings, bytes,
