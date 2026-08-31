@@ -147,10 +147,12 @@ func valueText(value Value) string {
 // asciiRepresentation escapes every non-ASCII code point in an existing repr.
 func asciiRepresentation(representation string) string {
 	var builder strings.Builder
-	for _, current := range representation {
+	for offset := 0; offset < len(representation); {
+		current, size, _ := decodeStringRune(representation[offset:])
+		offset += size
 		switch {
 		case current < 0x80:
-			builder.WriteRune(current)
+			builder.WriteByte(byte(current))
 		case current <= 0xff:
 			fmt.Fprintf(&builder, `\x%02x`, current)
 		case current <= 0xffff:

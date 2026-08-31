@@ -5,6 +5,7 @@ import "strconv"
 type representationCall struct {
 	instruction int
 	method      string
+	formatting  *stringFormatCall
 }
 
 // executeBuiltinRepr validates its call shape before resolving the value's
@@ -166,6 +167,9 @@ func finishRepresentationCall(
 			"TypeError",
 			call.method+" returned non-string (type "+result.TypeName()+")",
 		)), nil
+	}
+	if call.formatting != nil {
+		return finishStringFormatValue(frame, call.formatting, representation)
 	}
 	return pushOutcome(frame, call.instruction, representation)
 }

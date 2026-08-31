@@ -1051,3 +1051,30 @@ assert callable(splitlines)
 assert splitlines(keepends=keep) == ['left\n', 'right']
 assert keep.calls == 1
 assert getattr('one\ntwo', 'splitlines')() == ['one', 'two']
+# ---
+# case: automatic string format fields
+assert '{} not raised by {}'.format('ValueError', 'call') == 'ValueError not raised by call'
+assert '{}={!r}'.format('value', [1, 2]) == 'value=[1, 2]'
+assert '{{{}}}'.format('inside') == '{inside}'
+assert '{!s} {!r}'.format('text', 'text') == "text 'text'"
+assert '{!a}'.format('\u2603\ud800') == "'\\u2603\\ud800'"
+assert 'literal'.format(unused=1) == 'literal'
+# ---
+# case: string format user conversion order and retained method
+format_events = []
+
+class FormattedValue:
+    def __str__(self):
+        format_events.append('str')
+        return 'text'
+
+    def __repr__(self):
+        format_events.append('repr')
+        return 'shown'
+
+value = FormattedValue()
+formatter = '{} {!r} {}'.format
+assert callable(formatter)
+assert formatter(value, value, 'done') == 'text shown done'
+assert format_events == ['str', 'repr']
+assert getattr('{}', 'format')('value') == 'value'

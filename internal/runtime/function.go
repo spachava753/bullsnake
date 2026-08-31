@@ -166,6 +166,14 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringFormatMethod:
+		call := &stringFormatCall{
+			instruction: instruction,
+			format:      callable.value.value,
+			arguments:   append([]Value(nil), arguments...),
+		}
+		discardCallSegment(caller, base)
+		return continueStringFormat(caller, call)
 	case *stringLowerMethod:
 		return executeStringLowerCall(
 			caller,
@@ -516,6 +524,7 @@ func isCallableValue(value Value) bool {
 		*nativeTypeValue,
 		*propertyAccessorMethod,
 		*stringJoinMethod,
+		*stringFormatMethod,
 		*stringLowerMethod,
 		*stringEndswithMethod,
 		*stringStartswithMethod,

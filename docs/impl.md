@@ -464,9 +464,12 @@ constructors are not implemented yet.
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
 slice subscription, and dictionary item mutation. String instances expose bound
-`endswith`, `join`, `lower`, `split`, `splitlines`, `startswith`, and `strip`.
-Join collects through the resumable iterator path before validating all items.
-Split handles explicit separators and Python whitespace with the current
+`endswith`, `format`, `join`, `lower`, `split`, `splitlines`, `startswith`, and
+`strip`. Join collects through the resumable iterator path before validating all
+items. Format supports automatic fields, escaped braces, and `!s`, `!r`, or
+`!a` conversion. User string and representation methods resume through the frame
+loop. Numbered, named, nested, specified, and custom `__format__` fields remain
+unsupported. Split handles explicit separators and Python whitespace with the
 integer-or-boolean `maxsplit` subset. Splitlines recognizes Python's Unicode
 line-boundary set, folds CRLF into one boundary, and resolves `keepends` through
 ordinary truth testing. Prefix and suffix matching apply code-point bounds from

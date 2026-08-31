@@ -385,9 +385,13 @@ arbitrary-precision integer bounds and produce values lazily through the ordinar
 native iterator path. Enumerate, map, and filter objects wrap that iterator
 contract and may suspend while a generator, user iterator, mapped callable, or
 filter predicate and truth method runs. String instances expose bound `endswith`,
-`join`, `lower`, `split`, `splitlines`, `startswith`, and `strip`. Join collects
-through that iterator path before validating and concatenating its items. Split
-handles explicit separators and Python whitespace. Splitlines recognizes
+`format`, `join`, `lower`, `split`, `splitlines`, `startswith`, and `strip`. Join
+collects through that iterator path before validating and concatenating its
+items. Format handles automatic fields, escaped braces, and `!s`, `!r`, or `!a`
+conversion. User string and representation methods run through frame
+continuations. Numbered, named, nested, specified, and custom `__format__`
+fields remain later work. Split handles explicit separators and Python
+whitespace. Splitlines recognizes
 Python's Unicode line boundaries, treats CRLF as one boundary, and resolves
 `keepends` through ordinary truth testing. Prefix and suffix matching apply
 code-point slice bounds and accept one string or an ordered tuple of strings.

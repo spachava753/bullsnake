@@ -1118,3 +1118,47 @@ class InvalidKeepLineEnds:
         return 1
 
 'a'.splitlines(InvalidKeepLineEnds())
+# ---
+# case: string format missing automatic value
+# error: IndexError
+# message: "Replacement index 0 out of range for positional args tuple"
+'{}'.format()
+# ---
+# case: string format unmatched opening brace
+# error: ValueError
+# message: "Single '{' encountered in format string"
+'{'.format(1)
+# ---
+# case: string format unmatched closing brace
+# error: ValueError
+# message: "Single '}' encountered in format string"
+'}'.format()
+# ---
+# case: string format unknown conversion
+# error: ValueError
+# message: "Unknown conversion specifier x"
+'{!x}'.format(1)
+# ---
+# case: string format numbered field boundary
+# error: NotImplementedError
+# message: "numbered str.format fields are not supported"
+'{0}'.format('value')
+# ---
+# case: string format named field boundary
+# error: NotImplementedError
+# message: "named str.format fields are not supported"
+'{value}'.format(value='text')
+# ---
+# case: string format specification boundary
+# error: NotImplementedError
+# message: "str.format specifications are not supported"
+'{:>5}'.format('text')
+# ---
+# case: string format custom method boundary
+# error: NotImplementedError
+# message: "custom __format__ methods are not supported by str.format"
+class CustomFormat:
+    def __format__(self, spec):
+        return 'custom'
+
+'{}'.format(CustomFormat())

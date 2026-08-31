@@ -47,6 +47,8 @@ func executeStringAttributeLoad(
 	switch name {
 	case "join":
 		return pushOutcome(frame, instruction, &stringJoinMethod{separator: value})
+	case "format":
+		return pushOutcome(frame, instruction, &stringFormatMethod{value: value})
 	case "lower":
 		return pushOutcome(frame, instruction, &stringLowerMethod{value: value})
 	case "endswith":

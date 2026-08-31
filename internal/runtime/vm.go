@@ -502,6 +502,17 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				if representationErr != nil {
 					return nil, nil, representationErr
 				}
+				if representationOutcome.kind == called {
+					if representationOutcome.frame == nil ||
+						representationOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.instruction,
+							"invalid chained representation frame transition",
+						)
+					}
+					thread.current = representationOutcome.frame
+					continue
+				}
 				if representationOutcome.kind == raised {
 					unhandled, routeErr := routeException(
 						thread,
