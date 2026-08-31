@@ -109,8 +109,9 @@ The grammar covers ordinary simple and compound statements, assignments,
 imports, functions, classes, type parameters and aliases, context managers,
 exception handling including `except*`, and pattern matching. Expressions cover
 comprehensions, lambdas, calls, subscriptions, collection displays, f-strings,
-template strings, `await`, and `yield`. This is a grammar claim, not an
-execution claim. Later stages still reject unsupported forms.
+template strings, `await`, and `yield`. `match` and `case` remain ordinary names
+when their surrounding tokens form a valid simple statement. This is a grammar
+claim, not an execution claim. Later stages still reject unsupported forms.
 
 AST nodes carry source spans and syntax facts needed by later stages. The module
 root also retains the decoded source string, allowing a span to recover text

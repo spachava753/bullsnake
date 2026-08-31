@@ -75,15 +75,18 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 	case "try":
 		statement, err = parser.parseTryStatement()
 	case "match":
-		next, peekErr := parser.peek(1)
-		if peekErr != nil {
-			return nil, peekErr
-		}
-		_, augmented := augmentedOperators[next.Kind]
-		if next.Kind == lexer.Equal || next.Kind == lexer.ColonEqual || augmented {
-			return parser.parseSimpleStatementLine()
-		}
+		mark := parser.cursor.position
 		statement, err = parser.parseMatchStatement()
+		if err != nil {
+			matchErr := err
+			parser.cursor.reset(mark)
+			statements, simpleErr := parser.parseSimpleStatementLine()
+			if simpleErr == nil {
+				return statements, nil
+			}
+			parser.cursor.reset(mark)
+			return nil, matchErr
+		}
 	case "async":
 		next, peekErr := parser.peek(1)
 		if peekErr != nil {

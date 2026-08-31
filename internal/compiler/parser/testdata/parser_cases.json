@@ -461,6 +461,11 @@
       "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"match\", context=Store)], value=Name(id=\"value\", context=Load))])"
     },
     {
+      "name": "match soft keyword tuple assignment",
+      "source": "match, rest = excinst.split(exceptions)",
+      "want_ast": "Module(body=[AssignStmt(targets=[TupleExpr(elements=[Name(id=\"match\", context=Store), Name(id=\"rest\", context=Store)], context=Store)], value=CallExpr(function=AttributeExpr(value=Name(id=\"excinst\", context=Load), name=\"split\", context=Load), arguments=[Name(id=\"exceptions\", context=Load)], keywords=[]))])"
+    },
+    {
       "name": "parenthesized starred tuple",
       "source": "result = (*items, last)",
       "want_ast": "Module(body=[AssignStmt(targets=[Name(id=\"result\", context=Store)], value=TupleExpr(elements=[StarredExpr(value=Name(id=\"items\", context=Load), context=Load), Name(id=\"last\", context=Load)], context=Load))])"
