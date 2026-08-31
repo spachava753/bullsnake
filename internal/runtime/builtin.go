@@ -64,6 +64,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "next", frameCall: executeBuiltinNext},
 	{name: "property", call: builtinProperty},
 	{name: "repr", frameCall: executeBuiltinRepr},
+	{name: "round", frameCall: executeBuiltinRound},
 	{name: "staticmethod", call: builtinStaticMethod},
 	{name: "super", frameCall: executeBuiltinSuper},
 }

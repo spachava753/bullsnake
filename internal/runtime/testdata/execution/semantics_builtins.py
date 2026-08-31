@@ -852,3 +852,35 @@ assert truth_values == [False, True]
 assert len(items) == 2
 assert items[0] is first
 assert items[1] is third
+# ---
+# case: round native numbers
+assert round(2.5) == 2
+assert type(round(2.5)) is int
+assert round(3.5) == 4
+assert round(-2.5) == -2
+assert round(True) == 1
+assert type(round(True)) is int
+assert round(25, -1) == 20
+assert round(35, -1) == 40
+assert round(123456789012345678901234567890, -5) == 123456789012345678901234600000
+assert round(123, 5) == 123
+assert round(2.675, 2) == 2.67
+assert round(1.25, 1) == 1.2
+assert round(1.35, 1) == 1.4
+assert round(-0.04, 1) == 0.0
+# ---
+# case: round keywords and user protocol
+assert round(number=12.345, ndigits=2) == 12.35
+assert round(12.345, ndigits=1) == 12.3
+round_calls = []
+
+class RoundValue:
+    def __round__(self, ndigits=None):
+        round_calls.append(ndigits)
+        return ('rounded', ndigits)
+
+value = RoundValue()
+assert round(value) == ('rounded', None)
+assert round(value, None) == ('rounded', None)
+assert round(value, 3) == ('rounded', 3)
+assert round_calls == [None, None, 3]

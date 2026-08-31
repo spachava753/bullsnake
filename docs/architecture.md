@@ -412,10 +412,12 @@ class `__bool__` before class `__len__`.
 The `len` builtin handles built-in containers and text directly, and otherwise
 calls class `__len__` with the same nonnegative host-index result checks. The
 `abs` builtin handles current native numeric values directly and resumes class
-`__abs__` for a user instance. `repr` and the object form of `str` use class
-`__repr__` and `__str__` through the same suspended-frame mechanism. The `all`
-and `any` builtins use both the iteration and truth paths. They stop at the
-first result that determines the answer and do not resume the iterator afterward.
+`__abs__` for a user instance. The `round` builtin applies decimal half-even
+rounding to native integers and floats, then falls back to class `__round__`.
+`repr` and the object form of `str` use class `__repr__` and `__str__` through the
+same suspended-frame mechanism. The `all` and `any` builtins use both the
+iteration and truth paths. They stop at the first result that determines the
+answer and do not resume the iterator afterward.
 
 Iteration calls class `__iter__`, validates its result, and resumes class
 `__next__` from `for` or `next()`.

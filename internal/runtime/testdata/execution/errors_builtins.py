@@ -869,3 +869,52 @@ class RemoveTruthFailureValue:
         return FailingRemoveTruth()
 
 [RemoveTruthFailureValue()].remove(1)
+# ---
+# case: round missing number
+# error: TypeError
+# message: "round() missing required argument 'number' (pos 1)"
+round()
+# ---
+# case: round extra argument
+# error: TypeError
+# message: "round() takes at most 2 arguments (3 given)"
+round(1, 2, 3)
+# ---
+# case: round unknown keyword
+# error: TypeError
+# message: "'unknown' is an invalid keyword argument for round()"
+round(1, unknown=2)
+# ---
+# case: round duplicate number
+# error: TypeError
+# message: "round() got multiple values for argument 'number'"
+round(1, number=2)
+# ---
+# case: round unsupported value
+# error: TypeError
+# message: "type str doesn't define __round__ method"
+round('value')
+# ---
+# case: round invalid digits
+# error: TypeError
+# message: "'str' object cannot be interpreted as an integer"
+round(1.5, 'digits')
+# ---
+# case: round infinite float without digits
+# error: OverflowError
+# message: "cannot convert float infinity to integer"
+round(1e400)
+# ---
+# case: round user failure
+# error: ValueError
+# message: "round failed"
+class FailingRound:
+    def __round__(self, ndigits=None):
+        raise ValueError('round failed')
+
+round(FailingRound(), 2)
+# ---
+# case: round non-string keyword
+# error: TypeError
+# message: "keywords must be strings"
+round(**{1: 2})

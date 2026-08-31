@@ -587,15 +587,18 @@ Current float arithmetic covers addition, subtraction, multiplication, true
 division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands. The
 `abs` builtin returns native integer, float, or complex magnitudes and dispatches
-a user instance's class `__abs__` method through the frame loop.
+a user instance's class `__abs__` method through the frame loop. The `round`
+builtin performs arbitrary-precision integer and exact-rational float half-even
+rounding for an optional decimal digit count. User instances dispatch class
+`__round__` through the frame loop.
 
 The builtin namespace contains the current exception classes; native `bool`,
 `int`, `str`, `range`, `enumerate`, `map`, `filter`, `list`, `tuple`, `set`,
 `frozenset`, `dict`, `object`, and `type` objects; `abs`; `all`; `any`;
 `callable`; `classmethod`; `dir`; `getattr`; `hasattr`; `hash`; `isinstance`;
 `issubclass`; one-argument `iter`; `len`; positional `max` and `min` calls with
-two or more arguments; `next`; `repr`; and `staticmethod`. The `next` builtin
-accepts one optional default for generators, internal iterators, and user
+two or more arguments; `next`; `repr`; `round`; and `staticmethod`. The `next`
+builtin accepts one optional default for generators, internal iterators, and user
 iterators. String and base forms of `int`, the iterable and keyword forms of
 `max` and `min`, the encoding form of `str`, and callable-sentinel `iter` remain
 unsupported.
