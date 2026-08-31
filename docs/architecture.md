@@ -200,8 +200,10 @@ any parameters its body or annotations read, attaches the stable
 annotation callable uses the same cells, or retained source strings when future
 annotations are active. Default expressions still run in the defining scope;
 their completed tuple and keyword map become arguments to the hidden function so
-the user function retains the original objects. The hidden scope does not appear
-in the user function's qualified name.
+the user function retains the original objects. Decorator expressions run before
+default expressions, and their results wrap the completed generic function in
+reverse order. The hidden scope does not appear in the user function's qualified
+name.
 
 A bound, tuple constraint, or default owns another hidden evaluator that captures
 the same definition scope. Reading `T.__bound__`, `T.__constraints__`, or

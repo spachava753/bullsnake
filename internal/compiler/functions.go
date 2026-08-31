@@ -94,6 +94,11 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	if functionScope.Flags&resolver.Generator != 0 {
 		return compiler.error(statement.Span(), "generic generator functions are not compiled")
 	}
+	for _, decorator := range statement.Decorators {
+		if err := compiler.compileExpr(decorator); err != nil {
+			return err
+		}
+	}
 	defaults, keywordDefaults, err := compiler.compileFunctionDefaults(
 		statement.Parameters,
 		statement.Span(),
@@ -206,6 +211,12 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	if err := compiler.emit(bytecode.Call, uint32(len(payloadNames)), statement.Span()); err != nil {
 		return err
 	}
+	for index := len(statement.Decorators) - 1; index >= 0; index-- {
+		decorator := statement.Decorators[index]
+		if err := compiler.emit(bytecode.Call, 1, decorator.Span()); err != nil {
+			return err
+		}
+	}
 	return compiler.emitNameStore(statement.Name, statement.Span())
 }
 
@@ -223,9 +234,6 @@ func validateBasicGenericFunction(
 				"generic function type parameter bounds, defaults, and variadics are not compiled",
 			)
 		}
-	}
-	if len(statement.Decorators) != 0 {
-		return compiler.error(statement.Span(), "generic function decorators are not compiled")
 	}
 	if statement.Parameters.VarArg != nil || statement.Parameters.KeywordVarArg != nil {
 		return compiler.error(statement.Span(), "generic function variadic parameters are not compiled")

@@ -87,3 +87,32 @@ assert explicit_choice[0] == 'value'
 assert explicit_choice[1] is False
 assert explicit_choice[2] is choose_parameter
 assert created == 1
+
+# ---
+# case: generic function decorators keep Python evaluation and application order
+events = 0
+
+def decorator_factory(digit):
+    global events
+    events = events * 10 + digit
+    def apply(function):
+        global events
+        events = events * 10 + digit
+        return function
+    return apply
+
+def decorated_default():
+    global events
+    events = events * 10 + 3
+    return 7
+
+@decorator_factory(1)
+@decorator_factory(2)
+def decorated[T](value=decorated_default()):
+    return (value, T)
+
+assert events == 12321
+decorated_parameter = decorated.__type_params__[0]
+decorated_result = decorated()
+assert decorated_result[0] == 7
+assert decorated_result[1] is decorated_parameter

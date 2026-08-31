@@ -20,3 +20,11 @@ missing_annotation.__annotations__
 # message: "name 'T' is not defined"
 def invalid_default[T](value=T):
     return value
+
+# ---
+# case: generic function decorators cannot see their type parameters
+# error: NameError
+# message: "name 'T' is not defined"
+@T
+def invalid_decorator[T]():
+    return None
