@@ -198,12 +198,12 @@ The current compiler translates:
 - synchronous generator functions, including generic functions, with lazy calls,
   `yield`, `yield from`, iteration, sent values, closure captures, and cleanup
   across suspension
-- basic coroutine functions with lazy calls, ordinary argument binding, closure
-  captures, direct protocol execution, and `await` between native Bullsnake
-  coroutines
-- asynchronous generator functions with lazy calls, arguments, closure captures,
-  `yield`, inner `await`, direct `__aiter__` and `__anext__`, `async for`
-  consumption, and cleanup across suspension
+- basic coroutine functions, including generic definitions, with lazy calls,
+  ordinary argument binding, closure captures, direct protocol execution, and
+  `await` between native Bullsnake coroutines
+- asynchronous generator functions, including generic definitions, with lazy
+  calls, arguments, closure captures, `yield`, inner `await`, direct `__aiter__`
+  and `__anext__`, `async for` consumption, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
   closures, lazy class annotations, all three PEP 695 parameter kinds with lazy
   metadata, and cells for class-visible annotations and `__class__`
@@ -270,9 +270,8 @@ and cache behavior as a generic alias. Type parameter names do not enter the
 defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
-The compiler rejects template-string execution and generic async functions.
-Unsupported AST forms return compiler errors; they are not approximated with
-similar bytecode.
+The compiler rejects template-string execution. Unsupported AST forms return
+compiler errors; they are not approximated with similar bytecode.
 
 ## Runtime preparation
 

@@ -356,3 +356,48 @@ assert class_variadic_default_calls == 1
 assert defaulted_variadic_parameters[0].__default__[0] is ClassVariadicFallback
 assert class_variadic_default_calls == 1
 assert defaulted_variadic_parameters[1].__default__[0] is defaulted_variadic_parameters[0]
+
+# ---
+# case: generic coroutine functions capture type parameters and annotations
+async def reveal_async[T](value: T) -> T:
+    return value
+
+async_parameters = reveal_async.__type_params__
+async_parameter = async_parameters[0]
+async_annotations = reveal_async.__annotations__
+assert async_annotations['value'] is async_parameter
+assert async_annotations['return'] is async_parameter
+async_call = reveal_async(9)
+try:
+    async_call.send(None)
+except StopIteration as stopped:
+    assert stopped.value == 9
+else:
+    assert False
+assert reveal_async.__type_params__ is async_parameters
+
+# ---
+# case: generic async generators capture type parameters
+async def produce_async[T](value):
+    yield T
+    yield value
+
+async_generator_parameters = produce_async.__type_params__
+async_generator_parameter = async_generator_parameters[0]
+
+async def read_generic_async_generator():
+    stream = produce_async(7)
+    first = await stream.__anext__()
+    second = await stream.__anext__()
+    return (first, second)
+
+reading_generic_async_generator = read_generic_async_generator()
+try:
+    reading_generic_async_generator.send(None)
+except StopIteration as stopped:
+    first, second = stopped.value
+else:
+    assert False
+assert first is async_generator_parameter
+assert second == 7
+assert produce_async.__type_params__ is async_generator_parameters

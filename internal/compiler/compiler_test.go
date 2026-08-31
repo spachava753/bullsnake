@@ -64,38 +64,3 @@ func TestMissingResolverTableError(t *testing.T) {
 		t.Fatalf("error = %#v, want *compiler.Error", err)
 	}
 }
-
-func TestFunctionCompilerBoundaries(t *testing.T) {
-	tests := []struct {
-		name, source, message string
-	}{
-		{
-			name:    "generic coroutine",
-			source:  "async def generic[T]():\n    return T\n",
-			message: "generic async functions are not compiled",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			module, err := parser.Parse("input.py", test.source)
-			if err != nil {
-				t.Fatal(err)
-			}
-			table, err := resolver.Resolve("input.py", module)
-			if err != nil {
-				t.Fatal(err)
-			}
-			code, err := Compile("input.py", module, table)
-			if code != nil || err == nil {
-				t.Fatalf("Compile() = (%#v, %v)", code, err)
-			}
-			var compileErr *Error
-			if !errors.As(err, &compileErr) {
-				t.Fatalf("error = %#v, want *compiler.Error", err)
-			}
-			if compileErr.Message != test.message {
-				t.Fatalf("message = %q", compileErr.Message)
-			}
-		})
-	}
-}

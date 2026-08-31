@@ -10,9 +10,6 @@ import (
 // compileFunctionDefinition validates the required-parameter subset, compiles
 // one independent child code object, and binds the resulting function.
 func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.FunctionDefStmt) error {
-	if statement.Async && len(statement.TypeParameters) != 0 {
-		return compiler.error(statement.Span(), "generic async functions are not compiled")
-	}
 	if len(statement.TypeParameters) != 0 {
 		return compiler.compileGenericFunctionDefinition(statement)
 	}

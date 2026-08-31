@@ -205,10 +205,10 @@ their completed tuple and keyword map become arguments to the hidden function so
 the user function retains the original objects. Decorator expressions run before
 default expressions, and their results wrap the completed generic function in
 reverse order. The user function keeps the ordinary argument layout and binder,
-including variadic positional and keyword parameters. If the user function is a
-generator, the hidden constructor still returns an ordinary function value;
-calling that value creates the existing suspended generator frame. The hidden
-scope does not appear in the user function's qualified name.
+including variadic positional and keyword parameters. The hidden constructor
+still returns an ordinary function value when the user body is a generator,
+coroutine, or async generator; calling that value creates the matching suspended
+object. The hidden scope does not appear in the user function's qualified name.
 
 A generic class also runs inside a hidden type-parameter scope. That scope creates
 ordinary TypeVars, TypeVarTuples, and ParamSpecs in declaration order and keeps
@@ -218,9 +218,9 @@ parameters through ordinary cells. Variadic parameters use the same lazy default
 mechanism as aliases and functions. Bullsnake does not yet add CPython's implicit
 `Generic[...]` base or support class specialization by subscription.
 
-For aliases, generic functions, and generic classes, a bound, tuple constraint, or
-default owns another hidden evaluator that captures the same definition scope. Reading
-`T.__bound__`, `T.__constraints__`, or `T.__default__` runs the corresponding
+For aliases, generic functions, and generic classes, a bound, tuple constraint,
+or default owns another hidden evaluator that captures the same definition
+scope. Reading `T.__bound__`, `T.__constraints__`, or `T.__default__` runs the
 evaluator once and caches a successful result. A failure remains uncached so a
 later access can retry. Parameters without a default return one immutable marker
 whose repr is `typing.NoDefault`.
