@@ -232,3 +232,22 @@ assert f'{P.kwargs!r}' == 'P.kwargs'
 variadic_value = Variadic.__value__
 assert variadic_value[0] is Ts
 assert variadic_value[1] is P
+# ---
+# case: variadic type parameter defaults are lazy and cached
+variadic_default_calls = 0
+
+def make_variadic_default():
+    global variadic_default_calls
+    variadic_default_calls = variadic_default_calls + 1
+    return []
+
+type VariadicDefaults[*Ts = make_variadic_default(), **P = make_variadic_default()] = (Ts, P)
+variadic_default_parameters = VariadicDefaults.__type_params__
+assert variadic_default_calls == 0
+ts_default = variadic_default_parameters[0].__default__
+assert variadic_default_calls == 1
+assert variadic_default_parameters[0].__default__ is ts_default
+p_default = variadic_default_parameters[1].__default__
+assert variadic_default_calls == 2
+assert variadic_default_parameters[1].__default__ is p_default
+assert variadic_default_calls == 2

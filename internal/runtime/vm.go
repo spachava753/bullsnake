@@ -580,7 +580,7 @@ func executeInstruction(
 			case "__name__":
 				return pushOutcome(frame, index, &stringValue{value: owner.name})
 			case "__default__":
-				return pushOutcome(frame, index, noDefaultSingleton)
+				return executeVariadicTypeParameterDefaultLoad(frame, index, owner)
 			default:
 				return instructionOutcome{
 					kind: raised,
@@ -601,7 +601,7 @@ func executeInstruction(
 			case "__infer_variance__":
 				return pushOutcome(frame, index, trueSingleton)
 			case "__default__":
-				return pushOutcome(frame, index, noDefaultSingleton)
+				return executeVariadicTypeParameterDefaultLoad(frame, index, owner)
 			case "args":
 				return pushOutcome(frame, index, &paramSpecArgsValue{parameter: owner})
 			case "kwargs":

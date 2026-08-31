@@ -33,3 +33,9 @@ MissingDefault.__type_params__[0].__default__
 # message: "name 'Ts' is not defined"
 type HiddenVariadic[*Ts, **P] = (Ts, P)
 Ts
+# ---
+# case: missing variadic defaults raise on access
+# error: NameError
+# message: "name 'missing_variadic_default' is not defined"
+type MissingVariadic[*Ts = missing_variadic_default] = Ts
+MissingVariadic.__type_params__[0].__default__

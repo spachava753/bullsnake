@@ -30,7 +30,10 @@ func (variable *typeVarValue) Repr() string {
 func (*typeVarValue) isValue() {}
 
 type typeVarTupleValue struct {
-	name string
+	name             string
+	defaultEvaluator *functionValue
+	defaultValue     Value
+	defaultEvaluated bool
 }
 
 func (*typeVarTupleValue) TypeName() string { return "typing.TypeVarTuple" }
@@ -40,7 +43,10 @@ func (variable *typeVarTupleValue) Repr() string {
 func (*typeVarTupleValue) isValue() {}
 
 type paramSpecValue struct {
-	name string
+	name             string
+	defaultEvaluator *functionValue
+	defaultValue     Value
+	defaultEvaluated bool
 }
 
 func (*paramSpecValue) TypeName() string { return "typing.ParamSpec" }
@@ -78,7 +84,7 @@ const (
 )
 
 type typeVarLoad struct {
-	variable    *typeVarValue
+	parameter   Value
 	kind        typeVarLoadKind
 	instruction int
 }
@@ -157,6 +163,22 @@ func executeSetTypeVarEvaluator(
 			"type variable evaluator payload is not a function",
 		)
 	}
+	if kind == typeVarDefaultLoad {
+		switch parameter := variableValue.(type) {
+		case *typeVarValue:
+			parameter.defaultEvaluator = evaluator
+		case *typeVarTupleValue:
+			parameter.defaultEvaluator = evaluator
+		case *paramSpecValue:
+			parameter.defaultEvaluator = evaluator
+		default:
+			return instructionOutcome{}, frame.failure(
+				instruction,
+				"type variable evaluator target is not a type parameter",
+			)
+		}
+		return pushOutcome(frame, instruction, variableValue)
+	}
 	variable, ok := variableValue.(*typeVarValue)
 	if !ok {
 		return instructionOutcome{}, frame.failure(
@@ -164,13 +186,10 @@ func executeSetTypeVarEvaluator(
 			"type variable evaluator target is not a TypeVar",
 		)
 	}
-	switch kind {
-	case typeVarBoundLoad:
+	if kind == typeVarBoundLoad {
 		variable.boundEvaluator = evaluator
-	case typeVarConstraintsLoad:
+	} else {
 		variable.constraintsEvaluator = evaluator
-	case typeVarDefaultLoad:
-		variable.defaultEvaluator = evaluator
 	}
 	return pushOutcome(frame, instruction, variable)
 }
@@ -228,24 +247,84 @@ func executeTypeVarLoad(
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
 	child.typeVar = &typeVarLoad{
-		variable:    variable,
+		parameter:   variable,
 		kind:        kind,
 		instruction: instruction,
 	}
 	return instructionOutcome{kind: called, frame: child}, nil
 }
 
+// executeVariadicTypeParameterDefaultLoad returns a cached default or starts
+// the hidden evaluator shared by TypeVarTuple and ParamSpec values.
+func executeVariadicTypeParameterDefaultLoad(
+	frame *frame,
+	instruction int,
+	parameter Value,
+) (instructionOutcome, error) {
+	var evaluator *functionValue
+	switch parameter := parameter.(type) {
+	case *typeVarTupleValue:
+		if parameter.defaultEvaluated {
+			return pushOutcome(frame, instruction, parameter.defaultValue)
+		}
+		evaluator = parameter.defaultEvaluator
+	case *paramSpecValue:
+		if parameter.defaultEvaluated {
+			return pushOutcome(frame, instruction, parameter.defaultValue)
+		}
+		evaluator = parameter.defaultEvaluator
+	}
+	if evaluator == nil {
+		return pushOutcome(frame, instruction, noDefaultSingleton)
+	}
+	if evaluator.code.code.Flags()&bytecode.Generator != 0 {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"type variable evaluator returned a generator",
+			),
+		}, nil
+	}
+	child, exception, err := newFunctionFrame(frame, instruction, evaluator, nil, nil)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	child.typeVar = &typeVarLoad{
+		parameter:   parameter,
+		kind:        typeVarDefaultLoad,
+		instruction: instruction,
+	}
+	return instructionOutcome{kind: called, frame: child}, nil
+}
+
+// finishTypeVarLoad caches one successful evaluator result on the concrete
+// parameter object that started the child frame.
 func finishTypeVarLoad(load *typeVarLoad, value Value) Value {
-	switch load.kind {
-	case typeVarBoundLoad:
-		load.variable.bound = value
-		load.variable.boundEvaluated = true
-	case typeVarConstraintsLoad:
-		load.variable.constraints = value
-		load.variable.constraintsEvaluated = true
-	case typeVarDefaultLoad:
-		load.variable.defaultValue = value
-		load.variable.defaultEvaluated = true
+	if load.kind == typeVarDefaultLoad {
+		switch parameter := load.parameter.(type) {
+		case *typeVarValue:
+			parameter.defaultValue = value
+			parameter.defaultEvaluated = true
+		case *typeVarTupleValue:
+			parameter.defaultValue = value
+			parameter.defaultEvaluated = true
+		case *paramSpecValue:
+			parameter.defaultValue = value
+			parameter.defaultEvaluated = true
+		}
+		return value
+	}
+	variable := load.parameter.(*typeVarValue)
+	if load.kind == typeVarBoundLoad {
+		variable.bound = value
+		variable.boundEvaluated = true
+	} else {
+		variable.constraints = value
+		variable.constraintsEvaluated = true
 	}
 	return value
 }

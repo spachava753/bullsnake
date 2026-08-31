@@ -188,8 +188,8 @@ The current compiler translates:
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, and lazy function annotations
 - type aliases with lazy values and definition-scope captures, including
-  `TypeVar`, `TypeVarTuple`, and `ParamSpec` parameters; ordinary TypeVars also
-  support lazy bounds, tuple constraints, and defaults
+  `TypeVar`, `TypeVarTuple`, and `ParamSpec` parameters with lazy defaults;
+  ordinary TypeVars also support lazy bounds and tuple constraints
 - synchronous generator functions with lazy calls, `yield`, `yield from`,
   iteration, sent values, closure captures, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
@@ -234,12 +234,12 @@ enclosing cells, and visible class namespace. The runtime evaluates it on the
 first `Alias.__value__` access and caches the returned object. A raised exception
 leaves the alias unevaluated so a later access retries it. A generic alias adds
 an outer hidden child that creates fresh type parameters and closes the value
-child over them. Ordinary TypeVar bound, tuple-constraint, and default
-expressions use their own lazy children with the same scope rules.
+child over them. Bound, tuple-constraint, and default expressions use their own
+lazy children with the same scope rules.
 
 The compiler rejects template-string execution, generic functions and classes,
-defaults on `TypeVarTuple` and `ParamSpec`, async definitions, asynchronous
-comprehensions, `async for`, `async with`, and coroutines.
+async definitions, asynchronous comprehensions, `async for`, `async with`, and
+coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.
 
@@ -370,11 +370,11 @@ objects used by its lazy value. Current ordinary TypeVars have runtime type name
 `typing.TypeVar`, bare-name repr, and inferred variance. `__bound__`,
 `__constraints__`, and `__default__` lazily evaluate and cache their hidden
 functions; failures retry. `TypeVarTuple` and `ParamSpec` expose their names,
-bare-name repr, and the shared no-default marker. `ParamSpec` also exposes
-inferred variance, `args`, and `kwargs`. A missing default returns one
+bare-name repr, lazy defaults, and the shared no-default marker. `ParamSpec` also
+exposes inferred variance, `args`, and `kwargs`. A missing default returns one
 `NoDefaultType` singleton whose repr is `typing.NoDefault`. Alias calls,
-subscription, unions, variadic defaults, public evaluator callables, direct
-`typing.NoDefault` imports, and mutation of these attributes remain unsupported.
+subscription, unions, public evaluator callables, direct `typing.NoDefault`
+imports, and mutation of these attributes remain unsupported.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
 ordinary `__init__`, instance and class attribute mutation, lazy class annotation

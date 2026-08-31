@@ -196,10 +196,9 @@ the parameter names out of the defining namespace.
 A bound, tuple constraint, or default owns another hidden evaluator that captures
 the same definition scope. Reading `T.__bound__`, `T.__constraints__`, or
 `T.__default__` runs the corresponding evaluator once and caches a successful
-result. A failure remains uncached so a later access can retry. TypeVars without
-a default return one immutable marker whose repr is `typing.NoDefault`.
-Defaults on `TypeVarTuple` and `ParamSpec`, public evaluator callables, and alias
-subscription remain later work.
+result. A failure remains uncached so a later access can retry. Parameters
+without a default return one immutable marker whose repr is `typing.NoDefault`.
+Public evaluator callables and alias subscription remain later work.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches

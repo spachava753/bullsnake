@@ -9,14 +9,6 @@ import (
 // compileTypeAlias creates the hidden functions needed to construct one lazy
 // alias, then binds the resulting alias in the defining scope.
 func (compiler *compilerState) compileTypeAlias(statement *compilerast.TypeAliasStmt) error {
-	for _, parameter := range statement.TypeParameters {
-		if parameter.Kind != compilerast.TypeVariable && parameter.Default != nil {
-			return compiler.error(
-				parameter.Range,
-				"variadic type parameter defaults are not compiled",
-			)
-		}
-	}
 	if len(statement.TypeParameters) == 0 {
 		if err := compiler.emitTypeAliasObject(statement); err != nil {
 			return err
