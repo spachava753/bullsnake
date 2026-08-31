@@ -169,3 +169,34 @@ assert bound_calls == 1
 constraints = constrained.__type_params__[0].__constraints__
 assert constraints[0] is First
 assert constraints[1] is Second
+
+# ---
+# case: generic function TypeVar defaults evaluate lazily
+function_default_calls = 0
+
+class FunctionFallback:
+    pass
+
+def resolve_function_default():
+    global function_default_calls
+    function_default_calls += 1
+    return FunctionFallback
+
+def defaulted[T = resolve_function_default()]():
+    return T
+
+def dependent[T, U = T]():
+    return (T, U)
+
+def no_default[T]():
+    return T
+
+assert function_default_calls == 0
+defaulted_parameter = defaulted.__type_params__[0]
+assert defaulted_parameter.__default__ is FunctionFallback
+assert function_default_calls == 1
+assert defaulted_parameter.__default__ is FunctionFallback
+assert function_default_calls == 1
+dependent_parameters = dependent.__type_params__
+assert dependent_parameters[1].__default__ is dependent_parameters[0]
+assert f'{no_default.__type_params__[0].__default__!r}' == 'typing.NoDefault'

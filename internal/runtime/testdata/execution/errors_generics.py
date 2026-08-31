@@ -46,3 +46,12 @@ def missing_bound[T: MissingBound]():
     return T
 
 missing_bound.__type_params__[0].__bound__
+
+# ---
+# case: generic function TypeVar default failures remain lazy
+# error: NameError
+# message: "name 'MissingDefault' is not defined"
+def missing_default[T = MissingDefault]():
+    return T
+
+missing_default.__type_params__[0].__default__

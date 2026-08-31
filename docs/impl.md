@@ -187,7 +187,8 @@ The current compiler translates:
   patterns with `**rest`, and class patterns with positional or named fields
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
   lexical closures, returns, lazy function annotations, and generic functions
-  with ordinary `TypeVar` parameters and lazy bounds or tuple constraints
+  with ordinary `TypeVar` parameters, lazy bounds or tuple constraints, and lazy
+  defaults
 - type aliases with lazy values and definition-scope captures, including
   `TypeVar`, `TypeVarTuple`, and `ParamSpec` parameters with lazy defaults;
   ordinary TypeVars also support lazy bounds and tuple constraints
@@ -248,14 +249,13 @@ are passed into the hidden child and attached without reevaluation. Decorator
 expressions run first in source order; their values wrap the completed generic
 function in reverse order. Generic decorators, defaults, and annotations use
 their ordinary code paths; all function parameter kinds retain the same local
-layout and call binding. An ordinary TypeVar bound or tuple constraint uses the
-same lazy child and cache behavior as a generic alias. Type parameter names do
-not enter the defining namespace, and the hidden child's name does not alter
-user-facing function or annotation qualified names.
+layout and call binding. An ordinary TypeVar bound, tuple constraint, or default
+uses the same lazy child and cache behavior as a generic alias. Type parameter
+names do not enter the defining namespace, and the hidden child's name does not
+alter user-facing function or annotation qualified names.
 
-The compiler rejects template-string execution, generic classes, TypeVar
-defaults and variadic type parameters on generic functions, async definitions,
-asynchronous
+The compiler rejects template-string execution, generic classes, variadic type
+parameters on generic functions, async definitions, asynchronous
 comprehensions, `async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.

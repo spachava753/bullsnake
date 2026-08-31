@@ -77,10 +77,10 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	statement *compilerast.FunctionDefStmt,
 ) error {
 	for _, parameter := range statement.TypeParameters {
-		if parameter.Kind != compilerast.TypeVariable || parameter.Default != nil {
+		if parameter.Kind != compilerast.TypeVariable {
 			return compiler.error(
 				parameter.Range,
-				"generic function TypeVar defaults and variadic type parameters are not compiled",
+				"generic function variadic type parameters are not compiled",
 			)
 		}
 	}
@@ -134,6 +134,19 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 		}
 		if parameter.Bound != nil {
 			if err := generic.emitTypeParameterBound(statement, parameter, index); err != nil {
+				return err
+			}
+		}
+		if parameter.Default != nil {
+			if err := generic.emitTypeParameterEvaluator(
+				statement,
+				parameter,
+				index,
+				resolver.TypeVariableDefault,
+				parameter.Default,
+				"<default of "+parameter.Name+">",
+				bytecode.SetTypeVarDefault,
+			); err != nil {
 				return err
 			}
 		}
