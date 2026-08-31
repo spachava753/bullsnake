@@ -16,5 +16,5 @@ func (parser *parserState) parseModule() (*compilerast.Module, error) {
 	if len(body) != 0 {
 		span = joinSpans(body[0].Span(), body[len(body)-1].Span())
 	}
-	return &compilerast.Module{Range: span, Body: body}, nil
+	return compilerast.NewModule(span, body, parser.source), nil
 }

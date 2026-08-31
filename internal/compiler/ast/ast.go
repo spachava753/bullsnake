@@ -33,9 +33,18 @@ type Pattern interface {
 
 // Module is the root produced for one source input.
 type Module struct {
-	Range lexer.Span
-	Body  []Stmt
+	Range  lexer.Span
+	Body   []Stmt
+	source string
 }
+
+// NewModule creates one parsed module and retains its decoded source text.
+func NewModule(span lexer.Span, body []Stmt, source string) *Module {
+	return &Module{Range: span, Body: body, source: source}
+}
+
+// Source returns the decoded source text used to build the module.
+func (module *Module) Source() string { return module.source }
 
 func (*Module) node() {}
 

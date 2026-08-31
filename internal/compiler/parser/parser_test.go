@@ -27,9 +27,13 @@ func TestSourceValidationPrecedesGrammar(t *testing.T) {
 // TestParsePreservesSourceSpans covers successful-node locations, which the
 // structural corpus intentionally omits to keep its AST snapshots readable.
 func TestParsePreservesSourceSpans(t *testing.T) {
-	root, err := Parse("input.py", "result = 1 + 2\n")
+	source := "result = 1 + 2\n"
+	root, err := Parse("input.py", source)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if root.Source() != source {
+		t.Fatalf("module source = %q, want %q", root.Source(), source)
 	}
 	want := `Module(body=[AssignStmt(targets=[Name(id="result", context=Store)@1:0-1:6], value=BinaryExpr(left=NumberLiteral(text="1")@1:9-1:10, op=Add, right=NumberLiteral(text="2")@1:13-1:14)@1:9-1:14)@1:0-1:14])@1:0-1:14`
 	if got := compilerast.Dump(root, compilerast.DumpOptions{IncludeSpans: true}); got != want {

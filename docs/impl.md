@@ -112,10 +112,12 @@ comprehensions, lambdas, calls, subscriptions, collection displays, f-strings,
 template strings, `await`, and `yield`. This is a grammar claim, not an
 execution claim. Later stages still reject unsupported forms.
 
-AST nodes carry source spans and syntax facts needed by later stages. They do
-not contain resolved names, bytecode positions, or runtime values. `ast.Dump`
-provides a deterministic description for tests. The AST is private and may
-change when a later stage needs a clearer representation.
+AST nodes carry source spans and syntax facts needed by later stages. The module
+root also retains the decoded source string, allowing a span to recover text
+without another file read. Nodes do not contain resolved names, bytecode
+positions, or runtime values. `ast.Dump` provides a deterministic description
+for tests. The AST is private and may change when a later stage needs a clearer
+representation.
 
 The parser uses one module grammar. It marks an end-of-input error as incomplete
 when more source could finish the construct. A future eval API or REPL can add

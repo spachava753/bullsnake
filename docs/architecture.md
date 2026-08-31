@@ -129,9 +129,11 @@ The parser accepts more syntax than the compiler can execute. This is
 deliberate. It lets Bullsnake build and test the language in stages without
 forcing the parser, compiler, and runtime to grow in one large change.
 
-The AST and symbol table are internal data structures. A future Python `ast`
-module can expose Python objects through an adapter instead of freezing the Go
-representation as a public API.
+The AST and symbol table are internal data structures. The module root retains
+the decoded source string so later stages can recover source-backed facts from
+byte spans without a second file read. A future Python `ast` module can expose
+Python objects through an adapter instead of freezing the Go representation as
+a public API.
 
 ## Compiler and code objects
 
