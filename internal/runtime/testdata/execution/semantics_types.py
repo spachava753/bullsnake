@@ -308,3 +308,42 @@ assert len(user_values) == 3
 assert 0 in user_values and 1 in user_values and 2 in user_values
 assert len(generated_values) == 2
 assert 0 in generated_values and 1 in generated_values
+# ---
+# case: dict constructor
+empty_dict = dict()
+source_dict = {'left': 1, 'right': 2}
+copy_dict = dict(source_dict)
+pair_dict = dict((('first', 10), ['second', 20]))
+keyword_dict = dict(source_dict, right=3, extra=4)
+assert type(empty_dict) is dict
+assert len(empty_dict) == 0
+assert copy_dict is not source_dict
+assert copy_dict['left'] == 1
+assert copy_dict['right'] == 2
+assert pair_dict['first'] == 10
+assert pair_dict['second'] == 20
+assert keyword_dict['left'] == 1
+assert keyword_dict['right'] == 3
+assert keyword_dict['extra'] == 4
+# ---
+# case: dict constructor consumes user and generator iterators
+class PairIterator:
+    def __init__(self):
+        self.current = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == 2:
+            raise StopIteration
+        value = (self.current, self.current + 10)
+        self.current += 1
+        return value
+
+user_dict = dict(PairIterator())
+generated_dict = dict((value, value * 2) for value in (3, 4))
+assert user_dict[0] == 10
+assert user_dict[1] == 11
+assert generated_dict[3] == 6
+assert generated_dict[4] == 8

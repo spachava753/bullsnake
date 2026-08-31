@@ -374,8 +374,8 @@ user or exception class. `isinstance` and `issubclass` check these identities,
 user class MROs, and exception ancestry. Tuple candidates run from left to right.
 Native, user,
 and exception classes expose their basic name metadata through the ordinary
-attribute path. The existing `bool`, `int`, `str`, `list`, `tuple`, and `set`
-constructors are those same type objects rather than separate function
+attribute path. The existing `bool`, `int`, `str`, `list`, `tuple`, `set`, and
+`dict` constructors are those same type objects rather than separate function
 stand-ins. Three-argument `type`
 construction copies a string-keyed dictionary into the ordinary class builder,
 so dynamic and statement classes share C3 ordering and descriptor behavior.

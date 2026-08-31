@@ -162,3 +162,28 @@ set(1)
 # error: TypeError
 # message: "cannot use 'list' as a set element (unhashable type: 'list')"
 set(([1],))
+# ---
+# case: dict constructor extra argument
+# error: TypeError
+# message: "dict expected at most 1 argument, got 2"
+dict(None, None)
+# ---
+# case: dict constructor short entry
+# error: ValueError
+# message: "dictionary update sequence element #0 has length 1; 2 is required"
+dict(((1,),))
+# ---
+# case: dict constructor long entry
+# error: ValueError
+# message: "dictionary update sequence element #0 has length 3; 2 is required"
+dict(((1, 2, 3),))
+# ---
+# case: dict constructor non-sequence entry
+# error: TypeError
+# message: "cannot convert dictionary update sequence element #0 to a sequence"
+dict((1,))
+# ---
+# case: dict constructor unhashable key
+# error: TypeError
+# message: "cannot use 'list' as a dict key (unhashable type: 'list')"
+dict((([1], 2),))
