@@ -1357,3 +1357,22 @@ next(iterator)
 # error: TypeError
 # message: "dict.copy() takes no keyword arguments"
 {}.copy(value=1)
+# ---
+# case: dictionary values argument
+# error: TypeError
+# message: "dict.values() takes no arguments (1 given)"
+{}.values(1)
+# ---
+# case: dictionary values keyword argument
+# error: TypeError
+# message: "dict.values() takes no keyword arguments"
+{}.values(value=1)
+# ---
+# case: dictionary values iterator key mutation
+# error: RuntimeError
+# message: "dictionary changed size during iteration"
+values = {'a': 1, 'b': 2}
+iterator = iter(values.values())
+next(iterator)
+values['c'] = 3
+next(iterator)

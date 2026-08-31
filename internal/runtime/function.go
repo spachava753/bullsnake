@@ -359,6 +359,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *dictionaryValuesMethod:
+		return executeDictionaryValuesCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *setAddMethod:
 		return executeSetAddCall(
 			caller,
@@ -600,6 +609,7 @@ func isCallableValue(value Value) bool {
 		*dictionaryItemsMethod,
 		*dictionaryKeysMethod,
 		*dictionaryUpdateMethod,
+		*dictionaryValuesMethod,
 		*setAddMethod,
 		*setDiscardMethod,
 		*buildClassValue,

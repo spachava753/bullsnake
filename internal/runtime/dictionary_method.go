@@ -93,6 +93,12 @@ func executeDictionaryAttributeLoad(
 			instruction,
 			&dictionaryUpdateMethod{dictionary: dictionary},
 		)
+	case "values":
+		return pushOutcome(
+			frame,
+			instruction,
+			&dictionaryValuesMethod{dictionary: dictionary},
+		)
 	default:
 		return raiseOutcome(newException(
 			"AttributeError",

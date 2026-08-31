@@ -409,12 +409,12 @@ Extend uses the same resumable iterator path and mutates the target as each item
 arrives. Remove scans left to right, prefers object identity, and may suspend for
 user equality and truth methods.
 Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
-`keys`, and `update` methods. Copy clones ordered entry storage while retaining
-key and value identities. The view methods return live values whose iterators
-reject key-set changes, including clearing a nonempty dictionary. Update accepts native
-dictionaries and keyword entries while retaining existing key positions;
-iterable pairs and user mappings remain later work. Set instances expose bound
-`add` and `discard` methods that use the same fixed
+`keys`, `update`, and `values` methods. Copy clones ordered entry storage while
+retaining key and value identities. The live views expose keys, items, or values;
+their iterators reject key-set changes, including clearing a nonempty dictionary.
+Update accepts native dictionaries and keyword entries while retaining existing
+key positions; iterable pairs and user mappings remain later work. Set instances
+expose bound `add` and `discard` methods that use the same fixed
 hashability and equality rules as set displays.
 Set-like operations on dictionary views and other native collection or text
 methods remain later work.

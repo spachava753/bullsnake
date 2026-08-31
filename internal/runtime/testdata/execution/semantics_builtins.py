@@ -1265,3 +1265,34 @@ copy = {'a': 1}.copy
 assert callable(copy)
 assert list(copy().items()) == [('a', 1)]
 assert list(getattr({'b': 2}, 'copy')().items()) == [('b', 2)]
+# ---
+# case: live dictionary values view
+values = {'a': 1, 'b': 2}
+view = values.values()
+assert type(view).__name__ == 'dict_values'
+assert type(iter(view)).__name__ == 'dict_valueiterator'
+assert len(view) == 2
+assert bool(view)
+assert repr(view) == 'dict_values([1, 2])'
+values['a'] = 3
+assert list(view) == [3, 2]
+values['c'] = 4
+assert len(view) == 3
+assert list(view) == [3, 2, 4]
+values.clear()
+assert len(view) == 0
+assert not view
+# ---
+# case: independent retained dictionary values iterators
+values = {'a': 1, 'b': 2}
+method = values.values
+assert callable(method)
+view = method()
+first = iter(view)
+second = iter(view)
+assert next(first) == 1
+assert next(second) == 1
+values['b'] = 5
+assert next(first) == 5
+assert next(second) == 5
+assert list(getattr(values, 'values')()) == [1, 5]
