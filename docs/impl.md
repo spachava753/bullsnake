@@ -477,11 +477,11 @@ exhausting the candidates raises the operator-specific `TypeError`.
 User descriptor instances support class `__get__`, `__set__`, and `__delete__`.
 Reads apply data-descriptor, instance-attribute, non-data-descriptor, then class
 attribute precedence. Class access calls `__get__` with `None` and the accessed
-class. The `getattr` builtin applies the same implemented module, class,
-instance, and function lookup rules to a runtime string. Its optional default
-catches only `AttributeError`, including one escaping a descriptor method.
-Writes and deletes invoke data descriptors before the instance namespace and
-discard the descriptor method's result.
+class. The `getattr` and `hasattr` builtins apply the same implemented module,
+class, instance, and function lookup rules to a runtime string. An optional
+`getattr` default and `hasattr` catch only `AttributeError`, including one
+escaping a descriptor method. Writes and deletes invoke data descriptors
+before the instance namespace and discard the descriptor method's result.
 
 The built-in `property` supports direct construction and decorator-style
 `getter`, `setter`, and `deleter` copies. Properties expose their accessor fields,
@@ -499,12 +499,12 @@ Current float arithmetic covers addition, subtraction, multiplication, true
 division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
-The builtin namespace contains the current exception classes, `getattr`, scalar
-numeric `int`, one-argument `iter`, `len`, positional `max` and `min` calls with
-two or more arguments, and `next` for generators, internal iterators, and user
-iterators. `next` accepts one optional default. String and base forms of `int`,
-the iterable and keyword forms of `max` and `min`, and callable-sentinel `iter`
-remain unsupported.
+The builtin namespace contains the current exception classes, `getattr`,
+`hasattr`, scalar numeric `int`, one-argument `iter`, `len`, positional `max`
+and `min` calls with two or more arguments, and `next` for generators, internal
+iterators, and user iterators. `next` accepts one optional default. String and
+base forms of `int`, the iterable and keyword forms of `max` and `min`, and
+callable-sentinel `iter` remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

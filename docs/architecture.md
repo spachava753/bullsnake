@@ -388,10 +388,11 @@ truth path. Item access calls class `__getitem__`, `__setitem__`, or
 `NotImplemented`, with the reflected ordering method selected by the operator.
 Binary arithmetic uses the same normal, reflected, and in-place candidate order.
 Attribute reads apply data descriptor, instance attribute, non-data descriptor,
-and plain class attribute precedence. The `getattr` builtin sends a runtime name
-through those same module, class, instance, and function paths. Its optional
-default suppresses only `AttributeError`, including one raised by descriptor
-code. Descriptor writes and deletes run through the same frame loop. The
+and plain class attribute precedence. The `getattr` and `hasattr` builtins send
+a runtime name through those same module, class, instance, and function paths.
+An optional `getattr` default and `hasattr` suppress only `AttributeError`,
+including one raised by descriptor code. Descriptor writes and deletes run
+through the same frame loop. The
 built-in `property` type uses that path for getter,
 setter, and deleter functions. Zero- and explicit-argument `super` values search
 the receiver's C3 method resolution order after their starting class and apply

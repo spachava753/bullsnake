@@ -123,3 +123,29 @@ class MissingSubject:
 
 marker = []
 assert getattr(MissingSubject(), 'field', marker) is marker
+# ---
+# case: hasattr builtin lookup
+class PresentField:
+    def __get__(self, instance, owner):
+        return None
+
+class HiddenField:
+    def __get__(self, instance, owner):
+        raise AttributeError('hidden')
+
+class HasSubject:
+    class_value = 10
+    present = PresentField()
+    hidden = HiddenField()
+
+    def __init__(self):
+        self.instance_value = 20
+
+subject = HasSubject()
+assert hasattr(subject, 'instance_value')
+assert hasattr(subject, 'class_value')
+assert hasattr(subject, 'present')
+assert not hasattr(subject, 'hidden')
+assert not hasattr(subject, 'missing')
+assert hasattr(HasSubject, 'class_value')
+assert not hasattr(HasSubject, 'missing')

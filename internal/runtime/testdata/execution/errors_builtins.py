@@ -168,3 +168,30 @@ class BrokenOwner:
     field = BrokenDescriptor()
 
 getattr(BrokenOwner(), 'field', None)
+# ---
+# case: hasattr wrong argument count
+# error: TypeError
+# message: "hasattr expected 2 arguments, got 1"
+hasattr(None)
+# ---
+# case: hasattr keyword argument
+# error: TypeError
+# message: "hasattr() takes no keyword arguments"
+hasattr(None, name='value')
+# ---
+# case: hasattr non-string name
+# error: TypeError
+# message: "attribute name must be string, not 'int'"
+hasattr(None, 1)
+# ---
+# case: hasattr preserves non-attribute errors
+# error: ValueError
+# message: "broken field"
+class BrokenHasDescriptor:
+    def __get__(self, instance, owner):
+        raise ValueError('broken field')
+
+class BrokenHasOwner:
+    field = BrokenHasDescriptor()
+
+hasattr(BrokenHasOwner(), 'field')
