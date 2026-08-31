@@ -172,9 +172,9 @@ much stack to retain. The runtime validates those claims independently.
 The current compiler translates:
 
 - scalar literals, f-strings, and tuple, list, set, and dictionary displays
-- eager list, set, and dictionary comprehensions with filters, nested clauses,
-  destructuring, isolated targets, closure captures, and enclosing
-  assignment-expression targets
+- eager list, set, and dictionary comprehensions with synchronous or asynchronous
+  clauses, filters, nested clauses, destructuring, isolated targets, closure
+  captures, and enclosing assignment-expression targets
 - lazy generator expressions with the same synchronous clause and scope rules
 - names, attributes, calls, subscriptions, slices, operators, comparisons, and
   conditional expressions
@@ -217,9 +217,10 @@ Functions, generator functions, coroutine functions, class bodies, and
 comprehensions are child code objects. Closures contain explicit cell references
 instead of Go closures. Calling a generator or coroutine creates its runtime
 object without executing its child code. For every comprehension, the enclosing
-code evaluates the first iterable and passes its iterator to the child. Eager
-children build and return a collection; generator-expression children yield
-values lazily. Each child owns its target names.
+code evaluates the first iterable and passes its iterator to the child. A
+synchronous eager child builds and returns a collection; an asynchronous eager
+child is a coroutine that the enclosing coroutine awaits. Generator-expression
+children yield values lazily. Each child owns its target names.
 
 Without `from __future__ import annotations`, deferred annotation bodies are
 also children. Function annotations do not run during an ordinary definition or
@@ -264,8 +265,8 @@ defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
 The compiler rejects template-string execution, generic async functions, async
-generators, and asynchronous comprehensions. Unsupported AST forms return
-compiler errors; they are not approximated with similar bytecode.
+generators, and asynchronous generator expressions. Unsupported AST forms
+return compiler errors; they are not approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -334,6 +335,13 @@ provide `__anext__`, and awaits each native-coroutine next result. A protected
 range surrounds only that next-item operation. `StopAsyncIteration` there ends
 the loop and enters `else`; the same exception from a target or body propagates.
 Break skips `else`, while continue and nonlocal cleanup retain the iterator.
+
+An eager asynchronous comprehension uses a hidden coroutine child. The
+surrounding coroutine evaluates and converts the first iterable, calls the
+child, and awaits its collection result. Each asynchronous clause awaits
+`__anext__` with the same narrow `StopAsyncIteration` protection as `async for`.
+Synchronous and asynchronous clauses may be nested in either order. Filters and
+result expressions run inside the child, so they may also contain `await`.
 
 `yield from` keeps the delegate below each yielded value on the outer frame's
 operand stack. `SEND` forwards `None` or a sent value, falls through when the
@@ -564,7 +572,7 @@ The largest current gaps are:
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
 - no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
-  asynchronous comprehensions, async generators, or Python threads
+  asynchronous generator expressions, async generators, or Python threads
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

@@ -31,17 +31,7 @@ func (compiler *compilerState) compileAsyncForStatement(statement *compilerast.F
 	if err := compiler.compileExpr(statement.Iterable); err != nil {
 		return err
 	}
-	if err := compiler.emit(
-		bytecode.LoadSpecial,
-		compiler.nameIndex(asyncIteratorName),
-		statement.Iterable.Span(),
-	); err != nil {
-		return err
-	}
-	if err := compiler.emit(bytecode.Call, 0, statement.Iterable.Span()); err != nil {
-		return err
-	}
-	if err := compiler.emit(bytecode.CheckAsyncIterator, 0, statement.Iterable.Span()); err != nil {
+	if err := compiler.compileAsyncIteratorStackTop(statement.Iterable.Span()); err != nil {
 		return err
 	}
 	if err := compiler.markLabel(start, statement.Span()); err != nil {
@@ -53,7 +43,7 @@ func (compiler *compilerState) compileAsyncForStatement(statement *compilerast.F
 		target:     handler,
 		stackDepth: baseDepth + 1,
 	})
-	err := compiler.compileAsyncForNext(statement)
+	err := compiler.compileAsyncIteratorNext(statement.Iterable.Span(), statement.Span())
 	compiler.activeHandlers = compiler.activeHandlers[:handlerDepth]
 	if err != nil {
 		return err
@@ -99,21 +89,40 @@ func (compiler *compilerState) compileAsyncForStatement(statement *compilerast.F
 	return compiler.markLabel(end, statement.Span())
 }
 
-func (compiler *compilerState) compileAsyncForNext(statement *compilerast.ForStmt) error {
-	if err := compiler.emit(bytecode.Copy, 1, statement.Iterable.Span()); err != nil {
+// compileAsyncIteratorStackTop calls and validates __aiter__ for the iterable
+// already on top of the operand stack.
+func (compiler *compilerState) compileAsyncIteratorStackTop(span lexer.Span) error {
+	if err := compiler.emit(
+		bytecode.LoadSpecial,
+		compiler.nameIndex(asyncIteratorName),
+		span,
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.Call, 0, span); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.CheckAsyncIterator, 0, span)
+}
+
+func (compiler *compilerState) compileAsyncIteratorNext(
+	iterableSpan lexer.Span,
+	awaitSpan lexer.Span,
+) error {
+	if err := compiler.emit(bytecode.Copy, 1, iterableSpan); err != nil {
 		return err
 	}
 	if err := compiler.emit(
 		bytecode.LoadSpecial,
 		compiler.nameIndex(asyncNextName),
-		statement.Iterable.Span(),
+		iterableSpan,
 	); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.Call, 0, statement.Iterable.Span()); err != nil {
+	if err := compiler.emit(bytecode.Call, 0, iterableSpan); err != nil {
 		return err
 	}
-	return compiler.compileAwaitStackTop(statement.Span(), bytecode.AwaitAsyncNext)
+	return compiler.compileAwaitStackTop(awaitSpan, bytecode.AwaitAsyncNext)
 }
 
 // compileAsyncForExhaustion discards the iterator for StopAsyncIteration and

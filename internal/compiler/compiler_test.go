@@ -79,6 +79,11 @@ func TestFunctionCompilerBoundaries(t *testing.T) {
 			source:  "async def stream():\n    yield 1\n",
 			message: "async generators are not compiled",
 		},
+		{
+			name:    "async generator expression",
+			source:  "async def stream(source):\n    return (item async for item in source)\n",
+			message: "asynchronous generator expressions are not compiled",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

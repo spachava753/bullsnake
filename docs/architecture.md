@@ -148,12 +148,13 @@ child code objects rather than hidden Go closures.
 
 CPython 3.14 inlines eager comprehensions into the enclosing frame. Bullsnake
 currently runs every comprehension in a hidden child frame. The enclosing frame
-evaluates the first iterable and creates its iterator. An eager child runs at
-once and returns its collection. A generator-expression child stays suspended
-until iteration. In both forms, targets, filters, later iterables, and the result
-expression use the comprehension scope. This simpler compiler model preserves
-name isolation and closure behavior. The extra frame may change when Bullsnake
-exposes Python frame introspection.
+evaluates the first iterable and creates its iterator. A synchronous eager child
+runs at once and returns its collection. An asynchronous eager child is a
+coroutine that the enclosing coroutine awaits. A generator-expression child
+stays suspended until iteration. In every form, targets, filters, later
+iterables, and the result expression use the comprehension scope. This simpler
+compiler model preserves name isolation and closure behavior. The extra frame
+may change when Bullsnake exposes Python frame introspection.
 
 Function definitions with annotations also create a child code object. Without
 the future import, the child captures the names needed to evaluate those
@@ -328,7 +329,10 @@ object with `__anext__`; each next result is a native coroutine awaited through
 the frame loop. The compiler protects only the next-item operation so
 `StopAsyncIteration` means exhaustion there, while the same exception from loop
 body code remains an ordinary failure. Loop `else`, break, continue, and cleanup
-keep their synchronous control-flow meanings.
+keep their synchronous control-flow meanings. Eager asynchronous comprehensions
+reuse this loop shape inside hidden coroutine children. Synchronous and
+asynchronous clauses may nest, and the enclosing coroutine awaits the completed
+collection.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
@@ -443,16 +447,16 @@ but they must not mutate Python objects directly.
 
 ## Async and Python threads
 
-Native coroutine awaiting, asynchronous context management, and asynchronous
-iteration exist. Custom awaitables, async comprehensions and generators,
-scheduling, and Python threads remain future work.
+Native coroutine awaiting, asynchronous context management, asynchronous
+iteration, and eager asynchronous comprehensions exist. Custom awaitables,
+asynchronous generator expressions and generators, scheduling, and Python
+threads remain future work.
 
 Generators and coroutines retain suspended Python frames and resume through the
-VM's ordinary frame loop. The next steps are async comprehensions and async
-generators. An event loop will eventually manage ready tasks, timers, I/O
-completion, cancellation, and task context. Async tasks will not be modeled as
-one goroutine each because Python task scheduling and cancellation need explicit
-interpreter state.
+VM's ordinary frame loop. The next language step is async generators. An event
+loop will eventually manage ready tasks, timers, I/O completion, cancellation,
+and task context. Async tasks will not be modeled as one goroutine each because
+Python task scheduling and cancellation need explicit interpreter state.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread

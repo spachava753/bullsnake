@@ -11,8 +11,8 @@ const (
 	comprehensionResultLocal   = ".result"
 )
 
-// comprehensionScope validates the synchronous clauses and returns the
-// function-like resolver scope owned by the comprehension expression.
+// comprehensionScope returns the function-like resolver scope owned by the
+// comprehension expression.
 func (compiler *compilerState) comprehensionScope(
 	owner compilerast.Expr,
 	clauses []compilerast.Comprehension,
@@ -21,14 +21,6 @@ func (compiler *compilerState) comprehensionScope(
 ) (*resolver.Scope, error) {
 	if len(clauses) == 0 {
 		return nil, compiler.error(owner.Span(), "%s has no clauses", codeName)
-	}
-	for _, clause := range clauses {
-		if clause.Async {
-			return nil, compiler.error(
-				clause.Range,
-				"asynchronous comprehensions are not compiled",
-			)
-		}
 	}
 	scope := compiler.table.ScopeFor(owner, resolver.ComprehensionBody, 0)
 	if scope == nil || scope.Kind != resolver.FunctionScope || scope.Flags&scopeFlag == 0 {
@@ -87,10 +79,20 @@ func (compiler *compilerState) compileEagerComprehension(
 	if err := compiler.compileExpr(first.Iterable); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.GetIter, 0, first.Iterable.Span()); err != nil {
+	if first.Async {
+		if err := compiler.compileAsyncIteratorStackTop(first.Iterable.Span()); err != nil {
+			return err
+		}
+	} else if err := compiler.emit(bytecode.GetIter, 0, first.Iterable.Span()); err != nil {
 		return err
 	}
-	return compiler.emit(bytecode.Call, 1, owner.Span())
+	if err := compiler.emit(bytecode.Call, 1, owner.Span()); err != nil {
+		return err
+	}
+	if scope.Flags&resolver.Coroutine != 0 {
+		return compiler.compileAwaitStackTop(owner.Span(), bytecode.AwaitExpression)
+	}
+	return nil
 }
 
 // compileGeneratorExpression builds a lazy comprehension child and calls it
@@ -106,6 +108,12 @@ func (compiler *compilerState) compileGeneratorExpression(
 	)
 	if err != nil {
 		return err
+	}
+	if scope.Flags&resolver.Coroutine != 0 {
+		return compiler.error(
+			expression.Span(),
+			"asynchronous generator expressions are not compiled",
+		)
 	}
 	child := compiler.newComprehensionCompiler(expression, scope, "<genexpr>", false)
 	if err := child.compileComprehensionClauses(
@@ -163,6 +171,9 @@ func (compiler *compilerState) newComprehensionCompiler(
 	if scope.Flags&resolver.Generator != 0 {
 		flags |= bytecode.Generator
 	}
+	if scope.Flags&resolver.Coroutine != 0 {
+		flags |= bytecode.Coroutine
+	}
 	child := &compilerState{
 		filename:            compiler.filename,
 		module:              compiler.module,
@@ -197,6 +208,7 @@ func (compiler *compilerState) compileComprehensionClauses(
 	appendValue func(*compilerState) error,
 ) error {
 	clause := clauses[index]
+	baseDepth := compiler.stackDepth
 	if index == 0 {
 		if err := compiler.emit(
 			bytecode.LoadFast,
@@ -209,9 +221,21 @@ func (compiler *compilerState) compileComprehensionClauses(
 		if err := compiler.compileExpr(clause.Iterable); err != nil {
 			return err
 		}
-		if err := compiler.emit(bytecode.GetIter, 0, clause.Iterable.Span()); err != nil {
+		if clause.Async {
+			if err := compiler.compileAsyncIteratorStackTop(clause.Iterable.Span()); err != nil {
+				return err
+			}
+		} else if err := compiler.emit(bytecode.GetIter, 0, clause.Iterable.Span()); err != nil {
 			return err
 		}
+	}
+	if clause.Async {
+		return compiler.compileAsyncComprehensionClause(
+			clauses,
+			index,
+			baseDepth,
+			appendValue,
+		)
 	}
 
 	start := compiler.newLabel()
@@ -222,6 +246,26 @@ func (compiler *compilerState) compileComprehensionClauses(
 	if err := compiler.emitJump(bytecode.ForIter, end, clause.Range); err != nil {
 		return err
 	}
+	if err := compiler.compileComprehensionClauseBody(
+		clauses,
+		index,
+		start,
+		appendValue,
+	); err != nil {
+		return err
+	}
+	return compiler.markLabel(end, clause.Range)
+}
+
+// compileComprehensionClauseBody stores one item, applies its filters, and
+// either enters the next nested clause or appends the completed result.
+func (compiler *compilerState) compileComprehensionClauseBody(
+	clauses []compilerast.Comprehension,
+	index int,
+	start *jumpLabel,
+	appendValue func(*compilerState) error,
+) error {
+	clause := clauses[index]
 	if err := compiler.compileStore(clause.Target); err != nil {
 		return err
 	}
@@ -248,6 +292,50 @@ func (compiler *compilerState) compileComprehensionClauses(
 		if err := compiler.emitJump(bytecode.Jump, start, clause.Range); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// compileAsyncComprehensionClause awaits one async iterator until exhaustion,
+// then resumes the enclosing clause without leaking StopAsyncIteration.
+func (compiler *compilerState) compileAsyncComprehensionClause(
+	clauses []compilerast.Comprehension,
+	index int,
+	baseDepth int,
+	appendValue func(*compilerState) error,
+) error {
+	clause := clauses[index]
+	start := compiler.newLabel()
+	handler := compiler.newLabel()
+	end := compiler.newLabel()
+	if err := compiler.markLabel(start, clause.Range); err != nil {
+		return err
+	}
+	handlerDepth := len(compiler.activeHandlers)
+	compiler.activeHandlers = append(compiler.activeHandlers, instructionExceptionHandler{
+		target:     handler,
+		stackDepth: baseDepth + 1,
+	})
+	err := compiler.compileAsyncIteratorNext(clause.Iterable.Span(), clause.Range)
+	compiler.activeHandlers = compiler.activeHandlers[:handlerDepth]
+	if err != nil {
+		return err
+	}
+	if err := compiler.compileComprehensionClauseBody(
+		clauses,
+		index,
+		start,
+		appendValue,
+	); err != nil {
+		return err
+	}
+	if err := compiler.compileAsyncForExhaustion(
+		handler,
+		end,
+		baseDepth,
+		clause.Range,
+	); err != nil {
+		return err
 	}
 	return compiler.markLabel(end, clause.Range)
 }
