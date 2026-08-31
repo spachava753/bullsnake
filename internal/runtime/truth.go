@@ -33,7 +33,7 @@ func executeTruthOperation(
 	}
 
 	instance := value.(*instanceValue)
-	method, found := instance.class.lookup("__bool__")
+	method, found := lookupInstanceSpecial(instance, "__bool__")
 	methodKind := truthBoolMethod
 	if found && method == None {
 		return instructionOutcome{
@@ -45,14 +45,11 @@ func executeTruthOperation(
 		}, nil
 	}
 	if !found {
-		method, found = instance.class.lookup("__len__")
+		method, found = lookupInstanceSpecial(instance, "__len__")
 		methodKind = truthLengthMethod
 	}
 	if !found {
 		return completeTruthOperation(frame, instruction, operation, value, true)
-	}
-	if function, bind := method.(*functionValue); bind {
-		method = &boundMethodValue{function: function, self: instance}
 	}
 
 	call := &truthCall{

@@ -229,6 +229,28 @@ func executeBuiltinNext(
 			kind:      raised,
 			exception: newStopIteration(None),
 		}, nil
+	case *instanceValue:
+		method, found := lookupInstanceSpecial(iterator, "__next__")
+		discardCallSegment(caller, base)
+		if !found || method == None {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"TypeError",
+					"'"+iterator.TypeName()+"' object is not an iterator",
+				),
+			}, nil
+		}
+		return executeIterationSpecial(
+			caller,
+			method,
+			&iterationCall{
+				kind:         iterationBuiltinNext,
+				instruction:  instruction,
+				defaultValue: defaultValue,
+				hasDefault:   hasDefault,
+			},
+		)
 	default:
 		discardCallSegment(caller, base)
 		return instructionOutcome{

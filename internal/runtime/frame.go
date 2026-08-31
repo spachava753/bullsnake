@@ -51,6 +51,7 @@ type frame struct {
 	moduleImport        *moduleImport
 	pendingImport       *importRequest
 	truth               *truthCall
+	iteration           *iterationCall
 	generator           *generatorValue
 	delegation          *delegationState
 	handledExceptions   []handledException

@@ -5,6 +5,23 @@ type valueIterator interface {
 	next() (Value, bool, *Exception)
 }
 
+type iterationCallKind uint8
+
+const (
+	iterationGetIterator iterationCallKind = iota
+	iterationForNext
+	iterationBuiltinNext
+)
+
+type iterationCall struct {
+	kind         iterationCallKind
+	instruction  int
+	target       int
+	iterator     Value
+	defaultValue Value
+	hasDefault   bool
+}
+
 type sequenceIterator struct {
 	sequence Value
 	index    int
@@ -182,12 +199,17 @@ func newIterator(value Value) (Value, bool) {
 	}
 }
 
+// executeGetIter keeps built-in iterator creation synchronous and suspends for
+// a user class __iter__ call before validating its returned iterator.
 func executeGetIter(frame *frame, index int) (instructionOutcome, error) {
 	iterable, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
-	iterator, ok := newIterator(iterable)
+	if iterator, builtin := newIterator(iterable); builtin {
+		return pushOutcome(frame, index, iterator)
+	}
+	instance, ok := iterable.(*instanceValue)
 	if !ok {
 		return instructionOutcome{
 			kind: raised,
@@ -197,7 +219,21 @@ func executeGetIter(frame *frame, index int) (instructionOutcome, error) {
 			),
 		}, nil
 	}
-	return pushOutcome(frame, index, iterator)
+	method, found := lookupInstanceSpecial(instance, "__iter__")
+	if !found || method == None {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+iterable.TypeName()+"' object is not iterable",
+			),
+		}, nil
+	}
+	return executeIterationSpecial(
+		frame,
+		method,
+		&iterationCall{kind: iterationGetIterator, instruction: index},
+	)
 }
 
 // executeForIter retains the iterator while yielding and removes it before the
@@ -214,7 +250,19 @@ func executeForIter(
 	if generator, ok := value.(*generatorValue); ok {
 		return resumeGeneratorIteration(frame, index, target, generator)
 	}
-	iterator, ok := value.(valueIterator)
+	if iterator, ok := value.(valueIterator); ok {
+		next, present, exception := iterator.next()
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if !present {
+			frame.pop()
+			frame.instruction = target
+			return instructionOutcome{kind: advance}, nil
+		}
+		return pushOutcome(frame, index, next)
+	}
+	instance, ok := value.(*instanceValue)
 	if !ok {
 		return instructionOutcome{
 			kind: raised,
@@ -224,14 +272,135 @@ func executeForIter(
 			),
 		}, nil
 	}
-	next, ok, exception := iterator.next()
-	if exception != nil {
+	frame.pop()
+	method, found := lookupInstanceSpecial(instance, "__next__")
+	if !found || method == None {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+value.TypeName()+"' object is not an iterator",
+			),
+		}, nil
+	}
+	return executeIterationSpecial(
+		frame,
+		method,
+		&iterationCall{
+			kind:        iterationForNext,
+			instruction: index,
+			target:      target,
+			iterator:    value,
+		},
+	)
+}
+
+// executeIterationSpecial starts one class special-method call and records how
+// a direct return, suspended return, or StopIteration completes its requester.
+func executeIterationSpecial(
+	frame *frame,
+	method Value,
+	call *iterationCall,
+) (instructionOutcome, error) {
+	outcome, err := executeFunctionCall(
+		frame,
+		call.instruction,
+		len(frame.stack),
+		method,
+		nil,
+		nil,
+	)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if outcome.kind == called {
+		outcome.frame.iteration = call
+		return outcome, nil
+	}
+	if outcome.kind == raised && call.kind != iterationGetIterator &&
+		isStopIteration(outcome.exception) {
+		return finishIterationStop(frame, call, outcome.exception)
+	}
+	if outcome.kind != advance {
+		return outcome, nil
+	}
+	result, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			call.instruction,
+			"iteration special method returned without a value",
+		)
+	}
+	return finishIterationCall(frame, call, result)
+}
+
+// finishIterationCall checks __iter__ results or restores the stack result for
+// a suspended FOR_ITER or next() operation.
+func finishIterationCall(
+	frame *frame,
+	call *iterationCall,
+	result Value,
+) (instructionOutcome, error) {
+	switch call.kind {
+	case iterationGetIterator:
+		if !isIteratorValue(result) {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"TypeError",
+					"iter() returned non-iterator of type '"+result.TypeName()+"'",
+				),
+			}, nil
+		}
+		return pushOutcome(frame, call.instruction, result)
+	case iterationForNext:
+		if len(frame.stack)+2 > frame.code.stackSize {
+			return instructionOutcome{}, frame.failure(
+				call.instruction,
+				"operand stack overflow while returning iterator item",
+			)
+		}
+		frame.stack = append(frame.stack, call.iterator, result)
+		return instructionOutcome{kind: advance}, nil
+	case iterationBuiltinNext:
+		return pushOutcome(frame, call.instruction, result)
+	default:
+		return instructionOutcome{}, frame.failure(
+			call.instruction,
+			"unknown iteration continuation",
+		)
+	}
+}
+
+func finishIterationStop(
+	frame *frame,
+	call *iterationCall,
+	exception *Exception,
+) (instructionOutcome, error) {
+	switch call.kind {
+	case iterationForNext:
+		frame.instruction = call.target
+		return instructionOutcome{kind: advance}, nil
+	case iterationBuiltinNext:
+		if call.hasDefault {
+			return pushOutcome(frame, call.instruction, call.defaultValue)
+		}
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	default:
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
-	if !ok {
-		frame.pop()
-		frame.instruction = target
-		return instructionOutcome{kind: advance}, nil
+}
+
+func isIteratorValue(value Value) bool {
+	switch value := value.(type) {
+	case valueIterator:
+		return true
+	case *generatorValue:
+		return value.kind == generatorObject
+	case *instanceValue:
+		next, found := value.class.lookup("__next__")
+		return found && next != None
+	default:
+		return false
 	}
-	return pushOutcome(frame, index, next)
 }

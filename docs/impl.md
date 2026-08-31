@@ -417,6 +417,13 @@ clipping and positive or negative steps. Dictionary iteration detects key-set
 changes; replacing an existing value is allowed. Set display and iteration
 order is stable for Bullsnake tests but is not a Python compatibility promise.
 
+A user iterable resolves `__iter__` on its class and requires the returned value
+to have class `__next__`. Each loop step or user-iterator `next()` call may run a
+Python frame. `StopIteration` leaving that active `__next__` call means
+exhaustion; the same exception raised by loop body code remains an ordinary
+exception. Bullsnake does not yet use `__getitem__` as the legacy iteration
+fallback.
+
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative
 integer exponent returns an integer, subject to the documented 1,048,576-bit
@@ -430,9 +437,9 @@ a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes, scalar numeric
 `int`, positional `max` and `min` calls with two or more arguments, and `next`
-for generators and existing internal iterators. `next` accepts one optional
-default. String and base forms of `int`, the iterable and keyword forms of `max`
-and `min`, and the general `iter` builtin remain unsupported.
+for generators, internal iterators, and user iterators. `next` accepts one
+optional default. String and base forms of `int`, the iterable and keyword forms
+of `max` and `min`, and the general `iter` builtin remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

@@ -47,3 +47,58 @@ class HugeLength:
 
 if HugeLength():
     pass
+# ---
+# case: instance-only iter method
+# error: TypeError
+# message: "'InstanceOnlyIterable' object is not iterable"
+class InstanceOnlyIterable:
+    pass
+
+def make_iterator():
+    return ()
+
+value = InstanceOnlyIterable()
+value.__iter__ = make_iterator
+for item in value:
+    pass
+# ---
+# case: disabled iter method
+# error: TypeError
+# message: "'DisabledIterable' object is not iterable"
+class DisabledIterable:
+    __iter__ = None
+
+for item in DisabledIterable():
+    pass
+# ---
+# case: invalid iter result
+# error: TypeError
+# message: "iter() returned non-iterator of type 'list'"
+class InvalidIterable:
+    def __iter__(self):
+        return []
+
+for item in InvalidIterable():
+    pass
+# ---
+# case: disabled next result
+# error: TypeError
+# message: "iter() returned non-iterator of type 'DisabledNext'"
+class DisabledNext:
+    def __iter__(self):
+        return self
+    __next__ = None
+
+for item in DisabledNext():
+    pass
+# ---
+# case: noncallable next method
+# error: TypeError
+# message: "'int' object is not callable"
+class NoncallableNext:
+    def __iter__(self):
+        return self
+    __next__ = 1
+
+for item in NoncallableNext():
+    pass

@@ -117,7 +117,6 @@ func executeExceptionTypeCall(
 		}, nil
 	}
 	message := exceptionMessage(arguments)
-	discardCallSegment(caller, base)
 	exception := newExceptionOfType(exceptionType, message)
 	if exceptionType.isSubclassOf(stopIterationType) {
 		exception.stopIterationValue = None
@@ -125,6 +124,7 @@ func executeExceptionTypeCall(
 			exception.stopIterationValue = arguments[0]
 		}
 	}
+	discardCallSegment(caller, base)
 	return pushOutcome(caller, instruction, exception)
 }
 
@@ -168,7 +168,6 @@ func executeUserExceptionTypeCall(
 		}, nil
 	}
 	message := exceptionMessage(arguments)
-	discardCallSegment(caller, base)
 	exception := newUserException(class, message)
 	if class.builtinExceptionBase().isSubclassOf(stopIterationType) {
 		exception.stopIterationValue = None
@@ -176,6 +175,7 @@ func executeUserExceptionTypeCall(
 			exception.stopIterationValue = arguments[0]
 		}
 	}
+	discardCallSegment(caller, base)
 	return pushOutcome(caller, instruction, exception)
 }
 

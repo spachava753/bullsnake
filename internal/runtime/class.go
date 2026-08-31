@@ -97,6 +97,17 @@ func (method *boundMethodValue) Repr() string {
 }
 func (*boundMethodValue) isValue() {}
 
+func lookupInstanceSpecial(instance *instanceValue, name string) (Value, bool) {
+	value, found := instance.class.lookup(name)
+	if !found {
+		return nil, false
+	}
+	if function, bind := value.(*functionValue); bind {
+		value = &boundMethodValue{function: function, self: instance}
+	}
+	return value, true
+}
+
 type classBuild struct {
 	name          string
 	qualifiedName string

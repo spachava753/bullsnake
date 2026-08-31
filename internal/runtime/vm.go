@@ -276,6 +276,47 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.iteration != nil {
+				call := active.iteration
+				active.iteration = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"iteration special method has no caller",
+					)
+				}
+				iterationOutcome, iterationErr := finishIterationCall(
+					thread.current,
+					call,
+					result,
+				)
+				if iterationErr != nil {
+					return nil, nil, iterationErr
+				}
+				if iterationOutcome.kind == raised {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						iterationOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+				if iterationOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid iteration special method outcome",
+					)
+				}
+				continue
+			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil
@@ -398,6 +439,47 @@ route:
 				current.instruction = int(handler.Target)
 				thread.current = current
 				return nil, nil
+			}
+
+			if current.iteration != nil &&
+				current.iteration.kind != iterationGetIterator &&
+				isStopIteration(exception) {
+				call := current.iteration
+				current.iteration = nil
+				for index := range current.stack {
+					current.stack[index] = nil
+				}
+				current.stack = current.stack[:0]
+				current.discardImportedModule()
+				caller := current.previous
+				if caller == nil {
+					return nil, current.failure(
+						currentInstruction,
+						"iteration special method has no caller",
+					)
+				}
+				iterationOutcome, iterationErr := finishIterationStop(
+					caller,
+					call,
+					exception,
+				)
+				if iterationErr != nil {
+					return nil, iterationErr
+				}
+				thread.current = caller
+				if iterationOutcome.kind == advance {
+					return nil, nil
+				}
+				if iterationOutcome.kind != raised {
+					return nil, caller.failure(
+						call.instruction,
+						"invalid iteration exhaustion outcome",
+					)
+				}
+				exception = iterationOutcome.exception
+				current = caller
+				currentInstruction = call.instruction
+				continue route
 			}
 
 			for index := range current.stack {
