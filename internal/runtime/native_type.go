@@ -31,10 +31,11 @@ func builtinNativeType(name string) *nativeTypeValue {
 }
 
 var (
-	typeNativeType = builtinNativeType("type")
-	noneNativeType = builtinNativeType("NoneType")
-	intNativeType  = builtinNativeType("int")
-	boolNativeType = &nativeTypeValue{
+	typeNativeType   = builtinNativeType("type")
+	objectNativeType = builtinNativeType("object")
+	noneNativeType   = builtinNativeType("NoneType")
+	intNativeType    = builtinNativeType("int")
+	boolNativeType   = &nativeTypeValue{
 		name: "bool", qualname: "bool", module: "builtins", base: intNativeType,
 	}
 	floatNativeType           = builtinNativeType("float")
@@ -63,6 +64,7 @@ var (
 
 var builtinNativeTypes = []*nativeTypeValue{
 	typeNativeType,
+	objectNativeType,
 	boolNativeType,
 	intNativeType,
 	stringNativeType,
@@ -73,6 +75,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
+	"object":                           objectNativeType,
 	"NoneType":                         noneNativeType,
 	"bool":                             boolNativeType,
 	"int":                              intNativeType,
@@ -163,6 +166,8 @@ func executeNativeTypeCall(
 		return pushOutcome(caller, instruction, result)
 	}
 	switch class {
+	case objectNativeType:
+		return executeObjectTypeCall(caller, instruction, base, arguments, keywords)
 	case boolNativeType:
 		return executeBuiltinBool(caller, instruction, base, arguments, keywords)
 	case intNativeType:
@@ -226,7 +231,7 @@ func executeDynamicTypeCall(
 			"type.__new__() argument 3 must be dict, not "+invalidType,
 		)), nil
 	}
-	bases, exceptionBase, exception := resolveClassBases(baseTuple.elements)
+	bases, exceptionBase, objectBase, exception := resolveClassBases(baseTuple.elements)
 	if exception != nil {
 		discardCallSegment(caller, base)
 		return raiseOutcome(exception), nil
@@ -238,6 +243,7 @@ func executeDynamicTypeCall(
 		qualifiedName:     name.value,
 		namespace:         namespace,
 		bases:             bases,
+		objectBase:        objectBase,
 		exceptionBase:     exceptionBase,
 		namespacePosition: make(map[string]int),
 	}
@@ -335,6 +341,8 @@ func executeExceptionTypeAttributeLoad(
 	return pushOutcome(frame, instruction, value)
 }
 
+// executeNativeTypeAttributeLoad returns immutable class metadata, including
+// the direct base and MRO derived from the native root hierarchy.
 func executeNativeTypeAttributeLoad(
 	frame *frame,
 	instruction int,
@@ -349,6 +357,31 @@ func executeNativeTypeAttributeLoad(
 		value = &stringValue{value: class.qualname}
 	case "__module__":
 		value = &stringValue{value: class.module}
+	case "__base__":
+		if class == objectNativeType {
+			value = None
+		} else if class.base != nil {
+			value = class.base
+		} else {
+			value = objectNativeType
+		}
+	case "__bases__":
+		if class == objectNativeType {
+			value = &tupleValue{}
+		} else if class.base != nil {
+			value = &tupleValue{elements: []Value{class.base}}
+		} else {
+			value = &tupleValue{elements: []Value{objectNativeType}}
+		}
+	case "__mro__":
+		elements := []Value{class}
+		if class.base != nil {
+			elements = append(elements, class.base)
+		}
+		if class != objectNativeType {
+			elements = append(elements, objectNativeType)
+		}
+		value = &tupleValue{elements: elements}
 	default:
 		return raiseOutcome(newException(
 			"AttributeError",

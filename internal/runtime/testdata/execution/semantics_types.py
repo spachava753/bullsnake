@@ -347,3 +347,38 @@ assert user_dict[0] == 10
 assert user_dict[1] == 11
 assert generated_dict[3] == 6
 assert generated_dict[4] == 8
+# ---
+# case: object root type and constructor
+first_object = object()
+second_object = object()
+assert first_object is not second_object
+assert type(first_object) is object
+assert isinstance(first_object, object)
+assert isinstance(None, object)
+assert isinstance(1, object)
+assert isinstance(object, object)
+assert issubclass(object, object)
+assert issubclass(type, object)
+assert issubclass(ValueError, object)
+# ---
+# case: user classes inherit object
+class ImplicitObjectBase:
+    pass
+
+class ExplicitObjectBase(object):
+    pass
+
+class ObjectChild(ExplicitObjectBase):
+    pass
+
+assert ImplicitObjectBase.__base__ is object
+assert ImplicitObjectBase.__bases__ == (object,)
+assert ImplicitObjectBase.__mro__ == (ImplicitObjectBase, object)
+assert ExplicitObjectBase.__base__ is object
+assert ExplicitObjectBase.__bases__ == (object,)
+assert ExplicitObjectBase.__mro__ == (ExplicitObjectBase, object)
+assert ObjectChild.__base__ is ExplicitObjectBase
+assert ObjectChild.__bases__ == (ExplicitObjectBase,)
+assert ObjectChild.__mro__ == (ObjectChild, ExplicitObjectBase, object)
+assert isinstance(ImplicitObjectBase(), object)
+assert issubclass(ObjectChild, object)

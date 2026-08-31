@@ -17,6 +17,7 @@ type typeValue struct {
 	namespace     *Namespace
 	bases         []*typeValue
 	mro           []*typeValue
+	objectBase    bool
 	exceptionBase *exceptionTypeValue
 }
 
@@ -138,6 +139,7 @@ type classBuild struct {
 	instruction       int
 	namespace         *Namespace
 	bases             []*typeValue
+	objectBase        bool
 	exceptionBase     *exceptionTypeValue
 	namespaceOrder    []string
 	namespacePosition map[string]int
@@ -160,6 +162,7 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 		module:        build.module,
 		namespace:     build.namespace,
 		bases:         build.bases,
+		objectBase:    build.objectBase,
 		exceptionBase: build.exceptionBase,
 	}
 	mro, exception := calculateMRO(class, build.bases)
@@ -181,28 +184,39 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	return class, nil
 }
 
+// resolveClassBases separates user, built-in exception, and sole native object
+// bases while retaining the current mixed-native-base rejection boundary.
 func resolveClassBases(
 	baseValues []Value,
-) ([]*typeValue, *exceptionTypeValue, *Exception) {
+) ([]*typeValue, *exceptionTypeValue, bool, *Exception) {
 	var bases []*typeValue
 	var exceptionBase *exceptionTypeValue
+	objectBase := len(baseValues) == 0
 	for _, baseValue := range baseValues {
 		switch classBase := baseValue.(type) {
 		case *typeValue:
 			bases = append(bases, classBase)
 		case *exceptionTypeValue:
 			if len(baseValues) != 1 {
-				return nil, nil, newException(
+				return nil, nil, false, newException(
 					"TypeError",
 					"multiple inheritance with built-in exception bases is not supported",
 				)
 			}
 			exceptionBase = classBase
+		case *nativeTypeValue:
+			if classBase != objectNativeType || len(baseValues) != 1 {
+				return nil, nil, false, newException(
+					"TypeError",
+					"multiple inheritance with native bases is not supported",
+				)
+			}
+			objectBase = true
 		default:
-			return nil, nil, newException("TypeError", "class base is not a type")
+			return nil, nil, false, newException("TypeError", "class base is not a type")
 		}
 	}
-	return bases, exceptionBase, nil
+	return bases, exceptionBase, objectBase, nil
 }
 
 // executeBuildClassCall starts one class body with its own local namespace. The
@@ -241,7 +255,7 @@ func executeBuildClassCall(
 		}, nil
 	}
 	baseValues := arguments[2:]
-	bases, exceptionBase, baseException := resolveClassBases(baseValues)
+	bases, exceptionBase, objectBase, baseException := resolveClassBases(baseValues)
 	if baseException != nil {
 		return instructionOutcome{kind: raised, exception: baseException}, nil
 	}
@@ -284,6 +298,7 @@ func executeBuildClassCall(
 			instruction:       instruction,
 			namespace:         namespace,
 			bases:             bases,
+			objectBase:        objectBase,
 			exceptionBase:     exceptionBase,
 			namespacePosition: make(map[string]int),
 		},

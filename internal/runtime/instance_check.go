@@ -39,6 +39,9 @@ func instanceMatchesClass(instance Value, candidate Value) (bool, *Exception) {
 
 	switch candidate := candidate.(type) {
 	case *nativeTypeValue:
+		if candidate == objectNativeType {
+			return true, nil
+		}
 		actual, exception := typeOf(instance)
 		if exception != nil {
 			return false, exception
@@ -73,6 +76,9 @@ func instanceMatchesClass(instance Value, candidate Value) (bool, *Exception) {
 }
 
 func (class *nativeTypeValue) isSubclassOf(parent *nativeTypeValue) bool {
+	if parent == objectNativeType {
+		return true
+	}
 	for current := class; current != nil; current = current.base {
 		if current == parent {
 			return true
@@ -130,6 +136,9 @@ func subclassMatchesClass(class Value, candidate Value) (bool, *Exception) {
 
 	switch candidate := candidate.(type) {
 	case *nativeTypeValue:
+		if candidate == objectNativeType {
+			return true, nil
+		}
 		class, native := class.(*nativeTypeValue)
 		return native && class.isSubclassOf(candidate), nil
 	case *typeValue:

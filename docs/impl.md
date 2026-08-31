@@ -414,8 +414,13 @@ The one-argument `type` form returns stable native class objects for Go-backed
 values, the defining class for a user instance, and the concrete class for an
 exception. Native types and built-in exception classes expose `__name__`,
 `__qualname__`, and `__module__`; user classes expose the corresponding compiler
-and class-builder metadata. `type(type) is type`. The `bool`, `int`, and `str`
-bindings are native type objects and retain their implemented constructor
+and class-builder metadata. `type(type) is type`. The native `object` constructor
+returns a distinct root instance and accepts no arguments. Native values,
+built-in exception classes, and ordinary user classes are instances or
+subclasses of `object`. A user class with no named base, or with `object` as its
+sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
+Mixing native and user direct bases remains unsupported. The `bool`, `int`, and
+`str` bindings are native type objects and retain their implemented constructor
 behavior. The `list`, `tuple`, `set`, and `dict` type objects accept zero or one
 positional source. Sequence and set constructors collect native, user, or
 generator iterators through the frame loop. `tuple(existing_tuple)` preserves
@@ -545,7 +550,7 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes; native `bool`,
-`int`, `str`, `list`, `tuple`, `set`, `dict`, and `type` objects; `callable`;
+`int`, `str`, `list`, `tuple`, `set`, `dict`, `object`, and `type` objects; `callable`;
 `classmethod`;
 `getattr`; `hasattr`; `isinstance`; `issubclass`; one-argument `iter`; `len`;
 positional `max` and `min` calls with two or more arguments; `next`; `repr`; and

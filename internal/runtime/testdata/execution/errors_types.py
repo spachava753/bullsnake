@@ -187,3 +187,13 @@ dict((1,))
 # error: TypeError
 # message: "cannot use 'list' as a dict key (unhashable type: 'list')"
 dict((([1], 2),))
+# ---
+# case: object positional argument
+# error: TypeError
+# message: "object() takes no arguments"
+object(None)
+# ---
+# case: object keyword argument
+# error: TypeError
+# message: "object() takes no arguments"
+object(value=None)
