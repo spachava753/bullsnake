@@ -19,18 +19,27 @@ func executeConvertValue(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
-	var text string
-	switch conversion {
-	case bytecode.ConversionString:
-		text = valueText(value)
-	case bytecode.ConversionRepr:
-		text = value.Repr()
-	case bytecode.ConversionASCII:
-		text = asciiRepresentation(value.Repr())
-	default:
+	converted, ok := convertedValue(value, conversion)
+	if !ok {
 		return instructionOutcome{}, frame.failure(index, "invalid formatted conversion")
 	}
-	return pushOutcome(frame, index, &stringValue{value: text})
+	return pushOutcome(frame, index, converted)
+}
+
+func convertedValue(value Value, conversion uint32) (*stringValue, bool) {
+	switch conversion {
+	case bytecode.ConversionString:
+		if text, exactString := value.(*stringValue); exactString {
+			return text, true
+		}
+		return &stringValue{value: valueText(value)}, true
+	case bytecode.ConversionRepr:
+		return &stringValue{value: value.Repr()}, true
+	case bytecode.ConversionASCII:
+		return &stringValue{value: asciiRepresentation(value.Repr())}, true
+	default:
+		return nil, false
+	}
 }
 
 func executeFormatSimple(frame *frame, index int) (instructionOutcome, error) {

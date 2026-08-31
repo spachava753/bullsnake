@@ -49,3 +49,15 @@ result = Interpolation('value', 'value', 'z')
 # message: "Interpolation() argument 'format_spec' must be str, not int"
 from string.templatelib import Interpolation
 result = Interpolation('value', 'value', None, 1)
+# ---
+# case: template conversion helper rejects unknown text
+# error: ValueError
+# message: "invalid conversion specifier: z"
+from string.templatelib import convert
+result = convert('value', 'z')
+# ---
+# case: template conversion helper rejects other values
+# error: ValueError
+# message: "invalid conversion specifier: 1"
+from string.templatelib import convert
+result = convert('value', 1)

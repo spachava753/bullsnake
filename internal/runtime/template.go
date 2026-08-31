@@ -123,6 +123,10 @@ func newTemplateLibraryModules() (*Module, *Module) {
 		name: "Interpolation",
 		call: builtinInterpolation,
 	}
+	libraryGlobals.values["convert"] = &builtinFunctionValue{
+		name: "convert",
+		call: builtinTemplateConvert,
+	}
 	library := &Module{name: "string.templatelib", globals: libraryGlobals}
 	packageGlobals.values["templatelib"] = library
 	return &Module{
@@ -279,6 +283,69 @@ func interpolationArgumentTypeError(name, expected string, value Value) *Excepti
 		"TypeError",
 		"Interpolation() argument '"+name+"' must be "+expected+", not "+value.TypeName(),
 	)
+}
+
+// builtinTemplateConvert binds the positional-only input and named conversion,
+// preserves None identity, and maps the three accepted markers to shared logic.
+func builtinTemplateConvert(arguments []Value, keywords *dictValue) (Value, *Exception) {
+	values := make([]Value, 2)
+	if len(arguments) > 2 {
+		return nil, newException(
+			"TypeError",
+			fmt.Sprintf("convert() takes 2 positional arguments but %d were given", len(arguments)),
+		)
+	}
+	copy(values, arguments)
+	if keywords != nil {
+		for _, entry := range keywords.entries {
+			name, ok := entry.key.(*stringValue)
+			if !ok {
+				return nil, newException("TypeError", "convert() keywords must be strings")
+			}
+			if name.value != "conversion" {
+				return nil, newException(
+					"TypeError",
+					"convert() got an unexpected keyword argument '"+name.value+"'",
+				)
+			}
+			if len(arguments) > 1 || values[1] != nil {
+				return nil, newException(
+					"TypeError",
+					"convert() got multiple values for argument 'conversion'",
+				)
+			}
+			values[1] = entry.value
+		}
+	}
+	if values[0] == nil || values[1] == nil {
+		return nil, newException("TypeError", "convert() requires an object and conversion")
+	}
+	if values[1] == None {
+		return values[0], nil
+	}
+	conversionText, ok := values[1].(*stringValue)
+	if !ok {
+		return nil, newException(
+			"ValueError",
+			"invalid conversion specifier: "+valueText(values[1]),
+		)
+	}
+	conversion := uint32(0)
+	switch conversionText.value {
+	case "s":
+		conversion = bytecode.ConversionString
+	case "r":
+		conversion = bytecode.ConversionRepr
+	case "a":
+		conversion = bytecode.ConversionASCII
+	default:
+		return nil, newException(
+			"ValueError",
+			"invalid conversion specifier: "+conversionText.value,
+		)
+	}
+	converted, _ := convertedValue(values[0], conversion)
+	return converted, nil
 }
 
 // executeBuildInterpolation validates compiler-created metadata and retains the

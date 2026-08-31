@@ -170,3 +170,19 @@ assert interpolation.value is value
 assert interpolation.expression == 'value'
 assert interpolation.conversion == 's'
 assert interpolation.format_spec == 'wide'
+# ---
+# case: template conversion helper
+from string.templatelib import convert
+
+text = 'Café'
+unchanged = convert(text, None)
+as_string = convert(text, 's')
+as_repr = convert(text, conversion='r')
+as_ascii = convert(text, 'a')
+none_text = convert(None, 's')
+
+assert unchanged is text
+assert as_string is text
+assert as_repr == "'Café'"
+assert as_ascii == "'Caf\\xe9'"
+assert none_text == 'None'
