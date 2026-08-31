@@ -311,9 +311,11 @@ collection does not implicitly close an abandoned generator.
 A coroutine call uses the same detached-frame ownership without making the
 coroutine iterable. Direct `send(None)` starts the frame; a return exposes its
 value through `StopIteration`. The runtime rejects an initial non-`None` value,
-normal iteration, and reuse after completion. This direct protocol makes
-coroutine objects executable before Bullsnake has `await`, tasks, or an event
-loop.
+normal iteration, and reuse after completion. An `await` expression accepts a
+native Bullsnake coroutine and delegates through the same send loop used by
+`yield from`. Nested returns and exceptions therefore follow the existing frame
+and protected-range rules. Custom `__await__` methods and scheduler-facing
+awaitables remain later work.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
@@ -428,16 +430,15 @@ but they must not mutate Python objects directly.
 
 ## Async and Python threads
 
-Coroutine objects exist, but `await`, async iteration, scheduling, and Python
-threads remain future work.
+Native coroutine awaiting exists, but custom awaitables, async iteration,
+scheduling, and Python threads remain future work.
 
 Generators and coroutines retain suspended Python frames and resume through the
-VM's ordinary frame loop. The next steps extend the existing send loop with
-awaitable validation, then add asynchronous context management and iteration.
-An event loop will eventually manage ready tasks, timers, I/O completion,
-cancellation, and task context. Async tasks will not be modeled as one goroutine
-each because Python task scheduling and cancellation need explicit interpreter
-state.
+VM's ordinary frame loop. The next steps add asynchronous context management,
+then asynchronous iteration. An event loop will eventually manage ready tasks,
+timers, I/O completion, cancellation, and task context. Async tasks will not be
+modeled as one goroutine each because Python task scheduling and cancellation
+need explicit interpreter state.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread

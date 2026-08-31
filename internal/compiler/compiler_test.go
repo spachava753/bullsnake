@@ -75,11 +75,6 @@ func TestFunctionCompilerBoundaries(t *testing.T) {
 			message: "generic async functions are not compiled",
 		},
 		{
-			name:    "await expression",
-			source:  "async def outer():\n    return await inner()\n",
-			message: "await expressions are not compiled",
-		},
-		{
 			name:    "async generator",
 			source:  "async def stream():\n    yield 1\n",
 			message: "async generators are not compiled",

@@ -47,3 +47,30 @@ async def iterated_coroutine():
 
 for value in iterated_coroutine():
     pass
+
+# ---
+# case: await rejects non-awaitable values
+# error: TypeError
+# message: "'int' object can't be awaited"
+async def await_number():
+    return await 1
+
+await_number().send(None)
+
+# ---
+# case: await rejects completed coroutines
+# error: RuntimeError
+# message: "cannot reuse already awaited coroutine"
+async def completed_awaitable():
+    return 1
+
+completed = completed_awaitable()
+try:
+    completed.send(None)
+except StopIteration:
+    pass
+
+async def reuse_awaitable():
+    return await completed
+
+reuse_awaitable().send(None)

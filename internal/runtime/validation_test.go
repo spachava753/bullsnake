@@ -523,7 +523,7 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "code cannot be both a generator and a coroutine",
 		},
 		{
-			name: "yield outside generator code",
+			name: "yield outside suspended code",
 			code: testCode(
 				1,
 				[]bytecode.Instruction{
@@ -534,10 +534,38 @@ func TestBytecodeValidation(t *testing.T) {
 				[]bytecode.Constant{bytecode.None()},
 				nil,
 			),
-			wantFragment: "YIELD_VALUE requires generator code",
+			wantFragment: "YIELD_VALUE requires suspended code",
 		},
 		{
-			name: "send outside generator code",
+			name: "get awaitable outside coroutine code",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.GetAwaitable},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "GET_AWAITABLE requires coroutine code",
+		},
+		{
+			name: "get awaitable stack underflow",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.GetAwaitable},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.Coroutine,
+			}),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "send outside suspended code",
 			code: testCode(
 				2,
 				[]bytecode.Instruction{
@@ -549,7 +577,7 @@ func TestBytecodeValidation(t *testing.T) {
 				[]bytecode.Constant{bytecode.None()},
 				nil,
 			),
-			wantFragment: "SEND requires generator code",
+			wantFragment: "SEND requires suspended code",
 		},
 		{
 			name: "send target",

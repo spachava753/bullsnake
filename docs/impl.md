@@ -196,7 +196,8 @@ The current compiler translates:
   `yield`, `yield from`, iteration, sent values, closure captures, and cleanup
   across suspension
 - basic coroutine functions with lazy calls, ordinary argument binding, closure
-  captures, and direct `send(None)` completion; `await` remains unsupported
+  captures, direct protocol execution, and `await` between native Bullsnake
+  coroutines
 - basic classes with decorators, bases, class keywords, methods, enclosing
   closures, lazy class annotations, all three PEP 695 parameter kinds with lazy
   metadata, and cells for class-visible annotations and `__class__`
@@ -261,7 +262,7 @@ defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
 The compiler rejects template-string execution, generic async functions, async
-generators, `await`, asynchronous comprehensions, `async for`, and `async with`.
+generators, asynchronous comprehensions, `async for`, and `async with`.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.
 
@@ -319,7 +320,13 @@ separate from Python iteration. Calling a coroutine function binds its arguments
 without running the body. Its `send` method starts or resumes the frame, and a
 normal return raises `StopIteration` with the returned value. A first send must
 be `None`; a completed coroutine cannot be reused. `next`, `for`, and `GET_ITER`
-reject coroutines. `await` and scheduler-driven execution remain unsupported.
+reject coroutines.
+
+`await` evaluates its operand, requires a native Bullsnake coroutine, and uses a
+`SEND` loop to run it. A nested return becomes the await-expression value;
+exceptions enter the awaiting coroutine's ordinary handlers. User-defined
+`__await__` methods, scheduler-facing awaitables, and task execution remain
+unsupported.
 
 `yield from` keeps the delegate below each yielded value on the outer frame's
 operand stack. `SEND` forwards `None` or a sent value, falls through when the
@@ -546,8 +553,8 @@ The largest current gaps are:
 - no namespace packages, broad standard library, or native extension loading
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
-- no `await`, async scheduling, asynchronous comprehensions, async generators,
-  async iteration, or Python threads
+- no custom awaitable protocol, async scheduling, asynchronous comprehensions,
+  async generators, async iteration, or Python threads
 - no asynchronous context managers
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance

@@ -180,6 +180,7 @@ const (
 	SetTypeVarConstraints
 	SetTypeVarDefault
 	SetFunctionTypeParameters
+	GetAwaitable
 )
 
 var opcodeNames = [...]string{
@@ -278,6 +279,7 @@ var opcodeNames = [...]string{
 	"SET_TYPE_VAR_CONSTRAINTS",
 	"SET_TYPE_VAR_DEFAULT",
 	"SET_FUNCTION_TYPE_PARAMETERS",
+	"GET_AWAITABLE",
 }
 
 // String returns the disassembly spelling of an opcode.

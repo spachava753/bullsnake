@@ -1105,6 +1105,8 @@ func executeInstruction(
 		return executeBuildSlice(frame, index, int(instruction.Operand))
 	case bytecode.GetIter:
 		return executeGetIter(frame, index)
+	case bytecode.GetAwaitable:
+		return executeGetAwaitable(frame, index)
 	case bytecode.MatchSequence:
 		return executeMatchSequence(frame, index)
 	case bytecode.GetLen:

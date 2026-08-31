@@ -471,8 +471,13 @@ func (code *preparedCode) instructionEdges(
 func (code *preparedCode) validateOperand(index int, instruction bytecode.Instruction) error {
 	switch instruction.Opcode {
 	case bytecode.YieldValue:
-		if code.code.Flags()&bytecode.Generator == 0 {
-			return code.failure(index, "YIELD_VALUE requires generator code")
+		if code.code.Flags()&(bytecode.Generator|bytecode.Coroutine) == 0 {
+			return code.failure(index, "YIELD_VALUE requires suspended code")
+		}
+		return nil
+	case bytecode.GetAwaitable:
+		if code.code.Flags()&bytecode.Coroutine == 0 {
+			return code.failure(index, "GET_AWAITABLE requires coroutine code")
 		}
 		return nil
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
@@ -504,8 +509,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.Send:
-		if code.code.Flags()&bytecode.Generator == 0 {
-			return code.failure(index, "SEND requires generator code")
+		if code.code.Flags()&(bytecode.Generator|bytecode.Coroutine) == 0 {
+			return code.failure(index, "SEND requires suspended code")
 		}
 		if uint64(instruction.Operand) >= uint64(len(code.instructions)) {
 			return code.failure(index, "jump target %d out of range", instruction.Operand)
@@ -786,7 +791,7 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.CallEx:
 		return 2 + int(instruction.Operand), 1
 	case bytecode.UnaryOp, bytecode.ConvertValue, bytecode.FormatSimple,
-		bytecode.GetIter, bytecode.ListToTuple, bytecode.LoadAttr,
+		bytecode.GetIter, bytecode.GetAwaitable, bytecode.ListToTuple, bytecode.LoadAttr,
 		bytecode.LoadSpecial, bytecode.LoadFromDictOrGlobals,
 		bytecode.LoadFromDictOrDeref:
 		return 1, 1

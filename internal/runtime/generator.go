@@ -457,9 +457,29 @@ func executeGeneratorCloseCall(
 	}
 }
 
-// executeSend advances one yield-from delegate. A yielded value falls through
-// to YIELD_VALUE, while completion replaces the delegate with its return value
-// and jumps to the expression exit.
+// executeGetAwaitable accepts native coroutines without making them ordinary
+// iterators. User-defined __await__ methods remain a later object-model feature.
+func executeGetAwaitable(frame *frame, instruction int) (instructionOutcome, error) {
+	value, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	coroutine, ok := value.(*generatorValue)
+	if !ok || coroutine.kind != coroutineObject {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+value.TypeName()+"' object can't be awaited",
+			),
+		}, nil
+	}
+	return pushOutcome(frame, instruction, coroutine)
+}
+
+// executeSend advances one yield-from or await delegate. A yielded value falls
+// through to YIELD_VALUE, while completion replaces the delegate with its return
+// value and jumps to the expression exit.
 func executeSend(
 	frame *frame,
 	instruction int,
@@ -479,6 +499,15 @@ func executeSend(
 	switch delegate := delegate.(type) {
 	case *generatorValue:
 		if delegate.state == generatorCompleted {
+			if delegate.kind == coroutineObject {
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"RuntimeError",
+						"cannot reuse already awaited coroutine",
+					),
+				}, nil
+			}
 			return finishDelegation(frame, instruction, target, None)
 		}
 		if delegate.state == generatorCreated && sent != None {
@@ -486,7 +515,7 @@ func executeSend(
 				kind: raised,
 				exception: newException(
 					"TypeError",
-					"can't send non-None value to a just-started generator",
+					"can't send non-None value to a just-started "+delegate.TypeName(),
 				),
 			}, nil
 		}
