@@ -193,6 +193,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *dictionaryGetMethod:
+		return executeDictionaryGetCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,
@@ -398,6 +407,7 @@ func isCallableValue(value Value) bool {
 		*listPopMethod,
 		*listExtendMethod,
 		*dictionaryPopMethod,
+		*dictionaryGetMethod,
 		*buildClassValue,
 		*typeValue,
 		*exceptionTypeValue,

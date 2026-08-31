@@ -740,3 +740,23 @@ class FailingAbsolute:
         raise ValueError('abs failed')
 
 abs(FailingAbsolute())
+# ---
+# case: dictionary get missing argument
+# error: TypeError
+# message: "get expected at least 1 argument, got 0"
+{}.get()
+# ---
+# case: dictionary get extra argument
+# error: TypeError
+# message: "get expected at most 2 arguments, got 3"
+{}.get('missing', None, None)
+# ---
+# case: dictionary get keyword argument
+# error: TypeError
+# message: "dict.get() takes no keyword arguments"
+{}.get(key='missing')
+# ---
+# case: dictionary get unhashable key
+# error: TypeError
+# message: "cannot use 'list' as a dict key (unhashable type: 'list')"
+{}.get([])

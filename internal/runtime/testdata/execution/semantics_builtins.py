@@ -753,3 +753,13 @@ class AbsoluteValue:
         return marker
 
 assert abs(AbsoluteValue()) is marker
+# ---
+# case: dictionary get method
+marker = object()
+values = {'present': marker, 'other': 2}
+get = values.get
+assert callable(get)
+assert get('present') is marker
+assert get('missing') is None
+assert get('missing', marker) is marker
+assert list(values) == ['present', 'other']

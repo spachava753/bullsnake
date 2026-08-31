@@ -386,9 +386,9 @@ native iterator path. Enumerate, map, and filter objects wrap that iterator
 contract and may suspend while a generator, user iterator, mapped callable, or
 filter predicate and truth method runs. A list instance exposes bound `append`,
 `pop`, and `extend` methods. Extend uses the same resumable iterator path and
-mutates the target as each item arrives. Dictionary instances expose a bound
-`pop` method that removes a key or returns an optional default. Other native
-collection methods remain later work.
+mutates the target as each item arrives. Dictionary instances expose bound
+`get` and `pop` methods for nonmutating lookup, optional defaults, and removal.
+Other native collection methods remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
 descriptor behavior. Metaclass selection, MRO-entry rewriting, unions, and

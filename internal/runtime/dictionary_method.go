@@ -6,11 +6,21 @@ type dictionaryPopMethod struct {
 	dictionary *dictValue
 }
 
+type dictionaryGetMethod struct {
+	dictionary *dictValue
+}
+
 func (*dictionaryPopMethod) TypeName() string { return "builtin_function_or_method" }
 func (*dictionaryPopMethod) Repr() string {
 	return "<built-in method pop of dict object>"
 }
 func (*dictionaryPopMethod) isValue() {}
+
+func (*dictionaryGetMethod) TypeName() string { return "builtin_function_or_method" }
+func (*dictionaryGetMethod) Repr() string {
+	return "<built-in method get of dict object>"
+}
+func (*dictionaryGetMethod) isValue() {}
 
 func executeDictionaryAttributeLoad(
 	frame *frame,
@@ -18,17 +28,75 @@ func executeDictionaryAttributeLoad(
 	dictionary *dictValue,
 	name string,
 ) (instructionOutcome, error) {
-	if name == "pop" {
+	switch name {
+	case "pop":
 		return pushOutcome(
 			frame,
 			instruction,
 			&dictionaryPopMethod{dictionary: dictionary},
 		)
+	case "get":
+		return pushOutcome(
+			frame,
+			instruction,
+			&dictionaryGetMethod{dictionary: dictionary},
+		)
+	default:
+		return raiseOutcome(newException(
+			"AttributeError",
+			"'dict' object has no attribute '"+name+"'",
+		)), nil
 	}
-	return raiseOutcome(newException(
-		"AttributeError",
-		"'dict' object has no attribute '"+name+"'",
-	)), nil
+}
+
+// executeDictionaryGetCall returns an existing value or the optional default
+// without changing dictionary storage or insertion order.
+func executeDictionaryGetCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *dictionaryGetMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"dict.get() takes no keyword arguments",
+		)), nil
+	}
+	if len(arguments) < 1 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"get expected at least 1 argument, got 0",
+		)), nil
+	}
+	if len(arguments) > 2 {
+		count := strconv.Itoa(len(arguments))
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"get expected at most 2 arguments, got "+count,
+		)), nil
+	}
+
+	key := arguments[0]
+	defaultValue := Value(None)
+	if len(arguments) == 2 {
+		defaultValue = arguments[1]
+	}
+	value, found, exception := method.dictionary.get(key)
+	if exception != nil {
+		discardCallSegment(caller, base)
+		return raiseOutcome(exception), nil
+	}
+	if !found {
+		value = defaultValue
+	}
+	discardCallSegment(caller, base)
+	return pushOutcome(caller, instruction, value)
 }
 
 // executeDictionaryPopCall returns and removes a key, or returns the optional
