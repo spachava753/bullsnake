@@ -206,6 +206,22 @@ func completeTruthOperation(
 		}
 		frame.instruction = int(operation.Operand)
 		return pushOutcome(frame, instruction, original)
+	case bytecode.CompareOp:
+		if operation.Operand != bytecode.CompareIn &&
+			operation.Operand != bytecode.CompareNotIn {
+			return instructionOutcome{}, frame.failure(
+				instruction,
+				"unsupported comparison truth operation",
+			)
+		}
+		if operation.Operand == bytecode.CompareNotIn {
+			truth = !truth
+		}
+		result := falseSingleton
+		if truth {
+			result = trueSingleton
+		}
+		return pushOutcome(frame, instruction, result)
 	default:
 		return instructionOutcome{}, frame.failure(
 			instruction,

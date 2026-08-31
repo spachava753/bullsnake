@@ -52,6 +52,7 @@ type frame struct {
 	pendingImport       *importRequest
 	truth               *truthCall
 	iteration           *iterationCall
+	membership          *membershipCall
 	generator           *generatorValue
 	delegation          *delegationState
 	handledExceptions   []handledException

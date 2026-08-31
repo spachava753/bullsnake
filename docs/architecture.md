@@ -372,11 +372,13 @@ features or packages require it.
 
 A Python special method may call arbitrary Python code. The VM therefore keeps
 the requesting instruction suspended while the method's frame runs in the same
-iterative dispatch loop. User-defined truth testing and synchronous iteration
-both use this rule. Truth lookup tries class `__bool__` before class `__len__`.
-Iteration calls class `__iter__`, validates its result, and resumes class
-`__next__` from `for` or `next()`. Later comparison, arithmetic, and descriptor
-work should reuse this call path rather than invoke Python recursively from Go.
+iterative dispatch loop. User-defined truth testing, synchronous iteration, and
+direct containment all use this rule. Truth lookup tries class `__bool__` before
+class `__len__`. Iteration calls class `__iter__`, validates its result, and
+resumes class `__next__` from `for` or `next()`. Containment calls class
+`__contains__` and sends its result through the same truth path. Later
+comparison, arithmetic, and descriptor work should reuse this call path rather
+than invoke Python recursively from Go.
 
 Integers use arbitrary precision, but one exact power operation may produce at
 most 1,048,576 bits. Larger results raise `OverflowError` before Go's allocator

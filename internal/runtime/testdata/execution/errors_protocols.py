@@ -102,3 +102,32 @@ class NoncallableNext:
 
 for item in NoncallableNext():
     pass
+# ---
+# case: disabled contains method
+# error: TypeError
+# message: "'DisabledContainer' object is not a container"
+class DisabledContainer:
+    __contains__ = None
+
+result = 1 in DisabledContainer()
+# ---
+# case: noncallable contains method
+# error: TypeError
+# message: "'int' object is not callable"
+class NoncallableContainer:
+    __contains__ = 1
+
+result = 1 in NoncallableContainer()
+# ---
+# case: invalid contains truth result
+# error: TypeError
+# message: "__bool__ should return bool, returned int"
+class InvalidTruth:
+    def __bool__(self):
+        return 1
+
+class InvalidResultContainer:
+    def __contains__(self, needle):
+        return InvalidTruth()
+
+result = 1 in InvalidResultContainer()

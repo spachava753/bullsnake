@@ -1,6 +1,103 @@
 package runtime
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+)
+
+type membershipCall struct {
+	instruction int
+	operand     uint32
+}
+
+// executeMembership keeps built-in containers synchronous and calls a user
+// class __contains__ method before truth-testing its result.
+func executeMembership(
+	frame *frame,
+	instruction int,
+	operand uint32,
+	container Value,
+	needle Value,
+) (instructionOutcome, error) {
+	instance, userContainer := container.(*instanceValue)
+	if !userContainer {
+		contained, exception := containsValue(container, needle)
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if operand == bytecode.CompareNotIn {
+			contained = !contained
+		}
+		result := falseSingleton
+		if contained {
+			result = trueSingleton
+		}
+		return pushOutcome(frame, instruction, result)
+	}
+
+	method, found := lookupInstanceSpecial(instance, "__contains__")
+	if found && method == None {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"'"+container.TypeName()+"' object is not a container",
+			),
+		}, nil
+	}
+	if !found {
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				"argument of type '"+container.TypeName()+
+					"' is not a container or iterable",
+			),
+		}, nil
+	}
+
+	call := &membershipCall{instruction: instruction, operand: operand}
+	outcome, err := executeFunctionCall(
+		frame,
+		instruction,
+		len(frame.stack),
+		method,
+		[]Value{needle},
+		nil,
+	)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if outcome.kind == called {
+		outcome.frame.membership = call
+		return outcome, nil
+	}
+	if outcome.kind != advance {
+		return outcome, nil
+	}
+	result, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"containment special method returned without a value",
+		)
+	}
+	return finishMembershipCall(frame, call, result)
+}
+
+func finishMembershipCall(
+	frame *frame,
+	call *membershipCall,
+	result Value,
+) (instructionOutcome, error) {
+	return executeTruthOperation(
+		frame,
+		call.instruction,
+		bytecode.Instruction{Opcode: bytecode.CompareOp, Operand: call.operand},
+		result,
+	)
+}
 
 // containsValue implements membership for current collections without exposing
 // their temporary linear storage to comparison dispatch.

@@ -317,6 +317,58 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.membership != nil {
+				call := active.membership
+				active.membership = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"containment special method has no caller",
+					)
+				}
+				membershipOutcome, membershipErr := finishMembershipCall(
+					thread.current,
+					call,
+					result,
+				)
+				if membershipErr != nil {
+					return nil, nil, membershipErr
+				}
+				switch membershipOutcome.kind {
+				case advance:
+					continue
+				case called:
+					if membershipOutcome.frame == nil ||
+						membershipOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.instruction,
+							"invalid containment truth call transition",
+						)
+					}
+					thread.current = membershipOutcome.frame
+					continue
+				case raised:
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						membershipOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				default:
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid containment special method outcome",
+					)
+				}
+			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil

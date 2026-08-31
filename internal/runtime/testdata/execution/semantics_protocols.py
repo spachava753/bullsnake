@@ -218,3 +218,72 @@ except ValueError as error:
 assert subclass_complete is True, f'subclass_complete={subclass_complete!r}'
 assert body_error == 'body failure', f'body_error={body_error!r}'
 assert next_error == 'ValueError("next failed")', f'next_error={next_error!r}'
+# ---
+# case: user containment protocols
+class Bag:
+    def __init__(self, value):
+        self.value = value
+        self.calls = 0
+    def __contains__(self, needle):
+        self.calls = self.calls + 1
+        return needle == self.value
+
+bag = Bag(3)
+present = 3 in bag
+absent = 4 in bag
+not_present = 4 not in bag
+
+class TruthResult:
+    def __init__(self, value):
+        self.value = value
+        self.calls = 0
+    def __bool__(self):
+        self.calls = self.calls + 1
+        return self.value
+
+class DeferredBag:
+    def __init__(self, result):
+        self.result = result
+    def __contains__(self, needle):
+        return self.result
+
+truth_result = TruthResult(True)
+deferred = 'item' in DeferredBag(truth_result)
+
+class BaseBag:
+    def __contains__(self, needle):
+        return needle == 'base'
+
+class ChildBag(BaseBag):
+    pass
+
+inherited = 'base' in ChildBag()
+
+class ContainsBeforeIter:
+    def __contains__(self, needle):
+        return False
+    def __iter__(self):
+        raise ValueError('iteration should not run')
+
+precedence = 'value' not in ContainsBeforeIter()
+
+assert present is True
+assert absent is False
+assert not_present is True
+assert bag.calls == 3
+assert deferred is True
+assert truth_result.calls == 1
+assert inherited is True
+assert precedence is True
+# ---
+# case: containment exceptions are catchable
+class BrokenContainer:
+    def __contains__(self, needle):
+        raise ValueError('contains failed')
+
+try:
+    result = 1 in BrokenContainer()
+except ValueError as error:
+    contains_error = f'{error!r}'
+
+assert contains_error == 'ValueError("contains failed")'

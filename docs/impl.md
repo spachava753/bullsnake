@@ -424,6 +424,11 @@ exhaustion; the same exception raised by loop body code remains an ordinary
 exception. Bullsnake does not yet use `__getitem__` as the legacy iteration
 fallback.
 
+A user container resolves `__contains__` on its class and truth-tests the result,
+including another user `__bool__` or `__len__` call. A class attribute set to
+`None` disables containment. If the class omits `__contains__`, Bullsnake does
+not yet search an iterator for an equal item.
+
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative
 integer exponent returns an integer, subject to the documented 1,048,576-bit

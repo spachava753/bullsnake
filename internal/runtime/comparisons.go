@@ -25,6 +25,10 @@ func executeComparison(
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
 
+	if operand == bytecode.CompareIn || operand == bytecode.CompareNotIn {
+		return executeMembership(frame, index, operand, right, left)
+	}
+
 	var result bool
 	switch operand {
 	case bytecode.CompareEqual:
@@ -35,15 +39,6 @@ func executeComparison(
 		result = left == right
 	case bytecode.CompareIsNot:
 		result = left != right
-	case bytecode.CompareIn, bytecode.CompareNotIn:
-		contained, exception := containsValue(right, left)
-		if exception != nil {
-			return instructionOutcome{kind: raised, exception: exception}, nil
-		}
-		result = contained
-		if operand == bytecode.CompareNotIn {
-			result = !result
-		}
 	default:
 		comparison, ordered, supported := orderedValues(left, right)
 		if !supported {
