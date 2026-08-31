@@ -323,6 +323,13 @@ Every normal, exceptional, return, break, or continue path calls and awaits the
 saved `__aexit__` method. Multiple managers still enter left to right and exit in
 reverse order. A truthy exceptional exit result suppresses the active exception.
 
+Asynchronous iteration uses the same special-method rule. `__aiter__` returns an
+object with `__anext__`; each next result is a native coroutine awaited through
+the frame loop. The compiler protects only the next-item operation so
+`StopAsyncIteration` means exhaustion there, while the same exception from loop
+body code remains an ordinary failure. Loop `else`, break, continue, and cleanup
+keep their synchronous control-flow meanings.
+
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
 indexes, jump targets, exception ranges, and stack use. Invalid or unsupported
@@ -436,14 +443,16 @@ but they must not mutate Python objects directly.
 
 ## Async and Python threads
 
-Native coroutine awaiting and asynchronous context management exist, but custom
-awaitables, async iteration, scheduling, and Python threads remain future work.
+Native coroutine awaiting, asynchronous context management, and asynchronous
+iteration exist. Custom awaitables, async comprehensions and generators,
+scheduling, and Python threads remain future work.
 
 Generators and coroutines retain suspended Python frames and resume through the
-VM's ordinary frame loop. The next step is asynchronous iteration. An event loop
-will eventually manage ready tasks, timers, I/O completion, cancellation, and
-task context. Async tasks will not be modeled as one goroutine each because
-Python task scheduling and cancellation need explicit interpreter state.
+VM's ordinary frame loop. The next steps are async comprehensions and async
+generators. An event loop will eventually manage ready tasks, timers, I/O
+completion, cancellation, and task context. Async tasks will not be modeled as
+one goroutine each because Python task scheduling and cancellation need explicit
+interpreter state.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread

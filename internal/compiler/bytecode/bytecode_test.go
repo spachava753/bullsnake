@@ -453,6 +453,18 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := GetAwaitable.StackEffect(0); got != 0 {
 		t.Fatalf("GET_AWAITABLE stack effect = %d, want 0", got)
 	}
+	if got := (Instruction{Opcode: CheckAsyncIterator}).String(); got != "CHECK_ASYNC_ITERATOR" {
+		t.Fatalf("async iterator instruction = %q", got)
+	}
+	if got := CheckAsyncIterator.StackEffect(0); got != 0 {
+		t.Fatalf("CHECK_ASYNC_ITERATOR stack effect = %d, want 0", got)
+	}
+	if got := (Instruction{Opcode: LoadStopAsyncIteration}).String(); got != "LOAD_STOP_ASYNC_ITERATION" {
+		t.Fatalf("stop async iteration instruction = %q", got)
+	}
+	if got := LoadStopAsyncIteration.StackEffect(0); got != 1 {
+		t.Fatalf("LOAD_STOP_ASYNC_ITERATION stack effect = %d, want 1", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

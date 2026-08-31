@@ -15,14 +15,14 @@ func executeLoadSpecial(
 	if !ok {
 		return instructionOutcome{
 			kind:      raised,
-			exception: missingContextMethod(owner, name),
+			exception: missingSpecialMethod(owner, name),
 		}, nil
 	}
 	value, found := instance.class.lookup(name)
 	if !found {
 		return instructionOutcome{
 			kind:      raised,
-			exception: missingContextMethod(owner, name),
+			exception: missingSpecialMethod(owner, name),
 		}, nil
 	}
 	if function, bind := value.(*functionValue); bind {
@@ -31,7 +31,19 @@ func executeLoadSpecial(
 	return pushOutcome(frame, instruction, value)
 }
 
-func missingContextMethod(owner Value, name string) *Exception {
+func missingSpecialMethod(owner Value, name string) *Exception {
+	switch name {
+	case "__aiter__":
+		return newException(
+			"TypeError",
+			"'async for' requires an object with __aiter__ method, got "+owner.TypeName(),
+		)
+	case "__anext__":
+		return newException(
+			"TypeError",
+			"'async for' requires an iterator with __anext__ method, got "+owner.TypeName(),
+		)
+	}
 	protocol := "context manager protocol"
 	if name == "__aenter__" || name == "__aexit__" {
 		protocol = "asynchronous context manager protocol"

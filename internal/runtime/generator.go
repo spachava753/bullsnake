@@ -482,6 +482,9 @@ func executeGetAwaitable(
 		case bytecode.AwaitAsyncExit:
 			message = "'async with' received an object from __aexit__ that does not " +
 				"implement __await__: " + value.TypeName()
+		case bytecode.AwaitAsyncNext:
+			message = "'async for' received an invalid object from __anext__: " +
+				value.TypeName()
 		}
 		return instructionOutcome{
 			kind:      raised,

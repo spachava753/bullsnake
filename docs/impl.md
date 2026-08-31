@@ -179,7 +179,8 @@ The current compiler translates:
 - names, attributes, calls, subscriptions, slices, operators, comparisons, and
   conditional expressions
 - simple, chained, destructuring, annotated, augmented, and deletion targets
-- `if`, synchronous `while` and `for`, loop `else`, `break`, and `continue`
+- `if`, synchronous `while`, synchronous and asynchronous `for`, loop `else`,
+  `break`, and `continue`
 - synchronous and asynchronous `with`, including multiple managers, exception
   suppression, awaited async entry and exit, and cleanup during return or loop
   transfer
@@ -263,8 +264,8 @@ defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
 The compiler rejects template-string execution, generic async functions, async
-generators, asynchronous comprehensions, and `async for`. Unsupported AST forms
-return compiler errors; they are not approximated with similar bytecode.
+generators, and asynchronous comprehensions. Unsupported AST forms return
+compiler errors; they are not approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -327,6 +328,12 @@ reject coroutines.
 exceptions enter the awaiting coroutine's ordinary handlers. User-defined
 `__await__` methods, scheduler-facing awaitables, and task execution remain
 unsupported.
+
+`async for` calls class-level `__aiter__` synchronously, requires its result to
+provide `__anext__`, and awaits each native-coroutine next result. A protected
+range surrounds only that next-item operation. `StopAsyncIteration` there ends
+the loop and enters `else`; the same exception from a target or body propagates.
+Break skips `else`, while continue and nonlocal cleanup retain the iterator.
 
 `yield from` keeps the delegate below each yielded value on the outer frame's
 operand stack. `SEND` forwards `None` or a sent value, falls through when the
@@ -433,10 +440,12 @@ annotations compiler path, take precedence. Failed lazy evaluation is retried.
 Synchronous context managers look up `__enter__` and `__exit__` on that class
 chain, ignoring same-named instance attributes. Asynchronous managers use the
 same class-only rule for `__aenter__` and `__aexit__`; the runtime requires native
-coroutines from both methods. The object model does not yet implement complete
-annotation attribute mutation rules, class keyword arguments, multiple
-inheritance, C3 method order, metaclasses, `super`, `__new__`, or general
-descriptors. Custom exception initializers and methods remain unsupported.
+coroutines from both methods. Asynchronous iteration also looks up `__aiter__`
+and `__anext__` on the class, and requires a native coroutine from each
+`__anext__` call. The object model does not yet implement complete annotation
+attribute mutation rules, class keyword arguments, multiple inheritance, C3
+method order, metaclasses, `super`, `__new__`, or general descriptors. Custom
+exception initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general
@@ -554,8 +563,8 @@ The largest current gaps are:
 - no namespace packages, broad standard library, or native extension loading
 - no general `iter` builtin or automatic generator closing during Go garbage
   collection
-- no custom awaitable protocol, async scheduling, asynchronous comprehensions,
-  async generators, async iteration, or Python threads
+- no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
+  asynchronous comprehensions, async generators, or Python threads
 - no complete Python object protocol, descriptors, user hashing, or multiple
   inheritance
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or

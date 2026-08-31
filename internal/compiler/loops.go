@@ -96,7 +96,7 @@ func (compiler *compilerState) compileWhileStatement(statement *compilerast.Whil
 // pre-iterator depth so break can remove only this loop's iterator state.
 func (compiler *compilerState) compileForStatement(statement *compilerast.ForStmt) error {
 	if statement.Async {
-		return compiler.error(statement.Span(), "async for is not compiled")
+		return compiler.compileAsyncForStatement(statement)
 	}
 	baseDepth := compiler.stackDepth
 	start := compiler.newLabel()

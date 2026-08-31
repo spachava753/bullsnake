@@ -52,6 +52,7 @@ var (
 	runtimeErrorType        = &exceptionTypeValue{name: "RuntimeError", base: exceptionType}
 	notImplementedErrorType = &exceptionTypeValue{name: "NotImplementedError", base: runtimeErrorType}
 	stopIterationType       = &exceptionTypeValue{name: "StopIteration", base: exceptionType}
+	stopAsyncIterationType  = &exceptionTypeValue{name: "StopAsyncIteration", base: exceptionType}
 	overflowErrorType       = &exceptionTypeValue{name: "OverflowError", base: arithmeticErrorType}
 	zeroDivisionErrorType   = &exceptionTypeValue{name: "ZeroDivisionError", base: arithmeticErrorType}
 	typeErrorType           = &exceptionTypeValue{name: "TypeError", base: exceptionType}
@@ -77,6 +78,7 @@ var builtinExceptionTypes = []*exceptionTypeValue{
 	runtimeErrorType,
 	notImplementedErrorType,
 	stopIterationType,
+	stopAsyncIterationType,
 	overflowErrorType,
 	zeroDivisionErrorType,
 	typeErrorType,

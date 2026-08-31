@@ -16,6 +16,7 @@ const (
 	AwaitExpression uint32 = iota
 	AwaitAsyncEnter
 	AwaitAsyncExit
+	AwaitAsyncNext
 )
 
 // CALL_EX operands report whether a keyword map follows the positional tuple.
@@ -188,6 +189,8 @@ const (
 	SetTypeVarDefault
 	SetFunctionTypeParameters
 	GetAwaitable
+	CheckAsyncIterator
+	LoadStopAsyncIteration
 )
 
 var opcodeNames = [...]string{
@@ -287,6 +290,8 @@ var opcodeNames = [...]string{
 	"SET_TYPE_VAR_DEFAULT",
 	"SET_FUNCTION_TYPE_PARAMETERS",
 	"GET_AWAITABLE",
+	"CHECK_ASYNC_ITERATOR",
+	"LOAD_STOP_ASYNC_ITERATION",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -322,7 +327,8 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError,
 		LoadNotImplementedError, LoadFast, LoadGlobal, MakeFunction, LoadDeref,
 		LoadClosure, ImportFrom, LoadBuildClass, LoadLocals,
-		LoadHandledExceptionType, MatchSequence, MatchMapping, GetLen:
+		LoadHandledExceptionType, LoadStopAsyncIteration,
+		MatchSequence, MatchMapping, GetLen:
 		return 1
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,

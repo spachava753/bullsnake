@@ -479,6 +479,8 @@ func executeInstruction(
 		return pushOutcome(frame, index, newException("NotImplementedError", ""))
 	case bytecode.LoadAssertionError:
 		return pushOutcome(frame, index, assertionErrorType)
+	case bytecode.LoadStopAsyncIteration:
+		return pushOutcome(frame, index, stopAsyncIterationType)
 	case bytecode.LoadBuildClass:
 		return pushOutcome(frame, index, buildClassSingleton)
 	case bytecode.LoadName:
@@ -1107,6 +1109,8 @@ func executeInstruction(
 		return executeGetIter(frame, index)
 	case bytecode.GetAwaitable:
 		return executeGetAwaitable(frame, index, instruction.Operand)
+	case bytecode.CheckAsyncIterator:
+		return executeCheckAsyncIterator(frame, index)
 	case bytecode.MatchSequence:
 		return executeMatchSequence(frame, index)
 	case bytecode.GetLen:

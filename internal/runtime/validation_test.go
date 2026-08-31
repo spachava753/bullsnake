@@ -579,6 +579,34 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "operand stack underflow",
 		},
 		{
+			name: "check async iterator outside coroutine code",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.CheckAsyncIterator},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "CHECK_ASYNC_ITERATOR requires coroutine code",
+		},
+		{
+			name: "check async iterator stack underflow",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.CheckAsyncIterator},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Flags:     bytecode.Optimized | bytecode.NewLocals | bytecode.Coroutine,
+			}),
+			wantFragment: "operand stack underflow",
+		},
+		{
 			name: "send outside suspended code",
 			code: testCode(
 				2,

@@ -476,7 +476,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.GetAwaitable:
-		if instruction.Operand > bytecode.AwaitAsyncExit {
+		if instruction.Operand > bytecode.AwaitAsyncNext {
 			return code.failure(
 				index,
 				"unsupported GET_AWAITABLE operand %d",
@@ -485,6 +485,11 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		if code.code.Flags()&bytecode.Coroutine == 0 {
 			return code.failure(index, "GET_AWAITABLE requires coroutine code")
+		}
+		return nil
+	case bytecode.CheckAsyncIterator:
+		if code.code.Flags()&bytecode.Coroutine == 0 {
+			return code.failure(index, "CHECK_ASYNC_ITERATOR requires coroutine code")
 		}
 		return nil
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
@@ -501,6 +506,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.MatchMapping, bytecode.MatchMappingKey, bytecode.CopyMapping,
 		bytecode.CheckMappingKey, bytecode.MakeTypeAlias, bytecode.MakeTypeVar,
 		bytecode.MakeTypeVarTuple, bytecode.MakeParamSpec,
+		bytecode.LoadStopAsyncIteration,
 		bytecode.SetTypeAliasParameters, bytecode.SetTypeVarBound,
 		bytecode.SetTypeVarConstraints, bytecode.SetTypeVarDefault,
 		bytecode.SetFunctionTypeParameters:
@@ -752,7 +758,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		bytecode.LoadGlobal, bytecode.LoadDeref, bytecode.LoadClosure,
 		bytecode.LoadNotImplementedError, bytecode.LoadAssertionError,
 		bytecode.LoadBuildClass, bytecode.LoadLocals, bytecode.MakeFunction,
-		bytecode.ImportFrom, bytecode.LoadHandledExceptionType:
+		bytecode.ImportFrom, bytecode.LoadHandledExceptionType,
+		bytecode.LoadStopAsyncIteration:
 		return 0, 1
 	case bytecode.StoreName, bytecode.StoreFast, bytecode.StoreGlobal,
 		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue,
@@ -798,7 +805,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.CallEx:
 		return 2 + int(instruction.Operand), 1
 	case bytecode.UnaryOp, bytecode.ConvertValue, bytecode.FormatSimple,
-		bytecode.GetIter, bytecode.GetAwaitable, bytecode.ListToTuple, bytecode.LoadAttr,
+		bytecode.GetIter, bytecode.GetAwaitable, bytecode.CheckAsyncIterator,
+		bytecode.ListToTuple, bytecode.LoadAttr,
 		bytecode.LoadSpecial, bytecode.LoadFromDictOrGlobals,
 		bytecode.LoadFromDictOrDeref:
 		return 1, 1
