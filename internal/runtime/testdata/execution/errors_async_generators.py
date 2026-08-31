@@ -92,3 +92,50 @@ async def reuse_async_sender_awaitable():
     await pending
 
 reuse_async_sender_awaitable().send(None)
+
+# ---
+# case: uncaught async generator athrow exceptions propagate
+# error: ValueError
+# message: "uncaught async throw"
+async def uncaught_async_throw_target():
+    yield 1
+
+async def raise_into_async_generator():
+    stream = uncaught_async_throw_target()
+    await stream.asend(None)
+    await stream.athrow(ValueError('uncaught async throw'))
+
+raise_into_async_generator().send(None)
+
+# ---
+# case: async generator athrow awaitables are one shot
+# error: RuntimeError
+# message: "cannot reuse already awaited aclose()/athrow()"
+async def reusable_async_throw_target():
+    try:
+        yield 1
+    except ValueError:
+        yield 2
+
+async def reuse_async_throw_awaitable():
+    stream = reusable_async_throw_target()
+    await stream.asend(None)
+    pending = stream.athrow(ValueError)
+    await pending
+    await pending
+
+reuse_async_throw_awaitable().send(None)
+
+# ---
+# case: async generator athrow validates exception values
+# error: TypeError
+# message: "exceptions must be classes or instances deriving from BaseException, not int"
+async def invalid_async_throw_target():
+    yield 1
+
+async def throw_invalid_async_value():
+    stream = invalid_async_throw_target()
+    await stream.asend(None)
+    await stream.athrow(1)
+
+throw_invalid_async_value().send(None)

@@ -377,7 +377,8 @@ route:
 					)
 				}
 				resumeKind := generator.resume.kind
-				if resumeKind == generatorAsyncNext {
+				switch resumeKind {
+				case generatorAsyncNext:
 					if generator.resume.asyncNext == nil {
 						return nil, current.failure(
 							currentInstruction,
@@ -385,6 +386,14 @@ route:
 						)
 					}
 					generator.resume.asyncNext.state = asyncGeneratorNextClosed
+				case generatorAsyncThrow:
+					if generator.resume.asyncThrow == nil {
+						return nil, current.failure(
+							currentInstruction,
+							"async generator failure has no athrow awaitable",
+						)
+					}
+					generator.resume.asyncThrow.state = asyncGeneratorNextClosed
 				}
 				if resumeKind == generatorClose && exception.class != nil &&
 					exception.class.isSubclassOf(generatorExitType) {
@@ -687,6 +696,12 @@ func executeInstruction(
 						frame,
 						index,
 						&asyncGeneratorASendMethod{generator: owner},
+					)
+				case "athrow":
+					return pushOutcome(
+						frame,
+						index,
+						&asyncGeneratorAThrowMethod{generator: owner},
 					)
 				default:
 					return instructionOutcome{

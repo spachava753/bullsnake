@@ -144,3 +144,66 @@ except StopIteration as stopped:
     assert stopped.value == (True, True, 5)
 else:
     assert False
+
+# ---
+# case: async generator athrow injects exceptions at yield
+class AsyncSignal(Exception):
+    pass
+
+async def catch_async_signal():
+    try:
+        yield 1
+    except AsyncSignal as caught:
+        yield caught
+
+async def drive_async_throw():
+    stream = catch_async_signal()
+    first = await stream.asend(None)
+    signal = AsyncSignal('injected')
+    caught = await stream.athrow(signal)
+    exhausted = False
+    try:
+        await stream.asend(None)
+    except StopAsyncIteration:
+        exhausted = True
+    return (first, caught is signal, exhausted)
+
+throwing = drive_async_throw()
+try:
+    throwing.send(None)
+except StopIteration as stopped:
+    assert stopped.value == (1, True, True)
+else:
+    assert False
+
+# ---
+# case: athrow into a new async generator skips its body
+new_throw_activity = 0
+
+async def untouched_async_generator():
+    global new_throw_activity
+    new_throw_activity += 1
+    yield 1
+
+async def throw_into_new_async_generator():
+    stream = untouched_async_generator()
+    injected = False
+    try:
+        await stream.athrow(ValueError('new throw'))
+    except ValueError:
+        injected = True
+    exhausted = False
+    try:
+        await stream.__anext__()
+    except StopAsyncIteration:
+        exhausted = True
+    return (injected, exhausted)
+
+new_throwing = throw_into_new_async_generator()
+try:
+    new_throwing.send(None)
+except StopIteration as stopped:
+    assert stopped.value == (True, True)
+else:
+    assert False
+assert new_throw_activity == 0

@@ -34,6 +34,7 @@ const (
 	generatorDelegate
 	generatorDelegateClose
 	generatorAsyncNext
+	generatorAsyncThrow
 )
 
 type generatorResume struct {
@@ -43,6 +44,7 @@ type generatorResume struct {
 	defaultValue Value
 	hasDefault   bool
 	asyncNext    *asyncGeneratorNextValue
+	asyncThrow   *asyncGeneratorThrowValue
 }
 
 type generatorValue struct {
@@ -490,7 +492,8 @@ func executeGetAwaitable(
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
-	if _, asyncNext := value.(*asyncGeneratorNextValue); asyncNext {
+	switch value.(type) {
+	case *asyncGeneratorNextValue, *asyncGeneratorThrowValue:
 		return pushOutcome(frame, instruction, value)
 	}
 	coroutine, ok := value.(*generatorValue)
@@ -537,6 +540,14 @@ func executeSend(
 	switch delegate := delegate.(type) {
 	case *asyncGeneratorNextValue:
 		return executeAsyncGeneratorNextSend(
+			frame,
+			instruction,
+			target,
+			delegate,
+			sent,
+		)
+	case *asyncGeneratorThrowValue:
+		return executeAsyncGeneratorThrowSend(
 			frame,
 			instruction,
 			target,
@@ -726,7 +737,8 @@ func suspendGenerator(
 		return nil, nil, active.failure(instruction, "generator has no resuming caller")
 	}
 	if generator.kind == asyncGeneratorObject &&
-		generator.resume.kind == generatorAsyncNext {
+		(generator.resume.kind == generatorAsyncNext ||
+			generator.resume.kind == generatorAsyncThrow) {
 		if wrapped, asyncYield := value.(*asyncGeneratorWrappedValue); asyncYield {
 			return finishAsyncGeneratorYield(active, instruction, wrapped)
 		}
@@ -814,6 +826,16 @@ func finishGenerator(
 			)
 		}
 		resume.asyncNext.state = asyncGeneratorNextClosed
+		generator.complete()
+		return caller, newExceptionOfType(stopAsyncIterationType, ""), nil
+	case generatorAsyncThrow:
+		if resume.asyncThrow == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"async generator completion has no athrow awaitable",
+			)
+		}
+		resume.asyncThrow.state = asyncGeneratorNextClosed
 		generator.complete()
 		return caller, newExceptionOfType(stopAsyncIterationType, ""), nil
 	case generatorDelegate:

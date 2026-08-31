@@ -201,6 +201,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *asyncGeneratorAThrowMethod:
+		return executeAsyncGeneratorAThrowCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *generatorSendMethod:
 		return executeGeneratorSendCall(
 			caller,

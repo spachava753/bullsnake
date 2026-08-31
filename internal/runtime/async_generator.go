@@ -26,6 +26,16 @@ type asyncGeneratorNextValue struct {
 	sendValue Value
 }
 
+type asyncGeneratorThrowValue struct {
+	generator *generatorValue
+	state     asyncGeneratorNextState
+	arguments []Value
+}
+
+func (*asyncGeneratorThrowValue) TypeName() string { return "async_generator_athrow" }
+func (*asyncGeneratorThrowValue) Repr() string     { return "<async_generator_athrow object>" }
+func (*asyncGeneratorThrowValue) isValue()         {}
+
 func (*asyncGeneratorNextValue) TypeName() string { return "async_generator_asend" }
 func (*asyncGeneratorNextValue) Repr() string     { return "<async_generator_asend object>" }
 func (*asyncGeneratorNextValue) isValue()         {}
@@ -39,6 +49,10 @@ type asyncGeneratorANextMethod struct {
 }
 
 type asyncGeneratorASendMethod struct {
+	generator *generatorValue
+}
+
+type asyncGeneratorAThrowMethod struct {
 	generator *generatorValue
 }
 
@@ -59,6 +73,12 @@ func (method *asyncGeneratorASendMethod) Repr() string {
 	return "<built-in method asend of " + method.generator.Repr() + ">"
 }
 func (*asyncGeneratorASendMethod) isValue() {}
+
+func (*asyncGeneratorAThrowMethod) TypeName() string { return "builtin_function_or_method" }
+func (method *asyncGeneratorAThrowMethod) Repr() string {
+	return "<built-in method athrow of " + method.generator.Repr() + ">"
+}
+func (*asyncGeneratorAThrowMethod) isValue() {}
 
 func executeAsyncGeneratorAIterCall(
 	caller *frame,
@@ -139,6 +159,44 @@ func executeAsyncGeneratorASendCall(
 		generator: method.generator,
 		state:     asyncGeneratorNextCreated,
 		sendValue: sendValue,
+	})
+}
+
+// executeAsyncGeneratorAThrowCall validates and copies exception arguments into
+// a lazy awaitable so injection begins only when Python awaits the result.
+func executeAsyncGeneratorAThrowCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *asyncGeneratorAThrowMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", "athrow() takes no keyword arguments"),
+		}, nil
+	}
+	if len(arguments) < 1 || len(arguments) > 3 {
+		message := "athrow expected at least 1 argument, got 0"
+		if len(arguments) > 3 {
+			message = "athrow expected at most 3 arguments, got " + strconv.Itoa(len(arguments))
+		}
+		discardCallSegment(caller, base)
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("TypeError", message),
+		}, nil
+	}
+	throwArguments := make([]Value, len(arguments))
+	copy(throwArguments, arguments)
+	discardCallSegment(caller, base)
+	return pushOutcome(caller, instruction, &asyncGeneratorThrowValue{
+		generator: method.generator,
+		state:     asyncGeneratorNextCreated,
+		arguments: throwArguments,
 	})
 }
 
@@ -241,8 +299,101 @@ func executeAsyncGeneratorNextSend(
 	)
 }
 
-// finishAsyncGeneratorYield closes one __anext__ awaitable, replaces it with
-// the wrapped item, and leaves the async-generator frame suspended for later.
+// executeAsyncGeneratorThrowSend starts exception injection or resumes an inner
+// await while retaining the one-shot athrow awaitable on the caller's stack.
+func executeAsyncGeneratorThrowSend(
+	caller *frame,
+	instruction int,
+	target int,
+	awaitable *asyncGeneratorThrowValue,
+	sent Value,
+) (instructionOutcome, error) {
+	generator := awaitable.generator
+	resume := generatorResume{
+		kind:        generatorAsyncThrow,
+		target:      target,
+		instruction: instruction,
+		asyncThrow:  awaitable,
+	}
+	switch awaitable.state {
+	case asyncGeneratorNextClosed:
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"RuntimeError",
+				"cannot reuse already awaited aclose()/athrow()",
+			),
+		}, nil
+	case asyncGeneratorNextCreated:
+		if generator.state == generatorCompleted {
+			awaitable.state = asyncGeneratorNextClosed
+			return finishDelegation(caller, instruction, target, None)
+		}
+		if generator.state == generatorRunning {
+			awaitable.state = asyncGeneratorNextClosed
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"RuntimeError",
+					"athrow(): asynchronous generator is already running",
+				),
+			}, nil
+		}
+		if sent != None {
+			return instructionOutcome{
+				kind: raised,
+				exception: newException(
+					"RuntimeError",
+					"can't send non-None value to a just-started coroutine",
+				),
+			}, nil
+		}
+		injected, failure := normalizeGeneratorThrow(awaitable.arguments)
+		awaitable.arguments = nil
+		if failure != nil {
+			awaitable.state = asyncGeneratorNextClosed
+			return instructionOutcome{kind: raised, exception: failure}, nil
+		}
+		awaitable.state = asyncGeneratorNextActive
+		injected.originFrame = nil
+		injected.originInstruction = 0
+		if generator.state == generatorCreated {
+			awaitable.state = asyncGeneratorNextClosed
+			generator.complete()
+			return instructionOutcome{kind: raised, exception: injected}, nil
+		}
+		if generator.state != generatorSuspended || generator.frame == nil {
+			return instructionOutcome{}, caller.failure(
+				instruction,
+				"athrow target has no suspended async generator",
+			)
+		}
+		generator.state = generatorRunning
+		generator.resume = resume
+		generator.frame.previous = caller
+		return instructionOutcome{
+			kind:      called,
+			frame:     generator.frame,
+			exception: injected,
+		}, nil
+	case asyncGeneratorNextActive:
+		if generator.state != generatorSuspended {
+			return instructionOutcome{}, caller.failure(
+				instruction,
+				"active athrow awaitable has no suspended async generator",
+			)
+		}
+		return resumeGenerator(caller, instruction, generator, sent, resume)
+	default:
+		return instructionOutcome{}, caller.failure(
+			instruction,
+			"invalid async generator athrow awaitable state",
+		)
+	}
+}
+
+// finishAsyncGeneratorYield closes one async-generator protocol awaitable,
+// replaces it with the wrapped item, and leaves the frame suspended for later.
 func finishAsyncGeneratorYield(
 	active *frame,
 	instruction int,
@@ -251,22 +402,41 @@ func finishAsyncGeneratorYield(
 	generator := active.generator
 	resume := generator.resume
 	caller := active.previous
-	if resume.kind != generatorAsyncNext || resume.asyncNext == nil {
+	var awaitable Value
+	switch resume.kind {
+	case generatorAsyncNext:
+		if resume.asyncNext == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"async generator yield has no next awaitable",
+			)
+		}
+		resume.asyncNext.state = asyncGeneratorNextClosed
+		awaitable = resume.asyncNext
+	case generatorAsyncThrow:
+		if resume.asyncThrow == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"async generator yield has no athrow awaitable",
+			)
+		}
+		resume.asyncThrow.state = asyncGeneratorNextClosed
+		awaitable = resume.asyncThrow
+	default:
 		return nil, nil, active.failure(
 			instruction,
-			"async generator yield has no next awaitable",
+			"async generator yield has no protocol awaitable",
 		)
 	}
 	if caller == nil || len(caller.stack) == 0 ||
-		caller.stack[len(caller.stack)-1] != resume.asyncNext {
+		caller.stack[len(caller.stack)-1] != awaitable {
 		return nil, nil, active.failure(
 			instruction,
-			"async generator next awaitable is not retained by caller",
+			"async generator awaitable is not retained by caller",
 		)
 	}
 	active.previous = nil
 	generator.state = generatorSuspended
-	resume.asyncNext.state = asyncGeneratorNextClosed
 	caller.pop()
 	if !caller.push(wrapped.value) {
 		return nil, nil, caller.failure(
@@ -280,6 +450,8 @@ func finishAsyncGeneratorYield(
 
 var _ Value = (*asyncGeneratorWrappedValue)(nil)
 var _ Value = (*asyncGeneratorNextValue)(nil)
+var _ Value = (*asyncGeneratorThrowValue)(nil)
 var _ Value = (*asyncGeneratorAIterMethod)(nil)
 var _ Value = (*asyncGeneratorANextMethod)(nil)
 var _ Value = (*asyncGeneratorASendMethod)(nil)
+var _ Value = (*asyncGeneratorAThrowMethod)(nil)
