@@ -32,6 +32,33 @@ func (value *templateValue) Repr() string {
 }
 func (*templateValue) isValue() {}
 
+type templateIterator struct {
+	template *templateValue
+	part     int
+}
+
+func (*templateIterator) TypeName() string { return "string.templatelib.TemplateIter" }
+func (iterator *templateIterator) Repr() string {
+	return "<" + iterator.TypeName() + " object>"
+}
+func (*templateIterator) isValue() {}
+
+func (iterator *templateIterator) next() (Value, bool, *Exception) {
+	lastPart := len(iterator.template.interpolations.elements) * 2
+	for iterator.part <= lastPart {
+		part := iterator.part
+		iterator.part++
+		if part%2 != 0 {
+			return iterator.template.interpolations.elements[part/2], true, nil
+		}
+		literal := iterator.template.strings.elements[part/2].(*stringValue)
+		if literal.value != "" {
+			return literal, true, nil
+		}
+	}
+	return nil, false, nil
+}
+
 // executeBuildInterpolation validates compiler-created metadata and retains the
 // evaluated value without applying its conversion or format string.
 func executeBuildInterpolation(

@@ -65,3 +65,40 @@ assert ordered.strings == ('', ':', '')
 assert ordered.values == (1, 2)
 assert ordered.interpolations[0].expression == 'capture(1)'
 assert ordered.interpolations[1].expression == 'capture(2)'
+# ---
+# case: template iteration alternates nonempty parts
+first = 1
+second = 2
+template = t'left {first} middle {second} right'
+parts = ()
+for part in template:
+    parts = (*parts, part)
+
+assert parts[0] == 'left '
+assert parts[1] is template.interpolations[0]
+assert parts[2] == ' middle '
+assert parts[3] is template.interpolations[1]
+assert parts[4] == ' right'
+# ---
+# case: template iteration skips empty strings
+first = 1
+second = 2
+only_interpolations = t'{first}{second}'
+parts = ()
+for part in only_interpolations:
+    parts = (*parts, part)
+
+empty_count = 0
+for absent in t'':
+    empty_count = empty_count + 1
+else:
+    empty_completed = True
+
+second_pass = ()
+for part in only_interpolations:
+    second_pass = (*second_pass, part)
+
+assert parts == only_interpolations.interpolations
+assert empty_count == 0
+assert empty_completed is True
+assert second_pass == parts

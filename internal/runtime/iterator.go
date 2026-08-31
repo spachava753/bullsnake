@@ -183,6 +183,8 @@ func newIterator(value Value) (Value, bool) {
 		return &sequenceIterator{sequence: value}, true
 	case *stringValue, *bytesValue:
 		return &textIterator{text: value}, true
+	case *templateValue:
+		return &templateIterator{template: value}, true
 	case *dictValue:
 		return &collectionIterator{
 			collection: value,
