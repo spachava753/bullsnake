@@ -421,3 +421,32 @@ assert 0 in generator_frozen and 1 in generator_frozen
 nested_key = frozenset(((1, 2), (3, 4)))
 lookup = {nested_key: 'value'}
 assert lookup[nested_key] == 'value'
+# ---
+# case: range construction and iteration
+assert list(range(4)) == [0, 1, 2, 3]
+assert list(range(2, 6)) == [2, 3, 4, 5]
+assert list(range(1, 10, 3)) == [1, 4, 7]
+assert list(range(5, -5, -3)) == [5, 2, -1, -4]
+assert list(range(0)) == []
+assert list(range(-3)) == []
+assert list(range(5, 1)) == []
+assert list(range(1, 5, -1)) == []
+assert list(range(True)) == [0]
+# ---
+# case: range value metadata and large endpoints
+value = range(100000000000000000000, 100000000000000000010, 3)
+assert type(value) is range
+assert isinstance(value, range)
+assert value.start == 100000000000000000000
+assert value.stop == 100000000000000000010
+assert value.step == 3
+assert repr(value) == 'range(100000000000000000000, 100000000000000000010, 3)'
+assert repr(range(2, 5)) == 'range(2, 5)'
+assert len(value) == 4
+assert bool(value)
+assert not range(0)
+first = iter(value)
+second = iter(value)
+assert next(first) == 10**20
+assert next(first) == 10**20 + 3
+assert next(second) == 10**20

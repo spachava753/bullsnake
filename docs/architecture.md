@@ -372,22 +372,21 @@ interpolations needed by the executable subset. Native values have stable type
 objects, and the one-argument `type` form returns those objects or an existing
 user or exception class. `isinstance` and `issubclass` check these identities,
 user class MROs, and exception ancestry. Tuple candidates run from left to right.
-Native, user,
-and exception classes expose their basic name metadata through the ordinary
-attribute path. `object` is the native root class for native values, built-in
-exceptions, and ordinary user classes. A user class may name it as its sole
-base; combining native and user direct bases still requires a unified MRO
-representation. The existing `bool`, `int`, `str`, `list`, `tuple`, `set`,
-`frozenset`, and `dict` constructors are those same type objects rather than
-separate function
-stand-ins. Three-argument `type`
-construction copies a string-keyed dictionary into the ordinary class builder,
-so dynamic and statement classes share C3 ordering and descriptor behavior.
-Metaclass selection, MRO-entry rewriting, unions, and custom metaclass checks
-remain later work. A
-template keeps literal strings separate from evaluated interpolation values and
-their source metadata; creating one does not format those values. More of
-Python's data model will be added when language features or packages require it.
+Native, user, and exception classes expose their basic name metadata through the
+ordinary attribute path. `object` is the native root class for native values,
+built-in exceptions, and ordinary user classes. A user class may name it as its
+sole base; combining native and user direct bases still requires a unified MRO
+representation. The existing `bool`, `int`, `str`, `range`, `list`, `tuple`,
+`set`, `frozenset`, and `dict` constructors are those same type objects rather
+than separate function stand-ins. Ranges retain arbitrary-precision integer
+bounds and produce values lazily through the ordinary native iterator path.
+Three-argument `type` construction copies a string-keyed dictionary into the
+ordinary class builder, so dynamic and statement classes share C3 ordering and
+descriptor behavior. Metaclass selection, MRO-entry rewriting, unions, and
+custom metaclass checks remain later work. A template keeps literal strings
+separate from evaluated interpolation values and their source metadata; creating
+one does not format those values. More of Python's data model will be added when
+language features or packages require it.
 
 A Python special method may call arbitrary Python code. The VM therefore keeps
 the requesting instruction suspended while the method's frame runs in the same

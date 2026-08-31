@@ -42,6 +42,7 @@ var (
 	complexNativeType         = builtinNativeType("complex")
 	stringNativeType          = builtinNativeType("str")
 	bytesNativeType           = builtinNativeType("bytes")
+	rangeNativeType           = builtinNativeType("range")
 	tupleNativeType           = builtinNativeType("tuple")
 	listNativeType            = builtinNativeType("list")
 	dictNativeType            = builtinNativeType("dict")
@@ -69,6 +70,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 	boolNativeType,
 	intNativeType,
 	stringNativeType,
+	rangeNativeType,
 	tupleNativeType,
 	listNativeType,
 	setNativeType,
@@ -85,6 +87,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"complex":                          complexNativeType,
 	"str":                              stringNativeType,
 	"bytes":                            bytesNativeType,
+	"range":                            rangeNativeType,
 	"tuple":                            tupleNativeType,
 	"list":                             listNativeType,
 	"dict":                             dictNativeType,
@@ -112,6 +115,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"list_iterator":                    builtinNativeType("list_iterator"),
 	"str_iterator":                     builtinNativeType("str_iterator"),
 	"bytes_iterator":                   builtinNativeType("bytes_iterator"),
+	"range_iterator":                   builtinNativeType("range_iterator"),
 	"dict_keyiterator":                 builtinNativeType("dict_keyiterator"),
 	"set_iterator":                     builtinNativeType("set_iterator"),
 	"iterator":                         builtinNativeType("iterator"),
@@ -182,6 +186,8 @@ func executeNativeTypeCall(
 		return pushOutcome(caller, instruction, result)
 	case stringNativeType:
 		return executeBuiltinStr(caller, instruction, base, arguments, keywords)
+	case rangeNativeType:
+		return executeRangeTypeCall(caller, instruction, base, arguments, keywords)
 	case tupleNativeType, listNativeType, setNativeType, frozenSetNativeType,
 		dictNativeType:
 		return executeCollectionTypeCall(

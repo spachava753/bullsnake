@@ -217,3 +217,33 @@ frozenset(1)
 # error: TypeError
 # message: "cannot use 'list' as a set element (unhashable type: 'list')"
 frozenset(([1],))
+# ---
+# case: range missing argument
+# error: TypeError
+# message: "range expected at least 1 argument, got 0"
+range()
+# ---
+# case: range extra arguments
+# error: TypeError
+# message: "range expected at most 3 arguments, got 4"
+range(1, 2, 3, 4)
+# ---
+# case: range keyword argument
+# error: TypeError
+# message: "range() takes no keyword arguments"
+range(stop=3)
+# ---
+# case: range non-integer argument
+# error: TypeError
+# message: "'float' object cannot be interpreted as an integer"
+range(1.5)
+# ---
+# case: range zero step
+# error: ValueError
+# message: "range() arg 3 must not be zero"
+range(1, 2, 0)
+# ---
+# case: range length overflow
+# error: OverflowError
+# message: "cannot fit 'int' into an index-sized integer"
+len(range(1 << 100))

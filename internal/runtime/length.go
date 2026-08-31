@@ -35,6 +35,16 @@ func executeBuiltinLen(
 	}
 
 	value := arguments[0]
+	if rangeObject, ok := value.(*rangeValue); ok {
+		var integer big.Int
+		integer.Set(&rangeObject.length)
+		length, exception := checkedLengthResult(&intValue{value: integer})
+		discardCallSegment(caller, base)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(caller, instruction, length)
+	}
 	if length, found := immediateLength(value); found {
 		discardCallSegment(caller, base)
 		var integer big.Int

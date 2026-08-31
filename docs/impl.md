@@ -420,11 +420,18 @@ returns a distinct root instance and accepts no arguments. Native values,
 built-in exception classes, and ordinary user classes are instances or
 subclasses of `object`. A user class with no named base, or with `object` as its
 sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
-Mixing native and user direct bases remains unsupported. The `bool`, `int`, and
-`str` bindings are native type objects and retain their implemented constructor
-behavior. The `list`, `tuple`, `set`, `frozenset`, and `dict` type objects
-accept zero or one positional source. Sequence, set, and frozen-set constructors
-collect native, user, or generator iterators through the frame loop.
+Mixing native and user direct bases remains unsupported. The `bool`, `int`,
+`str`, and `range` bindings are native type objects and retain their implemented
+constructor behavior. `range` accepts one to three integer or boolean arguments,
+rejects a zero step, and retains arbitrary-precision `start`, `stop`, `step`, and
+length values. Iteration is lazy and gives each iterator independent state.
+`len` raises `OverflowError` when the range length does not fit the host index
+size. User `__index__` conversion, range subscription, and range-specific
+methods remain unsupported.
+
+The `list`, `tuple`, `set`, `frozenset`, and `dict` type objects accept zero or
+one positional source. Sequence, set, and frozen-set constructors collect
+native, user, or generator iterators through the frame loop.
 `tuple(existing_tuple)` and `frozenset(existing_frozenset)` preserve identity;
 list and set construction returns a new value. Set and frozen-set finalization
 uses the same hashability and duplicate rules as set displays. Dict construction
@@ -432,8 +439,7 @@ copies a native dictionary or consumes tuple/list key-value pairs, then applies
 keyword values. User-defined mapping objects and arbitrary iterable inner pairs
 are not implemented yet. `isinstance` checks native identity, the C3 ancestry of
 a user instance, and built-in or user exception ancestry. `issubclass` applies
-those
-same ancestry rules directly to class objects. A tuple of candidates is
+those same ancestry rules directly to class objects. A tuple of candidates is
 processed left to right and may contain nested tuples; a match suppresses errors
 from later entries. `bool` is a native subclass of `int`. Type unions and custom
 metaclass `__instancecheck__` methods are not implemented. Three-argument `type`
@@ -449,19 +455,18 @@ Collections support displays, unpacking, iteration, membership, integer and
 slice subscription, and dictionary item mutation. Lists compare structurally
 when their elements use the runtime's fixed scalar, tuple, list, or identity
 equality. Comparing list elements through user `__eq__` is not implemented yet.
-Built-in values use fixed
-truth and length rules. `len` supports strings, bytes, tuples, lists,
-dictionaries, and sets; string lengths count decoded code points, including
-preserved lone surrogates. A user instance looks up `__bool__` on its class for
-truth and falls back to class `__len__`; same-named instance attributes do not
-participate. The `bool` builtin uses the same lookup and returns the resolved
-boolean singleton; a direct `len` call uses the same class `__len__` path.
-`__bool__` must return a boolean. `__len__` must return a nonnegative integer that fits
-the host index size. The special-method call can suspend in another Python
-frame before the requesting operation continues. Dictionaries and sets
-currently use ordered linear storage. This keeps Python identity and equality
-checks explicit until user-defined hashing and equality can call back into
-Python.
+Built-in values use fixed truth and length rules. `len` supports strings, bytes,
+ranges, tuples, lists, dictionaries, and sets; string lengths count decoded code
+points, including preserved lone surrogates. A user instance looks up `__bool__`
+on its class for truth and falls back to class `__len__`; same-named instance
+attributes do not participate. The `bool` builtin uses the same lookup and
+returns the resolved boolean singleton; a direct `len` call uses the same class
+`__len__` path. `__bool__` must return a boolean. `__len__` must return a
+nonnegative integer that fits the host index size. The special-method call can
+suspend in another Python frame before the requesting operation continues.
+Dictionaries and sets currently use ordered linear storage. This keeps Python
+identity and equality checks explicit until user-defined hashing and equality
+can call back into Python.
 
 The `repr` builtin calls class `__repr__` for a direct user instance and requires
 a string result. The object form of `str` returns strings unchanged, uses an
@@ -552,14 +557,14 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes; native `bool`,
-`int`, `str`, `list`, `tuple`, `set`, `frozenset`, `dict`, `object`, and `type`
-objects; `callable`; `classmethod`; `getattr`; `hasattr`; `isinstance`;
+`int`, `str`, `range`, `list`, `tuple`, `set`, `frozenset`, `dict`, `object`, and
+`type` objects; `callable`; `classmethod`; `getattr`; `hasattr`; `isinstance`;
 `issubclass`; one-argument `iter`; `len`; positional `max` and `min` calls with
 two or more arguments; `next`; `repr`; and `staticmethod`. The `next` builtin
 accepts one optional default for generators, internal iterators, and user
-iterators. String and base
-forms of `int`, the iterable and keyword forms of `max` and `min`, the encoding
-form of `str`, and callable-sentinel `iter` remain unsupported.
+iterators. String and base forms of `int`, the iterable and keyword forms of
+`max` and `min`, the encoding form of `str`, and callable-sentinel `iter` remain
+unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

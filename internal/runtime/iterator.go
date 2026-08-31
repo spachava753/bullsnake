@@ -195,6 +195,8 @@ func newIterator(value Value) (Value, bool) {
 		return nil, false
 	case *tupleValue, *listValue:
 		return &sequenceIterator{sequence: value}, true
+	case *rangeValue:
+		return newRangeIterator(value), true
 	case *stringValue, *bytesValue:
 		return &textIterator{text: value}, true
 	case *templateValue:
