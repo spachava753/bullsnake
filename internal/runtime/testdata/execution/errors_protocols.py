@@ -237,3 +237,47 @@ def negate():
 value = InstanceOnlyUnary()
 value.__neg__ = negate
 result = -value
+# ---
+# case: declined user binary operation
+# error: TypeError
+# message: "unsupported operand type(s) for +: 'DeclinedBinary' and 'DeclinedBinary'"
+class DeclinedBinary:
+    def __add__(self, other):
+        return NotImplemented
+    def __radd__(self, other):
+        return NotImplemented
+
+result = DeclinedBinary() + DeclinedBinary()
+# ---
+# case: declined user in-place operation
+# error: TypeError
+# message: "unsupported operand type(s) for +=: 'DeclinedInPlace' and 'DeclinedInPlace'"
+class DeclinedInPlace:
+    def __iadd__(self, other):
+        return NotImplemented
+    def __add__(self, other):
+        return NotImplemented
+    def __radd__(self, other):
+        return NotImplemented
+
+value = DeclinedInPlace()
+value += DeclinedInPlace()
+# ---
+# case: disabled binary method
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledBinary:
+    __add__ = None
+
+result = DisabledBinary() + 1
+# ---
+# case: disabled in-place binary method
+# error: TypeError
+# message: "'NoneType' object is not callable"
+class DisabledInPlace:
+    __iadd__ = None
+    def __add__(self, other):
+        return 'must not run'
+
+value = DisabledInPlace()
+value += 1

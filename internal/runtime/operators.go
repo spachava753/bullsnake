@@ -110,6 +110,11 @@ func executeBinary(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
+	_, leftUser := left.(*instanceValue)
+	_, rightUser := right.(*instanceValue)
+	if leftUser || rightUser {
+		return executeUserBinary(frame, index, operand, inPlace, left, right)
+	}
 	if result, exception, handled := floatBinary(left, right, operand); handled {
 		if exception != nil {
 			return instructionOutcome{kind: raised, exception: exception}, nil
@@ -118,13 +123,16 @@ func executeBinary(
 	}
 	leftInteger, leftOK := integerOperand(left)
 	rightInteger, rightOK := integerOperand(right)
-	if !leftOK || !rightOK || operand == bytecode.BinaryDivide {
+	if !leftOK || !rightOK || operand == bytecode.BinaryDivide ||
+		operand == bytecode.BinaryMatrixMultiply {
 		operator := "+"
 		switch operand {
 		case bytecode.BinarySubtract:
 			operator = "-"
 		case bytecode.BinaryMultiply:
 			operator = "*"
+		case bytecode.BinaryMatrixMultiply:
+			operator = "@"
 		case bytecode.BinaryPower:
 			operator = "**"
 		case bytecode.BinaryDivide:

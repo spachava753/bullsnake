@@ -483,6 +483,54 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				}
 				continue
 			}
+			if active.binary != nil {
+				call := active.binary
+				active.binary = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"binary special method has no caller",
+					)
+				}
+				binaryOutcome, binaryErr := finishBinaryCall(thread.current, call, result)
+				if binaryErr != nil {
+					return nil, nil, binaryErr
+				}
+				switch binaryOutcome.kind {
+				case advance:
+					continue
+				case called:
+					if binaryOutcome.frame == nil ||
+						binaryOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.instruction,
+							"invalid binary call transition",
+						)
+					}
+					thread.current = binaryOutcome.frame
+					continue
+				case raised:
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						binaryOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				default:
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid binary special method outcome",
+					)
+				}
+			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil

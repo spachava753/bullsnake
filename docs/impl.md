@@ -443,8 +443,11 @@ the swapped right method, such as `__lt__` and `__gt__` for `<`, and raises
 passes through unchanged.
 
 Unary `+`, `-`, and `~` resolve class `__pos__`, `__neg__`, and `__invert__` for
-user instances and keep the returned object unchanged. Binary and reflected
-user arithmetic methods remain unsupported.
+user instances and keep the returned object unchanged. Binary operators resolve
+the matching normal and reflected methods for all compiler operands, including
+matrix multiplication. In-place operators first try `__iadd__` and its peers,
+then use the ordinary pair. `NotImplemented` advances to the next candidate;
+exhausting the candidates raises the operator-specific `TypeError`.
 
 Integer arithmetic includes exact addition, subtraction, multiplication,
 floor division, modulo, shifts, bitwise operations, and power. A nonnegative

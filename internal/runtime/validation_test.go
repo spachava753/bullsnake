@@ -1962,19 +1962,19 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "LOAD_HANDLED_EXCEPTION_TYPE has no active exception",
 		},
 		{
-			name: "unsupported matrix binary operation",
+			name: "unsupported binary operation",
 			code: testCode(
 				2,
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.LoadConst},
-					{Opcode: bytecode.BinaryOp, Operand: bytecode.BinaryMatrixMultiply},
+					{Opcode: bytecode.BinaryOp, Operand: 99},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
 				nil,
 			),
-			wantFragment: "unsupported BINARY_OP operand 3",
+			wantFragment: "unsupported BINARY_OP operand 99",
 		},
 		{
 			name: "unsupported unary operation",

@@ -620,3 +620,122 @@ except ValueError as error:
     unary_error = f'{error!r}'
 
 assert unary_error == 'ValueError("unary failed")'
+# ---
+# case: user binary numeric protocols
+class BinaryValue:
+    def __add__(self, other):
+        return 'add'
+    def __sub__(self, other):
+        return 'subtract'
+    def __mul__(self, other):
+        return 'multiply'
+    def __matmul__(self, other):
+        return 'matrix multiply'
+    def __truediv__(self, other):
+        return 'divide'
+    def __floordiv__(self, other):
+        return 'floor divide'
+    def __mod__(self, other):
+        return 'modulo'
+    def __pow__(self, other):
+        return 'power'
+    def __lshift__(self, other):
+        return 'left shift'
+    def __rshift__(self, other):
+        return 'right shift'
+    def __or__(self, other):
+        return 'or'
+    def __xor__(self, other):
+        return 'xor'
+    def __and__(self, other):
+        return 'and'
+
+binary = BinaryValue()
+added = binary + 1
+subtracted = binary - 1
+multiplied = binary * 1
+matrix_multiplied = binary @ 1
+divided = binary / 1
+floor_divided = binary // 1
+modulo = binary % 1
+powered = binary ** 1
+left_shifted = binary << 1
+right_shifted = binary >> 1
+ored = binary | 1
+xored = binary ^ 1
+anded = binary & 1
+
+assert added == 'add'
+assert subtracted == 'subtract'
+assert multiplied == 'multiply'
+assert matrix_multiplied == 'matrix multiply'
+assert divided == 'divide'
+assert floor_divided == 'floor divide'
+assert modulo == 'modulo'
+assert powered == 'power'
+assert left_shifted == 'left shift'
+assert right_shifted == 'right shift'
+assert ored == 'or'
+assert xored == 'xor'
+assert anded == 'and'
+# ---
+# case: reflected and in-place binary protocols
+binary_order = 0
+class LeftBinary:
+    def __add__(self, other):
+        global binary_order
+        binary_order = binary_order * 10 + 1
+        return NotImplemented
+
+class RightBinary:
+    def __radd__(self, other):
+        global binary_order
+        binary_order = binary_order * 10 + 2
+        return 'reflected add'
+
+reflected = LeftBinary() + RightBinary()
+reflected_order = binary_order
+
+class BinaryBase:
+    def __add__(self, other):
+        return 'base add'
+
+class BinaryChild(BinaryBase):
+    def __radd__(self, other):
+        return 'child reflected add'
+
+subclass_first = BinaryBase() + BinaryChild()
+
+class InPlaceBinary:
+    def __iadd__(self, other):
+        return ('in-place add', other)
+
+in_place = InPlaceBinary()
+in_place += 3
+
+class InPlaceFallback:
+    def __iadd__(self, other):
+        return NotImplemented
+    def __add__(self, other):
+        return ('ordinary fallback', other)
+
+in_place_fallback = InPlaceFallback()
+in_place_fallback += 4
+
+assert reflected == 'reflected add'
+assert reflected_order == 12
+assert subclass_first == 'child reflected add'
+assert in_place == ('in-place add', 3)
+assert in_place_fallback == ('ordinary fallback', 4)
+# ---
+# case: binary numeric exceptions are catchable
+class BrokenBinary:
+    def __add__(self, other):
+        raise ValueError('binary failed')
+
+try:
+    result = BrokenBinary() + 1
+except ValueError as error:
+    binary_error = f'{error!r}'
+
+assert binary_error == 'ValueError("binary failed")'
