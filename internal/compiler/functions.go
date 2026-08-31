@@ -77,11 +77,10 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	statement *compilerast.FunctionDefStmt,
 ) error {
 	for _, parameter := range statement.TypeParameters {
-		if parameter.Kind != compilerast.TypeVariable ||
-			parameter.Bound != nil || parameter.Default != nil {
+		if parameter.Kind != compilerast.TypeVariable || parameter.Default != nil {
 			return compiler.error(
 				parameter.Range,
-				"generic function type parameter bounds, defaults, and variadics are not compiled",
+				"generic function TypeVar defaults and variadic type parameters are not compiled",
 			)
 		}
 	}
@@ -122,7 +121,7 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 
 	name := "<generic parameters of " + statement.Name + ">"
 	generic := compiler.newTypeParametersCompiler(statement, typeScope, name, payloadNames)
-	for _, parameter := range statement.TypeParameters {
+	for index, parameter := range statement.TypeParameters {
 		if err := generic.emit(
 			bytecode.LoadConst,
 			generic.constantIndex(bytecode.TextString(parameter.Name)),
@@ -132,6 +131,11 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 		}
 		if err := generic.emit(bytecode.MakeTypeVar, 0, parameter.Range); err != nil {
 			return err
+		}
+		if parameter.Bound != nil {
+			if err := generic.emitTypeParameterBound(statement, parameter, index); err != nil {
+				return err
+			}
 		}
 		if err := generic.emitNameStore(parameter.Name, parameter.Range); err != nil {
 			return err

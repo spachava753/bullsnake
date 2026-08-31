@@ -206,11 +206,12 @@ reverse order. The user function keeps the ordinary argument layout and binder,
 including variadic positional and keyword parameters. The hidden scope does not
 appear in the user function's qualified name.
 
-A bound, tuple constraint, or default owns another hidden evaluator that captures
-the same definition scope. Reading `T.__bound__`, `T.__constraints__`, or
-`T.__default__` runs the corresponding evaluator once and caches a successful
-result. A failure remains uncached so a later access can retry. Parameters
-without a default return one immutable marker whose repr is `typing.NoDefault`.
+For aliases and generic functions, a bound, tuple constraint, or default owns
+another hidden evaluator that captures the same definition scope. Reading
+`T.__bound__`, `T.__constraints__`, or `T.__default__` runs the corresponding
+evaluator once and caches a successful result. A failure remains uncached so a
+later access can retry. Parameters without a default return one immutable marker
+whose repr is `typing.NoDefault`.
 Public evaluator callables and alias subscription remain later work.
 
 The compiler tracks operand-stack depth while it emits instructions. Every

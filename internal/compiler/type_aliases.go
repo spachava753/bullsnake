@@ -149,7 +149,7 @@ func (compiler *compilerState) newTypeParametersCompiler(
 // emitTypeParameterBound creates the lazy evaluator selected by the resolver
 // and attaches it to the TypeVar currently on the operand stack.
 func (compiler *compilerState) emitTypeParameterBound(
-	statement *compilerast.TypeAliasStmt,
+	owner compilerast.Node,
 	parameter compilerast.TypeParameter,
 	index int,
 ) error {
@@ -158,7 +158,7 @@ func (compiler *compilerState) emitTypeParameterBound(
 		opcode = bytecode.SetTypeVarConstraints
 	}
 	return compiler.emitTypeParameterEvaluator(
-		statement,
+		owner,
 		parameter,
 		index,
 		resolver.TypeVariableBound,
@@ -171,7 +171,7 @@ func (compiler *compilerState) emitTypeParameterBound(
 // emitTypeParameterEvaluator compiles one lazy bound, constraints, or default
 // child and attaches it to the TypeVar currently on the operand stack.
 func (compiler *compilerState) emitTypeParameterEvaluator(
-	statement *compilerast.TypeAliasStmt,
+	owner compilerast.Node,
 	parameter compilerast.TypeParameter,
 	index int,
 	purpose resolver.ScopePurpose,
@@ -179,7 +179,7 @@ func (compiler *compilerState) emitTypeParameterEvaluator(
 	name string,
 	opcode bytecode.Opcode,
 ) error {
-	scope := compiler.table.ScopeFor(statement, purpose, index)
+	scope := compiler.table.ScopeFor(owner, purpose, index)
 	if scope == nil || scope.Kind != resolver.TypeVariableScope {
 		return compiler.error(
 			parameter.Range,
@@ -194,7 +194,7 @@ func (compiler *compilerState) emitTypeParameterEvaluator(
 	child := &compilerState{
 		filename:      compiler.filename,
 		module:        compiler.module,
-		owner:         statement,
+		owner:         owner,
 		table:         compiler.table,
 		scope:         scope,
 		codeName:      name,

@@ -37,3 +37,12 @@ def require[T](head, *items, **options):
     return head
 
 require()
+
+# ---
+# case: generic function TypeVar bound failures remain lazy
+# error: NameError
+# message: "name 'MissingBound' is not defined"
+def missing_bound[T: MissingBound]():
+    return T
+
+missing_bound.__type_params__[0].__bound__

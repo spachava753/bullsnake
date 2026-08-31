@@ -135,3 +135,37 @@ assert collect_annotations['items'] is collect_parameter
 assert collect_annotations['flag'] is collect_parameter
 assert collect_annotations['options'] is collect_parameter
 assert collect_annotations['return'] is collect_parameter
+
+# ---
+# case: generic function TypeVar bounds and constraints evaluate lazily
+bound_calls = 0
+
+class Bound:
+    pass
+
+class First:
+    pass
+
+class Second:
+    pass
+
+def resolve_bound():
+    global bound_calls
+    bound_calls += 1
+    return Bound
+
+def bounded[T: resolve_bound()]():
+    return T
+
+def constrained[T: (First, Second)]():
+    return T
+
+assert bound_calls == 0
+bounded_parameter = bounded.__type_params__[0]
+assert bounded_parameter.__bound__ is Bound
+assert bound_calls == 1
+assert bounded_parameter.__bound__ is Bound
+assert bound_calls == 1
+constraints = constrained.__type_params__[0].__constraints__
+assert constraints[0] is First
+assert constraints[1] is Second
