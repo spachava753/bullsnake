@@ -66,7 +66,7 @@ func TestMissingResolverTableError(t *testing.T) {
 }
 
 func TestGenericFunctionCompilerBoundary(t *testing.T) {
-	module, err := parser.Parse("input.py", "def generic[T]():\n    pass\n")
+	module, err := parser.Parse("input.py", "def generic[T](value: T):\n    pass\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestGenericFunctionCompilerBoundary(t *testing.T) {
 	if !errors.As(err, &compileErr) {
 		t.Fatalf("error = %#v, want *compiler.Error", err)
 	}
-	if compileErr.Message != "generic functions are not compiled" {
+	if compileErr.Message != "generic function annotations are not compiled" {
 		t.Fatalf("message = %q", compileErr.Message)
 	}
 }

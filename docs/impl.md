@@ -186,7 +186,8 @@ The current compiler translates:
   AS and OR patterns, guards, fixed or starred tuple/list sequences, dictionary
   patterns with `**rest`, and class patterns with positional or named fields
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
-  lexical closures, returns, and lazy function annotations
+  lexical closures, returns, lazy function annotations, and basic generic
+  functions with plain unbounded `TypeVar` parameters
 - type aliases with lazy values and definition-scope captures, including
   `TypeVar`, `TypeVarTuple`, and `ParamSpec` parameters with lazy defaults;
   ordinary TypeVars also support lazy bounds and tuple constraints
@@ -237,9 +238,16 @@ an outer hidden child that creates fresh type parameters and closes the value
 child over them. Bound, tuple-constraint, and default expressions use their own
 lazy children with the same scope rules.
 
-The compiler rejects template-string execution, generic functions and classes,
-async definitions, asynchronous comprehensions, `async for`, `async with`, and
-coroutines.
+A basic generic function also uses an outer hidden child. It creates plain
+unbounded TypeVars, stores them in cells captured by the function body, attaches
+the same objects as one stable `f.__type_params__` tuple, and returns the
+function. Type parameter names do not enter the defining namespace, and the
+hidden child's name does not alter the user function's qualified name.
+
+The compiler rejects template-string execution, generic classes, generic
+function annotations, decorators, defaults, variadic parameters, non-TypeVar
+type parameters, type-parameter bounds and defaults, async definitions,
+asynchronous comprehensions, `async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
 similar bytecode.
 
@@ -361,7 +369,9 @@ The current function binder supports positional-only, positional, keyword-only,
 keyword unpacking. Defaults retain the objects created when the definition ran.
 Calls reject duplicate, missing, unexpected, or non-string keyword arguments
 with Python exceptions. Generator calls use the same binding path but retain the
-new frame without running its body.
+new frame without running its body. Every function exposes one stable
+`__type_params__` tuple. A basic generic function's tuple contains the same plain
+TypeVars captured by its body; an ordinary function's tuple is empty.
 
 A type alias has runtime type name `typing.TypeAliasType`. Its repr is its
 declared name. It exposes `__name__`, `__module__`, `__type_params__`, and lazy

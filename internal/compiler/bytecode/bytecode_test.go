@@ -441,6 +441,12 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := SetTypeVarDefault.StackEffect(0); got != -1 {
 		t.Fatalf("SET_TYPE_VAR_DEFAULT stack effect = %d, want -1", got)
 	}
+	if got := (Instruction{Opcode: SetFunctionTypeParameters}).String(); got != "SET_FUNCTION_TYPE_PARAMETERS" {
+		t.Fatalf("function type parameter instruction = %q", got)
+	}
+	if got := SetFunctionTypeParameters.StackEffect(0); got != -1 {
+		t.Fatalf("SET_FUNCTION_TYPE_PARAMETERS stack effect = %d, want -1", got)
+	}
 	trueJump := Instruction{Opcode: PopJumpIfTrue, Operand: 7}
 	if got := trueJump.String(); got != "POP_JUMP_IF_TRUE 7" {
 		t.Fatalf("true jump instruction = %q", got)

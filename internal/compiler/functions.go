@@ -14,7 +14,7 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 		return compiler.error(statement.Span(), "async functions are not compiled")
 	}
 	if len(statement.TypeParameters) != 0 {
-		return compiler.error(statement.Span(), "generic functions are not compiled")
+		return compiler.compileGenericFunctionDefinition(statement)
 	}
 
 	scope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
@@ -66,6 +66,176 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 		}
 	}
 	return compiler.emitNameStore(statement.Name, statement.Span())
+}
+
+// compileGenericFunctionDefinition runs TypeVar creation in a hidden scope and
+// returns the function whose body closes over those parameters.
+func (compiler *compilerState) compileGenericFunctionDefinition(
+	statement *compilerast.FunctionDefStmt,
+) error {
+	if err := validateBasicGenericFunction(compiler, statement); err != nil {
+		return err
+	}
+	typeScope := compiler.table.ScopeFor(statement, resolver.TypeParameters, 0)
+	if typeScope == nil || typeScope.Kind != resolver.TypeParametersScope {
+		return compiler.error(
+			statement.Span(),
+			"resolver has no type parameter scope for %q",
+			statement.Name,
+		)
+	}
+	functionScope := compiler.table.ScopeFor(statement, resolver.DefinitionBody, 0)
+	if functionScope == nil || functionScope.Kind != resolver.FunctionScope {
+		return compiler.error(statement.Span(), "resolver has no function scope for %q", statement.Name)
+	}
+	if functionScope.Flags&resolver.Generator != 0 {
+		return compiler.error(statement.Span(), "generic generator functions are not compiled")
+	}
+
+	name := "<generic parameters of " + statement.Name + ">"
+	generic := compiler.newTypeParametersCompiler(statement, typeScope, name)
+	for _, parameter := range statement.TypeParameters {
+		if err := generic.emit(
+			bytecode.LoadConst,
+			generic.constantIndex(bytecode.TextString(parameter.Name)),
+			parameter.Range,
+		); err != nil {
+			return err
+		}
+		if err := generic.emit(bytecode.MakeTypeVar, 0, parameter.Range); err != nil {
+			return err
+		}
+		if err := generic.emitNameStore(parameter.Name, parameter.Range); err != nil {
+			return err
+		}
+	}
+	for _, parameter := range statement.TypeParameters {
+		if err := generic.emitNameLoad(parameter.Name, parameter.Range); err != nil {
+			return err
+		}
+	}
+	if err := generic.emit(
+		bytecode.BuildTuple,
+		uint32(len(statement.TypeParameters)),
+		statement.Span(),
+	); err != nil {
+		return err
+	}
+
+	function := generic.newFunctionCompiler(
+		statement,
+		functionScope,
+		statement.Parameters,
+		statement.Name,
+	)
+	// The hidden type-parameter scope does not appear in Python's qualified name.
+	function.qualifiedName = compiler.childQualifiedName(statement.Name)
+	if err := function.compileStatements(statement.Body); err != nil {
+		return err
+	}
+	position := statement.Span().End
+	if err := function.emitImplicitReturn(lexer.Span{Start: position, End: position}); err != nil {
+		return err
+	}
+	functionCode, err := function.finish()
+	if err != nil {
+		return err
+	}
+	if err := generic.emitFunction(
+		functionCode,
+		false,
+		false,
+		false,
+		statement.Span(),
+	); err != nil {
+		return err
+	}
+	if err := generic.emit(bytecode.SetFunctionTypeParameters, 0, statement.Span()); err != nil {
+		return err
+	}
+	if err := generic.emitTerminator(bytecode.ReturnValue, 0, statement.Span()); err != nil {
+		return err
+	}
+	genericCode, err := generic.finish()
+	if err != nil {
+		return err
+	}
+	if err := compiler.emitFunction(
+		genericCode,
+		false,
+		false,
+		false,
+		statement.Span(),
+	); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.Call, 0, statement.Span()); err != nil {
+		return err
+	}
+	return compiler.emitNameStore(statement.Name, statement.Span())
+}
+
+// validateBasicGenericFunction keeps this first slice to plain TypeVars and
+// ordinary synchronous function construction.
+func validateBasicGenericFunction(
+	compiler *compilerState,
+	statement *compilerast.FunctionDefStmt,
+) error {
+	for _, parameter := range statement.TypeParameters {
+		if parameter.Kind != compilerast.TypeVariable ||
+			parameter.Bound != nil || parameter.Default != nil {
+			return compiler.error(
+				parameter.Range,
+				"generic function type parameter bounds, defaults, and variadics are not compiled",
+			)
+		}
+	}
+	if len(statement.Decorators) != 0 {
+		return compiler.error(statement.Span(), "generic function decorators are not compiled")
+	}
+	if statement.Returns != nil || parametersHaveAnnotations(statement.Parameters) {
+		return compiler.error(statement.Span(), "generic function annotations are not compiled")
+	}
+	if parametersHaveDefaults(statement.Parameters) {
+		return compiler.error(statement.Span(), "generic function defaults are not compiled")
+	}
+	if statement.Parameters.VarArg != nil || statement.Parameters.KeywordVarArg != nil {
+		return compiler.error(statement.Span(), "generic function variadic parameters are not compiled")
+	}
+	return nil
+}
+
+// parametersHaveAnnotations checks every parameter category represented by the
+// AST, including variadic parameters stored outside the ordinary slices.
+func parametersHaveAnnotations(parameters compilerast.Parameters) bool {
+	for _, group := range [][]compilerast.Parameter{
+		parameters.PositionalOnly,
+		parameters.Positional,
+		parameters.KeywordOnly,
+	} {
+		for _, parameter := range group {
+			if parameter.Annotation != nil {
+				return true
+			}
+		}
+	}
+	return (parameters.VarArg != nil && parameters.VarArg.Annotation != nil) ||
+		(parameters.KeywordVarArg != nil && parameters.KeywordVarArg.Annotation != nil)
+}
+
+func parametersHaveDefaults(parameters compilerast.Parameters) bool {
+	for _, group := range [][]compilerast.Parameter{
+		parameters.PositionalOnly,
+		parameters.Positional,
+		parameters.KeywordOnly,
+	} {
+		for _, parameter := range group {
+			if parameter.Default != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // newFunctionCompiler creates one child with callable metadata and resolver-

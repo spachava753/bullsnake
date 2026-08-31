@@ -32,30 +32,7 @@ func (compiler *compilerState) compileGenericTypeAlias(
 		)
 	}
 	name := "<generic parameters of " + statement.Name + ">"
-	flags := bytecode.Optimized | bytecode.NewLocals
-	if scope.Flags&resolver.Nested != 0 {
-		flags |= bytecode.Nested
-	}
-	child := &compilerState{
-		filename:      compiler.filename,
-		module:        compiler.module,
-		owner:         statement,
-		table:         compiler.table,
-		scope:         scope,
-		codeName:      name,
-		qualifiedName: compiler.childQualifiedName(name),
-		firstLine:     statement.Span().Start.Line,
-		codeFlags:     flags,
-		localIDs:      make(map[string]uint32),
-		derefIDs:      make(map[string]uint32),
-		constantIDs:   make(map[bytecode.Constant]uint32),
-		nameIDs:       make(map[string]uint32),
-		reachable:     true,
-	}
-	child.initializeScopeLayout(scope)
-	if scope.Flags&resolver.CanSeeClassScope != 0 {
-		child.addFree("__classdict__")
-	}
+	child := compiler.newTypeParametersCompiler(statement, scope, name)
 	for index, parameter := range statement.TypeParameters {
 		if err := child.emit(
 			bytecode.LoadConst,
@@ -128,6 +105,40 @@ func (compiler *compilerState) compileGenericTypeAlias(
 		return err
 	}
 	return compiler.emitNameStore(statement.Name, statement.Span())
+}
+
+// newTypeParametersCompiler creates the hidden scope that owns PEP 695 type
+// parameters and any child definitions that capture them.
+func (compiler *compilerState) newTypeParametersCompiler(
+	owner compilerast.Node,
+	scope *resolver.Scope,
+	name string,
+) *compilerState {
+	flags := bytecode.Optimized | bytecode.NewLocals
+	if scope.Flags&resolver.Nested != 0 {
+		flags |= bytecode.Nested
+	}
+	child := &compilerState{
+		filename:      compiler.filename,
+		module:        compiler.module,
+		owner:         owner,
+		table:         compiler.table,
+		scope:         scope,
+		codeName:      name,
+		qualifiedName: compiler.childQualifiedName(name),
+		firstLine:     owner.Span().Start.Line,
+		codeFlags:     flags,
+		localIDs:      make(map[string]uint32),
+		derefIDs:      make(map[string]uint32),
+		constantIDs:   make(map[bytecode.Constant]uint32),
+		nameIDs:       make(map[string]uint32),
+		reachable:     true,
+	}
+	child.initializeScopeLayout(scope)
+	if scope.Flags&resolver.CanSeeClassScope != 0 {
+		child.addFree("__classdict__")
+	}
+	return child
 }
 
 // emitTypeParameterBound creates the lazy evaluator selected by the resolver

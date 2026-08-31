@@ -75,6 +75,15 @@ func (arguments *paramSpecKwargsValue) Repr() string {
 }
 func (*paramSpecKwargsValue) isValue() {}
 
+func isTypeParameter(value Value) bool {
+	switch value.(type) {
+	case *typeVarValue, *typeVarTupleValue, *paramSpecValue:
+		return true
+	default:
+		return false
+	}
+}
+
 type typeVarLoadKind uint8
 
 const (
@@ -355,9 +364,7 @@ func executeSetTypeAliasParameters(frame *frame, instruction int) (instructionOu
 		)
 	}
 	for _, parameter := range parameters.elements {
-		switch parameter.(type) {
-		case *typeVarValue, *typeVarTupleValue, *paramSpecValue:
-		default:
+		if !isTypeParameter(parameter) {
 			return instructionOutcome{}, frame.failure(
 				instruction,
 				"type alias parameter payload contains a non-type-parameter value",

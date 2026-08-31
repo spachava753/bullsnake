@@ -636,6 +636,8 @@ func executeInstruction(
 			}
 		case *functionValue:
 			switch name {
+			case "__type_params__":
+				return pushOutcome(frame, index, owner.typeParams)
 			case "__annotate__":
 				if owner.annotate == nil {
 					return pushOutcome(frame, index, None)
@@ -953,8 +955,9 @@ func executeInstruction(
 		return executeImportStar(frame, index)
 	case bytecode.MakeFunction:
 		function := &functionValue{
-			code:    frame.code.children[instruction.Operand],
-			globals: frame.globals,
+			code:       frame.code.children[instruction.Operand],
+			globals:    frame.globals,
+			typeParams: &tupleValue{},
 		}
 		return pushOutcome(frame, index, function)
 	case bytecode.MakeTypeAlias:
@@ -963,6 +966,8 @@ func executeInstruction(
 		return executeMakeTypeParameter(frame, index, instruction.Opcode)
 	case bytecode.SetTypeAliasParameters:
 		return executeSetTypeAliasParameters(frame, index)
+	case bytecode.SetFunctionTypeParameters:
+		return executeSetFunctionTypeParameters(frame, index)
 	case bytecode.SetTypeVarBound:
 		return executeSetTypeVarEvaluator(frame, index, typeVarBoundLoad)
 	case bytecode.SetTypeVarConstraints:

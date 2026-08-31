@@ -15,6 +15,7 @@ type functionValue struct {
 	closure         []*cellValue
 	annotate        *functionValue
 	annotations     *dictValue
+	typeParams      *tupleValue
 }
 
 func (*functionValue) TypeName() string { return "function" }
@@ -22,6 +23,46 @@ func (function *functionValue) Repr() string {
 	return "<function " + function.code.code.QualifiedName() + ">"
 }
 func (*functionValue) isValue() {}
+
+// executeSetFunctionTypeParameters attaches compiler-created PEP 695
+// parameters and keeps the function on the operand stack.
+func executeSetFunctionTypeParameters(
+	frame *frame,
+	instruction int,
+) (instructionOutcome, error) {
+	targetValue, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	parametersValue, ok := frame.pop()
+	if !ok {
+		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	function, ok := targetValue.(*functionValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"function type parameter target is not a function",
+		)
+	}
+	parameters, ok := parametersValue.(*tupleValue)
+	if !ok {
+		return instructionOutcome{}, frame.failure(
+			instruction,
+			"function type parameters payload is not a tuple",
+		)
+	}
+	for _, parameter := range parameters.elements {
+		if !isTypeParameter(parameter) {
+			return instructionOutcome{}, frame.failure(
+				instruction,
+				"function type parameter payload contains a non-type-parameter value",
+			)
+		}
+	}
+	function.typeParams = parameters
+	return pushOutcome(frame, instruction, function)
+}
 
 // executeCall removes one inline function and positional argument segment before
 // delegating to the shared function-frame constructor.

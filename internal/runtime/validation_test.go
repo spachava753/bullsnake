@@ -1258,6 +1258,66 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "type alias parameter payload contains a non-type-parameter value",
 		},
 		{
+			name: "function type parameter attachment underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.SetFunctionTypeParameters},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "function type parameter target",
+			code: testCode(
+				2,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.BuildTuple},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.SetFunctionTypeParameters},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "function type parameter target is not a function",
+		},
+		{
+			name: "function type parameters payload",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.SetFunctionTypeParameters},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children:  []*bytecode.Code{aliasValueCode},
+			}),
+			wantFragment: "function type parameters payload is not a tuple",
+		},
+		{
+			name: "function type parameter member",
+			code: testCodeSpec(bytecode.CodeSpec{
+				StackSize: 2,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.BuildTuple, Operand: 1},
+					{Opcode: bytecode.MakeFunction},
+					{Opcode: bytecode.SetFunctionTypeParameters},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+				Children:  []*bytecode.Code{aliasValueCode},
+			}),
+			wantFragment: "function type parameter payload contains a non-type-parameter value",
+		},
+		{
 			name: "type variable bound attachment underflow",
 			code: testCode(
 				1,

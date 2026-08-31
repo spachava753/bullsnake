@@ -179,6 +179,7 @@ const (
 	SetTypeVarBound
 	SetTypeVarConstraints
 	SetTypeVarDefault
+	SetFunctionTypeParameters
 )
 
 var opcodeNames = [...]string{
@@ -276,6 +277,7 @@ var opcodeNames = [...]string{
 	"SET_TYPE_VAR_BOUND",
 	"SET_TYPE_VAR_CONSTRAINTS",
 	"SET_TYPE_VAR_DEFAULT",
+	"SET_FUNCTION_TYPE_PARAMETERS",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -319,7 +321,8 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		ListAppend, ListExtend, SetAdd, SetUpdate, MapUpdate, MapMerge,
 		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, PrepareReraiseStar,
 		Reraise, EnterExcept, MatchClass, MakeTypeAlias, SetTypeAliasParameters,
-		SetTypeVarBound, SetTypeVarConstraints, SetTypeVarDefault:
+		SetTypeVarBound, SetTypeVarConstraints, SetTypeVarDefault,
+		SetFunctionTypeParameters:
 		return -1
 	case MapSet, StoreAttr, DeleteSubscript, CheckMappingKey:
 		return -2
