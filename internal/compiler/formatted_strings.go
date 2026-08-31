@@ -8,9 +8,137 @@ import (
 
 func (compiler *compilerState) compileFormattedString(expression *compilerast.FormattedStringExpr) error {
 	if expression.Template {
-		return compiler.error(expression.Span(), "template string compilation is not implemented")
+		return compiler.compileTemplateStrings([]*compilerast.FormattedStringExpr{expression})
 	}
 	return compiler.compileFormattedParts(expression.Parts, expression.Raw, expression.Span())
+}
+
+type templateInterpolation struct {
+	value *compilerast.FormattedValueExpr
+	raw   bool
+}
+
+// compileTemplateStrings builds the parallel string and interpolation tuples
+// used by Python 3.14 template values.
+func (compiler *compilerState) compileTemplateStrings(
+	expressions []*compilerast.FormattedStringExpr,
+) error {
+	stringsValues := []string{""}
+	var interpolations []templateInterpolation
+	for _, expression := range expressions {
+		for _, part := range expression.Parts {
+			switch part := part.(type) {
+			case *compilerast.StringLiteral:
+				text, err := decodeStringText(part.Text, expression.Raw, false)
+				if err != nil {
+					return compiler.error(part.Span(), "%v", err)
+				}
+				stringsValues[len(stringsValues)-1] += text
+			case *compilerast.FormattedValueExpr:
+				if part.Debug {
+					debugText, err := decodeStringText(part.DebugText, true, false)
+					if err != nil {
+						return compiler.error(part.Span(), "%v", err)
+					}
+					stringsValues[len(stringsValues)-1] += debugText
+				}
+				interpolations = append(interpolations, templateInterpolation{
+					value: part,
+					raw:   expression.Raw,
+				})
+				stringsValues = append(stringsValues, "")
+			default:
+				return compiler.unsupported(part)
+			}
+		}
+	}
+	span := expressions[0].Span()
+	span.End = expressions[len(expressions)-1].Span().End
+	for _, text := range stringsValues {
+		if err := compiler.emit(
+			bytecode.LoadConst,
+			compiler.constantIndex(bytecode.TextString(text)),
+			span,
+		); err != nil {
+			return err
+		}
+	}
+	if err := compiler.emit(bytecode.BuildTuple, uint32(len(stringsValues)), span); err != nil {
+		return err
+	}
+	for _, interpolation := range interpolations {
+		if err := compiler.compileTemplateInterpolation(interpolation); err != nil {
+			return err
+		}
+	}
+	if err := compiler.emit(bytecode.BuildTuple, uint32(len(interpolations)), span); err != nil {
+		return err
+	}
+	return compiler.emit(bytecode.BuildTemplate, 0, span)
+}
+
+// compileTemplateInterpolation evaluates one field, preserves its source text
+// and conversion, and optionally computes its nested format-spec string.
+func (compiler *compilerState) compileTemplateInterpolation(
+	interpolation templateInterpolation,
+) error {
+	expression := interpolation.value
+	if err := compiler.compileExpr(expression.Value); err != nil {
+		return err
+	}
+	source, err := compiler.expressionSource(expression.Value)
+	if err != nil {
+		return err
+	}
+	if err := compiler.emit(
+		bytecode.LoadConst,
+		compiler.constantIndex(bytecode.TextString(source)),
+		expression.Span(),
+	); err != nil {
+		return err
+	}
+	conversion := expression.Conversion
+	if conversion == "" && expression.Debug && expression.Format == nil {
+		conversion = "r"
+	}
+	conversionOperand := uint32(0)
+	if conversion != "" {
+		var ok bool
+		conversionOperand, ok = formattedConversion(conversion)
+		if !ok {
+			return compiler.error(
+				expression.Span(),
+				"unknown template string conversion %q",
+				conversion,
+			)
+		}
+	}
+	if expression.Format != nil {
+		if err := compiler.compileFormattedParts(
+			expression.Format,
+			interpolation.raw,
+			expression.Span(),
+		); err != nil {
+			return err
+		}
+	}
+	operand, ok := bytecode.PackInterpolationOperand(
+		conversionOperand,
+		expression.Format != nil,
+	)
+	if !ok {
+		return compiler.error(expression.Span(), "invalid template interpolation metadata")
+	}
+	return compiler.emit(bytecode.BuildInterpolation, operand, expression.Span())
+}
+
+func (compiler *compilerState) expressionSource(expression compilerast.Expr) (string, error) {
+	span := expression.Span()
+	source := compiler.module.Source()
+	if span.Start.Offset < 0 || span.End.Offset < span.Start.Offset || span.End.Offset > len(source) {
+		return "", compiler.error(span, "template interpolation span is outside source")
+	}
+	return source[span.Start.Offset:span.End.Offset], nil
 }
 
 // compileFormattedParts leaves one joined string on the stack after compiling

@@ -270,8 +270,15 @@ and cache behavior as a generic alias. Type parameter names do not enter the
 defining namespace. The hidden child's name does not alter user-facing function
 or annotation qualified names.
 
-The compiler rejects template-string execution. Unsupported AST forms return
-compiler errors; they are not approximated with similar bytecode.
+Template strings compile to immutable template and interpolation values. Each
+interpolation retains its evaluated value, exact expression text from the source
+span, conversion marker, and evaluated format-spec string. Literal segments form
+one tuple with exactly one more entry than the interpolation tuple. Debug fields
+append their source text to the preceding literal and use the same default `r`
+conversion as f-strings.
+
+Unsupported AST forms return compiler errors; they are not approximated with
+similar bytecode.
 
 ## Runtime preparation
 
@@ -413,9 +420,15 @@ user-defined hashing and equality can call back into Python.
 
 Strings index and iterate by decoded code point, including preserved lone
 surrogates. Bytes index and iterate as integers. Slices use Python-style bound
-clipping and positive or negative steps. Dictionary iteration detects key-set
-changes; replacing an existing value is allowed. Set display and iteration
-order is stable for Bullsnake tests but is not a Python compatibility promise.
+clipping and positive or negative steps. Template strings retain parallel
+`strings` and `interpolations` tuples; each interpolation exposes `value`,
+`expression`, `conversion`, and `format_spec`, and a template derives its `values`
+tuple from them. Template iteration, concatenation, explicit constructors, and
+the `string.templatelib` module remain unsupported.
+
+Dictionary iteration detects key-set changes; replacing an existing value is
+allowed. Set display and iteration order is stable for Bullsnake tests but is not
+a Python compatibility promise.
 
 A user iterable resolves `__iter__` on its class and requires the returned value
 to have class `__next__`. Each loop step or user-iterator `next()` call may run a

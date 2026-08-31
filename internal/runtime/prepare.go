@@ -509,6 +509,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 	case bytecode.Nop, bytecode.PopTop, bytecode.ReturnValue, bytecode.GetIter,
 		bytecode.BinarySubscript, bytecode.StoreSubscript, bytecode.DeleteSubscript,
 		bytecode.FormatSimple, bytecode.FormatWithSpec, bytecode.BuildString,
+		bytecode.BuildTemplate,
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
@@ -560,6 +561,15 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 			return code.failure(
 				index,
 				"exception scope end %d must follow its entry and stay within code",
+				instruction.Operand,
+			)
+		}
+		return nil
+	case bytecode.BuildInterpolation:
+		if _, _, ok := bytecode.InterpolationOperand(instruction.Operand); !ok {
+			return code.failure(
+				index,
+				"unsupported BUILD_INTERPOLATION operand %d",
 				instruction.Operand,
 			)
 		}
@@ -801,7 +811,13 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.BinaryOp, bytecode.InplaceOp, bytecode.CompareOp,
 		bytecode.FormatWithSpec, bytecode.BinarySubscript, bytecode.ImportName,
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.SetAdd, bytecode.SetUpdate,
-		bytecode.MapUpdate, bytecode.MapMerge:
+		bytecode.MapUpdate, bytecode.MapMerge, bytecode.BuildTemplate:
+		return 2, 1
+	case bytecode.BuildInterpolation:
+		_, hasFormat, _ := bytecode.InterpolationOperand(instruction.Operand)
+		if hasFormat {
+			return 3, 1
+		}
 		return 2, 1
 	case bytecode.CheckExceptionMatch, bytecode.CheckExceptionGroupMatch:
 		return 2, 2

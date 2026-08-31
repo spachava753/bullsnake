@@ -349,6 +349,36 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := AsyncGenWrap.StackEffect(0); got != 0 {
 		t.Fatalf("ASYNC_GEN_WRAP stack effect = %d, want 0", got)
 	}
+	interpolationOperand, ok := PackInterpolationOperand(ConversionRepr, true)
+	if !ok {
+		t.Fatal("template interpolation metadata rejected")
+	}
+	interpolation := Instruction{Opcode: BuildInterpolation, Operand: interpolationOperand}
+	if got := interpolation.String(); got != "BUILD_INTERPOLATION 5" {
+		t.Fatalf("template interpolation instruction = %q", got)
+	}
+	if got := BuildInterpolation.StackEffect(interpolationOperand); got != -2 {
+		t.Fatalf("formatted interpolation stack effect = %d, want -2", got)
+	}
+	conversion, hasFormat, valid := InterpolationOperand(interpolationOperand)
+	if !valid || conversion != ConversionRepr || !hasFormat {
+		t.Fatalf(
+			"interpolation metadata = (%d, %t, %t), want (%d, true, true)",
+			conversion,
+			hasFormat,
+			valid,
+			ConversionRepr,
+		)
+	}
+	if _, ok := PackInterpolationOperand(ConversionASCII+1, false); ok {
+		t.Fatal("invalid template conversion accepted")
+	}
+	if got := (Instruction{Opcode: BuildTemplate}).String(); got != "BUILD_TEMPLATE" {
+		t.Fatalf("template instruction = %q", got)
+	}
+	if got := BuildTemplate.StackEffect(0); got != -1 {
+		t.Fatalf("template stack effect = %d, want -1", got)
+	}
 	send := Instruction{Opcode: Send, Operand: 8}
 	if got := send.String(); got != "SEND 8" {
 		t.Fatalf("send instruction = %q", got)

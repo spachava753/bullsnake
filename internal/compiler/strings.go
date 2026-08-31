@@ -252,6 +252,19 @@ func lookupUnicodeName(name string) (rune, bool) {
 // compileStringConcat folds adjacent plain literals or joins plain and
 // formatted components while rejecting Python's bytes/text mixture.
 func (compiler *compilerState) compileStringConcat(expression *compilerast.StringConcatExpr) error {
+	templates := make([]*compilerast.FormattedStringExpr, 0, len(expression.Parts))
+	for _, part := range expression.Parts {
+		formatted, ok := part.(*compilerast.FormattedStringExpr)
+		if !ok || !formatted.Template {
+			templates = nil
+			break
+		}
+		templates = append(templates, formatted)
+	}
+	if templates != nil {
+		return compiler.compileTemplateStrings(templates)
+	}
+
 	allPlain := true
 	for _, part := range expression.Parts {
 		if _, ok := part.(*compilerast.StringLiteral); !ok {

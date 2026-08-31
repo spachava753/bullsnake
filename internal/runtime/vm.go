@@ -896,6 +896,10 @@ func executeInstruction(
 		return executeFormatWithSpec(frame, index)
 	case bytecode.BuildString:
 		return executeBuildString(frame, index, int(instruction.Operand))
+	case bytecode.BuildInterpolation:
+		return executeBuildInterpolation(frame, index, instruction.Operand)
+	case bytecode.BuildTemplate:
+		return executeBuildTemplate(frame, index)
 	case bytecode.LoadNotImplementedError:
 		return pushOutcome(frame, index, newException("NotImplementedError", ""))
 	case bytecode.LoadAssertionError:
@@ -1079,6 +1083,10 @@ func executeInstruction(
 			}
 		case *propertyValue:
 			return executePropertyAttributeLoad(frame, index, owner, name)
+		case *templateValue:
+			return executeTemplateAttributeLoad(frame, index, owner, name)
+		case *interpolationValue:
+			return executeInterpolationAttributeLoad(frame, index, owner, name)
 		case *superValue:
 			return executeSuperAttributeLoad(frame, index, owner, name)
 		case *generatorValue:

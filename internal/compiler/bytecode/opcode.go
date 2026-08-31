@@ -11,6 +11,29 @@ const (
 	ConversionASCII
 )
 
+const interpolationConversionShift = 1
+
+// PackInterpolationOperand records an optional conversion and format string.
+func PackInterpolationOperand(conversion uint32, hasFormat bool) (uint32, bool) {
+	if conversion > ConversionASCII {
+		return 0, false
+	}
+	operand := conversion << interpolationConversionShift
+	if hasFormat {
+		operand |= 1
+	}
+	return operand, true
+}
+
+// InterpolationOperand decodes BUILD_INTERPOLATION metadata.
+func InterpolationOperand(operand uint32) (conversion uint32, hasFormat, ok bool) {
+	conversion = operand >> interpolationConversionShift
+	if conversion > ConversionASCII {
+		return 0, false, false
+	}
+	return conversion, operand&1 != 0, true
+}
+
 // GET_AWAITABLE operands identify the source of an awaitable requirement.
 const (
 	AwaitExpression uint32 = iota
@@ -192,6 +215,8 @@ const (
 	CheckAsyncIterator
 	LoadStopAsyncIteration
 	AsyncGenWrap
+	BuildInterpolation
+	BuildTemplate
 )
 
 var opcodeNames = [...]string{
@@ -294,6 +319,8 @@ var opcodeNames = [...]string{
 	"CHECK_ASYNC_ITERATOR",
 	"LOAD_STOP_ASYNC_ITERATION",
 	"ASYNC_GEN_WRAP",
+	"BUILD_INTERPOLATION",
+	"BUILD_TEMPLATE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -315,7 +342,8 @@ func (opcode Opcode) HasOperand() bool {
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
 		DeleteDeref, LoadClosure, ImportName, ImportFrom, LoadFromDictOrGlobals,
-		LoadFromDictOrDeref, EnterExcept, LoadSpecial, MatchClass, GetAwaitable:
+		LoadFromDictOrDeref, EnterExcept, LoadSpecial, MatchClass, GetAwaitable,
+		BuildInterpolation:
 		return true
 	default:
 		return false
@@ -356,6 +384,14 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		return -int(operand)
 	case CallEx:
 		return -1 - int(operand)
+	case BuildInterpolation:
+		_, hasFormat, _ := InterpolationOperand(operand)
+		if hasFormat {
+			return -2
+		}
+		return -1
+	case BuildTemplate:
+		return -1
 	case BuildString, BuildTuple, BuildList, BuildSet, BuildSlice:
 		return 1 - int(operand)
 	case BuildMap:

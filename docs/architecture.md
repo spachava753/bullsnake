@@ -366,9 +366,11 @@ References between values remain ordinary typed Go pointers or interfaces so
 Go's garbage collector can see the complete object graph.
 
 The current object model is intentionally small. It has concrete values for the
-scalars, collections, functions, classes, modules, and exceptions needed by the
-executable subset. More of Python's data model will be added when language
-features or packages require it.
+scalars, collections, functions, classes, modules, exceptions, templates, and
+interpolations needed by the executable subset. A template keeps literal strings
+separate from evaluated interpolation values and their source metadata; creating
+one does not format those values. More of Python's data model will be added when
+language features or packages require it.
 
 A Python special method may call arbitrary Python code. The VM therefore keeps
 the requesting instruction suspended while the method's frame runs in the same
