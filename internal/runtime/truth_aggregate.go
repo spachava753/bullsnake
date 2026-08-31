@@ -169,6 +169,15 @@ func continueTruthAggregate(
 			}
 			return executeTruthAggregateItem(frame, call, value)
 		}
+	case *mapValue:
+		return executeMapNext(frame, &mapCall{
+			mapping: iterator,
+			request: &iterationCall{
+				kind:        iterationTruthAggregateNext,
+				instruction: call.instruction,
+				aggregate:   call,
+			},
+		})
 	case *enumerateValue:
 		return executeEnumerateNext(frame, &enumerateCall{
 			enumeration: iterator,

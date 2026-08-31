@@ -376,12 +376,12 @@ Native, user, and exception classes expose their basic name metadata through the
 ordinary attribute path. `object` is the native root class for native values,
 built-in exceptions, and ordinary user classes. A user class may name it as its
 sole base; combining native and user direct bases still requires a unified MRO
-representation. The existing `bool`, `int`, `str`, `range`, `enumerate`,
+representation. The existing `bool`, `int`, `str`, `range`, `enumerate`, `map`,
 `list`, `tuple`, `set`, `frozenset`, and `dict` constructors are those same type
 objects rather than separate function stand-ins. Ranges retain
 arbitrary-precision integer bounds and produce values lazily through the ordinary
-native iterator path. Enumerate objects wrap that same iterator contract and may
-suspend while a generator or user iterator produces the next indexed pair.
+native iterator path. Enumerate and map objects wrap that iterator contract and
+may suspend while a generator, user iterator, or mapped Python callable runs.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
 descriptor behavior. Metaclass selection, MRO-entry rewriting, unions, and

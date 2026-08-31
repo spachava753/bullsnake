@@ -53,6 +53,7 @@ type frame struct {
 	truth               *truthCall
 	length              *lengthCall
 	hash                *hashCall
+	mapping             *mapCall
 	representation      *representationCall
 	attributeBuiltin    *attributeBuiltinCall
 	iteration           *iterationCall

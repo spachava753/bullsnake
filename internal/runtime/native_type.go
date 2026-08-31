@@ -44,6 +44,7 @@ var (
 	bytesNativeType           = builtinNativeType("bytes")
 	rangeNativeType           = builtinNativeType("range")
 	enumerateNativeType       = builtinNativeType("enumerate")
+	mapNativeType             = builtinNativeType("map")
 	tupleNativeType           = builtinNativeType("tuple")
 	listNativeType            = builtinNativeType("list")
 	dictNativeType            = builtinNativeType("dict")
@@ -73,6 +74,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 	stringNativeType,
 	rangeNativeType,
 	enumerateNativeType,
+	mapNativeType,
 	tupleNativeType,
 	listNativeType,
 	setNativeType,
@@ -91,6 +93,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"bytes":                            bytesNativeType,
 	"range":                            rangeNativeType,
 	"enumerate":                        enumerateNativeType,
+	"map":                              mapNativeType,
 	"tuple":                            tupleNativeType,
 	"list":                             listNativeType,
 	"dict":                             dictNativeType,
@@ -193,6 +196,8 @@ func executeNativeTypeCall(
 		return executeRangeTypeCall(caller, instruction, base, arguments, keywords)
 	case enumerateNativeType:
 		return executeEnumerateTypeCall(caller, instruction, base, arguments, keywords)
+	case mapNativeType:
+		return executeMapTypeCall(caller, instruction, base, arguments, keywords)
 	case tupleNativeType, listNativeType, setNativeType, frozenSetNativeType,
 		dictNativeType:
 		return executeCollectionTypeCall(

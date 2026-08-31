@@ -263,6 +263,54 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					continue
 				}
 			}
+			if active.mapping != nil {
+				call := active.mapping
+				active.mapping = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"mapped callable has no caller",
+					)
+				}
+				mapOutcome, mapErr := finishMapItem(thread.current, call, result)
+				if mapErr != nil {
+					return nil, nil, mapErr
+				}
+				if mapOutcome.kind == called {
+					if mapOutcome.frame == nil ||
+						mapOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.request.instruction,
+							"invalid chained map frame transition",
+						)
+					}
+					thread.current = mapOutcome.frame
+					continue
+				}
+				if mapOutcome.kind == raised {
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.request.instruction,
+						mapOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				}
+				if mapOutcome.kind != advance {
+					return nil, nil, thread.current.failure(
+						call.request.instruction,
+						"invalid mapped callable outcome",
+					)
+				}
+				continue
+			}
 			if active.truth != nil {
 				call := active.truth
 				active.truth = nil
@@ -888,6 +936,7 @@ route:
 				current.iteration.kind != iterationCollectionIterator &&
 				current.iteration.kind != iterationEnumerateIterator &&
 				current.iteration.kind != iterationTruthAggregateIterator &&
+				current.iteration.kind != iterationMapIterator &&
 				isStopIteration(exception) {
 				call := current.iteration
 				current.iteration = nil

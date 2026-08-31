@@ -19,6 +19,8 @@ const (
 	iterationEnumerateNext
 	iterationTruthAggregateIterator
 	iterationTruthAggregateNext
+	iterationMapIterator
+	iterationMapNext
 )
 
 type iterationCall struct {
@@ -31,6 +33,7 @@ type iterationCall struct {
 	collection   *collectionConstructorCall
 	enumeration  *enumerateCall
 	aggregate    *truthAggregateCall
+	mapping      *mapCall
 }
 
 type sequenceIterator struct {
@@ -196,6 +199,8 @@ func newIterator(value Value) (Value, bool) {
 		return value, true
 	case *enumerateValue:
 		return value, true
+	case *mapValue:
+		return value, true
 	case *generatorValue:
 		if value.kind == generatorObject {
 			return value, true
@@ -309,6 +314,19 @@ func executeForIter(
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
 	value := frame.stack[len(frame.stack)-1]
+	if mapping, ok := value.(*mapValue); ok {
+		frame.pop()
+		request := &iterationCall{
+			kind:        iterationForNext,
+			instruction: index,
+			target:      target,
+			iterator:    mapping,
+		}
+		return executeMapNext(frame, &mapCall{
+			mapping: mapping,
+			request: request,
+		})
+	}
 	if enumeration, ok := value.(*enumerateValue); ok {
 		frame.pop()
 		request := &iterationCall{
@@ -395,6 +413,7 @@ func executeIterationSpecial(
 	if outcome.kind == raised && call.kind != iterationGetIterator &&
 		call.kind != iterationEnumerateIterator &&
 		call.kind != iterationTruthAggregateIterator &&
+		call.kind != iterationMapIterator &&
 		isStopIteration(outcome.exception) {
 		return finishIterationStop(frame, call, outcome.exception)
 	}
@@ -473,6 +492,10 @@ func finishIterationCall(
 		return finishTruthAggregateIterator(frame, call.aggregate, result)
 	case iterationTruthAggregateNext:
 		return executeTruthAggregateItem(frame, call.aggregate, result)
+	case iterationMapIterator:
+		return finishMapIterator(frame, call.mapping, result)
+	case iterationMapNext:
+		return executeMappedCall(frame, call.mapping, result)
 	default:
 		return instructionOutcome{}, frame.failure(
 			call.instruction,
@@ -509,6 +532,8 @@ func finishIterationStop(
 		return finishEnumerateStop(frame, call.enumeration)
 	case iterationTruthAggregateNext:
 		return finishTruthAggregateStop(frame, call.aggregate)
+	case iterationMapNext:
+		return finishMapStop(frame, call.mapping)
 	default:
 		return instructionOutcome{kind: raised, exception: exception}, nil
 	}
@@ -521,6 +546,8 @@ func isIteratorValue(value Value) bool {
 	case valueIterator:
 		return true
 	case *enumerateValue:
+		return true
+	case *mapValue:
 		return true
 	case *generatorValue:
 		return value.kind == generatorObject

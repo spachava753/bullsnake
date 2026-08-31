@@ -32,6 +32,7 @@ const (
 	generatorCollection
 	generatorEnumerate
 	generatorTruthAggregate
+	generatorMap
 	generatorCall
 	generatorClose
 	generatorDelegate
@@ -49,6 +50,7 @@ type generatorResume struct {
 	collection   *collectionConstructorCall
 	enumeration  *enumerateCall
 	aggregate    *truthAggregateCall
+	mapping      *mapCall
 	asyncNext    *asyncGeneratorNextValue
 	asyncThrow   *asyncGeneratorThrowValue
 }
@@ -187,6 +189,18 @@ func executeBuiltinNext(
 	}
 
 	switch iterator := iterator.(type) {
+	case *mapValue:
+		discardCallSegment(caller, base)
+		request := &iterationCall{
+			kind:         iterationBuiltinNext,
+			instruction:  instruction,
+			defaultValue: defaultValue,
+			hasDefault:   hasDefault,
+		}
+		return executeMapNext(caller, &mapCall{
+			mapping: iterator,
+			request: request,
+		})
 	case *enumerateValue:
 		discardCallSegment(caller, base)
 		request := &iterationCall{
@@ -860,6 +874,34 @@ func suspendGenerator(
 		}
 		return caller, nil, nil
 	}
+	if generator.resume.kind == generatorMap {
+		call := generator.resume.mapping
+		if call == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator map has no continuation state",
+			)
+		}
+		active.previous = nil
+		generator.state = generatorSuspended
+		outcome, err := executeMappedCall(caller, call, value)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind == called {
+			return outcome.frame, nil, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				call.request.instruction,
+				"invalid map generator yield outcome",
+			)
+		}
+		return caller, nil, nil
+	}
 	if (generator.resume.kind == generatorIteration ||
 		generator.resume.kind == generatorDelegate) &&
 		(len(caller.stack) == 0 || caller.stack[len(caller.stack)-1] != generator) {
@@ -977,6 +1019,28 @@ func finishGenerator(
 			return nil, nil, caller.failure(
 				resume.aggregate.instruction,
 				"invalid truth aggregate generator completion",
+			)
+		}
+		return caller, nil, nil
+	case generatorMap:
+		if resume.mapping == nil {
+			return nil, nil, active.failure(
+				instruction,
+				"generator map completion has no continuation state",
+			)
+		}
+		generator.complete()
+		outcome, err := finishMapStop(caller, resume.mapping)
+		if err != nil {
+			return nil, nil, err
+		}
+		if outcome.kind == raised {
+			return caller, outcome.exception, nil
+		}
+		if outcome.kind != advance {
+			return nil, nil, caller.failure(
+				resume.mapping.request.instruction,
+				"invalid map generator completion",
 			)
 		}
 		return caller, nil, nil

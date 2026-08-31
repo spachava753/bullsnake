@@ -143,6 +143,16 @@ func continueCollectionConstructor(
 			}
 			call.elements = append(call.elements, value)
 		}
+	case *mapValue:
+		request := &iterationCall{
+			kind:        iterationCollectionNext,
+			instruction: call.instruction,
+			collection:  call,
+		}
+		return executeMapNext(frame, &mapCall{
+			mapping: iterator,
+			request: request,
+		})
 	case *enumerateValue:
 		request := &iterationCall{
 			kind:        iterationCollectionNext,

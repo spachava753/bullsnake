@@ -526,3 +526,48 @@ class FailingHash:
         raise ValueError('hash failed')
 
 hash(FailingHash())
+# ---
+# case: map missing iterable
+# error: TypeError
+# message: "map() must have at least two arguments."
+map(None)
+# ---
+# case: map keyword boundary
+# error: NotImplementedError
+# message: "map keyword arguments are not supported"
+map(str, (), strict=True)
+# ---
+# case: map multiple iterables boundary
+# error: NotImplementedError
+# message: "map with multiple iterables is not supported"
+map(lambda left, right: left + right, (1,), (2,))
+# ---
+# case: map non-iterable value
+# error: TypeError
+# message: "'int' object is not iterable"
+map(str, 1)
+# ---
+# case: map non-callable value
+# error: TypeError
+# message: "'NoneType' object is not callable"
+next(map(None, (1,)))
+# ---
+# case: map callable failure
+# error: ValueError
+# message: "map call failed"
+def failing_map(value):
+    raise ValueError('map call failed')
+
+next(map(failing_map, (1,)))
+# ---
+# case: map iterator failure
+# error: ValueError
+# message: "map iteration failed"
+class FailingMappedIterator:
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raise ValueError('map iteration failed')
+
+next(map(str, FailingMappedIterator()))

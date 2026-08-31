@@ -491,3 +491,56 @@ class DefaultHashValue:
 
 plain = DefaultHashValue()
 assert hash(plain) == hash(plain)
+# ---
+# case: map native iterables and builtins
+assert list(map(lambda value: value * 2, range(4))) == [0, 2, 4, 6]
+assert tuple(map(len, ('a', 'bbb', ''))) == (1, 3, 0)
+iterator = map(str, (1, 2))
+assert type(iterator) is map
+assert isinstance(iterator, map)
+assert iter(iterator) is iterator
+assert next(iterator) == '1'
+assert next(iterator) == '2'
+assert next(iterator, None) is None
+# ---
+# case: map is lazy and calls Python functions
+map_steps = 0
+
+def mapped_value(value):
+    global map_steps
+    map_steps += 1
+    return value + 10
+
+iterator = map(mapped_value, (1, 2))
+assert map_steps == 0
+assert next(iterator) == 11
+assert map_steps == 1
+assert list(iterator) == [12]
+assert map_steps == 2
+# ---
+# case: map calls classes and consumes generator and user iterators
+class MappedItem:
+    def __init__(self, value):
+        self.value = value
+
+items = list(map(MappedItem, (3, 4)))
+assert items[0].value == 3
+assert items[1].value == 4
+
+mapped_generator = map(lambda value: value + 1, (value for value in (5, 6)))
+assert list(mapped_generator) == [6, 7]
+
+class MappedIterator:
+    def __init__(self):
+        self.current = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current == 2:
+            raise StopIteration
+        self.current += 1
+        return self.current
+
+assert list(map(lambda value: value * 3, MappedIterator())) == [3, 6]
