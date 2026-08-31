@@ -443,11 +443,11 @@ allowed. Set display and iteration order is stable for Bullsnake tests but is no
 a Python compatibility promise.
 
 A user iterable resolves `__iter__` on its class and requires the returned value
-to have class `__next__`. Each loop step or user-iterator `next()` call may run a
-Python frame. `StopIteration` leaving that active `__next__` call means
-exhaustion; the same exception raised by loop body code remains an ordinary
-exception. Bullsnake does not yet use `__getitem__` as the legacy iteration
-fallback.
+to have class `__next__`. The one-argument `iter` builtin and loop iteration use
+the same path. Each loop step or user-iterator `next()` call may run a Python
+frame. `StopIteration` leaving that active `__next__` call means exhaustion;
+the same exception raised by loop body code remains an ordinary exception.
+Bullsnake does not yet use `__getitem__` as the legacy iteration fallback.
 
 A user container resolves `__contains__` on its class and truth-tests the result,
 including another user `__bool__` or `__len__` call. A class attribute set to
@@ -497,10 +497,11 @@ division, and modulo. These operations coerce integer and boolean operands when
 a float participates; true division also converts two integer operands.
 
 The builtin namespace contains the current exception classes, scalar numeric
-`int`, `len`, positional `max` and `min` calls with two or more arguments, and
-`next` for generators, internal iterators, and user iterators. `next` accepts
-one optional default. String and base forms of `int`, the iterable and keyword
-forms of `max` and `min`, and the general `iter` builtin remain unsupported.
+`int`, one-argument `iter`, `len`, positional `max` and `min` calls with two or
+more arguments, and `next` for generators, internal iterators, and user
+iterators. `next` accepts one optional default. String and base forms of `int`,
+the iterable and keyword forms of `max` and `min`, and callable-sentinel `iter`
+remain unsupported.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and
@@ -673,8 +674,7 @@ The largest current gaps are:
 
 - no public Go embedding or extension API
 - no namespace packages, broad standard library, or native extension loading
-- no general `iter` builtin or automatic generator closing during Go garbage
-  collection
+- no automatic generator closing during Go garbage collection
 - no custom awaitable protocol, `aiter` or `anext` builtins, async scheduling,
   automatic async-generator finalization, or Python threads
 - no complete Python object protocol, custom attribute interception, or user

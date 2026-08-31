@@ -307,8 +307,9 @@ path before closing the outer generator; `throw(GeneratorExit())` preserves and
 propagates the exception supplied by the caller. A delegate that yields while
 closing raises `RuntimeError`. A different delegate failure enters the outer
 generator instead. Native iterators have no close operation and are skipped.
-The protocol does not yet expose a general `iter` builtin, and garbage
-collection does not implicitly close an abandoned generator.
+The one-argument `iter` builtin uses the same lookup and validation as loop
+iteration. Callable-sentinel iteration and automatic closing of an abandoned
+generator remain unsupported.
 
 A coroutine call uses the same detached-frame ownership without making the
 coroutine iterable. Direct `send(None)` starts the frame; a return exposes its

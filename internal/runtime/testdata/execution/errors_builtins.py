@@ -62,3 +62,57 @@ class FailingLength:
         raise ValueError('length failed')
 
 len(FailingLength())
+# ---
+# case: iter missing argument
+# error: TypeError
+# message: "iter expected at least 1 argument, got 0"
+iter()
+# ---
+# case: iter extra arguments
+# error: TypeError
+# message: "iter expected at most 2 arguments, got 3"
+iter([], None, None)
+# ---
+# case: iter keyword argument
+# error: TypeError
+# message: "iter() takes no keyword arguments"
+iter(iterable=[])
+# ---
+# case: non-iterable value
+# error: TypeError
+# message: "'int' object is not iterable"
+iter(1)
+# ---
+# case: disabled iteration protocol
+# error: TypeError
+# message: "'DisabledIteration' object is not iterable"
+class DisabledIteration:
+    __iter__ = None
+
+iter(DisabledIteration())
+# ---
+# case: invalid iterator result
+# error: TypeError
+# message: "iter() returned non-iterator of type 'int'"
+class InvalidIteration:
+    def __iter__(self):
+        return 1
+
+iter(InvalidIteration())
+# ---
+# case: iteration method exception
+# error: ValueError
+# message: "iteration failed"
+class FailingIteration:
+    def __iter__(self):
+        raise ValueError('iteration failed')
+
+iter(FailingIteration())
+# ---
+# case: callable sentinel iterator boundary
+# error: NotImplementedError
+# message: "iter() callable-sentinel form is not supported"
+def produce():
+    return None
+
+iter(produce, None)

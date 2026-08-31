@@ -1593,7 +1593,11 @@ func executeInstruction(
 	case bytecode.BuildSlice:
 		return executeBuildSlice(frame, index, int(instruction.Operand))
 	case bytecode.GetIter:
-		return executeGetIter(frame, index)
+		iterable, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		return executeIteratorLookup(frame, index, iterable)
 	case bytecode.GetAwaitable:
 		return executeGetAwaitable(frame, index, instruction.Operand)
 	case bytecode.CheckAsyncIterator:

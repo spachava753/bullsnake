@@ -1,5 +1,7 @@
 package runtime
 
+import "strconv"
+
 type valueIterator interface {
 	Value
 	next() (Value, bool, *Exception)
@@ -201,35 +203,66 @@ func newIterator(value Value) (Value, bool) {
 	}
 }
 
-// executeGetIter keeps built-in iterator creation synchronous and suspends for
-// a user class __iter__ call before validating its returned iterator.
-func executeGetIter(frame *frame, index int) (instructionOutcome, error) {
-	iterable, ok := frame.pop()
-	if !ok {
-		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+// executeBuiltinIter exposes the existing iterator lookup through the one-
+// argument builtin while reserving callable-sentinel iteration for a later slice.
+func executeBuiltinIter(
+	caller *frame,
+	instruction int,
+	base int,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"iter() takes no keyword arguments",
+		)), nil
 	}
+	if len(arguments) < 1 || len(arguments) > 2 {
+		message := "iter expected at least 1 argument, got 0"
+		if len(arguments) > 2 {
+			message = "iter expected at most 2 arguments, got " +
+				strconv.Itoa(len(arguments))
+		}
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException("TypeError", message)), nil
+	}
+	if len(arguments) == 2 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"NotImplementedError",
+			"iter() callable-sentinel form is not supported",
+		)), nil
+	}
+	iterable := arguments[0]
+	discardCallSegment(caller, base)
+	return executeIteratorLookup(caller, instruction, iterable)
+}
+
+// executeIteratorLookup creates built-in iterators immediately or suspends for
+// a class __iter__ method before validating the returned iterator.
+func executeIteratorLookup(
+	frame *frame,
+	index int,
+	iterable Value,
+) (instructionOutcome, error) {
 	if iterator, builtin := newIterator(iterable); builtin {
 		return pushOutcome(frame, index, iterator)
 	}
 	instance, ok := iterable.(*instanceValue)
 	if !ok {
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				"'"+iterable.TypeName()+"' object is not iterable",
-			),
-		}, nil
+		return raiseOutcome(newException(
+			"TypeError",
+			"'"+iterable.TypeName()+"' object is not iterable",
+		)), nil
 	}
 	method, found := lookupInstanceSpecial(instance, "__iter__")
 	if !found || method == None {
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				"'"+iterable.TypeName()+"' object is not iterable",
-			),
-		}, nil
+		return raiseOutcome(newException(
+			"TypeError",
+			"'"+iterable.TypeName()+"' object is not iterable",
+		)), nil
 	}
 	return executeIterationSpecial(
 		frame,
