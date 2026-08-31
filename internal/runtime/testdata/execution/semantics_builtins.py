@@ -803,3 +803,52 @@ assert 'first' not in values
 assert list(values) == ['second']
 assert discard('missing') is None
 assert list(values) == ['second']
+# ---
+# case: list remove method
+items = [1, 2, 1, 3]
+remove = items.remove
+assert callable(remove)
+assert remove(1) is None
+assert items == [2, 1, 3]
+assert getattr(items, 'remove')(3) is None
+assert items == [2, 1]
+# ---
+# case: list remove uses identity and user equality truth
+class IdentityOnly:
+    def __eq__(self, other):
+        raise AssertionError('identity comparison called equality')
+
+identity = IdentityOnly()
+items = [identity]
+assert items.remove(identity) is None
+assert items == []
+
+comparison_values = []
+truth_values = []
+
+class RemoveTruth:
+    def __init__(self, value):
+        self.value = value
+
+    def __bool__(self):
+        truth_values.append(self.value)
+        return self.value
+
+class RemovableValue:
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):
+        comparison_values.append(self.value)
+        return RemoveTruth(self.value == other)
+
+first = RemovableValue(1)
+second = RemovableValue(2)
+third = RemovableValue(3)
+items = [first, second, third]
+assert items.remove(2) is None
+assert comparison_values == [1, 2]
+assert truth_values == [False, True]
+assert len(items) == 2
+assert items[0] is first
+assert items[1] is third

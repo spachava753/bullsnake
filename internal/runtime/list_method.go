@@ -1,6 +1,10 @@
 package runtime
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
+)
 
 type listAppendMethod struct {
 	list *listValue
@@ -12,6 +16,17 @@ type listPopMethod struct {
 
 type listExtendMethod struct {
 	list *listValue
+}
+
+type listRemoveMethod struct {
+	list *listValue
+}
+
+type listRemoveCall struct {
+	instruction int
+	list        *listValue
+	needle      Value
+	index       int
 }
 
 func (*listAppendMethod) TypeName() string { return "builtin_function_or_method" }
@@ -32,6 +47,12 @@ func (*listExtendMethod) Repr() string {
 }
 func (*listExtendMethod) isValue() {}
 
+func (*listRemoveMethod) TypeName() string { return "builtin_function_or_method" }
+func (*listRemoveMethod) Repr() string {
+	return "<built-in method remove of list object>"
+}
+func (*listRemoveMethod) isValue() {}
+
 func executeListAttributeLoad(
 	frame *frame,
 	instruction int,
@@ -45,6 +66,8 @@ func executeListAttributeLoad(
 		return pushOutcome(frame, instruction, &listPopMethod{list: list})
 	case "extend":
 		return pushOutcome(frame, instruction, &listExtendMethod{list: list})
+	case "remove":
+		return pushOutcome(frame, instruction, &listRemoveMethod{list: list})
 	default:
 		return raiseOutcome(newException(
 			"AttributeError",
@@ -186,4 +209,93 @@ func executeListPopCall(
 	method.list.elements = method.list.elements[:last]
 	discardCallSegment(caller, base)
 	return pushOutcome(caller, instruction, value)
+}
+
+// executeListRemoveCall validates the bound method arguments and starts the
+// resumable identity-or-equality scan.
+func executeListRemoveCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *listRemoveMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"list.remove() takes no keyword arguments",
+		)), nil
+	}
+	if len(arguments) != 1 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"list.remove() takes exactly one argument ("+
+				strconv.Itoa(len(arguments))+" given)",
+		)), nil
+	}
+
+	call := &listRemoveCall{
+		instruction: instruction,
+		list:        method.list,
+		needle:      arguments[0],
+	}
+	discardCallSegment(caller, base)
+	return continueListRemoveCall(caller, call)
+}
+
+// continueListRemoveCall scans fixed values inline and suspends only when a
+// user equality method must run in another Python frame.
+func continueListRemoveCall(
+	frame *frame,
+	call *listRemoveCall,
+) (instructionOutcome, error) {
+	for call.index < len(call.list.elements) {
+		element := call.list.elements[call.index]
+		if element == call.needle {
+			return finishListRemoveTruth(frame, call, true)
+		}
+		_, elementUser := element.(*instanceValue)
+		_, needleUser := call.needle.(*instanceValue)
+		if elementUser || needleUser {
+			comparison := newEqualityCall(
+				call.instruction,
+				bytecode.CompareEqual,
+				element,
+				call.needle,
+			)
+			comparison.listRemoval = call
+			return continueComparisonCall(frame, comparison)
+		}
+		if valuesEqual(element, call.needle) {
+			return finishListRemoveTruth(frame, call, true)
+		}
+		call.index++
+	}
+	return raiseOutcome(newException(
+		"ValueError",
+		"list.remove(x): x not in list",
+	)), nil
+}
+
+// finishListRemoveTruth applies one comparison result and resumes the dynamic
+// scan when it did not match.
+func finishListRemoveTruth(
+	frame *frame,
+	call *listRemoveCall,
+	matches bool,
+) (instructionOutcome, error) {
+	if !matches {
+		call.index++
+		return continueListRemoveCall(frame, call)
+	}
+	if call.index < len(call.list.elements) {
+		copy(call.list.elements[call.index:], call.list.elements[call.index+1:])
+		last := len(call.list.elements) - 1
+		call.list.elements[last] = nil
+		call.list.elements = call.list.elements[:last]
+	}
+	return pushOutcome(frame, call.instruction, None)
 }

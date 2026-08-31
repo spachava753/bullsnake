@@ -827,3 +827,45 @@ set().discard(element=1)
 # error: TypeError
 # message: "cannot use 'list' as a set element (unhashable type: 'list')"
 set().discard([])
+# ---
+# case: list remove missing argument
+# error: TypeError
+# message: "list.remove() takes exactly one argument (0 given)"
+[].remove()
+# ---
+# case: list remove extra argument
+# error: TypeError
+# message: "list.remove() takes exactly one argument (2 given)"
+[].remove(1, 2)
+# ---
+# case: list remove keyword argument
+# error: TypeError
+# message: "list.remove() takes no keyword arguments"
+[].remove(value=1)
+# ---
+# case: list remove missing value
+# error: ValueError
+# message: "list.remove(x): x not in list"
+[1, 2].remove(3)
+# ---
+# case: list remove equality failure
+# error: ValueError
+# message: "remove equality failed"
+class FailingRemoveEquality:
+    def __eq__(self, other):
+        raise ValueError('remove equality failed')
+
+[FailingRemoveEquality()].remove(1)
+# ---
+# case: list remove equality truth failure
+# error: ValueError
+# message: "remove truth failed"
+class FailingRemoveTruth:
+    def __bool__(self):
+        raise ValueError('remove truth failed')
+
+class RemoveTruthFailureValue:
+    def __eq__(self, other):
+        return FailingRemoveTruth()
+
+[RemoveTruthFailureValue()].remove(1)

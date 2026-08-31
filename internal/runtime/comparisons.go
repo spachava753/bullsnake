@@ -32,7 +32,10 @@ func executeComparison(
 		_, leftUser := left.(*instanceValue)
 		_, rightUser := right.(*instanceValue)
 		if leftUser || rightUser {
-			return executeUserEquality(frame, index, operand, left, right)
+			return continueComparisonCall(
+				frame,
+				newEqualityCall(index, operand, left, right),
+			)
 		}
 	}
 	if operand >= bytecode.CompareLess && operand <= bytecode.CompareGreaterEqual {

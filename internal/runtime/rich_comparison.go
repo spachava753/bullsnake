@@ -16,17 +16,17 @@ type comparisonCall struct {
 	candidates  []comparisonCandidate
 	next        int
 	invert      bool
+	listRemoval *listRemoveCall
 }
 
-// executeUserEquality orders the available operand methods, giving a strict
-// right subclass priority before starting the resumable comparison chain.
-func executeUserEquality(
-	frame *frame,
+// newEqualityCall records the user comparison candidates so bytecode and
+// native operations can share the same resumable ordering.
+func newEqualityCall(
 	instruction int,
 	operand uint32,
 	left Value,
 	right Value,
-) (instructionOutcome, error) {
+) *comparisonCall {
 	call := &comparisonCall{
 		instruction: instruction,
 		operand:     operand,
@@ -47,7 +47,7 @@ func executeUserEquality(
 			call.appendEqualityCandidate(rightInstance, left)
 		}
 	}
-	return continueComparisonCall(frame, call)
+	return call
 }
 
 // executeUserOrdering maps the source operator to left and reflected method
@@ -192,7 +192,7 @@ func finishDeclinedComparison(
 		if equal {
 			result = trueSingleton
 		}
-		return pushOutcome(frame, call.instruction, result)
+		return finishComparisonResult(frame, call, result)
 	}
 
 	operator := "<"
@@ -232,6 +232,24 @@ func finishComparisonCall(
 			},
 			result,
 		)
+	}
+	return finishComparisonResult(frame, call, result)
+}
+
+// finishComparisonResult lets native operations request boolean conversion of
+// a rich comparison without changing ordinary comparison expression results.
+func finishComparisonResult(
+	frame *frame,
+	call *comparisonCall,
+	result Value,
+) (instructionOutcome, error) {
+	if call.listRemoval != nil {
+		truth := &truthCall{
+			instruction: call.instruction,
+			original:    result,
+			listRemoval: call.listRemoval,
+		}
+		return executeTruthWithCall(frame, result, truth)
 	}
 	return pushOutcome(frame, call.instruction, result)
 }

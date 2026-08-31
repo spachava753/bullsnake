@@ -464,17 +464,18 @@ constructors are not implemented yet.
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
 slice subscription, and dictionary item mutation. List instances expose bound
-`append`, `pop`, and `extend` methods. Extend consumes native, generator, or user
-iterators through the frame loop and mutates the target as each item arrives.
-Dictionary instances expose bound `get`, `pop`, and `items` methods. The items
-method returns a live `dict_items` view with independent iterators; replacing a
-value remains visible, while key-set changes during iteration raise
-`RuntimeError`. Set instances expose bound `add` and `discard` methods using the
-same fixed hashability and equality rules as set displays. Set-like view
-operations and other native collection methods are not implemented yet. Lists
-compare structurally
-when their elements use the runtime's fixed scalar, tuple, list, or identity
-equality. Comparing list elements through user `__eq__` is not implemented yet.
+`append`, `pop`, `extend`, and `remove` methods. Extend consumes native,
+generator, or user iterators through the frame loop and mutates the target as
+each item arrives. Remove scans left to right, prefers identity, and resumes user
+`__eq__` and truth methods through the same frame loop. Dictionary instances
+expose bound `get`, `pop`, and `items` methods. The items method returns a live
+`dict_items` view with independent iterators; replacing a value remains visible,
+while key-set changes during iteration raise `RuntimeError`. Set instances expose
+bound `add` and `discard` methods using the same fixed hashability and equality
+rules as set displays. Set-like view operations and other native collection
+methods are not implemented yet. List equality uses the runtime's fixed
+recursive rules for scalars, tuples, lists, and identical values. It does not
+yet suspend for user `__eq__`, unlike `list.remove`.
 Built-in values use fixed truth and length rules. `len` supports strings, bytes,
 ranges, tuples, lists, dictionaries, and sets; string lengths count decoded code
 points, including preserved lone surrogates. A user instance looks up `__bool__`

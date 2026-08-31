@@ -21,6 +21,7 @@ type truthCall struct {
 	returnBoolean bool
 	aggregate     *truthAggregateCall
 	filtering     *filterCall
+	listRemoval   *listRemoveCall
 }
 
 // executeTruthOperation resolves one value for a bytecode truth operation.
@@ -207,6 +208,8 @@ func finishTruthCall(
 	return completeTruthCall(frame, call, truth)
 }
 
+// completeTruthCall routes the resolved truth value back to the native
+// operation or bytecode instruction that requested it.
 func completeTruthCall(
 	frame *frame,
 	call *truthCall,
@@ -217,6 +220,9 @@ func completeTruthCall(
 	}
 	if call.aggregate != nil {
 		return finishTruthAggregateTruth(frame, call.aggregate, truth)
+	}
+	if call.listRemoval != nil {
+		return finishListRemoveTruth(frame, call.listRemoval, truth)
 	}
 	if call.returnBoolean {
 		result := falseSingleton
