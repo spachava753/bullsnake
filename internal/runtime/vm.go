@@ -460,6 +460,16 @@ func executeInstruction(
 			}, nil
 		}
 		return pushOutcome(frame, index, value)
+	case bytecode.LoadLocals:
+		return pushOutcome(frame, index, &namespaceValue{namespace: frame.locals})
+	case bytecode.LoadFromDictOrGlobals:
+		return executeLoadFromDictOrGlobals(
+			frame,
+			index,
+			frame.code.names[instruction.Operand],
+		)
+	case bytecode.LoadFromDictOrDeref:
+		return executeLoadFromDictOrDeref(frame, index, int(instruction.Operand))
 	case bytecode.LoadSpecial:
 		return executeLoadSpecial(frame, index, frame.code.names[instruction.Operand])
 	case bytecode.LoadAttr:
@@ -511,6 +521,16 @@ func executeInstruction(
 			}
 			return pushOutcome(frame, index, value)
 		case *typeValue:
+			if name == "__annotate__" {
+				value, found := owner.namespace.get("__annotate__")
+				if !found {
+					value, found = owner.namespace.get("__annotate_func__")
+				}
+				if !found {
+					value = None
+				}
+				return pushOutcome(frame, index, value)
+			}
 			value, found := owner.lookup(name)
 			if !found {
 				return instructionOutcome{

@@ -462,16 +462,16 @@ func TestBytecodeValidation(t *testing.T) {
 					testCode(
 						1,
 						[]bytecode.Instruction{
-							{Opcode: bytecode.LoadConst},
 							{Opcode: bytecode.LoadLocals},
+							{Opcode: bytecode.LoadFromDictOrGlobals, Operand: 1},
 							{Opcode: bytecode.ReturnValue},
 						},
-						[]bytecode.Constant{bytecode.None()},
+						nil,
 						[]string{"attribute"},
 					),
 				},
 			}),
-			wantFragment: "unsupported opcode LOAD_LOCALS",
+			wantFragment: "name index 1 out of range",
 		},
 		{
 			name: "generator metadata",
@@ -1414,19 +1414,60 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "code has no reachable RETURN_VALUE",
 		},
 		{
-			name: "unsupported opcode",
+			name: "unknown opcode",
 			code: testCode(
-				2,
+				1,
 				[]bytecode.Instruction{
+					{Opcode: bytecode.Opcode(255)},
 					{Opcode: bytecode.LoadConst},
-					{Opcode: bytecode.StoreName},
-					{Opcode: bytecode.LoadLocals},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
-				[]string{"changed"},
+				nil,
 			),
-			wantFragment: "unsupported opcode LOAD_LOCALS",
+			wantFragment: "unsupported opcode Opcode(255)",
+		},
+		{
+			name: "class annotation lookup underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadFromDictOrGlobals},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				[]string{"value"},
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "class annotation namespace type",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.LoadFromDictOrGlobals},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				[]string{"value"},
+			),
+			wantFragment: "class annotation namespace is not a namespace",
+		},
+		{
+			name: "class annotation dereference out of range",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.LoadLocals},
+					{Opcode: bytecode.LoadFromDictOrDeref},
+					{Opcode: bytecode.ReturnValue},
+				},
+				nil,
+				nil,
+			),
+			wantFragment: "deref index 0 out of range",
 		},
 		{
 			name: "special method name out of range",

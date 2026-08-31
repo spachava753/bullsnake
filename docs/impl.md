@@ -186,7 +186,8 @@ The current compiler translates:
 - synchronous generator functions with lazy calls, `yield`, `yield from`,
   iteration, sent values, closure captures, and cleanup across suspension
 - basic classes with decorators, bases, class keywords, methods, enclosing
-  closures, and the cells used by class-visible annotations and `__class__`
+  closures, lazy class annotations, and the cells used by class-visible
+  annotations and `__class__`
 - ordinary imports and assertions
 - ordinary exception handlers, `else`, `finally`, exception groups, `except*`,
   bare reraising, explicit causes, and cleanup during return or loop transfer
@@ -203,10 +204,12 @@ Calling a generator creates its runtime object without executing its child code.
 For every comprehension, the enclosing code evaluates the first iterable and
 passes its iterator to the child. Eager children build and return a collection;
 generator-expression children yield values lazily. Each child owns its target
-names. Deferred annotation bodies are also children and do not run during an
-ordinary function definition or call.
+names. Deferred annotation bodies are also children. Function annotations do
+not run during an ordinary definition or call. Class bodies record each
+executed simple annotation and publish a lazy `__annotate__` child that can read
+the live class namespace, enclosing cells, globals, and builtins.
 
-The compiler rejects template-string execution, annotated class attributes,
+The compiler rejects template-string execution,
 `from __future__ import annotations`, generic and async definitions,
 asynchronous comprehensions, `async for`, `async with`, and coroutines.
 Unsupported AST forms return compiler errors; they are not approximated with
@@ -333,12 +336,15 @@ with Python exceptions. Generator calls use the same binding path but retain the
 new frame without running its body.
 
 Classes support one base, inherited attribute lookup, bound Python methods,
-ordinary `__init__`, instance and class attribute mutation, and user exception
-subclasses. Synchronous context managers look up `__enter__` and `__exit__` on
-that class chain, ignoring same-named instance attributes. The object model does
-not yet implement class keyword arguments, multiple inheritance, C3 method
-order, metaclasses, `super`, `__new__`, or general descriptors. Custom exception
-initializers and methods remain unsupported.
+ordinary `__init__`, instance and class attribute mutation, lazy class annotation
+callables, and user exception subclasses. A generated `C.__annotate__(1)`
+returns annotations from statements that ran in the class body; an explicit
+class method of that name wins. The runtime does not yet evaluate or cache
+`C.__annotations__`. Synchronous context managers look up `__enter__` and
+`__exit__` on that class chain, ignoring same-named instance attributes. The
+object model does not yet implement class keyword arguments, multiple
+inheritance, C3 method order, metaclasses, `super`, `__new__`, or general
+descriptors. Custom exception initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general

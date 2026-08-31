@@ -478,7 +478,8 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		bytecode.ListAppend, bytecode.ListExtend, bytecode.ListToTuple,
 		bytecode.SetAdd, bytecode.SetUpdate, bytecode.MapSet, bytecode.MapUpdate,
 		bytecode.MapMerge, bytecode.LoadNotImplementedError,
-		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.ImportStar,
+		bytecode.LoadAssertionError, bytecode.LoadBuildClass, bytecode.LoadLocals,
+		bytecode.ImportStar,
 		bytecode.CheckExceptionMatch, bytecode.CheckExceptionGroupMatch,
 		bytecode.PrepareReraiseStar, bytecode.Reraise, bytecode.LeaveExcept,
 		bytecode.LoadHandledExceptionType, bytecode.MatchSequence, bytecode.GetLen,
@@ -542,7 +543,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 	case bytecode.LoadName, bytecode.StoreName, bytecode.DeleteName,
 		bytecode.LoadGlobal, bytecode.StoreGlobal, bytecode.DeleteGlobal,
 		bytecode.LoadAttr, bytecode.LoadSpecial, bytecode.StoreAttr, bytecode.DeleteAttr,
-		bytecode.ImportName, bytecode.ImportFrom:
+		bytecode.ImportName, bytecode.ImportFrom, bytecode.LoadFromDictOrGlobals:
 		if uint64(instruction.Operand) >= uint64(len(code.names)) {
 			return code.failure(index, "name index %d out of range", instruction.Operand)
 		}
@@ -553,7 +554,7 @@ func (code *preparedCode) validateOperand(index int, instruction bytecode.Instru
 		}
 		return nil
 	case bytecode.LoadDeref, bytecode.StoreDeref, bytecode.DeleteDeref,
-		bytecode.LoadClosure:
+		bytecode.LoadClosure, bytecode.LoadFromDictOrDeref:
 		if uint64(instruction.Operand) >= uint64(len(code.cells)+len(code.freeVars)) {
 			return code.failure(index, "deref index %d out of range", instruction.Operand)
 		}
@@ -731,8 +732,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 	case bytecode.LoadConst, bytecode.LoadName, bytecode.LoadFast,
 		bytecode.LoadGlobal, bytecode.LoadDeref, bytecode.LoadClosure,
 		bytecode.LoadNotImplementedError, bytecode.LoadAssertionError,
-		bytecode.LoadBuildClass, bytecode.MakeFunction, bytecode.ImportFrom,
-		bytecode.LoadHandledExceptionType:
+		bytecode.LoadBuildClass, bytecode.LoadLocals, bytecode.MakeFunction,
+		bytecode.ImportFrom, bytecode.LoadHandledExceptionType:
 		return 0, 1
 	case bytecode.StoreName, bytecode.StoreFast, bytecode.StoreGlobal,
 		bytecode.StoreDeref, bytecode.PopTop, bytecode.ReturnValue,
@@ -774,7 +775,8 @@ func instructionStackUse(instruction bytecode.Instruction) (pops, pushes int) {
 		return 2 + int(instruction.Operand), 1
 	case bytecode.UnaryOp, bytecode.ConvertValue, bytecode.FormatSimple,
 		bytecode.GetIter, bytecode.ListToTuple, bytecode.LoadAttr,
-		bytecode.LoadSpecial:
+		bytecode.LoadSpecial, bytecode.LoadFromDictOrGlobals,
+		bytecode.LoadFromDictOrDeref:
 		return 1, 1
 	case bytecode.MatchSequence, bytecode.GetLen, bytecode.MatchMapping:
 		return 1, 2

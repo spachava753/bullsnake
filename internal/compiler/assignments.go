@@ -25,10 +25,10 @@ func (compiler *compilerState) compileAnnotatedAssignment(
 	switch compiler.scope.Kind {
 	case resolver.FunctionScope:
 		return compiler.compileLocalAnnotatedAssignment(statement)
-	case resolver.ModuleScope:
-		return compiler.compileModuleAnnotatedAssignment(statement)
+	case resolver.ModuleScope, resolver.ClassScope:
+		return compiler.compileDeferredAnnotatedAssignment(statement)
 	default:
-		return compiler.error(statement.Span(), "class annotated assignments are not compiled")
+		return compiler.error(statement.Span(), "annotated assignment has unsupported scope")
 	}
 }
 
@@ -44,9 +44,9 @@ func (compiler *compilerState) compileLocalAnnotatedAssignment(
 	return compiler.compileAnnotationOnlyTarget(statement.Target)
 }
 
-// compileModuleAnnotatedAssignment performs an optional store immediately and
-// records only simple names for lazy module annotation evaluation.
-func (compiler *compilerState) compileModuleAnnotatedAssignment(
+// compileDeferredAnnotatedAssignment performs an optional store immediately and
+// records simple module or class names for lazy annotation evaluation.
+func (compiler *compilerState) compileDeferredAnnotatedAssignment(
 	statement *compilerast.AnnAssignStmt,
 ) error {
 	if compiler.table.Features&resolver.FutureAnnotations != 0 {
@@ -61,7 +61,7 @@ func (compiler *compilerState) compileModuleAnnotatedAssignment(
 		}
 	}
 	if name, ok := statement.Target.(*compilerast.Name); ok && statement.Simple {
-		return compiler.deferModuleAnnotation(statement, name.ID)
+		return compiler.deferAnnotation(statement, name.ID)
 	}
 	if statement.Value != nil {
 		return nil

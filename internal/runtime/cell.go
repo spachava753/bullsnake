@@ -31,15 +31,22 @@ func initializeDeref(
 	return deref, true
 }
 
+func derefName(code *preparedCode, index int) string {
+	if index < len(code.cells) {
+		return code.cells[index]
+	}
+	return code.freeVars[index-len(code.cells)]
+}
+
 func unboundDerefException(code *preparedCode, index int) *Exception {
+	name := derefName(code, index)
 	if index < len(code.cells) {
 		return newException(
 			"UnboundLocalError",
-			"cannot access local variable '"+code.cells[index]+
+			"cannot access local variable '"+name+
 				"' where it is not associated with a value",
 		)
 	}
-	name := code.freeVars[index-len(code.cells)]
 	return newException(
 		"NameError",
 		"cannot access free variable '"+name+

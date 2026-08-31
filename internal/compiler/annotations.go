@@ -37,6 +37,7 @@ func (compiler *compilerState) compileFunctionAnnotations(
 		statement,
 		scope,
 		compiler.childQualifiedName(statement.Name)+".__annotate__",
+		false,
 	)
 	if err := child.emitAnnotationFormatGuard(statement.Span()); err != nil {
 		return false, err
@@ -67,7 +68,9 @@ func (compiler *compilerState) compileFunctionAnnotations(
 	return true, nil
 }
 
-func (compiler *compilerState) deferModuleAnnotation(
+// deferAnnotation records one simple-name annotation and marks its index in the
+// module namespace or class cell when that statement executes.
+func (compiler *compilerState) deferAnnotation(
 	statement *compilerast.AnnAssignStmt,
 	name string,
 ) error {
@@ -77,7 +80,15 @@ func (compiler *compilerState) deferModuleAnnotation(
 		name:      name,
 		index:     index,
 	})
-	if err := compiler.emit(
+	if compiler.scope.Kind == resolver.ClassScope {
+		index, err := compiler.derefIndex(conditionalAnnotationsName)
+		if err != nil {
+			return compiler.error(statement.Span(), "%v", err)
+		}
+		if err := compiler.emit(bytecode.LoadDeref, index, statement.Span()); err != nil {
+			return err
+		}
+	} else if err := compiler.emit(
 		bytecode.LoadName,
 		compiler.nameIndex(conditionalAnnotationsName),
 		statement.Span(),
@@ -97,7 +108,7 @@ func (compiler *compilerState) deferModuleAnnotation(
 	return compiler.emit(bytecode.PopTop, 0, statement.Span())
 }
 
-// compileDeferredAnnotations emits the module's lazy annotation callable after
+// compileDeferredAnnotations emits a module or class annotation callable after
 // all reachable statements have recorded their executed annotation indexes.
 func (compiler *compilerState) compileDeferredAnnotations() error {
 	if len(compiler.deferredAnnotations) == 0 || !compiler.reachable {
@@ -106,9 +117,22 @@ func (compiler *compilerState) compileDeferredAnnotations() error {
 	first := compiler.deferredAnnotations[0].statement
 	scope := compiler.table.ScopeFor(first, resolver.Annotations, 0)
 	if scope == nil || scope.Kind != resolver.AnnotationScope {
-		return compiler.error(first.Span(), "resolver has no module annotation scope")
+		return compiler.error(first.Span(), "resolver has no annotation scope")
 	}
-	child := compiler.newAnnotationCompiler(first, scope, "__annotate__")
+
+	classAnnotations := compiler.scope.Kind == resolver.ClassScope
+	qualifiedName := "__annotate__"
+	storedName := "__annotate__"
+	if classAnnotations {
+		qualifiedName = compiler.childQualifiedName("__annotate__")
+		storedName = "__annotate_func__"
+	}
+	child := compiler.newAnnotationCompiler(
+		first,
+		scope,
+		qualifiedName,
+		classAnnotations,
+	)
 	if err := child.emitAnnotationFormatGuard(first.Span()); err != nil {
 		return err
 	}
@@ -132,13 +156,13 @@ func (compiler *compilerState) compileDeferredAnnotations() error {
 	}
 	return compiler.emit(
 		bytecode.StoreName,
-		compiler.nameIndex("__annotate__"),
+		compiler.nameIndex(storedName),
 		first.Span(),
 	)
 }
 
-// compileDeferredAnnotation checks whether one module annotation executed, then
-// conditionally inserts its evaluated value into the shared result map.
+// compileDeferredAnnotation checks whether one annotation statement executed,
+// then conditionally inserts its evaluated value into the shared result map.
 func (compiler *compilerState) compileDeferredAnnotation(annotation deferredAnnotation) error {
 	span := annotation.statement.Span()
 	skip := compiler.newLabel()
@@ -149,7 +173,15 @@ func (compiler *compilerState) compileDeferredAnnotation(annotation deferredAnno
 	); err != nil {
 		return err
 	}
-	if err := compiler.emit(
+	if compiler.scope.Flags&resolver.CanSeeClassScope != 0 {
+		index, err := compiler.derefIndex(conditionalAnnotationsName)
+		if err != nil {
+			return compiler.error(span, "%v", err)
+		}
+		if err := compiler.emit(bytecode.LoadDeref, index, span); err != nil {
+			return err
+		}
+	} else if err := compiler.emit(
 		bytecode.LoadGlobal,
 		compiler.nameIndex(conditionalAnnotationsName),
 		span,
@@ -185,6 +217,7 @@ func (compiler *compilerState) newAnnotationCompiler(
 	owner compilerast.Node,
 	scope *resolver.Scope,
 	qualifiedName string,
+	classAnnotations bool,
 ) *compilerState {
 	flags := bytecode.Optimized | bytecode.NewLocals
 	if scope.Flags&resolver.Nested != 0 {
@@ -213,6 +246,9 @@ func (compiler *compilerState) newAnnotationCompiler(
 	child.addLocal("format")
 	if scope.Flags&resolver.CanSeeClassScope != 0 {
 		child.addFree("__classdict__")
+	}
+	if classAnnotations {
+		child.addFree(conditionalAnnotationsName)
 	}
 	child.initializeScopeLayout(scope)
 	return child

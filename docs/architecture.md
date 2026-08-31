@@ -153,6 +153,13 @@ expression use the comprehension scope. This simpler compiler model preserves
 name isolation and closure behavior. The extra frame may change when Bullsnake
 exposes Python frame introspection.
 
+Class annotations also use a child code object. The class body records which
+annotation statements ran, while the child captures the live class namespace
+and any required enclosing cells. Calling `C.__annotate__(1)` evaluates those
+annotations and returns a new dictionary. An explicit class `__annotate__`
+method takes precedence, and subclasses do not inherit the generated callable.
+Automatic `C.__annotations__` evaluation and caching remain future work.
+
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches
 compiler mistakes before the VM runs them.
