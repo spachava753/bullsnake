@@ -22,6 +22,7 @@ type truthCall struct {
 	aggregate     *truthAggregateCall
 	filtering     *filterCall
 	listRemoval   *listRemoveCall
+	splitlines    *stringSplitlinesCall
 }
 
 // executeTruthOperation resolves one value for a bytecode truth operation.
@@ -225,6 +226,9 @@ func completeTruthCall(
 	}
 	if call.listRemoval != nil {
 		return finishListRemoveTruth(frame, call.listRemoval, truth)
+	}
+	if call.splitlines != nil {
+		return finishStringSplitlines(frame, call.splitlines, truth)
 	}
 	if call.returnBoolean {
 		result := falseSingleton

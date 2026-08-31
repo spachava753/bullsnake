@@ -1024,3 +1024,30 @@ lower = 'VALUE'.lower
 assert callable(lower)
 assert lower() == 'value'
 assert getattr('Mixed', 'lower')() == 'mixed'
+# ---
+# case: string splitlines boundaries
+text = 'a\r\nb\nc\rd\v e\f f\x1c g\x1d h\x1e i\x85 j\u2028 k\u2029'
+assert text.splitlines() == [
+    'a', 'b', 'c', 'd', ' e', ' f', ' g', ' h', ' i', ' j', ' k'
+]
+assert 'a\r\nb\n'.splitlines(True) == ['a\r\n', 'b\n']
+assert 'a\r\nb\n'.splitlines(False) == ['a', 'b']
+assert ''.splitlines() == []
+assert '\n'.splitlines() == ['']
+assert '\ud800\nvalue'.splitlines() == ['\ud800', 'value']
+# ---
+# case: string splitlines truth and retained method
+class KeepLineEnds:
+    def __init__(self):
+        self.calls = 0
+
+    def __bool__(self):
+        self.calls += 1
+        return True
+
+keep = KeepLineEnds()
+splitlines = 'left\nright'.splitlines
+assert callable(splitlines)
+assert splitlines(keepends=keep) == ['left\n', 'right']
+assert keep.calls == 1
+assert getattr('one\ntwo', 'splitlines')() == ['one', 'two']

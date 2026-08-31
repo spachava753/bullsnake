@@ -385,9 +385,11 @@ arbitrary-precision integer bounds and produce values lazily through the ordinar
 native iterator path. Enumerate, map, and filter objects wrap that iterator
 contract and may suspend while a generator, user iterator, mapped callable, or
 filter predicate and truth method runs. String instances expose bound `endswith`,
-`join`, `lower`, `split`, `startswith`, and `strip`. Join collects through that
-iterator path before validating and concatenating its items. Split handles
-explicit separators and Python whitespace. Prefix and suffix matching apply
+`join`, `lower`, `split`, `splitlines`, `startswith`, and `strip`. Join collects
+through that iterator path before validating and concatenating its items. Split
+handles explicit separators and Python whitespace. Splitlines recognizes
+Python's Unicode line boundaries, treats CRLF as one boundary, and resolves
+`keepends` through ordinary truth testing. Prefix and suffix matching apply
 code-point slice bounds and accept one string or an ordered tuple of strings.
 Strip trims Python whitespace or a supplied code-point set. Lowercase conversion
 uses full Unicode mappings while retaining lone-surrogate bytes. Bullsnake uses

@@ -206,6 +206,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *stringSplitlinesMethod:
+		return executeStringSplitlinesCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *stringStripMethod:
 		return executeStringStripCall(
 			caller,
@@ -511,6 +520,7 @@ func isCallableValue(value Value) bool {
 		*stringEndswithMethod,
 		*stringStartswithMethod,
 		*stringSplitMethod,
+		*stringSplitlinesMethod,
 		*stringStripMethod,
 		*listAppendMethod,
 		*listPopMethod,

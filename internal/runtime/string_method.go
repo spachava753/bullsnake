@@ -55,6 +55,8 @@ func executeStringAttributeLoad(
 		return pushOutcome(frame, instruction, &stringStartswithMethod{value: value})
 	case "split":
 		return pushOutcome(frame, instruction, &stringSplitMethod{value: value})
+	case "splitlines":
+		return pushOutcome(frame, instruction, &stringSplitlinesMethod{value: value})
 	case "strip":
 		return pushOutcome(frame, instruction, &stringStripMethod{value: value})
 	default:

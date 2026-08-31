@@ -1094,3 +1094,27 @@ def failing_join_values():
 # error: TypeError
 # message: "str.lower() takes no keyword arguments"
 'A'.lower(value=1)
+# ---
+# case: string splitlines extra argument
+# error: TypeError
+# message: "splitlines() takes at most 1 argument (2 given)"
+'a'.splitlines(False, False)
+# ---
+# case: string splitlines unknown keyword
+# error: TypeError
+# message: "'unknown' is an invalid keyword argument for splitlines()"
+'a'.splitlines(unknown=False)
+# ---
+# case: string splitlines duplicate keepends
+# error: TypeError
+# message: "splitlines() got multiple values for argument 'keepends'"
+'a'.splitlines(False, keepends=False)
+# ---
+# case: string splitlines invalid truth result
+# error: TypeError
+# message: "__bool__ should return bool, returned int"
+class InvalidKeepLineEnds:
+    def __bool__(self):
+        return 1
+
+'a'.splitlines(InvalidKeepLineEnds())
