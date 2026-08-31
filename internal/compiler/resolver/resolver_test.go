@@ -74,8 +74,9 @@ func TestScopeForDistinguishesPurposeAndItem(t *testing.T) {
 	}
 }
 
-// TestPrivateNameMangling records Python's class-private name rules.
-func TestPrivateNameMangling(t *testing.T) {
+// TestPrivateNameManglingContract records Python's class-private name rules
+// through the scope contract consumed by later compiler stages.
+func TestPrivateNameManglingContract(t *testing.T) {
 	for _, test := range []struct {
 		class string
 		name  string
@@ -90,8 +91,9 @@ func TestPrivateNameMangling(t *testing.T) {
 		{class: "", name: "__value", want: "__value"},
 	} {
 		t.Run(test.class+"/"+test.name, func(t *testing.T) {
-			if got := manglePrivate(test.class, test.name); got != test.want {
-				t.Fatalf("manglePrivate(%q, %q) = %q, want %q", test.class, test.name, got, test.want)
+			scope := Scope{PrivateName: test.class}
+			if got := scope.Mangle(test.name); got != test.want {
+				t.Fatalf("Scope.Mangle(%q) = %q, want %q", test.name, got, test.want)
 			}
 		})
 	}
