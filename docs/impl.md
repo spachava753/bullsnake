@@ -786,13 +786,15 @@ an underscore. Other Python sequence implementations are not yet accepted for
 `__package__` global, then uses the same absolute loading path. Level one keeps
 the complete package name; each additional level removes one component. An
 empty package name raises the no-known-parent `ImportError`, while removing too
-many components raises the beyond-top-level form. Each runtime also starts with
-a cached `__future__` module. It exposes marker values for the feature names the
-resolver accepts. A cached `_functools` module exports `cmp_to_key`; its other
-CPython accelerator exports remain absent so pure-Python fallbacks can handle
-them. A cached `string` package and `string.templatelib` child expose the native
-template constructors and conversion helper. These modules retain ordinary
-import and binding behavior without a filesystem loader.
+many components raises the beyond-top-level form. Each runtime starts with a
+cached `builtins` module backed by the same namespace used for bare builtin
+lookup, so module mutation and name resolution remain in sync. It also caches
+`__future__`, whose marker values cover the feature names the resolver accepts.
+A cached `_functools` module exports `cmp_to_key`; its other CPython accelerator
+exports remain absent so pure-Python fallbacks can handle them. A cached `string`
+package and `string.templatelib` child expose the native template constructors
+and conversion helper. These modules retain ordinary import and binding behavior
+without a filesystem loader.
 
 If a Python exception leaves an imported module, the frame unwind removes its
 cache entry before checking the importer's handler. A later import may retry it.

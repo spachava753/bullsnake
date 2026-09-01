@@ -534,7 +534,8 @@ This ownership makes isolation explicit. Separate runtimes may execute in
 parallel without silently sharing modules or mutable Python values.
 
 The current importer asks a host-supplied loader for a module description with
-immutable code and package metadata. Each runtime begins with cached modules for
+immutable code and package metadata. Each runtime begins with a cached `builtins`
+module backed by the same namespace used for bare builtin lookup. It also caches
 `__future__`, the side-effect-free `_functools.cmp_to_key` helper, and the native
 `string.templatelib` values. Those features retain ordinary import and binding
 behavior without a loader. For a dotted absolute name, the runtime loads each

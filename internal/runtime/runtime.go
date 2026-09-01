@@ -57,7 +57,10 @@ func newRuntime(loader ModuleLoader) *Runtime {
 		builtins.values[exceptionType.name] = exceptionType
 	}
 	builtins.values["NotImplemented"] = notImplementedSingleton
+	builtins.values["__name__"] = &stringValue{value: "builtins"}
+	builtins.values["__package__"] = &stringValue{value: ""}
 	modules := make(map[string]*Module)
+	modules["builtins"] = &Module{name: "builtins", globals: builtins}
 	modules[futureModuleName] = newFutureModule()
 	modules[functoolsModuleName] = newFunctoolsModule()
 	stringPackage, templateLibrary := newTemplateLibraryModules()
