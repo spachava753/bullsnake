@@ -146,6 +146,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"typing.ParamSpecArgs":             nativeType("typing", "ParamSpecArgs"),
 	"typing.ParamSpecKwargs":           nativeType("typing", "ParamSpecKwargs"),
 	"typing.TypeAliasType":             nativeType("typing", "TypeAliasType"),
+	"functools.KeyWrapper":             nativeType("functools", "KeyWrapper"),
 	"string.templatelib.Template":      nativeType("string.templatelib", "Template"),
 	"string.templatelib.Interpolation": nativeType("string.templatelib", "Interpolation"),
 	"string.templatelib.TemplateIter":  nativeType("string.templatelib", "TemplateIter"),

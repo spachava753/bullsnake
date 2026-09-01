@@ -446,7 +446,10 @@ rounding to native integers and floats, then falls back to class `__round__`.
 `sorted` collects through the ordinary iterator path, evaluates each key once in
 input order, and preserves the order of equal keys in ascending or descending
 results. Key functions, reverse truth testing, and user ordering methods all run
-through frame continuations. `repr` and the object form of `str` use class
+through frame continuations. The cached `_functools.cmp_to_key` helper creates
+callable wrappers whose comparisons invoke the saved comparator and compare its
+result with zero through the same continuation path. `repr` and the object form
+of `str` use class
 `__repr__` and `__str__` through the same suspended-frame mechanism. The `all`
 and `any` builtins use both the iteration and truth paths. They stop at the first
 result that determines the answer and do not resume the iterator afterward.
@@ -532,10 +535,11 @@ parallel without silently sharing modules or mutable Python values.
 
 The current importer asks a host-supplied loader for a module description with
 immutable code and package metadata. Each runtime begins with cached modules for
-`__future__` and the native `string.templatelib` values, so those features retain
-ordinary import and binding behavior without a loader. For a dotted absolute
-name, the runtime loads each parent first, verifies that it is a package, and
-publishes each child on that parent. Relative from-imports resolve their level
+`__future__`, the side-effect-free `_functools.cmp_to_key` helper, and the native
+`string.templatelib` values. Those features retain ordinary import and binding
+behavior without a loader. For a dotted absolute name, the runtime loads each
+parent first, verifies that it is a package, and publishes each child on that
+parent. Relative from-imports resolve their level
 against the executing module's package name. A from-import also tries a missing
 package attribute as a child module. Wildcard imports honor an explicit `__all__`
 list and load listed package children. Modules execute in the existing frame

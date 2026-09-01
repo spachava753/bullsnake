@@ -411,6 +411,58 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					)
 				}
 			}
+			if active.cmpKeyComparison != nil {
+				call := active.cmpKeyComparison
+				active.cmpKeyComparison = nil
+				if thread.current == nil {
+					return nil, nil, active.failure(
+						index,
+						"cmp_to_key comparator has no caller",
+					)
+				}
+				comparisonOutcome, comparisonErr := finishCmpKeyComparator(
+					thread.current,
+					call,
+					result,
+				)
+				if comparisonErr != nil {
+					return nil, nil, comparisonErr
+				}
+				switch comparisonOutcome.kind {
+				case advance:
+					continue
+				case called:
+					if comparisonOutcome.frame == nil ||
+						comparisonOutcome.frame.previous != thread.current {
+						return nil, nil, thread.current.failure(
+							call.instruction,
+							"invalid cmp_to_key comparison frame transition",
+						)
+					}
+					thread.current = comparisonOutcome.frame
+					continue
+				case raised:
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						call.instruction,
+						comparisonOutcome.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				default:
+					return nil, nil, thread.current.failure(
+						call.instruction,
+						"invalid cmp_to_key comparator outcome",
+					)
+				}
+			}
 			if active.truth != nil {
 				call := active.truth
 				active.truth = nil
@@ -1440,6 +1492,8 @@ func executeInstruction(
 			return executeTemplateAttributeLoad(frame, index, owner, name)
 		case *interpolationValue:
 			return executeInterpolationAttributeLoad(frame, index, owner, name)
+		case *cmpKeyValue:
+			return executeCmpKeyAttributeLoad(frame, index, owner, name)
 		case *stringValue:
 			return executeStringAttributeLoad(frame, index, owner, name)
 		case *dictValue:

@@ -395,6 +395,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *cmpKeyValue:
+		return executeCmpKeyCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,
@@ -622,6 +631,7 @@ func isCallableValue(value Value) bool {
 		*dictionaryValuesMethod,
 		*setAddMethod,
 		*setDiscardMethod,
+		*cmpKeyValue,
 		*buildClassValue,
 		*typeValue,
 		*exceptionTypeValue,

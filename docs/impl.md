@@ -496,9 +496,12 @@ frame loop. The `sorted` builtin collects any current iterable into a new list,
 evaluates an optional key once per item from left to right, and supports reverse
 ordering via ordinary truth conversion. Sorting is stable in both directions.
 User key, `__lt__`, and comparison-truth methods may suspend through the frame
-loop. `list.sort` uses the same behavior, returns `None`, and replaces the target
-contents only after success. Bullsnake does not yet expose an empty target to
-sort callbacks or detect target mutation during sorting as CPython does.
+loop. The cached `_functools.cmp_to_key` helper creates callable `KeyWrapper`
+values. Their six rich comparisons call the saved comparator and compare its
+result with zero through that same frame loop. `list.sort` uses the shared sort
+behavior, returns `None`, and replaces the target contents only after success.
+Bullsnake does not yet expose an empty target to sort callbacks or detect target
+mutation during sorting as CPython does.
 
 Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
 `keys`, `update`, and `values` methods. Copy clones ordered entry storage while
@@ -785,9 +788,11 @@ the complete package name; each additional level removes one component. An
 empty package name raises the no-known-parent `ImportError`, while removing too
 many components raises the beyond-top-level form. Each runtime also starts with
 a cached `__future__` module. It exposes marker values for the feature names the
-resolver accepts. A cached `string` package and `string.templatelib` child expose
-the native template constructors and conversion helper. These modules retain
-ordinary import and binding behavior without a filesystem loader.
+resolver accepts. A cached `_functools` module exports `cmp_to_key`; its other
+CPython accelerator exports remain absent so pure-Python fallbacks can handle
+them. A cached `string` package and `string.templatelib` child expose the native
+template constructors and conversion helper. These modules retain ordinary
+import and binding behavior without a filesystem loader.
 
 If a Python exception leaves an imported module, the frame unwind removes its
 cache entry before checking the importer's handler. A later import may retry it.

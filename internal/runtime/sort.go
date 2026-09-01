@@ -214,6 +214,18 @@ func continueSortInsertion(
 		if call.reverse {
 			left, right = right, left
 		}
+		_, leftKey := left.(*cmpKeyValue)
+		_, rightKey := right.(*cmpKeyValue)
+		if leftKey || rightKey {
+			return executeCmpKeyComparison(
+				frame,
+				call.instruction,
+				bytecode.CompareLess,
+				left,
+				right,
+				call,
+			)
+		}
 		_, leftUser := left.(*instanceValue)
 		_, rightUser := right.(*instanceValue)
 		if leftUser || rightUser {

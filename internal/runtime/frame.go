@@ -62,6 +62,7 @@ type frame struct {
 	membership          *membershipCall
 	subscription        *subscriptionCall
 	comparison          *comparisonCall
+	cmpKeyComparison    *cmpKeyComparisonCall
 	unary               *unaryCall
 	binary              *binaryCall
 	attribute           *attributeCall

@@ -28,6 +28,13 @@ func executeComparison(
 	if operand == bytecode.CompareIn || operand == bytecode.CompareNotIn {
 		return executeMembership(frame, index, operand, right, left)
 	}
+	if operand <= bytecode.CompareGreaterEqual {
+		_, leftKey := left.(*cmpKeyValue)
+		_, rightKey := right.(*cmpKeyValue)
+		if leftKey || rightKey {
+			return executeCmpKeyComparison(frame, index, operand, left, right, nil)
+		}
+	}
 	if operand == bytecode.CompareEqual || operand == bytecode.CompareNotEqual {
 		_, leftUser := left.(*instanceValue)
 		_, rightUser := right.(*instanceValue)
