@@ -467,9 +467,10 @@ constructors are not implemented yet.
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
 slice subscription, and dictionary item mutation. String instances expose bound
-`count`, `endswith`, `format`, `join`, `lower`, `removeprefix`, `replace`,
-`split`, `splitlines`, `startswith`, and `strip`. Join collects through the
-resumable iterator path before validating all items. Format supports automatic
+`capitalize`, `count`, `endswith`, `format`, `join`, `lower`, `removeprefix`,
+`replace`, `split`, `splitlines`, `startswith`, and `strip`.
+Join collects through the resumable iterator path before validating all items.
+Format supports automatic
 fields, escaped braces, and `!s`, `!r`, or `!a` conversion. User string and
 representation methods resume through the frame loop. Numbered, named, nested,
 specified, and custom `__format__` fields remain unsupported. Count uses
@@ -483,10 +484,11 @@ handles explicit separators and Python whitespace with the integer-or-boolean
 folds CRLF into one boundary, and resolves `keepends` through ordinary truth
 testing. Prefix and suffix matching apply code-point bounds from the current
 integer-or-`None` index subset to a string or an ordered tuple. Strip removes
-Python whitespace or a supplied code-point set. Lowercase conversion uses full
-Unicode mappings and preserves lone-surrogate bytes. Its tables come from
-`golang.org/x/text` Unicode 17, so code points whose casing changed after CPython
-3.14's Unicode 16 baseline may differ.
+Python whitespace or a supplied code-point set. Capitalization titlecases the
+first code point and applies contextual lowercase mappings to the remainder.
+Lowercase conversion uses full Unicode mappings and preserves lone-surrogate
+bytes. Both operations use `golang.org/x/text` Unicode 17, so code points whose
+casing changed after CPython 3.14's Unicode 16 baseline may differ.
 
 List instances expose bound `append`, `pop`, `extend`, `remove`, and `sort`
 methods. Extend consumes native, generator, or user iterators through the frame

@@ -1517,3 +1517,17 @@ except RuntimeError:
 else:
     assert False
 assert values == [3, 1, 2]
+# ---
+# case: capitalize native strings
+assert ''.capitalize() == ''
+assert 'hello '.capitalize() == 'Hello '
+assert 'AaAa'.capitalize() == 'Aaaa'
+assert ' Hello '.capitalize() == ' hello '
+assert 'ﬁnnish'.capitalize() == 'Finnish'
+assert 'hİ'.capitalize() == 'Hi\u0307'
+assert 'A\u0345Σ'.capitalize() == 'A\u0345ς'
+assert '\ud800ABC'.capitalize() == '\ud800abc'
+method = 'mixed CASE'.capitalize
+assert callable(method)
+assert method() == 'Mixed case'
+assert getattr('value', 'capitalize')() == 'Value'

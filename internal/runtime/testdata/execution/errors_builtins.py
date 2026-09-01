@@ -1499,3 +1499,13 @@ def raising_list_sort_key(value):
     raise RuntimeError('list sort failed')
 
 [1].sort(key=raising_list_sort_key)
+# ---
+# case: capitalize string argument
+# error: TypeError
+# message: "str.capitalize() takes no arguments (1 given)"
+'value'.capitalize(1)
+# ---
+# case: capitalize string keyword argument
+# error: TypeError
+# message: "str.capitalize() takes no keyword arguments"
+'value'.capitalize(flag=True)

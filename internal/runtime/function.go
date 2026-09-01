@@ -184,6 +184,15 @@ func executeFunctionCall(
 		}
 		discardCallSegment(caller, base)
 		return continueStringFormat(caller, call)
+	case *stringCapitalizeMethod:
+		return executeStringCapitalizeCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *stringLowerMethod:
 		return executeStringLowerCall(
 			caller,
@@ -635,6 +644,7 @@ func isCallableValue(value Value) bool {
 		*stringCountMethod,
 		*stringJoinMethod,
 		*stringFormatMethod,
+		*stringCapitalizeMethod,
 		*stringLowerMethod,
 		*stringReplaceMethod,
 		*stringRemovePrefixMethod,

@@ -45,6 +45,8 @@ func executeStringAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "capitalize":
+		return pushOutcome(frame, instruction, &stringCapitalizeMethod{value: value})
 	case "count":
 		return pushOutcome(frame, instruction, &stringCountMethod{value: value})
 	case "join":

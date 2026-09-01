@@ -387,7 +387,7 @@ and zip objects wrap that iterator contract and may suspend while a generator,
 user iterator, mapped callable, or filter predicate and truth method runs. Zip
 resolves every source iterator from left to right when constructed, then yields
 tuples until the shortest source is exhausted. Strict zip mode remains later
-work. String instances expose bound `count`,
+work. String instances expose bound `capitalize`, `count`,
 `endswith`, `format`, `join`, `lower`, `removeprefix`, `replace`, `split`,
 `splitlines`, `startswith`, and `strip`. Join collects through that iterator path
 before validating and concatenating its items. Format handles automatic fields,
@@ -403,9 +403,11 @@ Python's Unicode line boundaries, treats CRLF as one boundary, and resolves
 `keepends` through ordinary truth testing. Prefix and suffix matching apply
 code-point slice bounds and
 accept one string or an ordered tuple of strings. Strip trims Python whitespace
-or a supplied code-point set. Lowercase conversion uses full Unicode mappings
-while retaining lone-surrogate bytes. Bullsnake uses Go's Unicode 17 tables, so
-casing added after CPython 3.14's Unicode 16 baseline may differ.
+or a supplied code-point set. Capitalization titlecases the first code point and
+lowercases the remainder with contextual mappings. Lowercase conversion uses
+full Unicode mappings while retaining lone-surrogate bytes. Bullsnake uses Go's
+Unicode 17 tables, so casing added after CPython 3.14's Unicode 16 baseline may
+differ.
 
 A list instance exposes bound `append`, `pop`, `extend`, `remove`, and `sort`
 methods. Extend uses the same resumable iterator path and mutates the target as
