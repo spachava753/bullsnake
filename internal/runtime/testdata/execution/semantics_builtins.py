@@ -1531,3 +1531,41 @@ method = 'mixed CASE'.capitalize
 assert callable(method)
 assert method() == 'Mixed case'
 assert getattr('value', 'capitalize')() == 'Value'
+# ---
+# case: native set difference methods
+source = {1, 2, 3, 4}
+result = source.difference({2}, [3, 5])
+assert sorted(result) == [1, 4]
+assert sorted(source) == [1, 2, 3, 4]
+copy = source.difference()
+assert sorted(copy) == sorted(source)
+assert copy is not source
+frozen = frozenset((1, 2, 3))
+frozen_result = frozen.difference([2])
+assert sorted(frozen_result) == [1, 3]
+assert type(frozen_result) is frozenset
+assert sorted(frozen) == [1, 2, 3]
+method = source.difference
+assert callable(method)
+assert sorted(method((1,))) == [2, 3, 4]
+assert sorted(getattr(source, 'difference')((4,))) == [1, 2, 3]
+# ---
+# case: set difference consumes suspended iterables
+def removed_values():
+    yield 2
+    yield 4
+
+class DifferenceIterator:
+    def __init__(self):
+        self.values = [1, 3]
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if not self.values:
+            raise StopIteration
+        return self.values.pop(0)
+
+assert sorted({1, 2, 3, 4, 5}.difference(
+    removed_values(), DifferenceIterator())) == [5]

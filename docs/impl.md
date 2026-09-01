@@ -512,10 +512,12 @@ retaining key and value identities. The view methods return live `dict_items`,
 value remains visible. Key-set changes, including clearing a nonempty dictionary,
 raise `RuntimeError` in an active iterator. Update accepts a native dictionary
 and keyword entries, preserving existing key positions; iterable pairs and user
-mappings remain unsupported. Set instances expose bound `add` and `discard`
-methods. Set and frozen-set instances expose bound `__contains__`; their native
-type objects expose matching method descriptors. All four methods use the same
-fixed hashability and equality rules as displays and membership expressions.
+mappings remain unsupported. Set instances expose bound `add`, `difference`, and
+`discard` methods; frozen sets expose `difference`. Difference returns a new
+collection after draining each argument through the resumable iterator path.
+Set and frozen-set instances expose bound `__contains__`; their native type
+objects expose matching method descriptors. These methods use the same fixed
+hashability and equality rules as displays and membership expressions.
 The containment methods are enough for CPython's generated `keyword` module to
 bind its `iskeyword` and `issoftkeyword` helpers directly from frozen sets.
 Set-like view operations and other native collection or text methods are not

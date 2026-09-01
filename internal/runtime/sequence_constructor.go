@@ -13,6 +13,7 @@ const (
 	collectionListExtend
 	collectionStringJoin
 	collectionSorted
+	collectionSetDifference
 )
 
 type collectionConstructorCall struct {
@@ -20,9 +21,12 @@ type collectionConstructorCall struct {
 	kind        collectionConstructorKind
 	iterable    Value
 	iterator    Value
+	iterables   []Value
 	elements    []Value
 	keywords    *dictValue
 	list        *listValue
+	set         *setValue
+	frozen      bool
 	separator   *stringValue
 	sorting     *sortCall
 }
@@ -249,6 +253,9 @@ func finishCollectionConstructor(
 	frame *frame,
 	call *collectionConstructorCall,
 ) (instructionOutcome, error) {
+	if call.kind == collectionSetDifference {
+		return finishSetDifference(frame, call)
+	}
 	elements := make([]Value, len(call.elements))
 	copy(elements, call.elements)
 	switch call.kind {

@@ -1509,3 +1509,30 @@ def raising_list_sort_key(value):
 # error: TypeError
 # message: "str.capitalize() takes no keyword arguments"
 'value'.capitalize(flag=True)
+# ---
+# case: set difference keyword argument
+# error: TypeError
+# message: "difference() takes no keyword arguments"
+{1, 2}.difference(other={2})
+# ---
+# case: set difference non-iterable
+# error: TypeError
+# message: "'int' object is not iterable"
+{1, 2}.difference(1)
+# ---
+# case: set difference unhashable iterable element
+# error: TypeError
+# message: "cannot use 'list' as a set element (unhashable type: 'list')"
+{1, 2}.difference([[]])
+# ---
+# case: set difference iterator failure
+# error: RuntimeError
+# message: "difference iterator failed"
+class FailingDifferenceIterator:
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raise RuntimeError('difference iterator failed')
+
+{1, 2}.difference(FailingDifferenceIterator())

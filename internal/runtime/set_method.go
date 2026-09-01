@@ -23,6 +23,10 @@ type setContainsDescriptor struct {
 	frozen bool
 }
 
+type setDifferenceMethod struct {
+	target setContainsTarget
+}
+
 func (*setAddMethod) TypeName() string { return "builtin_function_or_method" }
 func (*setAddMethod) Repr() string {
 	return "<built-in method add of set object>"
@@ -47,6 +51,12 @@ func (descriptor *setContainsDescriptor) Repr() string {
 }
 func (*setContainsDescriptor) isValue() {}
 
+func (*setDifferenceMethod) TypeName() string { return "builtin_function_or_method" }
+func (method *setDifferenceMethod) Repr() string {
+	return "<built-in method difference of " + method.target.TypeName() + " object>"
+}
+func (*setDifferenceMethod) isValue() {}
+
 func (descriptor *setContainsDescriptor) typeName() string {
 	if descriptor.frozen {
 		return "frozenset"
@@ -65,6 +75,8 @@ func executeSetAttributeLoad(
 		return pushOutcome(frame, instruction, &setContainsMethod{target: set})
 	case "add":
 		return pushOutcome(frame, instruction, &setAddMethod{set: set})
+	case "difference":
+		return pushOutcome(frame, instruction, &setDifferenceMethod{target: set})
 	case "discard":
 		return pushOutcome(frame, instruction, &setDiscardMethod{set: set})
 	default:
@@ -81,13 +93,17 @@ func executeFrozenSetAttributeLoad(
 	set *frozenSetValue,
 	name string,
 ) (instructionOutcome, error) {
-	if name == "__contains__" {
+	switch name {
+	case "__contains__":
 		return pushOutcome(frame, instruction, &setContainsMethod{target: set})
+	case "difference":
+		return pushOutcome(frame, instruction, &setDifferenceMethod{target: set})
+	default:
+		return raiseOutcome(newException(
+			"AttributeError",
+			"'frozenset' object has no attribute '"+name+"'",
+		)), nil
 	}
-	return raiseOutcome(newException(
-		"AttributeError",
-		"'frozenset' object has no attribute '"+name+"'",
-	)), nil
 }
 
 func executeSetAddCall(
@@ -233,4 +249,78 @@ func executeSetContainsDescriptorCall(
 		arguments[1:],
 		keywords,
 	)
+}
+
+// executeSetDifferenceCall copies the receiver, retains every argument source,
+// and starts the shared iterator continuation for the first one.
+func executeSetDifferenceCall(
+	caller *frame,
+	instruction int,
+	base int,
+	method *setDifferenceMethod,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	if keywords != nil && len(keywords.entries) != 0 {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"TypeError",
+			"difference() takes no keyword arguments",
+		)), nil
+	}
+	var receiver []Value
+	frozen := false
+	switch target := method.target.(type) {
+	case *setValue:
+		receiver = target.entries
+	case *frozenSetValue:
+		receiver = target.entries
+		frozen = true
+	}
+	call := &collectionConstructorCall{
+		instruction: instruction,
+		kind:        collectionSetDifference,
+		set: &setValue{
+			entries: append([]Value(nil), receiver...),
+		},
+		frozen: frozen,
+	}
+	if len(arguments) != 0 {
+		sources := append([]Value(nil), arguments...)
+		call.iterable = sources[0]
+		call.iterables = sources[1:]
+	}
+	discardCallSegment(caller, base)
+	if call.iterable == nil {
+		return finishSetDifference(caller, call)
+	}
+	return startCollectionConstructor(caller, call)
+}
+
+// finishSetDifference removes one completed source's items, then advances to
+// the next iterable or returns a new result with the receiver's mutability.
+func finishSetDifference(
+	frame *frame,
+	call *collectionConstructorCall,
+) (instructionOutcome, error) {
+	for index, element := range call.elements {
+		if _, exception := call.set.discard(element); exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		call.elements[index] = nil
+	}
+	call.elements = call.elements[:0]
+	if len(call.iterables) != 0 {
+		call.iterable = call.iterables[0]
+		call.iterables[0] = nil
+		call.iterables = call.iterables[1:]
+		call.iterator = nil
+		return startCollectionConstructor(frame, call)
+	}
+	if call.frozen {
+		return pushOutcome(frame, call.instruction, &frozenSetValue{
+			entries: call.set.entries,
+		})
+	}
+	return pushOutcome(frame, call.instruction, call.set)
 }

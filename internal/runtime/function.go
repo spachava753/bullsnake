@@ -404,6 +404,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *setDifferenceMethod:
+		return executeSetDifferenceCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *setContainsMethod:
 		return executeSetContainsCall(
 			caller,
@@ -668,6 +677,7 @@ func isCallableValue(value Value) bool {
 		*dictionaryValuesMethod,
 		*setAddMethod,
 		*setDiscardMethod,
+		*setDifferenceMethod,
 		*setContainsMethod,
 		*setContainsDescriptor,
 		*exceptionWithTracebackMethod,
