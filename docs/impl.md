@@ -522,9 +522,9 @@ The containment methods are enough for CPython's generated `keyword` module to
 bind its `iskeyword` and `issoftkeyword` helpers directly from frozen sets.
 Set-like view operations and other native collection or text methods are not
 implemented.
-List equality uses the runtime's fixed recursive rules for scalars, tuples,
-lists, and identical values. It does not yet suspend for user `__eq__`, unlike
-`list.remove`.
+List, set, and frozen-set equality use the runtime's fixed recursive rules for
+scalars, tuples, lists, sets, frozen sets, and identical values. They do not yet
+suspend for user `__eq__`, unlike `list.remove`.
 Built-in values use fixed truth and length rules. `len` supports strings, bytes,
 ranges, tuples, lists, dictionaries, and sets; string lengths count decoded code
 points, including preserved lone surrogates. A user instance looks up `__bool__`

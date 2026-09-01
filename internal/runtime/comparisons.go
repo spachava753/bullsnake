@@ -180,6 +180,12 @@ func valuesEqual(left, right Value) bool {
 			}
 		}
 		return true
+	case *setValue:
+		rightEntries, ok := setLikeEntries(right)
+		return ok && setEntriesEqual(left.entries, rightEntries)
+	case *frozenSetValue:
+		rightEntries, ok := setLikeEntries(right)
+		return ok && setEntriesEqual(left.entries, rightEntries)
 	case *noneValue:
 		_, ok := right.(*noneValue)
 		return ok
@@ -191,6 +197,38 @@ func valuesEqual(left, right Value) bool {
 		return ok && left == right
 	}
 	return false
+}
+
+func setLikeEntries(value Value) ([]Value, bool) {
+	switch value := value.(type) {
+	case *setValue:
+		return value.entries, true
+	case *frozenSetValue:
+		return value.entries, true
+	default:
+		return nil, false
+	}
+}
+
+// setEntriesEqual checks equal cardinality, then finds one fixed-equality match
+// for every left entry without relying on insertion order.
+func setEntriesEqual(left, right []Value) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for _, leftEntry := range left {
+		matched := false
+		for _, rightEntry := range right {
+			if leftEntry == rightEntry || valuesEqual(leftEntry, rightEntry) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 func integerFloatEqual(integer *big.Int, value float64) bool {

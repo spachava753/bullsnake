@@ -336,3 +336,15 @@ del nested['inner']['value']
 want_mapping = "{'first': 10, 'third': 3, True: 'integer', (1, 2): 'pair', 'second': 20}"
 assert f'{mapping!r}' == want_mapping
 assert f'{nested!r}' == "{'inner': {}}"
+# ---
+# case: native set structural equality
+assert set() == set()
+assert {1, 2, 3} == {3, 2, 1}
+assert {1, 2} == frozenset((2, 1))
+assert frozenset((1, 2)) == {2, 1}
+assert {True, 2.0} == frozenset((1, 2))
+assert {1, 2} != {1, 3}
+assert {1, 2} != {1}
+assert {1, 2} != [1, 2]
+assert [{1, 2}, frozenset((3,))] == [{2, 1}, frozenset((3,))]
+assert frozenset((frozenset((1, 2)),)) == frozenset((frozenset((2, 1)),))
