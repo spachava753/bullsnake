@@ -512,6 +512,20 @@ func TestUncaughtTracebackAPI(t *testing.T) {
 			},
 		},
 		{
+			name: "cleared explicit raise",
+			source: "saved = None\n" +
+				"def inner():\n" +
+				"    missing_name\n" +
+				"try:\n" +
+				"    inner()\n" +
+				"except NameError as error:\n" +
+				"    saved = error.with_traceback(None)\n" +
+				"raise saved\n",
+			wantFrames: []wantFrame{
+				{name: "<module>", line: 8},
+			},
+		},
+		{
 			name: "called bare reraise",
 			source: "def reraiser():\n" +
 				"    raise\n" +

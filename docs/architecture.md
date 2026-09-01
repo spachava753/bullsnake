@@ -521,7 +521,9 @@ clause, and then recombines unmatched or newly raised exceptions.
 
 Python traceback objects and broad frame inspection are separate features. The
 runtime currently keeps only the information needed for host-facing tracebacks
-and future expansion.
+and future expansion. `BaseException.with_traceback(None)` clears that retained
+frame chain and returns the same exception. Other traceback values remain
+unsupported until Python traceback objects exist.
 
 ## Runtime instances and imports
 

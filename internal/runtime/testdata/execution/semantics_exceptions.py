@@ -987,3 +987,25 @@ except* ValueError:
     nested_result = nested_choice()
 assert handled_item == 1
 assert nested_result == 7
+# ---
+# case: exception with traceback clears and preserves identity
+caught = None
+method = None
+try:
+    raise ValueError('detached')
+except ValueError as error:
+    caught = error
+    method = error.with_traceback
+    assert method(None) is error
+assert callable(method)
+assert type(method).__name__ == 'builtin_function_or_method'
+assert repr(caught) == "ValueError(\"detached\")"
+# ---
+# case: inherited exception with traceback method
+class CustomTracebackError(ValueError):
+    pass
+
+custom = CustomTracebackError('custom')
+retained = custom.with_traceback
+assert retained(None) is custom
+assert getattr(custom, 'with_traceback')(None) is custom

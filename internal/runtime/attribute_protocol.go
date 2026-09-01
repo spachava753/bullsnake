@@ -120,6 +120,13 @@ func executeExceptionAttributeLoad(
 	owner *Exception,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "with_traceback" {
+		return pushOutcome(
+			frame,
+			instruction,
+			&exceptionWithTracebackMethod{exception: owner},
+		)
+	}
 	value, found := owner.attribute(name)
 	if !found {
 		return raiseOutcome(newException(

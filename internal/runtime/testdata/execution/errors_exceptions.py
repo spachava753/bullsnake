@@ -130,3 +130,23 @@ try:
 except* ValueError as caught:
     saved = caught
 caught
+# ---
+# case: exception with traceback missing argument
+# error: TypeError
+# message: "BaseException.with_traceback() takes exactly one argument (0 given)"
+ValueError('missing').with_traceback()
+# ---
+# case: exception with traceback extra argument
+# error: TypeError
+# message: "BaseException.with_traceback() takes exactly one argument (2 given)"
+ValueError('extra').with_traceback(None, None)
+# ---
+# case: exception with traceback keyword argument
+# error: TypeError
+# message: "ValueError.with_traceback() takes no keyword arguments"
+ValueError('keyword').with_traceback(tb=None)
+# ---
+# case: exception with traceback invalid value
+# error: TypeError
+# message: "__traceback__ must be a traceback or None"
+ValueError('invalid').with_traceback(1)

@@ -413,6 +413,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *exceptionWithTracebackMethod:
+		return executeExceptionWithTracebackCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *cmpKeyValue:
 		return executeCmpKeyCall(
 			caller,
@@ -651,6 +660,7 @@ func isCallableValue(value Value) bool {
 		*setDiscardMethod,
 		*setContainsMethod,
 		*setContainsDescriptor,
+		*exceptionWithTracebackMethod,
 		*cmpKeyValue,
 		*buildClassValue,
 		*typeValue,

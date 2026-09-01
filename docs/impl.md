@@ -747,8 +747,10 @@ combination of handler failures. The runtime does not yet call a custom
 exception group's `derive` override.
 
 The host can inspect an uncaught exception's copied traceback and formatted
-backtrace. Python `__traceback__` objects, frame objects, and broad introspection
-are not implemented.
+backtrace. `BaseException.with_traceback(None)` clears retained entries and
+returns the same exception; non-`None` values are rejected. Python
+`__traceback__` objects, frame objects, and broad introspection are not
+implemented.
 
 ## Modules and imports
 
