@@ -575,6 +575,8 @@ Selected CPython standard-library modules are copied unchanged into the
 versioned `stdlib` directory. Bullsnake copies only the upstream public test
 cases it intends to run and records any adaptation beside the test. These tests
 use the same Go runner and interpreter path as other source execution tests.
+The [unittest compatibility roadmap](unittest.md) records the host-module and
+runtime work required to run CPython's synchronous test framework unchanged.
 
 ## Go embedding and extensions
 
@@ -705,17 +707,18 @@ promises them.
 
 The project still needs concrete decisions about:
 
-- the first package compatibility set
-- which standard-library module to vendor next
+- the package compatibility set after synchronous `unittest`
+- the runtime capability model for `sys`, I/O, filesystems, clocks, and signals
 - the public Go embedding and extension API
 - namespace-package and extended import-hook behavior
-- generator, coroutine, and scheduler behavior
-- the first Python threading subset and execution-token policy
-- whether weak references are needed
-- which frame inspection features packages actually require
+- async scheduling, Python threads, and the execution-token policy
+- weak-reference lifetime and safe callback delivery
+- Python-visible frame and traceback objects
 
-These decisions should be made from working code and tests rather than by
-trying to reproduce every CPython feature in advance.
+The [unittest compatibility roadmap](unittest.md) explains why several of these
+decisions now block the next standard-library milestone. Other decisions should
+be made from working code and tests rather than by trying to reproduce every
+CPython feature in advance.
 
 ## References
 

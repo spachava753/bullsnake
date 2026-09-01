@@ -834,9 +834,12 @@ reload, import locks, and a general standard-library distribution remain
 unimplemented.
 
 Bullsnake vendors selected CPython 3.14.7 standard-library modules under
-`stdlib/3.14`. The first module is the unchanged `colorsys.py`. Its Go test
-executes a selected upstream public-behavior case through the filesystem loader
-and complete interpreter pipeline.
+`stdlib/3.14`. The first module is the unchanged `colorsys.py`. Its adapted test
+module executes all eight upstream public test methods through the filesystem
+loader and complete interpreter pipeline. The
+[unittest compatibility roadmap](unittest.md) records the remaining work needed
+to replace those assertions with the unchanged synchronous CPython test
+framework.
 
 ## Deliberate boundaries
 
