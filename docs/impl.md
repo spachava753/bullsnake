@@ -511,9 +511,13 @@ value remains visible. Key-set changes, including clearing a nonempty dictionary
 raise `RuntimeError` in an active iterator. Update accepts a native dictionary
 and keyword entries, preserving existing key positions; iterable pairs and user
 mappings remain unsupported. Set instances expose bound `add` and `discard`
-methods
-using the same fixed hashability and equality rules as set displays. Set-like
-view operations and other native collection or text methods are not implemented.
+methods. Set and frozen-set instances expose bound `__contains__`; their native
+type objects expose matching method descriptors. All four methods use the same
+fixed hashability and equality rules as displays and membership expressions.
+The containment methods are enough for CPython's generated `keyword` module to
+bind its `iskeyword` and `issoftkeyword` helpers directly from frozen sets.
+Set-like view operations and other native collection or text methods are not
+implemented.
 List equality uses the runtime's fixed recursive rules for scalars, tuples,
 lists, and identical values. It does not yet suspend for user `__eq__`, unlike
 `list.remove`.

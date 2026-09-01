@@ -395,6 +395,24 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *setContainsMethod:
+		return executeSetContainsCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
+	case *setContainsDescriptor:
+		return executeSetContainsDescriptorCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *cmpKeyValue:
 		return executeCmpKeyCall(
 			caller,
@@ -631,6 +649,8 @@ func isCallableValue(value Value) bool {
 		*dictionaryValuesMethod,
 		*setAddMethod,
 		*setDiscardMethod,
+		*setContainsMethod,
+		*setContainsDescriptor,
 		*cmpKeyValue,
 		*buildClassValue,
 		*typeValue,

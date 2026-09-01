@@ -116,6 +116,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"function":                         functionNativeType,
 	"builtin_function_or_method":       builtinFunctionNativeType,
 	"method-wrapper":                   builtinFunctionNativeType,
+	"method_descriptor":                builtinNativeType("method_descriptor"),
 	"method":                           methodNativeType,
 	"module":                           moduleNativeType,
 	"property":                         propertyNativeType,
@@ -379,14 +380,30 @@ func executeExceptionTypeAttributeLoad(
 	return pushOutcome(frame, instruction, value)
 }
 
-// executeNativeTypeAttributeLoad returns immutable class metadata, including
-// the direct base and MRO derived from the native root hierarchy.
+// executeNativeTypeAttributeLoad returns immutable class metadata and the native
+// method descriptors currently exposed by a built-in class.
 func executeNativeTypeAttributeLoad(
 	frame *frame,
 	instruction int,
 	class *nativeTypeValue,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "__contains__" {
+		switch class {
+		case setNativeType:
+			return pushOutcome(
+				frame,
+				instruction,
+				&setContainsDescriptor{},
+			)
+		case frozenSetNativeType:
+			return pushOutcome(
+				frame,
+				instruction,
+				&setContainsDescriptor{frozen: true},
+			)
+		}
+	}
 	var value Value
 	switch name {
 	case "__name__":

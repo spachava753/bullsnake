@@ -57,6 +57,8 @@ func executeDynamicAttributeLoad(
 		return executeListAttributeLoad(frame, instruction, owner, name)
 	case *setValue:
 		return executeSetAttributeLoad(frame, instruction, owner, name)
+	case *frozenSetValue:
+		return executeFrozenSetAttributeLoad(frame, instruction, owner, name)
 	case *rangeValue:
 		return executeRangeAttributeLoad(frame, instruction, owner, name)
 	case *superValue:

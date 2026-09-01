@@ -247,3 +247,28 @@ range(1, 2, 0)
 # error: OverflowError
 # message: "cannot fit 'int' into an index-sized integer"
 len(range(1 << 100))
+# ---
+# case: frozen containment missing argument
+# error: TypeError
+# message: "frozenset.__contains__() takes exactly one argument (0 given)"
+frozenset((1,)).__contains__()
+# ---
+# case: set containment extra argument
+# error: TypeError
+# message: "set.__contains__() takes exactly one argument (2 given)"
+{1}.__contains__(1, 2)
+# ---
+# case: frozen containment keyword argument
+# error: TypeError
+# message: "frozenset.__contains__() takes no keyword arguments"
+frozenset((1,)).__contains__(object=1)
+# ---
+# case: frozen containment descriptor receiver
+# error: TypeError
+# message: "descriptor '__contains__' for 'frozenset' objects doesn't apply to a 'set' object"
+frozenset.__contains__({1}, 1)
+# ---
+# case: set containment unhashable value
+# error: TypeError
+# message: "cannot use 'list' as a set element (unhashable type: 'list')"
+{1}.__contains__([])

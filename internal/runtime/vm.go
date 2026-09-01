@@ -1502,6 +1502,8 @@ func executeInstruction(
 			return executeListAttributeLoad(frame, index, owner, name)
 		case *setValue:
 			return executeSetAttributeLoad(frame, index, owner, name)
+		case *frozenSetValue:
+			return executeFrozenSetAttributeLoad(frame, index, owner, name)
 		case *rangeValue:
 			return executeRangeAttributeLoad(frame, index, owner, name)
 		case *superValue:

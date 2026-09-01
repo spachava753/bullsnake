@@ -419,8 +419,9 @@ retaining key and value identities. The live views expose keys, items, or values
 their iterators reject key-set changes, including clearing a nonempty dictionary.
 Update accepts native dictionaries and keyword entries while retaining existing
 key positions; iterable pairs and user mappings remain later work. Set instances
-expose bound `add` and `discard` methods that use the same fixed
-hashability and equality rules as set displays.
+expose bound `add` and `discard` methods. Sets and frozen sets also expose bound
+`__contains__` methods and class-level method descriptors. These methods use the
+same fixed hashability and equality rules as membership expressions.
 Set-like operations on dictionary views and other native collection or text
 methods remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the

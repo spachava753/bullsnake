@@ -450,3 +450,27 @@ second = iter(value)
 assert next(first) == 10**20
 assert next(first) == 10**20 + 3
 assert next(second) == 10**20
+# ---
+# case: native set containment methods
+mutable = {1, 2}
+frozen = frozenset(('if', 'else'))
+mutable_contains = mutable.__contains__
+frozen_contains = frozen.__contains__
+assert callable(mutable_contains)
+assert callable(frozen_contains)
+assert mutable_contains(1) is True
+assert mutable_contains(3) is False
+assert frozen_contains('if') is True
+assert frozen_contains('while') is False
+assert getattr(frozen, '__contains__')('else') is True
+assert set.__contains__(mutable, 2) is True
+assert frozenset.__contains__(frozen, 'else') is True
+assert type(set.__contains__).__name__ == 'method_descriptor'
+assert type(frozen_contains).__name__ == 'builtin_function_or_method'
+# ---
+# case: frozen containment helper shape
+keywords = frozenset(('if', 'else'))
+is_keyword = keywords.__contains__
+assert is_keyword('if')
+assert not is_keyword('match')
+assert is_keyword is not keywords.__contains__
