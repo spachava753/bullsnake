@@ -50,7 +50,6 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "all", frameCall: executeBuiltinAll},
 	{name: "any", frameCall: executeBuiltinAny},
 	{name: "callable", call: builtinCallable},
-	{name: "classmethod", call: builtinClassMethod},
 	{name: "delattr", frameCall: executeBuiltinDelattr},
 	{name: "dir", frameCall: executeBuiltinDir},
 	{name: "getattr", frameCall: executeBuiltinGetattr},
@@ -63,13 +62,11 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "max", call: builtinMax},
 	{name: "min", call: builtinMin},
 	{name: "next", frameCall: executeBuiltinNext},
-	{name: "property", call: builtinProperty},
 	{name: "repr", frameCall: executeBuiltinRepr},
 	{name: "reversed", call: builtinReversed},
 	{name: "round", frameCall: executeBuiltinRound},
 	{name: "setattr", frameCall: executeBuiltinSetattr},
 	{name: "sorted", frameCall: executeBuiltinSorted},
-	{name: "staticmethod", call: builtinStaticMethod},
 	{name: "super", frameCall: executeBuiltinSuper},
 }
 

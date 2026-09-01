@@ -22,14 +22,6 @@ func (method *staticMethodValue) Repr() string {
 }
 func (*staticMethodValue) isValue() {}
 
-func builtinClassMethod(arguments []Value, keywords *dictValue) (Value, *Exception) {
-	return newMethodDescriptor("classmethod", arguments, keywords, true)
-}
-
-func builtinStaticMethod(arguments []Value, keywords *dictValue) (Value, *Exception) {
-	return newMethodDescriptor("staticmethod", arguments, keywords, false)
-}
-
 func newMethodDescriptor(
 	name string,
 	arguments []Value,

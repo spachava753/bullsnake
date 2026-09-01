@@ -18,6 +18,7 @@ type typeValue struct {
 	bases         []*typeValue
 	mro           []*typeValue
 	objectBase    bool
+	nativeBase    *nativeTypeValue
 	exceptionBase *exceptionTypeValue
 }
 
@@ -88,6 +89,23 @@ func (class *typeValue) isSubclassOf(parent *typeValue) bool {
 	return false
 }
 
+func (class *typeValue) nativeClassBase() *nativeTypeValue {
+	for _, current := range class.mro {
+		if current.nativeBase != nil {
+			return current.nativeBase
+		}
+	}
+	return nil
+}
+
+func (class *typeValue) isSubclassOfNative(parent *nativeTypeValue) bool {
+	if parent == objectNativeType {
+		return true
+	}
+	base := class.nativeClassBase()
+	return base != nil && base.isSubclassOf(parent)
+}
+
 type instanceValue struct {
 	class      *typeValue
 	attributes *Namespace
@@ -140,6 +158,7 @@ type classBuild struct {
 	namespace         *Namespace
 	bases             []*typeValue
 	objectBase        bool
+	nativeBase        *nativeTypeValue
 	exceptionBase     *exceptionTypeValue
 	namespaceOrder    []string
 	namespacePosition map[string]int
@@ -163,6 +182,7 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 		namespace:     build.namespace,
 		bases:         build.bases,
 		objectBase:    build.objectBase,
+		nativeBase:    build.nativeBase,
 		exceptionBase: build.exceptionBase,
 	}
 	mro, exception := calculateMRO(class, build.bases)
@@ -184,39 +204,59 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	return class, nil
 }
 
-// resolveClassBases separates user, built-in exception, and sole native object
-// bases while retaining the current mixed-native-base rejection boundary.
+// resolveClassBases separates user, exception, object, and the supported sole
+// native descriptor bases while retaining the mixed-native rejection boundary.
 func resolveClassBases(
 	baseValues []Value,
-) ([]*typeValue, *exceptionTypeValue, bool, *Exception) {
+) ([]*typeValue, *exceptionTypeValue, *nativeTypeValue, bool, *Exception) {
 	var bases []*typeValue
 	var exceptionBase *exceptionTypeValue
+	var nativeBase *nativeTypeValue
 	objectBase := len(baseValues) == 0
 	for _, baseValue := range baseValues {
 		switch classBase := baseValue.(type) {
 		case *typeValue:
+			if classBase.nativeClassBase() != nil && len(baseValues) != 1 {
+				return nil, nil, nil, false, newException(
+					"TypeError",
+					"multiple inheritance with native bases is not supported",
+				)
+			}
 			bases = append(bases, classBase)
 		case *exceptionTypeValue:
 			if len(baseValues) != 1 {
-				return nil, nil, false, newException(
+				return nil, nil, nil, false, newException(
 					"TypeError",
 					"multiple inheritance with built-in exception bases is not supported",
 				)
 			}
 			exceptionBase = classBase
 		case *nativeTypeValue:
-			if classBase != objectNativeType || len(baseValues) != 1 {
-				return nil, nil, false, newException(
+			if len(baseValues) != 1 {
+				return nil, nil, nil, false, newException(
 					"TypeError",
 					"multiple inheritance with native bases is not supported",
 				)
 			}
-			objectBase = true
+			switch classBase {
+			case objectNativeType:
+				objectBase = true
+			case classMethodNativeType, staticMethodNativeType, propertyNativeType:
+				nativeBase = classBase
+			default:
+				return nil, nil, nil, false, newException(
+					"TypeError",
+					"native base '"+classBase.name+"' is not supported",
+				)
+			}
 		default:
-			return nil, nil, false, newException("TypeError", "class base is not a type")
+			return nil, nil, nil, false, newException(
+				"TypeError",
+				"class base is not a type",
+			)
 		}
 	}
-	return bases, exceptionBase, objectBase, nil
+	return bases, exceptionBase, nativeBase, objectBase, nil
 }
 
 // executeBuildClassCall starts one class body with its own local namespace. The
@@ -255,7 +295,9 @@ func executeBuildClassCall(
 		}, nil
 	}
 	baseValues := arguments[2:]
-	bases, exceptionBase, objectBase, baseException := resolveClassBases(baseValues)
+	bases, exceptionBase, nativeBase, objectBase, baseException := resolveClassBases(
+		baseValues,
+	)
 	if baseException != nil {
 		return instructionOutcome{kind: raised, exception: baseException}, nil
 	}
@@ -299,6 +341,7 @@ func executeBuildClassCall(
 			namespace:         namespace,
 			bases:             bases,
 			objectBase:        objectBase,
+			nativeBase:        nativeBase,
 			exceptionBase:     exceptionBase,
 			namespacePosition: make(map[string]int),
 		},
@@ -331,6 +374,13 @@ func executeTypeCall(
 			arguments,
 			keywords,
 		)
+	}
+	if class.nativeClassBase() != nil {
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException(
+			"NotImplementedError",
+			"native descriptor subclasses cannot be instantiated",
+		)), nil
 	}
 	instance := &instanceValue{class: class, attributes: newNamespace()}
 	initializerValue, hasInitializer := class.lookup("__init__")

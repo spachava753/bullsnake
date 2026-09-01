@@ -420,9 +420,13 @@ returns a distinct root instance and accepts no arguments. Native values,
 built-in exception classes, and ordinary user classes are instances or
 subclasses of `object`. A user class with no named base, or with `object` as its
 sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
-Mixing native and user direct bases remains unsupported. The `bool`, `int`,
-`str`, and `range` bindings are native type objects and retain their implemented
-constructor behavior. `range` accepts one to three integer or boolean arguments,
+A user class may instead use `classmethod`, `staticmethod`, or `property` as its
+sole native base. That native ancestry appears in class metadata and
+`issubclass`; constructing an instance of such a user subclass remains
+unsupported. Other native bases and mixed native/user direct bases remain
+unsupported. The `bool`, `int`, `str`, and `range` bindings are native type
+objects and retain their implemented constructor behavior. `range` accepts one
+to three integer or boolean arguments,
 rejects a zero step, and retains arbitrary-precision `start`, `stop`, `step`, and
 length values. Iteration is lazy and gives each iterator independent state.
 `len` raises `OverflowError` when the range length does not fit the host index
@@ -620,10 +624,12 @@ retain arbitrary assigned attributes; their current annotation and type-paramete
 metadata remains read-only. Instance writes and deletes invoke data descriptors
 before the instance namespace and discard the descriptor method's result.
 
-The built-in `property` supports direct construction and decorator-style
+The built-in `property`, `classmethod`, and `staticmethod` names are callable
+native type objects. Property supports direct construction and decorator-style
 `getter`, `setter`, and `deleter` copies. Properties expose their accessor fields,
 explicit documentation, and the class-assigned name. Function-docstring
-inference and property subclasses remain unsupported. `classmethod` binds its
+inference remains unsupported. A user class may inherit one descriptor type but
+cannot yet construct its specialized wrapper values. `classmethod` binds its
 wrapped callable to the accessed class from either class or instance lookup;
 `staticmethod` returns its wrapped callable unchanged. Both wrappers expose
 `__func__` and `__wrapped__`.
@@ -650,12 +656,13 @@ rounding for an optional decimal digit count. User instances dispatch class
 
 The builtin namespace contains the current exception classes; native `bool`,
 `int`, `str`, `range`, `enumerate`, `map`, `filter`, `zip`, `list`, `tuple`,
-`set`, `frozenset`, `dict`, `object`, and `type` objects; `abs`; `all`; `any`;
-`callable`; `classmethod`; `delattr`; `dir`; `getattr`; `hasattr`; `hash`;
-`isinstance`; `issubclass`; one-argument `iter`; `len`; positional `max` and
-`min` calls with two or more arguments; `next`; `repr`; native-sequence
-`reversed`; `round`; `setattr`; `sorted`; and `staticmethod`. The `next` builtin accepts
-one optional default for generators, internal iterators, and user iterators.
+`set`, `frozenset`, `dict`, `object`, `type`, `classmethod`, `property`, and
+`staticmethod` objects; `abs`; `all`; `any`; `callable`; `delattr`; `dir`;
+`getattr`; `hasattr`; `hash`; `isinstance`; `issubclass`; one-argument `iter`;
+`len`; positional `max` and `min` calls with two or more arguments; `next`;
+`repr`; native-sequence `reversed`; `round`; `setattr`; and `sorted`. The `next`
+builtin accepts one optional default for generators, internal iterators, and
+user iterators.
 String and base forms of `int`, the iterable and keyword forms of `max` and
 `min`, the encoding form of `str`, and callable-sentinel `iter` remain
 unsupported.

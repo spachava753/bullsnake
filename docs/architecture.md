@@ -377,12 +377,14 @@ ordinary attribute path. The `dir` builtin reports sorted names from the current
 frame or from implemented module, class-MRO, and instance stores. Custom
 `__dir__` dispatch remains later work. `object` is the native root class for
 native values, built-in exceptions, and ordinary user classes. A user class may
-use `object` as its sole base; combining native and user direct bases still
-requires a unified MRO representation. The existing `bool`, `int`, `str`,
+use `object` or one of the native `classmethod`, `staticmethod`, and `property`
+types as its sole direct native base. Combining native and user direct bases
+still requires a unified MRO representation. The existing `bool`, `int`, `str`,
 `range`, `enumerate`, `map`, `filter`, `zip`, `list`, `tuple`, `set`, `frozenset`,
-and `dict` constructors are those same type objects rather than separate
-function stand-ins. Ranges retain arbitrary-precision integer bounds and produce
-values lazily through the ordinary native iterator path. Enumerate, map, filter,
+`dict`, `classmethod`, `staticmethod`, and `property` constructors are those same
+type objects rather than separate function stand-ins. Ranges retain
+arbitrary-precision integer bounds and produce values lazily through the ordinary
+native iterator path. Enumerate, map, filter,
 and zip objects wrap that iterator contract and may suspend while a generator,
 user iterator, mapped callable, or filter predicate and truth method runs. Zip
 resolves every source iterator from left to right when constructed, then yields
@@ -480,10 +482,13 @@ suppress only `AttributeError`, including one raised by descriptor code. The
 `setattr` and `delattr` builtins share ordinary module, class, instance, and
 function mutation rules. Functions retain arbitrary assigned attributes.
 Instance writes and deletes continue to run data descriptors through the frame
-loop. The built-in `property` type uses that path for getter, setter, and deleter
-functions. `classmethod` binds its wrapped callable to the class through which
-the attribute was accessed; `staticmethod` returns its wrapped callable without
-binding. Zero- and explicit-argument `super` values search
+loop. The built-in `property`, `classmethod`, and `staticmethod` names are
+callable type objects. A user class may inherit one of them, and its class
+metadata includes that native base; constructing such a user subclass remains
+later work. Native `property` values use the descriptor path for getter, setter,
+and deleter functions. `classmethod` binds its wrapped callable to the class
+through which the attribute was accessed; `staticmethod` returns its wrapped
+callable without binding. Zero- and explicit-argument `super` values search
 the receiver's C3 method resolution order after their starting class and apply
 the same descriptor rules. Custom attribute interception can extend this path
 without recursive Go execution.

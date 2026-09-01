@@ -474,3 +474,38 @@ is_keyword = keywords.__contains__
 assert is_keyword('if')
 assert not is_keyword('match')
 assert is_keyword is not keywords.__contains__
+# ---
+# case: user classes inherit native descriptor types
+assert type(classmethod) is type
+assert type(staticmethod) is type
+assert type(property) is type
+assert callable(classmethod)
+assert callable(staticmethod)
+assert callable(property)
+
+class ClassMethodSubclass(classmethod):
+    marker = 'class method'
+
+class StaticMethodSubclass(staticmethod):
+    marker = 'static method'
+
+class PropertySubclass(property):
+    marker = 'property'
+
+class DescriptorGrandchild(ClassMethodSubclass):
+    pass
+
+assert ClassMethodSubclass.marker == 'class method'
+assert StaticMethodSubclass.marker == 'static method'
+assert PropertySubclass.marker == 'property'
+assert ClassMethodSubclass.__base__ is classmethod
+assert ClassMethodSubclass.__bases__ == (classmethod,)
+assert ClassMethodSubclass.__mro__ == (ClassMethodSubclass, classmethod, object)
+assert StaticMethodSubclass.__mro__ == (StaticMethodSubclass, staticmethod, object)
+assert PropertySubclass.__mro__ == (PropertySubclass, property, object)
+assert DescriptorGrandchild.__base__ is ClassMethodSubclass
+assert DescriptorGrandchild.__mro__ == (
+    DescriptorGrandchild, ClassMethodSubclass, classmethod, object)
+assert issubclass(ClassMethodSubclass, classmethod)
+assert issubclass(DescriptorGrandchild, classmethod)
+assert issubclass(PropertySubclass, object)

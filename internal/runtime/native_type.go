@@ -84,6 +84,9 @@ var builtinNativeTypes = []*nativeTypeValue{
 	setNativeType,
 	frozenSetNativeType,
 	dictNativeType,
+	propertyNativeType,
+	classMethodNativeType,
+	staticMethodNativeType,
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
@@ -217,6 +220,15 @@ func executeNativeTypeCall(
 		return executeFilterTypeCall(caller, instruction, base, arguments, keywords)
 	case zipNativeType:
 		return executeZipTypeCall(caller, instruction, base, arguments, keywords)
+	case propertyNativeType, classMethodNativeType, staticMethodNativeType:
+		return executeDescriptorWrapperTypeCall(
+			caller,
+			instruction,
+			base,
+			class,
+			arguments,
+			keywords,
+		)
 	case tupleNativeType, listNativeType, setNativeType, frozenSetNativeType,
 		dictNativeType:
 		return executeCollectionTypeCall(
@@ -233,6 +245,31 @@ func executeNativeTypeCall(
 		"NotImplementedError",
 		class.name+"() constructor is not supported",
 	)), nil
+}
+
+func executeDescriptorWrapperTypeCall(
+	caller *frame,
+	instruction int,
+	base int,
+	class *nativeTypeValue,
+	arguments []Value,
+	keywords *dictValue,
+) (instructionOutcome, error) {
+	var result Value
+	var exception *Exception
+	switch class {
+	case propertyNativeType:
+		result, exception = builtinProperty(arguments, keywords)
+	case classMethodNativeType:
+		result, exception = newMethodDescriptor("classmethod", arguments, keywords, true)
+	case staticMethodNativeType:
+		result, exception = newMethodDescriptor("staticmethod", arguments, keywords, false)
+	}
+	discardCallSegment(caller, base)
+	if exception != nil {
+		return raiseOutcome(exception), nil
+	}
+	return pushOutcome(caller, instruction, result)
 }
 
 // executeDynamicTypeCall copies one validated namespace into the ordinary class
@@ -270,7 +307,9 @@ func executeDynamicTypeCall(
 			"type.__new__() argument 3 must be dict, not "+invalidType,
 		)), nil
 	}
-	bases, exceptionBase, objectBase, exception := resolveClassBases(baseTuple.elements)
+	bases, exceptionBase, nativeBase, objectBase, exception := resolveClassBases(
+		baseTuple.elements,
+	)
 	if exception != nil {
 		discardCallSegment(caller, base)
 		return raiseOutcome(exception), nil
@@ -283,6 +322,7 @@ func executeDynamicTypeCall(
 		namespace:         namespace,
 		bases:             bases,
 		objectBase:        objectBase,
+		nativeBase:        nativeBase,
 		exceptionBase:     exceptionBase,
 		namespacePosition: make(map[string]int),
 	}

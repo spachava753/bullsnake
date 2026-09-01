@@ -194,6 +194,11 @@ func executeTypeAttributeLoad(
 		}
 		return pushOutcome(frame, instruction, &stringValue{value: owner.module})
 	case "__bases__":
+		if owner.nativeBase != nil {
+			return pushOutcome(frame, instruction, &tupleValue{
+				elements: []Value{owner.nativeBase},
+			})
+		}
 		if owner.objectBase {
 			return pushOutcome(
 				frame,
@@ -204,6 +209,9 @@ func executeTypeAttributeLoad(
 		return pushOutcome(frame, instruction, typeTuple(owner.bases))
 	case "__base__":
 		if len(owner.bases) == 0 {
+			if owner.nativeBase != nil {
+				return pushOutcome(frame, instruction, owner.nativeBase)
+			}
 			if owner.objectBase {
 				return pushOutcome(frame, instruction, objectNativeType)
 			}
@@ -212,7 +220,9 @@ func executeTypeAttributeLoad(
 		return pushOutcome(frame, instruction, owner.bases[0])
 	case "__mro__":
 		result := typeTuple(owner.mro)
-		if owner.exceptionBase == nil {
+		if nativeBase := owner.nativeClassBase(); nativeBase != nil {
+			result.elements = append(result.elements, nativeBase, objectNativeType)
+		} else if owner.exceptionBase == nil {
 			result.elements = append(result.elements, objectNativeType)
 		}
 		return pushOutcome(frame, instruction, result)

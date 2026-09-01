@@ -46,8 +46,14 @@ func instanceMatchesClass(instance Value, candidate Value) (bool, *Exception) {
 		if exception != nil {
 			return false, exception
 		}
-		class, native := actual.(*nativeTypeValue)
-		return native && class.isSubclassOf(candidate), nil
+		switch class := actual.(type) {
+		case *nativeTypeValue:
+			return class.isSubclassOf(candidate), nil
+		case *typeValue:
+			return class.isSubclassOfNative(candidate), nil
+		default:
+			return false, nil
+		}
 	case *typeValue:
 		switch instance := instance.(type) {
 		case *instanceValue:
@@ -139,8 +145,14 @@ func subclassMatchesClass(class Value, candidate Value) (bool, *Exception) {
 		if candidate == objectNativeType {
 			return true, nil
 		}
-		class, native := class.(*nativeTypeValue)
-		return native && class.isSubclassOf(candidate), nil
+		switch class := class.(type) {
+		case *nativeTypeValue:
+			return class.isSubclassOf(candidate), nil
+		case *typeValue:
+			return class.isSubclassOfNative(candidate), nil
+		default:
+			return false, nil
+		}
 	case *typeValue:
 		class, user := class.(*typeValue)
 		return user && class.isSubclassOf(candidate), nil
