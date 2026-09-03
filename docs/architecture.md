@@ -181,6 +181,11 @@ bytecode fails before the module can make changes.
 This validation is a boundary between the compiler and runtime. The runtime
 must not trust code merely because the current compiler produced it.
 
+VM-owned native continuations may schedule Python frames without recursively
+entering the dispatcher. The initial `unittest` runner uses this path for
+`setUp`, test methods, and `tearDown`, so failures use the same exception and
+traceback path as an ordinary Python call.
+
 ## Values and the object model
 
 Runtime values implement a sealed Go interface inside `internal/runtime`.
@@ -255,6 +260,12 @@ Go-backed system modules use the same runtime cache and Python `Module` values
 as source modules. `sys.modules` observes cache insertion, successful import,
 and rollback through a Python dictionary. Python-side replacement or deletion
 in that dictionary does not yet change the runtime's authoritative cache.
+
+The first test-framework compatibility slice is a Go-backed `unittest` module.
+It deliberately provides a focused `TestCase`, assertion, discovery, fixture,
+and reporting surface instead of loading CPython's complete pure-Python
+package and all of its transitive standard-library dependencies. Compatibility
+is demonstrated with unchanged source files from the pinned CPython tree.
 
 ## Host capability boundary
 
@@ -398,6 +409,7 @@ Bullsnake uses several kinds of evidence:
 
 - focused Go tests for package behavior and internal invariants
 - checked-in Python source fixtures that pass through the complete pipeline
+- unchanged pinned CPython test files executed through `unittest.main()`
 - negative fixtures for Python errors and unsupported behavior
 - direct malformed-bytecode tests for the runtime validator
 - CPython-derived conformance cases for selected behavior
@@ -414,7 +426,7 @@ promises them.
 The project still needs concrete decisions about:
 
 - the first package compatibility set
-- the next standard-library modules required by the `unittest` bootstrap
+- which additional `unittest` APIs and standard-library dependencies packages require
 - the Go callback, type, and module extension API
 - namespace-package and extended import-hook behavior
 - generator, coroutine, and scheduler behavior

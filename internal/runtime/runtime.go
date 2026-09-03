@@ -68,6 +68,9 @@ func newRuntime(config Config) *Runtime {
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}
+	for _, builtinType := range builtinTypes {
+		builtins.values[builtinType.name] = builtinType
+	}
 	runtime := &Runtime{
 		builtins:  builtins,
 		modules:   make(map[string]*Module),

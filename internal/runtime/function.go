@@ -106,6 +106,15 @@ func executeFunctionCall(
 			arguments,
 			keywords,
 		)
+	case *unittestMainValue:
+		return executeUnittestMainCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,
@@ -133,6 +142,18 @@ func executeFunctionCall(
 			keywords,
 		)
 	case *boundMethodValue:
+		boundArguments := make([]Value, len(arguments)+1)
+		boundArguments[0] = callable.self
+		copy(boundArguments[1:], arguments)
+		return executeFunctionCall(
+			caller,
+			instruction,
+			base,
+			callable.function,
+			boundArguments,
+			keywords,
+		)
+	case *boundNativeMethodValue:
 		boundArguments := make([]Value, len(arguments)+1)
 		boundArguments[0] = callable.self
 		copy(boundArguments[1:], arguments)

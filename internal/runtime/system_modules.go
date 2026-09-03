@@ -8,7 +8,7 @@ import (
 	"github.com/spachava753/bullsnake/host"
 )
 
-var systemModuleNames = []string{"_io", "builtins", "io", "os", "os.path", "sys", "time"}
+var systemModuleNames = []string{"__future__", "_io", "builtins", "io", "os", "os.path", "sys", "time", "unittest"}
 
 func (runtime *Runtime) initializeSystemModules() {
 	sys := runtime.newSysModule()
@@ -30,6 +30,8 @@ func (runtime *Runtime) loadSystemModule(name string) (*Module, bool) {
 	}
 	var module *Module
 	switch name {
+	case "__future__":
+		module = newFutureModule()
 	case "time":
 		module = runtime.newTimeModule()
 	case "os":
@@ -39,11 +41,44 @@ func (runtime *Runtime) loadSystemModule(name string) (*Module, bool) {
 	case "io", "_io":
 		module = newSystemModule(name, "")
 		setNativeFunction(module, "StringIO", 0, 1, newStringIO)
+	case "unittest":
+		module = runtime.newUnittestModule()
 	default:
 		return nil, false
 	}
 	runtime.cacheModule(name, module)
 	return module, true
+}
+
+func newFutureModule() *Module {
+	module := newSystemModule("__future__", "")
+	for _, name := range []string{
+		"nested_scopes",
+		"generators",
+		"division",
+		"absolute_import",
+		"with_statement",
+		"print_function",
+		"unicode_literals",
+		"generator_stop",
+	} {
+		module.globals.values[name] = &tupleValue{elements: []Value{
+			newInt64(2),
+			newInt64(1),
+			newInt64(0),
+		}}
+	}
+	module.globals.values["all_feature_names"] = stringList([]string{
+		"nested_scopes",
+		"generators",
+		"division",
+		"absolute_import",
+		"with_statement",
+		"print_function",
+		"unicode_literals",
+		"generator_stop",
+	})
+	return module
 }
 
 func newSystemModule(name, packageName string) *Module {

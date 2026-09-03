@@ -37,6 +37,7 @@ type frame struct {
 	previous          *frame
 	classBuild        *classBuild
 	instanceInit      *instanceInit
+	unittestRun       *unittestRunState
 	moduleImport      *moduleImport
 	pendingImport     *importRequest
 	handledExceptions []handledException

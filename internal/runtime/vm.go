@@ -104,6 +104,43 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				thread.current.instruction--
 				continue
 			}
+			if active.unittestRun != nil {
+				if thread.current == nil {
+					return nil, nil, active.failure(index, "unittest frame has no caller")
+				}
+				resumed, resumeErr := resumeUnittestRun(
+					thread.current,
+					active.unittestRun.instruction,
+					active.unittestRun,
+				)
+				if resumeErr != nil {
+					return nil, nil, resumeErr
+				}
+				switch resumed.kind {
+				case advance:
+					continue
+				case called:
+					thread.current = resumed.frame
+					continue
+				case raised:
+					unhandled, routeErr := routeException(
+						thread,
+						thread.current,
+						active.unittestRun.instruction,
+						resumed.exception,
+						false,
+					)
+					if routeErr != nil {
+						return nil, nil, routeErr
+					}
+					if unhandled != nil {
+						return nil, unhandled, nil
+					}
+					continue
+				default:
+					return nil, nil, active.failure(index, "invalid unittest continuation")
+				}
+			}
 			if thread.current == nil {
 				return result, nil, nil
 			}
@@ -351,8 +388,13 @@ func executeInstruction(
 					),
 				}, nil
 			}
-			if function, bind := value.(*functionValue); fromClass && bind {
-				value = &boundMethodValue{function: function, self: owner}
+			if fromClass {
+				switch function := value.(type) {
+				case *functionValue:
+					value = &boundMethodValue{function: function, self: owner}
+				case *nativeFunctionValue:
+					value = &boundNativeMethodValue{function: function, self: owner}
+				}
 			}
 			return pushOutcome(frame, index, value)
 		default:

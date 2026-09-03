@@ -20,6 +20,16 @@ answer = 1 // 0
 # message: "integer division or modulo by zero"
 answer = 1 % 0
 # ---
+# case: integer true division by zero
+# error: ZeroDivisionError
+# message: "division by zero"
+answer = 1 / 0
+# ---
+# case: float true division by zero
+# error: ZeroDivisionError
+# message: "float division by zero"
+answer = 1.0 / 0
+# ---
 # case: negative left shift
 # error: ValueError
 # message: "negative shift count"

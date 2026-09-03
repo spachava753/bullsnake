@@ -185,6 +185,10 @@ The current compiler translates:
 - ordinary exception handlers, `else`, `finally`, exception groups, `except*`,
   bare reraising, explicit causes, and cleanup during return or loop transfer
 
+The runtime currently executes true division for integer, boolean, and float
+operands, always producing a float. Integer floor division and modulo retain
+their arbitrary-precision behavior.
+
 Integer constants use arbitrary precision. Float and imaginary constants use
 binary64. String decoding preserves lone surrogate escapes in an internal
 WTF-8-compatible form, while bytes constants preserve arbitrary bytes.
@@ -231,6 +235,10 @@ An instruction can advance, call another Python frame, return, or raise. A call
 switches the loop to a new frame. A return restores the caller and pushes the
 result. Python recursion therefore does not recurse through the Go call stack.
 
+The `unittest` runner is a VM continuation. It schedules each Python `setUp`,
+test, and `tearDown` method as an ordinary child frame in this same dispatch
+loop. It does not recursively invoke the VM from a Go callback.
+
 A raised Python exception follows protected ranges in the current code. If a
 range matches, the VM trims the operand stack to its recorded depth, pushes the
 exception, and resumes at the handler. Otherwise it removes the frame and
@@ -247,8 +255,8 @@ return, loop transfer, or exception work across nested calls and cleanup.
 Runtime values implement a sealed `Value` interface. Current concrete values
 include the Python singletons, arbitrary-precision integers, binary64 floats,
 complex numbers, strings, bytes, tuples, lists, dictionaries, sets, slices,
-iterators, modules, functions, classes, instances, bound methods, and
-exceptions.
+iterators, modules, functions, classes, instances, Python and Go-backed bound
+methods, built-in type markers, and exceptions.
 
 The object model implements the behavior needed by the executable subset.
 Collections support displays, unpacking, iteration, membership, integer and
@@ -387,7 +395,8 @@ the current `OSError` subset.
 
 Go-backed calls are ordinary runtime values dispatched by the VM. They share
 Python call-stack cleanup and exception routing, but currently accept only
-positional arguments and cannot call back into Python. Implemented bootstrap
+positional arguments. A VM-owned continuation, rather than a nested Go call,
+drives the Python methods selected by `unittest.main`. Implemented bootstrap
 module behavior is intentionally narrow:
 
 - `sys` exposes version 3.14.7 metadata, `argv`, `path`, standard streams,
@@ -396,16 +405,22 @@ module behavior is intentionally narrow:
 - `io` and `_io` expose the `StringIO` operations used for test output capture
 - `os` exposes host data, directory listing, and the first `os.path` operations
 - `builtins` can be imported and shares the runtime's current built-in values
+- `__future__` exposes the feature names used by the pinned source tests
+- `unittest` exposes `TestCase`, selected common assertions, fixture execution,
+  alphabetical test discovery, `main`, and a minimal successful result object
 
 The runtime preloads `sys` and `builtins`, then creates other system modules on
 demand through the ordinary module cache. `sys.modules` follows runtime cache
 updates and rollback. Python mutations of `sys.modules`, general native object
 protocols, bytes streams, file objects, and a socket module remain future work.
 
-The CPython 3.14.7 `unittest` bootstrap now passes its first native dependencies
-(`sys` and `io`) and reaches pure-Python `traceback`. The next observed stop is
-`Lib/traceback.py:317`, where the compiler rejects a dictionary comprehension.
-This is a language-execution gap, not another host-system-module dependency.
+The checked-in conformance test executes unchanged copies of CPython's
+`test_future_single_import.py`, `test_future_multiple_imports.py`, and
+`test_int_literal.py` as `__main__`. Their ten discovered tests complete
+without source, parser, resolver, compiler, validator, or VM failures. This
+proves the current focused `unittest` slice; CPython's complete pure-Python
+`Lib/unittest` package still depends on unsupported language and standard-library
+features.
 
 ## Deliberate boundaries
 
@@ -449,6 +464,7 @@ The repository uses several test layers:
 - expected-error fixtures that check Python exception type and message
 - hand-built malformed-bytecode cases that exercise runtime validation
 - fuzz tests at lexer, parser, and resolver input boundaries
+- unchanged CPython `unittest` files that execute through the public embedding API
 
 The checked-in conformance data pins CPython 3.14.7 at commit
 `823f0323ee6ec1402088b73bce1a38473cac36dc`. It runs offline and requires no

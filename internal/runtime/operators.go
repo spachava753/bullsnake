@@ -127,6 +127,9 @@ func executeBinary(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
+	if operand == bytecode.BinaryDivide {
+		return executeTrueDivision(frame, index, left, right, inPlace)
+	}
 	leftInteger, leftOK := integerOperand(left)
 	rightInteger, rightOK := integerOperand(right)
 	if !leftOK || !rightOK {
@@ -249,6 +252,59 @@ func executeBinary(
 		result.And(&leftInteger, &rightInteger)
 	}
 	return pushOutcome(frame, index, &intValue{value: result})
+}
+
+// executeTrueDivision implements the numeric int/bool/float division path and
+// always returns a float, matching Python's true-division result type.
+func executeTrueDivision(
+	frame *frame,
+	index int,
+	left Value,
+	right Value,
+	inPlace bool,
+) (instructionOutcome, error) {
+	leftInteger, leftIsInteger := integerOperand(left)
+	rightInteger, rightIsInteger := integerOperand(right)
+	if leftIsInteger && rightIsInteger {
+		if rightInteger.Sign() == 0 {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("ZeroDivisionError", "division by zero"),
+			}, nil
+		}
+		var ratio big.Rat
+		ratio.SetFrac(&leftInteger, &rightInteger)
+		result, _ := ratio.Float64()
+		return pushOutcome(frame, index, &floatValue{value: result})
+	}
+
+	leftFloat, leftOK := numericFloat(left)
+	rightFloat, rightOK := numericFloat(right)
+	if !leftOK || !rightOK {
+		operator := "/"
+		if inPlace {
+			operator = "/="
+		}
+		return instructionOutcome{
+			kind: raised,
+			exception: newException(
+				"TypeError",
+				fmt.Sprintf(
+					"unsupported operand type(s) for %s: '%s' and '%s'",
+					operator,
+					left.TypeName(),
+					right.TypeName(),
+				),
+			),
+		}, nil
+	}
+	if rightFloat == 0 {
+		return instructionOutcome{
+			kind:      raised,
+			exception: newException("ZeroDivisionError", "float division by zero"),
+		}, nil
+	}
+	return pushOutcome(frame, index, &floatValue{value: leftFloat / rightFloat})
 }
 
 func integerOperand(value Value) (big.Int, bool) {

@@ -109,6 +109,16 @@ assert f'{large_modulo!r}' == "1", "large_modulo"
 assert f'{bool_floor!r}' == "1", "bool_floor"
 assert f'{bool_modulo!r}' == "0", "bool_modulo"
 # ---
+# case: true division
+integer_division = 7 / 2
+float_division = 7.5 / 2
+reverse_float_division = 7 / 2.0
+bool_division = True / 2
+assert integer_division == 3.5
+assert float_division == 3.75
+assert reverse_float_division == 3.5
+assert bool_division == 0.5
+# ---
 # case: integer shifts
 left_shift = 5 << 3
 right_shift = 40 >> 3

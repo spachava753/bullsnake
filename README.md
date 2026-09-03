@@ -34,6 +34,16 @@ Mocks and policy engines implement the narrow interfaces in `host`. Returning
 `host.ErrDenied` rejects an operation. `bullsnake.NewDefault` is the convenience
 constructor when full current-process access is intended.
 
+## CPython test execution
+
+Bullsnake pins compatibility evidence to CPython 3.14.7 commit
+`823f0323ee6ec1402088b73bce1a38473cac36dc`. Its Go-backed `unittest` bootstrap
+can discover `TestCase` subclasses, run their test methods and fixtures through
+the VM, and report results through the configured standard-error capability.
+The checked-in integration suite executes three unchanged CPython files and ten
+of their tests end to end; this is a focused compatibility claim rather than a
+claim that every `unittest` API is implemented.
+
 ## Development
 
 Enable the repository's tracked pre-commit hook once per clone:

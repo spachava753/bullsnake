@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spachava753/bullsnake"
@@ -62,5 +63,35 @@ func TestExecuteFileWithoutCapability(t *testing.T) {
 	module, err := interpreter.ExecuteFile("main", "main.py")
 	if module != nil || !errors.Is(err, host.ErrDenied) {
 		t.Fatalf("ExecuteFile = %#v, %v, want host.ErrDenied", module, err)
+	}
+}
+
+func TestPinnedCPythonUnittestFiles(t *testing.T) {
+	tests := []struct {
+		path    string
+		testRun string
+	}{
+		{path: "testdata/cpython/test_future_single_import.py", testRun: "Ran 3 tests"},
+		{path: "testdata/cpython/test_future_multiple_imports.py", testRun: "Ran 1 test"},
+		{path: "testdata/cpython/test_int_literal.py", testRun: "Ran 6 tests"},
+	}
+	for _, test := range tests {
+		t.Run(filepath.Base(test.path), func(t *testing.T) {
+			services := host.Default()
+			var output bytes.Buffer
+			services.Stderr = &output
+			interpreter := bullsnake.New(bullsnake.Config{Host: services})
+			module, err := interpreter.ExecuteFile("__main__", test.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if module == nil {
+				t.Fatal("CPython test execution returned no module")
+			}
+			if !strings.Contains(output.String(), test.testRun) ||
+				!strings.Contains(output.String(), "OK") {
+				t.Fatalf("unittest output = %q", output.String())
+			}
+		})
 	}
 }

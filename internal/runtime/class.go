@@ -95,6 +95,17 @@ func (method *boundMethodValue) Repr() string {
 }
 func (*boundMethodValue) isValue() {}
 
+type boundNativeMethodValue struct {
+	function *nativeFunctionValue
+	self     *instanceValue
+}
+
+func (*boundNativeMethodValue) TypeName() string { return "builtin_function_or_method" }
+func (method *boundNativeMethodValue) Repr() string {
+	return "<built-in method " + method.function.name + ">"
+}
+func (*boundNativeMethodValue) isValue() {}
+
 type classBuild struct {
 	name          string
 	qualifiedName string
@@ -292,3 +303,4 @@ var _ Value = (*buildClassValue)(nil)
 var _ Value = (*typeValue)(nil)
 var _ Value = (*instanceValue)(nil)
 var _ Value = (*boundMethodValue)(nil)
+var _ Value = (*boundNativeMethodValue)(nil)
