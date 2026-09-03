@@ -8,9 +8,12 @@ code that exists today, read the [implementation guide](impl.md).
 
 ## What Bullsnake is
 
-Bullsnake is an experimental Python interpreter written in Go. It uses Python
-3.14 as its language reference and implements a selected subset of that
-language.
+Bullsnake is an experimental Python interpreter written in Go. Its exact
+compatibility reference is CPython 3.14.7 at commit
+`823f0323ee6ec1402088b73bce1a38473cac36dc`. Bullsnake implements a selected
+subset of that language. Moving the reference requires an intentional update
+to this document, the implementation guide, and the checked-in conformance
+data.
 
 The project has two long-term goals:
 
@@ -245,13 +248,46 @@ regular packages. Within one location it prefers `name/__init__.py` over
 rather than restarting at global roots. The loader decodes and compiles files
 outside the runtime. Source modules and statically linked Go modules should
 enter through the same runtime loading path. Namespace packages,
-Python-visible `sys.modules`, advanced `importlib` hooks, zip imports, reload,
-and bytecode caches should be added only when package tests require their
-observable behavior.
+advanced `importlib` hooks, zip imports, reload, and bytecode caches should be
+added only when package tests require their observable behavior.
+
+Go-backed system modules use the same runtime cache and Python `Module` values
+as source modules. `sys.modules` observes cache insertion, successful import,
+and rollback through a Python dictionary. Python-side replacement or deletion
+in that dictionary does not yet change the runtime's authoritative cache.
+
+## Host capability boundary
+
+Interpreter code must not call operating-system, clock, network, process, or
+standard-stream APIs directly. The public `host` package groups those powers as
+independent interfaces in `host.Services`. A nil service denies that capability.
+`bullsnake.New` preserves exactly the supplied services, while
+`bullsnake.NewDefault` is the explicit convenience path that grants current
+process capabilities.
+
+The first boundary contains:
+
+- a read-only filesystem for source reads, directory listing, metadata, and
+  real-path resolution
+- wall time, monotonic time, and sleeping through one clock
+- outbound dialing through a network interface, reserved for a future socket
+  module
+- arguments, environment, executable, and working-directory process data
+- independently replaceable standard input, output, and error streams
+
+Interfaces grow by adding separate capabilities, not by adding unrelated
+methods to an existing interface. For example, filesystem mutation will use a
+new interface so read-only mocks remain valid. Policy wrappers can record,
+rewrite, or reject an operation with `host.ErrDenied`; a system module converts
+that denial to `PermissionError`. Source-loader failures remain Go errors at the
+embedding boundary.
 
 ## Go embedding and extensions
 
-A public Go API is not implemented yet. Its intended shape is small:
+The first public Go API creates an isolated interpreter from explicit host
+services and module search roots, executes source or a host-read file, inspects
+module identity, and reads stable value metadata. Its intended completed shape
+remains small:
 
 - create an isolated runtime
 - compile or execute source
@@ -260,9 +296,10 @@ A public Go API is not implemented yet. Its intended shape is small:
 - call Python functions
 - expose Go functions, types, and modules
 
-The public value and extension contracts should not expose internal code
-objects, frames, or object layouts. Go modules should register explicitly with
-a runtime or builder. Static linking is the first distribution model.
+The public value view exposes only type names and representations. It does not
+expose internal code objects, frames, namespaces, or object layouts. A future
+extension API will let Go modules register explicitly with an interpreter or
+builder. Static linking is the first distribution model.
 
 A Go callback may call back into Python only through an execution context owned
 by the runtime. Background goroutines may finish host work and post a result,
@@ -325,12 +362,15 @@ These rules summarize the design:
 9. Internal AST, bytecode, frame, and object layouts remain private.
 10. New complexity must be justified by a supported feature, package, or
     measured workload.
+11. Every host interaction crosses an explicit replaceable capability.
 
 ## Repository boundaries
 
 The current high-level layout is:
 
 ```text
+bullsnake.go               minimal public embedding API
+host/                      replaceable host capability contracts and defaults
 internal/compiler/          source-to-code pipeline
 internal/compiler/source/   source decoding
 internal/compiler/lexer/    tokens
@@ -346,9 +386,8 @@ experiments/                disposable design probes
 The compiler depends on syntax and resolution, but not on the runtime. The
 runtime consumes immutable code objects, but it does not parse source. The
 importer is a composition package: it depends on the compiler pipeline and the
-runtime's loader contract, while neither core package depends on it. A future
-public package will configure these pieces without making internal packages
-public.
+runtime's loader contract, while neither core package depends on it. The public
+root package configures these pieces without exposing their internal types.
 
 The runtime should remain one coarse internal package until imports, scheduling,
 or builtins have an independent API or dependency reason to split.
@@ -375,8 +414,8 @@ promises them.
 The project still needs concrete decisions about:
 
 - the first package compatibility set
-- the first standard-library modules needed by that set
-- the public Go embedding and extension API
+- the next standard-library modules required by the `unittest` bootstrap
+- the Go callback, type, and module extension API
 - namespace-package and extended import-hook behavior
 - generator, coroutine, and scheduler behavior
 - the first Python threading subset and execution-token policy

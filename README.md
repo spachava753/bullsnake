@@ -13,6 +13,27 @@ The [architecture](docs/architecture.md) explains Bullsnake's goals, design
 choices, and compatibility boundaries. The [implementation guide](docs/impl.md)
 describes the current packages, supported behavior, and visible gaps.
 
+## Embedding
+
+Host access is explicit and replaceable. `bullsnake.New` preserves exactly the
+capabilities it receives, so a zero configuration has no filesystem, clock,
+network, process, or stream authority:
+
+```go
+services := host.Default()
+services.Network = nil
+
+interpreter := bullsnake.New(bullsnake.Config{
+    Host:             services,
+    ModuleSearchPath: []string{"./python"},
+})
+module, err := interpreter.ExecuteModule("main", "main.py", "import sys\nanswer = 42\n")
+```
+
+Mocks and policy engines implement the narrow interfaces in `host`. Returning
+`host.ErrDenied` rejects an operation. `bullsnake.NewDefault` is the convenience
+constructor when full current-process access is intended.
+
 ## Development
 
 Enable the repository's tracked pre-commit hook once per clone:

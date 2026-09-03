@@ -1,15 +1,123 @@
 package runtime_test
 
 import (
+	"bytes"
 	"errors"
+	"io/fs"
 	"testing"
+	"time"
 
+	"github.com/spachava753/bullsnake/host"
 	"github.com/spachava753/bullsnake/internal/compiler"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 	"github.com/spachava753/bullsnake/internal/compiler/parser"
 	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 	bullruntime "github.com/spachava753/bullsnake/internal/runtime"
 )
+
+type fakeClock struct {
+	now       time.Time
+	monotonic time.Duration
+	slept     []time.Duration
+	err       error
+}
+
+type fileGuard struct {
+	host.FileSystem
+	reads int
+}
+
+func (guard *fileGuard) ReadDir(string) ([]fs.DirEntry, error) {
+	guard.reads++
+	return nil, host.ErrDenied
+}
+
+func (clock *fakeClock) Now() (time.Time, error) {
+	return clock.now, clock.err
+}
+
+func (clock *fakeClock) Monotonic() (time.Duration, error) {
+	return clock.monotonic, clock.err
+}
+
+func (clock *fakeClock) Sleep(duration time.Duration) error {
+	clock.slept = append(clock.slept, duration)
+	return clock.err
+}
+
+func TestConfiguredSystemModules(t *testing.T) {
+	clock := &fakeClock{
+		now:       time.Unix(123, 500_000_000),
+		monotonic: 2500 * time.Millisecond,
+	}
+	var output bytes.Buffer
+	runtime := bullruntime.NewWithConfig(bullruntime.Config{
+		Path: []string{"/stdlib", "/application"},
+		Host: host.Services{
+			Clock:  clock,
+			Stdout: &output,
+		},
+	})
+	module, err := runtime.ExecuteModule("configured", compileSource(t,
+		"import sys\n"+
+			"import time\n"+
+			"wall = time.time()\n"+
+			"counter = time.perf_counter()\n"+
+			"time.sleep(1.5)\n"+
+			"written = sys.stdout.write('ready')\n"+
+			"paths = sys.path\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertModuleRepr(t, module, "wall", "123.5")
+	assertModuleRepr(t, module, "counter", "2.5")
+	assertModuleRepr(t, module, "written", "5")
+	assertModuleRepr(t, module, "paths", "['/stdlib', '/application']")
+	if output.String() != "ready" {
+		t.Fatalf("stdout = %q, want ready", output.String())
+	}
+	if len(clock.slept) != 1 || clock.slept[0] != 1500*time.Millisecond {
+		t.Fatalf("sleep calls = %v, want [1.5s]", clock.slept)
+	}
+}
+
+func TestMissingHostCapabilityIsDenied(t *testing.T) {
+	runtime := bullruntime.NewWithConfig(bullruntime.Config{})
+	module, err := runtime.ExecuteModule("denied", compileSource(t,
+		"import time\ntime.time()\n"))
+	if module != nil {
+		t.Fatalf("module = %#v, want nil", module)
+	}
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Exception().TypeName(); got != "PermissionError" {
+		t.Fatalf("exception type = %q, want PermissionError", got)
+	}
+}
+
+func TestSystemModuleHostPolicyIsEnforced(t *testing.T) {
+	files := &fileGuard{FileSystem: host.Default().Files}
+	runtime := bullruntime.NewWithConfig(bullruntime.Config{
+		Host: host.Services{Files: files},
+	})
+	module, err := runtime.ExecuteModule("denied", compileSource(t,
+		"import os\nos.listdir('.')\n"))
+	if module != nil {
+		t.Fatalf("module = %#v, want nil", module)
+	}
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Exception().TypeName(); got != "PermissionError" {
+		t.Fatalf("exception type = %q, want PermissionError", got)
+	}
+	if files.reads != 1 {
+		t.Fatalf("directory reads = %d, want 1", files.reads)
+	}
+}
 
 func TestModuleCacheAPI(t *testing.T) {
 	code := compileSource(t, "answer = 42\n")
@@ -248,7 +356,8 @@ func TestFailedModuleInitialization(t *testing.T) {
 	})
 	runtime := bullruntime.NewWithLoader(loader)
 	module, err := runtime.ExecuteModule("main", compileSource(t,
-		"attempts = 0\n"+
+		"import sys\n"+
+			"attempts = 0\n"+
 			"try:\n"+
 			"    import broken\n"+
 			"except ValueError:\n"+
@@ -256,7 +365,8 @@ func TestFailedModuleInitialization(t *testing.T) {
 			"try:\n"+
 			"    import broken\n"+
 			"except ValueError:\n"+
-			"    attempts = attempts + 1\n"))
+			"    attempts = attempts + 1\n"+
+			"broken_cached = 'broken' in sys.modules\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,6 +374,7 @@ func TestFailedModuleInitialization(t *testing.T) {
 	if loads["broken"] != 2 || loads["side"] != 1 {
 		t.Fatalf("load counts = %v, want broken:2 side:1", loads)
 	}
+	assertModuleRepr(t, module, "broken_cached", "False")
 	if _, found := runtime.Module("broken"); found {
 		t.Fatal("failed module remained in the runtime cache")
 	}

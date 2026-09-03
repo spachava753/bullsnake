@@ -9,6 +9,11 @@ type Value interface {
 	isValue()
 }
 
+type attributeValue interface {
+	Value
+	attribute(string) (Value, bool)
+}
+
 type noneValue struct{}
 
 // None is the immutable Python None singleton.

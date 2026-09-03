@@ -114,7 +114,7 @@ func (frame *frame) discardImportedModule() {
 	}
 	module := frame.moduleImport.module
 	if frame.runtime.modules[module.name] == module {
-		delete(frame.runtime.modules, module.name)
+		frame.runtime.deleteModule(module.name)
 	}
 	frame.moduleImport = nil
 }

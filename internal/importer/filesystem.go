@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/spachava753/bullsnake/host"
 	"github.com/spachava753/bullsnake/internal/compiler"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 	"github.com/spachava753/bullsnake/internal/compiler/parser"
@@ -19,12 +20,19 @@ import (
 
 // FileSystem finds flat module files under an ordered list of roots.
 type FileSystem struct {
+	files host.FileSystem
 	roots []string
 }
 
 // NewFileSystem constructs a loader that searches roots from first to last.
 func NewFileSystem(roots ...string) *FileSystem {
-	return &FileSystem{roots: slices.Clone(roots)}
+	return NewFileSystemWithHost(host.Default().Files, roots...)
+}
+
+// NewFileSystemWithHost constructs a loader whose reads pass through files.
+// A nil capability denies every otherwise valid module lookup.
+func NewFileSystemWithHost(files host.FileSystem, roots ...string) *FileSystem {
+	return &FileSystem{files: files, roots: slices.Clone(roots)}
 }
 
 // Load finds and compiles a regular package or source module under the first
@@ -48,7 +56,7 @@ func (loader *FileSystem) Load(request bullruntime.ModuleRequest) (bullruntime.M
 	}
 	for _, root := range roots {
 		packageFile := filepath.Join(root, relative, "__init__.py")
-		unit, found, err := readUnit(packageFile)
+		unit, found, err := loader.readUnit(packageFile)
 		if err != nil {
 			return bullruntime.ModuleSpec{}, true, fmt.Errorf("load module %q: %w", name, err)
 		}
@@ -66,7 +74,7 @@ func (loader *FileSystem) Load(request bullruntime.ModuleRequest) (bullruntime.M
 		}
 
 		moduleFile := filepath.Join(root, relative+".py")
-		unit, found, err = readUnit(moduleFile)
+		unit, found, err = loader.readUnit(moduleFile)
 		if err != nil {
 			return bullruntime.ModuleSpec{}, true, fmt.Errorf("load module %q: %w", name, err)
 		}
@@ -81,15 +89,15 @@ func (loader *FileSystem) Load(request bullruntime.ModuleRequest) (bullruntime.M
 	return bullruntime.ModuleSpec{}, false, nil
 }
 
-func readUnit(filename string) (source.Unit, bool, error) {
-	unit, err := source.ReadFile(filename)
+func (loader *FileSystem) readUnit(filename string) (source.Unit, bool, error) {
+	unit, err := source.ReadFileWithHost(loader.files, filename)
 	if errors.Is(err, fs.ErrNotExist) {
 		return source.Unit{}, false, nil
 	}
 	if err != nil {
 		return source.Unit{}, false, err
 	}
-	return unit, true, nil
+	return unit, true, err
 }
 
 func compileUnit(unit source.Unit) (*bytecode.Code, error) {

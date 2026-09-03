@@ -36,6 +36,7 @@ func (exceptionType *exceptionTypeValue) isSubclassOf(parent *exceptionTypeValue
 var (
 	baseExceptionType       = &exceptionTypeValue{name: "BaseException"}
 	exceptionType           = &exceptionTypeValue{name: "Exception", base: baseExceptionType}
+	systemExitType          = &exceptionTypeValue{name: "SystemExit", base: baseExceptionType}
 	baseExceptionGroupType  = &exceptionTypeValue{name: "BaseExceptionGroup", base: baseExceptionType}
 	exceptionGroupType      = &exceptionTypeValue{name: "ExceptionGroup", base: baseExceptionGroupType, additionalBase: exceptionType}
 	arithmeticErrorType     = &exceptionTypeValue{name: "ArithmeticError", base: exceptionType}
@@ -50,6 +51,10 @@ var (
 	unboundLocalErrorType   = &exceptionTypeValue{name: "UnboundLocalError", base: nameErrorType}
 	runtimeErrorType        = &exceptionTypeValue{name: "RuntimeError", base: exceptionType}
 	notImplementedErrorType = &exceptionTypeValue{name: "NotImplementedError", base: runtimeErrorType}
+	osErrorType             = &exceptionTypeValue{name: "OSError", base: exceptionType}
+	fileNotFoundErrorType   = &exceptionTypeValue{name: "FileNotFoundError", base: osErrorType}
+	permissionErrorType     = &exceptionTypeValue{name: "PermissionError", base: osErrorType}
+	timeoutErrorType        = &exceptionTypeValue{name: "TimeoutError", base: osErrorType}
 	overflowErrorType       = &exceptionTypeValue{name: "OverflowError", base: arithmeticErrorType}
 	zeroDivisionErrorType   = &exceptionTypeValue{name: "ZeroDivisionError", base: arithmeticErrorType}
 	typeErrorType           = &exceptionTypeValue{name: "TypeError", base: exceptionType}
@@ -59,6 +64,7 @@ var (
 var builtinExceptionTypes = []*exceptionTypeValue{
 	baseExceptionType,
 	exceptionType,
+	systemExitType,
 	baseExceptionGroupType,
 	exceptionGroupType,
 	arithmeticErrorType,
@@ -73,6 +79,10 @@ var builtinExceptionTypes = []*exceptionTypeValue{
 	unboundLocalErrorType,
 	runtimeErrorType,
 	notImplementedErrorType,
+	osErrorType,
+	fileNotFoundErrorType,
+	permissionErrorType,
+	timeoutErrorType,
 	overflowErrorType,
 	zeroDivisionErrorType,
 	typeErrorType,
@@ -196,6 +206,7 @@ type Exception struct {
 	class             *exceptionTypeValue
 	userClass         *typeValue
 	message           string
+	code              Value
 	group             *tupleValue
 	cause             *Exception
 	context           *Exception
@@ -319,6 +330,14 @@ func (exception *Exception) attribute(name string) (Value, bool) {
 			return trueSingleton, true
 		}
 		return falseSingleton, true
+	case "code":
+		if exception.class != systemExitType {
+			return nil, false
+		}
+		if exception.code == nil {
+			return None, true
+		}
+		return exception.code, true
 	default:
 		return nil, false
 	}

@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/spachava753/bullsnake/host"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/ianaindex"
 	"golang.org/x/text/transform"
@@ -131,7 +131,16 @@ func Read(filename string, reader io.Reader) (Unit, error) {
 
 // ReadFile reads and decodes one source file.
 func ReadFile(filename string) (Unit, error) {
-	data, err := os.ReadFile(filename)
+	return ReadFileWithHost(host.Default().Files, filename)
+}
+
+// ReadFileWithHost reads and decodes source through an explicit filesystem
+// capability. A nil capability returns host.ErrDenied.
+func ReadFileWithHost(files host.FileSystem, filename string) (Unit, error) {
+	if files == nil {
+		return Unit{}, host.ErrDenied
+	}
+	data, err := files.ReadFile(filename)
 	if err != nil {
 		return Unit{}, err
 	}

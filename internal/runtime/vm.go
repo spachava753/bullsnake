@@ -300,7 +300,7 @@ func executeInstruction(
 		}
 		name := frame.code.names[instruction.Operand]
 		switch owner := owner.(type) {
-		case *Exception:
+		case attributeValue:
 			value, found := owner.attribute(name)
 			if !found {
 				return instructionOutcome{

@@ -11,6 +11,9 @@ Bullsnake is under active development. Parsing a program does not mean the
 compiler can translate it, and compiling it does not mean the runtime can
 execute every instruction. Each stage rejects behavior it does not yet own.
 
+All compatibility work uses CPython 3.14.7 at commit
+`823f0323ee6ec1402088b73bce1a38473cac36dc` as the exact reference.
+
 ## Current state
 
 | Part | What works now |
@@ -20,9 +23,11 @@ execute every instruction. Each stage rejects behavior it does not yet own.
 | Parser | A broad Python 3.14 statement and expression grammar |
 | Resolver | Name scopes, closures, contextual checks, annotations, generics, and comprehensions |
 | Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
-| Runtime | Modules, values, collections, functions, basic classes, and structured exceptions |
-| Imports | Regular packages and modules from configured filesystem roots |
-| Go API, standard library, async, and REPL | Not implemented |
+| Runtime | Modules, values, collections, Python and Go-backed functions, basic classes, and structured exceptions |
+| Imports | Regular source packages plus cached Go-backed system modules |
+| Go API | Explicit host configuration, source/file execution, module lookup, and read-only values |
+| Standard library | Initial `sys`, `time`, `io`, `os`, and `os.path` bootstrap subset |
+| Async and REPL | Not implemented |
 
 The parser and resolver intentionally cover more language forms than the
 compiler. The compiler also defines some bytecode that the runtime still
@@ -41,11 +46,11 @@ parser.Parse
     -> Runtime.ExecuteModule
 ```
 
-Raw file bytes first pass through `internal/compiler/source`. No public package
-combines these calls yet. Tests and internal callers compose them directly.
-`internal/importer.FileSystem` uses the same sequence for module files found
-under configured roots, then supplies the resulting code through the runtime's
-loader callback.
+Raw file bytes first pass through `internal/compiler/source`. The public
+`bullsnake.Interpreter` combines these stages for `ExecuteModule` and
+`ExecuteFile`. `internal/importer.FileSystem` uses the same sequence for module
+files found under configured roots, then supplies the resulting code through
+the runtime's loader callback.
 
 Errors belong to the stage that can explain them. The source loader reports
 encoding failures. The lexer and parser report malformed syntax. The resolver
@@ -355,19 +360,59 @@ in order. At each location it prefers `name/__init__.py` over `name.py`.
 Submodule requests search only the locations retained from the parent package's
 specification. Found files use the ordinary source loader, parser, resolver, and
 compiler, and preserve typed frontend errors under a module-loading wrapper.
+Every source read uses its configured `host.FileSystem`; the default constructor
+selects the operating-system implementation, while `NewFileSystemWithHost`
+accepts mocks and policy wrappers.
 
 A missing callback, missing file, or missing callback result raises
 `ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
 until the runtime has the corresponding Python exception values. Namespace
-packages, dynamic `__path__` changes, `sys.modules`, finder and loader hooks,
-reload, import locks, and a standard library remain unimplemented.
+packages, dynamic `__path__` changes, finder and loader hooks, reload, and
+import locks remain unimplemented.
+
+## Host services and system modules
+
+The public `host.Services` value contains independent filesystem, clock,
+network, process, and standard-stream capabilities. `bullsnake.New` and
+`runtime.NewWithConfig` do not fill nil capabilities. `NewDefault` and the
+legacy internal constructors explicitly select current-process defaults.
+
+The filesystem importer uses `host.FileSystem.ReadFile`. `os.listdir`,
+`os.path.exists`, `isfile`, `isdir`, and `realpath` use that same filesystem.
+Working-directory and environment reads use `host.Process`. `time.time`,
+`monotonic`, `perf_counter`, and `sleep` use `host.Clock`. `sys.stdin`,
+`stdout`, and `stderr` retain only their configured streams. A missing or denied
+system-module capability raises `PermissionError`; other host failures become
+the current `OSError` subset.
+
+Go-backed calls are ordinary runtime values dispatched by the VM. They share
+Python call-stack cleanup and exception routing, but currently accept only
+positional arguments and cannot call back into Python. Implemented bootstrap
+module behavior is intentionally narrow:
+
+- `sys` exposes version 3.14.7 metadata, `argv`, `path`, standard streams,
+  `modules`, `exc_info`, and `exit`
+- `time` exposes wall time, monotonic/performance time, and sleeping
+- `io` and `_io` expose the `StringIO` operations used for test output capture
+- `os` exposes host data, directory listing, and the first `os.path` operations
+- `builtins` can be imported and shares the runtime's current built-in values
+
+The runtime preloads `sys` and `builtins`, then creates other system modules on
+demand through the ordinary module cache. `sys.modules` follows runtime cache
+updates and rollback. Python mutations of `sys.modules`, general native object
+protocols, bytes streams, file objects, and a socket module remain future work.
+
+The CPython 3.14.7 `unittest` bootstrap now passes its first native dependencies
+(`sys` and `io`) and reaches pure-Python `traceback`. The next observed stop is
+`Lib/traceback.py:317`, where the compiler rejects a dictionary comprehension.
+This is a language-execution gap, not another host-system-module dependency.
 
 ## Deliberate boundaries
 
 The largest current gaps are:
 
-- no public Go embedding or extension API
-- no namespace packages, standard library, or native extension loading
+- no Go callback/type/module extension API
+- no namespace packages, broad standard library, or native extension loading
 - no generators, coroutines, async execution, or Python threads
 - no comprehensions, context-manager execution, or structural matching
 - no complete Python object protocol, descriptors, user hashing, or multiple

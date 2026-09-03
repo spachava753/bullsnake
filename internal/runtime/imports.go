@@ -127,17 +127,25 @@ func advanceImport(
 				if parent == nil {
 					return instructionOutcome{}, frame.failure(index, "import parent is not cached")
 				}
-				if !parent.isPackage {
-					return instructionOutcome{
-						kind: raised,
-						exception: newException(
-							"ModuleNotFoundError",
-							"No module named '"+name+"'; '"+parent.name+"' is not a package",
-						),
-					}, nil
-				}
 			}
 			if module, found := frame.runtime.modules[name]; found {
+				if parent != nil {
+					child := name[strings.LastIndexByte(name, '.')+1:]
+					parent.globals.values[child] = module
+				}
+				request.next++
+				continue
+			}
+			if parent != nil && !parent.isPackage {
+				return instructionOutcome{
+					kind: raised,
+					exception: newException(
+						"ModuleNotFoundError",
+						"No module named '"+name+"'; '"+parent.name+"' is not a package",
+					),
+				}, nil
+			}
+			if module, found := frame.runtime.loadSystemModule(name); found {
 				if parent != nil {
 					child := name[strings.LastIndexByte(name, '.')+1:]
 					parent.globals.values[child] = module
@@ -171,7 +179,7 @@ func advanceImport(
 			if err != nil {
 				return instructionOutcome{}, err
 			}
-			frame.runtime.modules[name] = module
+			frame.runtime.cacheModule(name, module)
 			imported.moduleImport = &moduleImport{module: module, request: request}
 			return instructionOutcome{kind: called, frame: imported}, nil
 		}

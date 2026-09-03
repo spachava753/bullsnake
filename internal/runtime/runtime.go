@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/spachava753/bullsnake/host"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 )
 
@@ -25,37 +26,59 @@ type ModuleRequest struct {
 // ModuleLoader finds one absolute module description.
 type ModuleLoader func(request ModuleRequest) (spec ModuleSpec, found bool, err error)
 
+// Config supplies module discovery, import paths, and explicit host
+// capabilities to one runtime. A zero Host grants no ambient capabilities.
+type Config struct {
+	Loader ModuleLoader
+	Path   []string
+	Host   host.Services
+}
+
 // Runtime owns mutable interpreter state shared by executions in one isolated
 // Python runtime instance.
 type Runtime struct {
-	builtins *Namespace
-	modules  map[string]*Module
-	prepared map[*bytecode.Code]*preparedCode
-	loader   ModuleLoader
+	builtins  *Namespace
+	modules   map[string]*Module
+	moduleMap *dictValue
+	prepared  map[*bytecode.Code]*preparedCode
+	loader    ModuleLoader
+	path      []string
+	host      host.Services
 }
 
 // New constructs an empty runtime instance without a module loader.
 func New() *Runtime {
-	return newRuntime(nil)
+	return newRuntime(Config{Host: host.Default()})
 }
 
 // NewWithLoader constructs an empty runtime that can load module code on cache
 // misses.
 func NewWithLoader(loader ModuleLoader) *Runtime {
-	return newRuntime(loader)
+	return newRuntime(Config{Loader: loader, Host: host.Default()})
 }
 
-func newRuntime(loader ModuleLoader) *Runtime {
+// NewWithConfig constructs a runtime with explicitly selected host authority.
+// Unlike New and NewWithLoader, it does not fill missing capabilities.
+func NewWithConfig(config Config) *Runtime {
+	return newRuntime(config)
+}
+
+func newRuntime(config Config) *Runtime {
 	builtins := newNamespace()
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}
-	return &Runtime{
-		builtins: builtins,
-		modules:  make(map[string]*Module),
-		prepared: make(map[*bytecode.Code]*preparedCode),
-		loader:   loader,
+	runtime := &Runtime{
+		builtins:  builtins,
+		modules:   make(map[string]*Module),
+		moduleMap: &dictValue{},
+		prepared:  make(map[*bytecode.Code]*preparedCode),
+		loader:    config.Loader,
+		path:      slices.Clone(config.Path),
+		host:      config.Host,
 	}
+	runtime.initializeSystemModules()
+	return runtime
 }
 
 // ExecuteModule validates and executes one code object as an ordinary module.
@@ -72,7 +95,7 @@ func (runtime *Runtime) ExecuteModuleSpec(name string, spec ModuleSpec) (*Module
 		return nil, err
 	}
 	previous, replaced := runtime.modules[name]
-	runtime.modules[name] = module
+	runtime.cacheModule(name, module)
 	thread := &threadState{current: moduleFrame}
 
 	_, raised, err := execute(thread)
@@ -171,9 +194,9 @@ func (runtime *Runtime) restoreModule(
 		return
 	}
 	if replaced {
-		runtime.modules[name] = previous
+		runtime.cacheModule(name, previous)
 	} else {
-		delete(runtime.modules, name)
+		runtime.deleteModule(name)
 	}
 }
 
@@ -182,6 +205,22 @@ func (runtime *Runtime) restoreModule(
 func (runtime *Runtime) Module(name string) (*Module, bool) {
 	module, ok := runtime.modules[name]
 	return module, ok
+}
+
+func (runtime *Runtime) cacheModule(name string, module *Module) {
+	runtime.modules[name] = module
+	if exception := runtime.moduleMap.set(&stringValue{value: name}, module); exception != nil {
+		panic("runtime: module name is not hashable")
+	}
+}
+
+func (runtime *Runtime) deleteModule(name string) {
+	delete(runtime.modules, name)
+	deleted, exception := runtime.moduleMap.delete(&stringValue{value: name})
+	if exception != nil {
+		panic("runtime: module name is not hashable")
+	}
+	_ = deleted
 }
 
 func (runtime *Runtime) prepare(code *bytecode.Code) (*preparedCode, error) {

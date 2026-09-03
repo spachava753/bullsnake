@@ -6,10 +6,45 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spachava753/bullsnake/host"
 	"github.com/spachava753/bullsnake/internal/compiler/parser"
 	"github.com/spachava753/bullsnake/internal/importer"
 	bullruntime "github.com/spachava753/bullsnake/internal/runtime"
 )
+
+type readGuard struct {
+	host.FileSystem
+	deny  bool
+	reads []string
+}
+
+func (guard *readGuard) ReadFile(name string) ([]byte, error) {
+	guard.reads = append(guard.reads, name)
+	if guard.deny {
+		return nil, host.ErrDenied
+	}
+	return guard.FileSystem.ReadFile(name)
+}
+
+func TestHostFileSystemBoundary(t *testing.T) {
+	root := t.TempDir()
+	writeSource(t, root, "allowed.py", "answer = 42\n")
+	guard := &readGuard{FileSystem: host.Default().Files}
+	loader := importer.NewFileSystemWithHost(guard, root)
+	spec, found, err := loader.Load(bullruntime.ModuleRequest{Name: "allowed"})
+	if err != nil || !found || spec.Code == nil {
+		t.Fatalf("Load(allowed) = %#v, %t, %v", spec, found, err)
+	}
+	if len(guard.reads) != 2 {
+		t.Fatalf("filesystem reads = %v, want package and module candidates", guard.reads)
+	}
+
+	guard.deny = true
+	_, found, err = loader.Load(bullruntime.ModuleRequest{Name: "blocked"})
+	if !found || !errors.Is(err, host.ErrDenied) {
+		t.Fatalf("Load(blocked) found = %t, error = %v, want denied", found, err)
+	}
+}
 
 func TestFileSystem(t *testing.T) {
 	first := t.TempDir()

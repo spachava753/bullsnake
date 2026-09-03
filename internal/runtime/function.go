@@ -97,6 +97,15 @@ func executeFunctionCall(
 	keywords *dictValue,
 ) (instructionOutcome, error) {
 	switch callable := callable.(type) {
+	case *nativeFunctionValue:
+		return executeNativeFunctionCall(
+			caller,
+			instruction,
+			base,
+			callable,
+			arguments,
+			keywords,
+		)
 	case *buildClassValue:
 		return executeBuildClassCall(
 			caller,

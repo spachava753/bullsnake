@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spachava753/bullsnake/host"
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
 	"github.com/spachava753/bullsnake/internal/compiler/source"
 )
@@ -234,6 +235,9 @@ func TestFileLoading(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing.py")
 	if _, err := source.ReadFile(missing); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("error = %v, want os.ErrNotExist", err)
+	}
+	if _, err := source.ReadFileWithHost(nil, filename); !errors.Is(err, host.ErrDenied) {
+		t.Fatalf("error = %v, want host.ErrDenied", err)
 	}
 }
 
