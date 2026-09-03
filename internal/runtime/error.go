@@ -3,7 +3,6 @@ package runtime
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
@@ -20,6 +19,18 @@ func (exceptionType *exceptionTypeValue) Repr() string {
 	return "<class '" + exceptionType.name + "'>"
 }
 func (*exceptionTypeValue) isValue() {}
+func (exceptionType *exceptionTypeValue) attribute(name string) (Value, bool) {
+	switch name {
+	case "__name__", "__qualname__":
+		return &stringValue{value: exceptionType.name}, true
+	case "__module__":
+		return &stringValue{value: "builtins"}, true
+	case "__doc__":
+		return None, true
+	default:
+		return nil, false
+	}
+}
 
 func (exceptionType *exceptionTypeValue) isSubclassOf(parent *exceptionTypeValue) bool {
 	for current := exceptionType; current != nil; current = current.base {
@@ -37,6 +48,9 @@ var (
 	baseExceptionType       = &exceptionTypeValue{name: "BaseException"}
 	exceptionType           = &exceptionTypeValue{name: "Exception", base: baseExceptionType}
 	systemExitType          = &exceptionTypeValue{name: "SystemExit", base: baseExceptionType}
+	keyboardInterruptType   = &exceptionTypeValue{name: "KeyboardInterrupt", base: baseExceptionType}
+	cancelledErrorType      = &exceptionTypeValue{name: "CancelledError", base: baseExceptionType}
+	generatorExitType       = &exceptionTypeValue{name: "GeneratorExit", base: baseExceptionType}
 	baseExceptionGroupType  = &exceptionTypeValue{name: "BaseExceptionGroup", base: baseExceptionType}
 	exceptionGroupType      = &exceptionTypeValue{name: "ExceptionGroup", base: baseExceptionGroupType, additionalBase: exceptionType}
 	arithmeticErrorType     = &exceptionTypeValue{name: "ArithmeticError", base: exceptionType}
@@ -50,21 +64,51 @@ var (
 	nameErrorType           = &exceptionTypeValue{name: "NameError", base: exceptionType}
 	unboundLocalErrorType   = &exceptionTypeValue{name: "UnboundLocalError", base: nameErrorType}
 	runtimeErrorType        = &exceptionTypeValue{name: "RuntimeError", base: exceptionType}
+	recursionErrorType      = &exceptionTypeValue{name: "RecursionError", base: runtimeErrorType}
 	notImplementedErrorType = &exceptionTypeValue{name: "NotImplementedError", base: runtimeErrorType}
+	systemErrorType         = &exceptionTypeValue{name: "SystemError", base: exceptionType}
+	memoryErrorType         = &exceptionTypeValue{name: "MemoryError", base: exceptionType}
+	syntaxErrorType         = &exceptionTypeValue{name: "SyntaxError", base: exceptionType}
+	indentationErrorType    = &exceptionTypeValue{name: "IndentationError", base: syntaxErrorType}
+	tabErrorType            = &exceptionTypeValue{name: "TabError", base: indentationErrorType}
+	stopIterationType       = &exceptionTypeValue{name: "StopIteration", base: exceptionType}
+	stopAsyncIterationType  = &exceptionTypeValue{name: "StopAsyncIteration", base: exceptionType}
+	eofErrorType            = &exceptionTypeValue{name: "EOFError", base: exceptionType}
+	unicodeErrorType        = &exceptionTypeValue{name: "UnicodeError", base: valueErrorType}
+	unicodeDecodeErrorType  = &exceptionTypeValue{name: "UnicodeDecodeError", base: unicodeErrorType}
+	unicodeEncodeErrorType  = &exceptionTypeValue{name: "UnicodeEncodeError", base: unicodeErrorType}
 	osErrorType             = &exceptionTypeValue{name: "OSError", base: exceptionType}
 	fileNotFoundErrorType   = &exceptionTypeValue{name: "FileNotFoundError", base: osErrorType}
+	fileExistsErrorType     = &exceptionTypeValue{name: "FileExistsError", base: osErrorType}
+	isADirectoryErrorType   = &exceptionTypeValue{name: "IsADirectoryError", base: osErrorType}
+	notADirectoryErrorType  = &exceptionTypeValue{name: "NotADirectoryError", base: osErrorType}
 	permissionErrorType     = &exceptionTypeValue{name: "PermissionError", base: osErrorType}
 	timeoutErrorType        = &exceptionTypeValue{name: "TimeoutError", base: osErrorType}
 	overflowErrorType       = &exceptionTypeValue{name: "OverflowError", base: arithmeticErrorType}
 	zeroDivisionErrorType   = &exceptionTypeValue{name: "ZeroDivisionError", base: arithmeticErrorType}
 	typeErrorType           = &exceptionTypeValue{name: "TypeError", base: exceptionType}
 	valueErrorType          = &exceptionTypeValue{name: "ValueError", base: exceptionType}
+	warningType             = &exceptionTypeValue{name: "Warning", base: exceptionType}
+	userWarningType         = &exceptionTypeValue{name: "UserWarning", base: warningType}
+	deprecationWarningType  = &exceptionTypeValue{name: "DeprecationWarning", base: warningType}
+	pendingWarningType      = &exceptionTypeValue{name: "PendingDeprecationWarning", base: warningType}
+	syntaxWarningType       = &exceptionTypeValue{name: "SyntaxWarning", base: warningType}
+	runtimeWarningType      = &exceptionTypeValue{name: "RuntimeWarning", base: warningType}
+	futureWarningType       = &exceptionTypeValue{name: "FutureWarning", base: warningType}
+	importWarningType       = &exceptionTypeValue{name: "ImportWarning", base: warningType}
+	unicodeWarningType      = &exceptionTypeValue{name: "UnicodeWarning", base: warningType}
+	bytesWarningType        = &exceptionTypeValue{name: "BytesWarning", base: warningType}
+	resourceWarningType     = &exceptionTypeValue{name: "ResourceWarning", base: warningType}
+	encodingWarningType     = &exceptionTypeValue{name: "EncodingWarning", base: warningType}
 )
 
 var builtinExceptionTypes = []*exceptionTypeValue{
 	baseExceptionType,
 	exceptionType,
 	systemExitType,
+	keyboardInterruptType,
+	cancelledErrorType,
+	generatorExitType,
 	baseExceptionGroupType,
 	exceptionGroupType,
 	arithmeticErrorType,
@@ -78,15 +122,42 @@ var builtinExceptionTypes = []*exceptionTypeValue{
 	nameErrorType,
 	unboundLocalErrorType,
 	runtimeErrorType,
+	recursionErrorType,
 	notImplementedErrorType,
+	systemErrorType,
+	memoryErrorType,
+	syntaxErrorType,
+	indentationErrorType,
+	tabErrorType,
+	stopIterationType,
+	stopAsyncIterationType,
+	eofErrorType,
+	unicodeErrorType,
+	unicodeDecodeErrorType,
+	unicodeEncodeErrorType,
 	osErrorType,
 	fileNotFoundErrorType,
+	fileExistsErrorType,
+	isADirectoryErrorType,
+	notADirectoryErrorType,
 	permissionErrorType,
 	timeoutErrorType,
 	overflowErrorType,
 	zeroDivisionErrorType,
 	typeErrorType,
 	valueErrorType,
+	warningType,
+	userWarningType,
+	deprecationWarningType,
+	pendingWarningType,
+	syntaxWarningType,
+	runtimeWarningType,
+	futureWarningType,
+	importWarningType,
+	unicodeWarningType,
+	bytesWarningType,
+	resourceWarningType,
+	encodingWarningType,
 }
 
 // executeExceptionTypeCall validates an internal exception-class call, converts
@@ -121,11 +192,14 @@ func executeExceptionTypeCall(
 		}, nil
 	}
 	message := exceptionMessage(arguments)
+	exceptionArguments := append([]Value(nil), arguments...)
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil
 	}
 	caller.stack = caller.stack[:base]
-	return pushOutcome(caller, instruction, newExceptionOfType(exceptionType, message))
+	exception := newExceptionOfType(exceptionType, message)
+	exception.args = &tupleValue{elements: exceptionArguments}
+	return pushOutcome(caller, instruction, exception)
 }
 
 // executeUserExceptionTypeCall rejects custom initializers, delegates group
@@ -138,7 +212,11 @@ func executeUserExceptionTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
-	if _, hasInitializer := class.lookup("__init__"); hasInitializer {
+	initializer, hasInitializer := class.lookup("__init__")
+	if native, ok := initializer.(*nativeFunctionValue); ok && native.name == "object.__init__" {
+		hasInitializer = false
+	}
+	if hasInitializer {
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(
@@ -168,11 +246,14 @@ func executeUserExceptionTypeCall(
 		}, nil
 	}
 	message := exceptionMessage(arguments)
+	exceptionArguments := append([]Value(nil), arguments...)
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil
 	}
 	caller.stack = caller.stack[:base]
-	return pushOutcome(caller, instruction, newUserException(class, message))
+	exception := newUserException(class, message)
+	exception.args = &tupleValue{elements: exceptionArguments}
+	return pushOutcome(caller, instruction, exception)
 }
 
 func exceptionMessage(arguments []Value) string {
@@ -206,6 +287,7 @@ type Exception struct {
 	class             *exceptionTypeValue
 	userClass         *typeValue
 	message           string
+	args              *tupleValue
 	code              Value
 	group             *tupleValue
 	cause             *Exception
@@ -214,6 +296,8 @@ type Exception struct {
 	originFrame       *frame
 	originInstruction int
 	traceback         []tracebackEntry
+	tracebackOverride Value
+	attributes        *Namespace
 }
 
 func newException(typeName, message string) *Exception {
@@ -226,15 +310,24 @@ func newException(typeName, message string) *Exception {
 }
 
 func newExceptionOfType(exceptionType *exceptionTypeValue, message string) *Exception {
-	return &Exception{class: exceptionType, message: message}
+	exception := &Exception{class: exceptionType, message: message, args: &tupleValue{}}
+	if message != "" {
+		exception.args.elements = []Value{&stringValue{value: message}}
+	}
+	return exception
 }
 
 func newUserException(class *typeValue, message string) *Exception {
-	return &Exception{
+	exception := &Exception{
 		class:     class.builtinExceptionBase(),
 		userClass: class,
 		message:   message,
+		args:      &tupleValue{},
 	}
+	if message != "" {
+		exception.args.elements = []Value{&stringValue{value: message}}
+	}
+	return exception
 }
 
 // normalizeRaisedValue accepts exception instances or instantiates supported
@@ -252,7 +345,11 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 		if !raised.isExceptionClass() {
 			return nil, newException("TypeError", invalidMessage)
 		}
-		if _, hasInitializer := raised.lookup("__init__"); hasInitializer {
+		initializer, hasInitializer := raised.lookup("__init__")
+		if native, ok := initializer.(*nativeFunctionValue); ok && native.name == "object.__init__" {
+			hasInitializer = false
+		}
+		if hasInitializer {
 			return nil, newException(
 				"TypeError",
 				"custom exception initializers are not supported",
@@ -305,6 +402,21 @@ func (exception *Exception) tracebackFrames() []TracebackFrame {
 // message and child tuple held by an exception group.
 func (exception *Exception) attribute(name string) (Value, bool) {
 	switch name {
+	case "with_traceback":
+		return nativeFunctionNamed("BaseException.with_traceback", 1, 1,
+			func(_ *frame, _ []Value) (Value, *Exception, error) {
+				return exception, nil, nil
+			}), true
+	case "__traceback__":
+		if exception.tracebackOverride != nil {
+			return exception.tracebackOverride, true
+		}
+		return materializeTraceback(exception.traceback), true
+	case "args":
+		if exception.args == nil {
+			return &tupleValue{}, true
+		}
+		return exception.args, true
 	case "message":
 		if exception.group == nil {
 			return nil, false
@@ -339,7 +451,41 @@ func (exception *Exception) attribute(name string) (Value, bool) {
 		}
 		return exception.code, true
 	default:
-		return nil, false
+		if exception.attributes == nil {
+			return nil, false
+		}
+		return exception.attributes.get(name)
+	}
+}
+
+// setAttribute updates the writable traceback and exception-chain fields and
+// retains all other user-defined exception attributes in a private namespace.
+func (exception *Exception) setAttribute(name string, value Value) {
+	switch name {
+	case "__traceback__":
+		exception.tracebackOverride = value
+		if value == None {
+			exception.traceback = nil
+		}
+	case "__cause__":
+		if value == None {
+			exception.cause = nil
+		} else if cause, ok := value.(*Exception); ok {
+			exception.cause = cause
+		}
+	case "__context__":
+		if value == None {
+			exception.context = nil
+		} else if context, ok := value.(*Exception); ok {
+			exception.context = context
+		}
+	case "__suppress_context__":
+		exception.suppressContext = truthValue(value)
+	default:
+		if exception.attributes == nil {
+			exception.attributes = newNamespace()
+		}
+		exception.attributes.values[name] = value
 	}
 }
 
@@ -367,9 +513,9 @@ func (exception *Exception) Message() string {
 func (exception *Exception) Repr() string {
 	if exception.group != nil {
 		children := (&listValue{elements: exception.group.elements}).Repr()
-		return exception.TypeName() + "(" + strconv.Quote(exception.message) + ", " + children + ")"
+		return exception.TypeName() + "(" + quoteString(exception.message) + ", " + children + ")"
 	}
-	return exception.TypeName() + "(" + strconv.Quote(exception.message) + ")"
+	return exception.TypeName() + "(" + quoteString(exception.message) + ")"
 }
 
 func (*Exception) isValue() {}

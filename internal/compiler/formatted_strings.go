@@ -8,7 +8,17 @@ import (
 
 func (compiler *compilerState) compileFormattedString(expression *compilerast.FormattedStringExpr) error {
 	if expression.Template {
-		return compiler.error(expression.Span(), "template string compilation is not implemented")
+		if err := compiler.emit(
+			bytecode.LoadGlobal,
+			compiler.nameIndex("__bullsnake_template__"),
+			expression.Span(),
+		); err != nil {
+			return err
+		}
+		if err := compiler.compileFormattedParts(expression.Parts, expression.Raw, expression.Span()); err != nil {
+			return err
+		}
+		return compiler.emit(bytecode.Call, 1, expression.Span())
 	}
 	return compiler.compileFormattedParts(expression.Parts, expression.Raw, expression.Span())
 }

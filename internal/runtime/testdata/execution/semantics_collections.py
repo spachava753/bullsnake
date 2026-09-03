@@ -1,4 +1,20 @@
 # Runtime execution cases for collections.
+# case: comprehensions
+outer = 'unchanged'
+list_values = [value * 2 for value in [1, 2, 3, 4] if value > 2]
+set_values = {value % 3 for value in [1, 2, 3, 4]}
+dict_values = {key: value * 10 for key, value in [('a', 1), ('b', 2)]}
+nested = [(left, right) for left in [1, 2] for right in [3, 4] if left + right > 5]
+def prefixed(prefix, values):
+    return [prefix + value for value in values]
+captured = prefixed(10, [1, 2])
+assert f'{outer!r}' == "'unchanged'", "outer"
+assert f'{list_values!r}' == "[6, 8]", "list_values"
+assert f'{set_values!r}' == "{1, 2, 0}", "set_values"
+assert f'{dict_values!r}' == "{'a': 10, 'b': 20}", "dict_values"
+assert f'{nested!r}' == "[(2, 4)]", "nested"
+assert f'{captured!r}' == "[11, 12]", "captured"
+# ---
 # case: collection displays
 empty_tuple = ()
 tuple_value = (1, True, 'text')
@@ -227,6 +243,25 @@ assert f'{bytes_bool!r}' == "True", "bytes_bool"
 assert f'{bytes_subsequence!r}' == "True", "bytes_subsequence"
 assert f'{bytes_empty!r}' == "True", "bytes_empty"
 assert f'{bytes_not_in!r}' == "True", "bytes_not_in"
+# ---
+# case: membership protocols and identity
+class Indexed:
+    def __init__(self, value):
+        self.value = value
+    def __getitem__(self, index):
+        return [self.value][index]
+
+class Contained:
+    def __contains__(self, value):
+        return value == 4
+
+nan = float('nan')
+assert 3 in Indexed(3)
+assert 2 not in Indexed(3)
+assert 4 in Contained()
+assert nan in [nan]
+assert [nan] == [nan]
+assert 3 in range(5)
 # ---
 # case: destructuring assignment
 first, second = (1, 2)

@@ -27,9 +27,58 @@ func (compiler *compilerState) compileAnnotatedAssignment(
 		return compiler.compileLocalAnnotatedAssignment(statement)
 	case resolver.ModuleScope:
 		return compiler.compileModuleAnnotatedAssignment(statement)
+	case resolver.ClassScope:
+		return compiler.compileClassAnnotatedAssignment(statement)
 	default:
-		return compiler.error(statement.Span(), "class annotated assignments are not compiled")
+		return compiler.error(statement.Span(), "unsupported annotated assignment scope")
 	}
+}
+
+// compileClassAnnotatedAssignment applies the runtime value store immediately
+// and defers simple-name annotations to the class's lazy annotation callable.
+func (compiler *compilerState) compileClassAnnotatedAssignment(
+	statement *compilerast.AnnAssignStmt,
+) error {
+	if statement.Value != nil {
+		if err := compiler.compileExpr(statement.Value); err != nil {
+			return err
+		}
+		if err := compiler.compileStore(statement.Target); err != nil {
+			return err
+		}
+	}
+	if name, ok := statement.Target.(*compilerast.Name); ok && statement.Simple {
+		if compiler.table.Features&resolver.FutureAnnotations == 0 {
+			return compiler.deferModuleAnnotation(statement, compiler.mangleName(name.ID))
+		}
+		span := statement.Span()
+		if err := compiler.emit(
+			bytecode.LoadConst,
+			compiler.constantIndex(bytecode.None()),
+			span,
+		); err != nil {
+			return err
+		}
+		if err := compiler.emit(
+			bytecode.LoadName,
+			compiler.nameIndex("__annotations__"),
+			span,
+		); err != nil {
+			return err
+		}
+		if err := compiler.emit(
+			bytecode.LoadConst,
+			compiler.constantIndex(bytecode.TextString(compiler.mangleName(name.ID))),
+			span,
+		); err != nil {
+			return err
+		}
+		return compiler.emit(bytecode.StoreSubscript, 0, span)
+	}
+	if statement.Value != nil {
+		return nil
+	}
+	return compiler.compileAnnotationOnlyTarget(statement.Target)
 }
 
 func (compiler *compilerState) compileLocalAnnotatedAssignment(
@@ -138,7 +187,11 @@ func (compiler *compilerState) compileStore(expression compilerast.Expr) error {
 		if err := compiler.compileExpr(expression.Value); err != nil {
 			return err
 		}
-		return compiler.emit(bytecode.StoreAttr, compiler.nameIndex(expression.Name), expression.Span())
+		return compiler.emit(
+			bytecode.StoreAttr,
+			compiler.nameIndex(compiler.mangleName(expression.Name)),
+			expression.Span(),
+		)
 	case *compilerast.SubscriptExpr:
 		if expression.Context != compilerast.Store {
 			return compiler.error(expression.Span(), "subscript target is not a store")

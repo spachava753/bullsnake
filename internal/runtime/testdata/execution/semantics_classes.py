@@ -1,4 +1,82 @@
 # Runtime execution cases for classes.
+# case: multiple inheritance follows C3 resolution order
+class Root:
+    label = 'root'
+class Left(Root):
+    label = 'left'
+class Right(Root):
+    label = 'right'
+class LeftFirst(Left, Right):
+    pass
+class RightFirst(Right, Left):
+    pass
+class ListSubclass(list):
+    pass
+assert LeftFirst.label == 'left'
+assert RightFirst.label == 'right'
+assert LeftFirst.__mro__ == (LeftFirst, Left, Right, Root)
+# ---
+# case: built-in generic aliases expose stable runtime types
+list_alias = list[int]
+assert type(list_alias).__name__ == 'GenericAlias'
+assert list_alias.__origin__ is list
+assert list_alias.__args__ == (int,)
+assert type(lambda: None).__name__ == 'function'
+assert type(...).__name__ == 'ellipsis'
+# ---
+# case: metaclass methods bind to constructed classes
+class MarkerMeta(type):
+    def identify(cls):
+        return cls
+class Marked(metaclass=MarkerMeta):
+    pass
+class InheritedMeta(Marked):
+    pass
+assert Marked.identify() is Marked
+assert InheritedMeta.identify() is InheritedMeta
+# ---
+# case: built-in descriptors bind functions
+class Described:
+    factor = 3
+    def __init__(self, value):
+        self.value = value
+    @classmethod
+    def owner(cls):
+        return cls
+    @staticmethod
+    def add(left, right):
+        return left + right
+    @property
+    def scaled(self):
+        return self.value * self.factor
+assert Described.owner() is Described
+assert Described(4).owner() is Described
+assert Described.add(2, 5) == 7
+assert Described(4).scaled == 12
+class DescriptorSubclass(classmethod):
+    pass
+def marked():
+    pass
+marked.flag = 42
+assert marked.flag == 42
+# ---
+# case: class private names are mangled consistently
+class Vault:
+    __kind = 'secret'
+    def __init__(self, value):
+        self.__value = value
+    def read(self):
+        return self.__value
+    def __private(self):
+        return self.__value + 1
+    def call_private(self):
+        return self.__private()
+vault = Vault(7)
+assert vault.read() == 7
+assert vault.call_private() == 8
+assert Vault._Vault__kind == 'secret'
+assert vault._Vault__value == 7
+# ---
 # case: constructed class definitions
 # module: classes
 marker = 0

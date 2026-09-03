@@ -75,6 +75,42 @@ func (compiler *compilerState) compileExpr(expression compilerast.Expr) error {
 		)
 	case *compilerast.DictExpr:
 		return compiler.compileDictDisplay(expression)
+	case *compilerast.ListComprehensionExpr:
+		return compiler.compileCollectionComprehension(
+			expression,
+			expression.Clauses,
+			"<listcomp>",
+			bytecode.BuildList,
+			expression.Element,
+			nil,
+		)
+	case *compilerast.SetComprehensionExpr:
+		return compiler.compileCollectionComprehension(
+			expression,
+			expression.Clauses,
+			"<setcomp>",
+			bytecode.BuildSet,
+			expression.Element,
+			nil,
+		)
+	case *compilerast.DictComprehensionExpr:
+		return compiler.compileCollectionComprehension(
+			expression,
+			expression.Clauses,
+			"<dictcomp>",
+			bytecode.BuildMap,
+			expression.Value,
+			expression.Key,
+		)
+	case *compilerast.GeneratorExpr:
+		return compiler.compileGeneratorExpression(expression)
+	case *compilerast.YieldExpr:
+		return compiler.compileYieldExpression(expression)
+	case *compilerast.AwaitExpr:
+		if err := compiler.compileExpr(expression.Value); err != nil {
+			return err
+		}
+		return compiler.emit(bytecode.AwaitValue, 0, expression.Span())
 	case *compilerast.UnaryExpr:
 		return compiler.compileUnary(expression)
 	case *compilerast.BinaryExpr:

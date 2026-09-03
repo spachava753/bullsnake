@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 	"github.com/spachava753/bullsnake/internal/compiler/lexer"
@@ -11,6 +12,7 @@ import (
 // emitNameLoad selects namespace, fast-local, closure, or global access from
 // the current resolver scope.
 func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error {
+	name = compiler.mangleName(name)
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
 		return err
@@ -98,6 +100,7 @@ func (compiler *compilerState) emitClassVisibleNameLoad(
 // emitNameStore selects namespace, fast-local, closure, or global storage from
 // the resolver classification.
 func (compiler *compilerState) emitNameStore(name string, span lexer.Span) error {
+	name = compiler.mangleName(name)
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
 		return err
@@ -142,6 +145,7 @@ func (compiler *compilerState) emitNameStore(name string, span lexer.Span) error
 // emitNameDelete selects namespace, fast-local, closure, or global deletion from
 // the resolver classification.
 func (compiler *compilerState) emitNameDelete(name string, span lexer.Span) error {
+	name = compiler.mangleName(name)
 	symbol, err := compiler.resolvedSymbol(name, span)
 	if err != nil {
 		return err
@@ -181,6 +185,21 @@ func (compiler *compilerState) emitNameDelete(name string, span lexer.Span) erro
 	default:
 		return compiler.error(span, "name %q has unresolved scope", name)
 	}
+}
+
+// mangleName mirrors the resolver's class-private rewrite so AST spellings
+// address the resolver-owned symbol and local layouts consistently.
+func (compiler *compilerState) mangleName(name string) string {
+	className := compiler.scope.PrivateName
+	if className == "" || !strings.HasPrefix(name, "__") ||
+		strings.HasSuffix(name, "__") || strings.Contains(name, ".") {
+		return name
+	}
+	className = strings.TrimLeft(className, "_")
+	if className == "" {
+		return name
+	}
+	return "_" + className + name
 }
 
 func (compiler *compilerState) resolvedSymbol(name string, span lexer.Span) (*resolver.Symbol, error) {

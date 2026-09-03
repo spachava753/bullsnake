@@ -463,7 +463,7 @@ func TestBytecodeValidation(t *testing.T) {
 						1,
 						[]bytecode.Instruction{
 							{Opcode: bytecode.LoadConst},
-							{Opcode: bytecode.LoadLocals},
+							{Opcode: bytecode.Opcode(255)},
 							{Opcode: bytecode.ReturnValue},
 						},
 						[]bytecode.Constant{bytecode.None()},
@@ -471,7 +471,7 @@ func TestBytecodeValidation(t *testing.T) {
 					),
 				},
 			}),
-			wantFragment: "unsupported opcode LOAD_LOCALS",
+			wantFragment: "unsupported opcode Opcode(255)",
 		},
 		{
 			name: "function parameters exceed locals",
@@ -1093,6 +1093,44 @@ func TestBytecodeValidation(t *testing.T) {
 			wantFragment: "jump target 1 out of range",
 		},
 		{
+			name: "get async iterator underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.GetAIter},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "async iterator underflow",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{
+					{Opcode: bytecode.AsyncForIter, Operand: 1},
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				[]bytecode.Constant{bytecode.None()},
+				nil,
+			),
+			wantFragment: "operand stack underflow",
+		},
+		{
+			name: "async iterator jump target",
+			code: testCode(
+				1,
+				[]bytecode.Instruction{{Opcode: bytecode.AsyncForIter, Operand: 1}},
+				nil,
+				nil,
+			),
+			wantFragment: "jump target 1 out of range",
+		},
+		{
 			name: "sequence build underflow",
 			code: testCode(
 				2,
@@ -1208,13 +1246,13 @@ func TestBytecodeValidation(t *testing.T) {
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.StoreName},
-					{Opcode: bytecode.LoadLocals},
+					{Opcode: bytecode.Opcode(255)},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
 				[]string{"changed"},
 			),
-			wantFragment: "unsupported opcode LOAD_LOCALS",
+			wantFragment: "unsupported opcode Opcode(255)",
 		},
 		{
 			name: "unsupported binary operation",
@@ -1223,13 +1261,13 @@ func TestBytecodeValidation(t *testing.T) {
 				[]bytecode.Instruction{
 					{Opcode: bytecode.LoadConst},
 					{Opcode: bytecode.LoadConst},
-					{Opcode: bytecode.BinaryOp, Operand: bytecode.BinaryPower},
+					{Opcode: bytecode.BinaryOp, Operand: 99},
 					{Opcode: bytecode.ReturnValue},
 				},
 				[]bytecode.Constant{bytecode.Integer("1")},
 				nil,
 			),
-			wantFragment: "unsupported BINARY_OP operand 7",
+			wantFragment: "unsupported BINARY_OP operand 99",
 		},
 		{
 			name: "unsupported unary operation",

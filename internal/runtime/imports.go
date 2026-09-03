@@ -5,6 +5,138 @@ import (
 	"strings"
 )
 
+// builtinImport executes Python's dynamic import hook through the same module
+// cache, source loader, and rollback path as an IMPORT_NAME instruction.
+func (runtimeState *Runtime) builtinImport(
+	caller *frame,
+	arguments []Value,
+) (Value, *Exception, error) {
+	name, ok := arguments[0].(*stringValue)
+	if !ok {
+		return nil, newException("TypeError", "module name must be str"), nil
+	}
+	if name.value == "" {
+		return nil, newException("ValueError", "Empty module name"), nil
+	}
+	fromList := Value(None)
+	if len(arguments) >= 4 && arguments[3] != None {
+		if tuple, tupleOK := arguments[3].(*tupleValue); !tupleOK || len(tuple.elements) != 0 {
+			fromList = arguments[3]
+		}
+	}
+	level := Value(newInt64(0))
+	if len(arguments) >= 5 {
+		level = arguments[4]
+	}
+	levelInteger, ok := integerOperand(level)
+	if !ok || !levelInteger.IsInt64() {
+		return nil, newException("TypeError", "level must be an integer"), nil
+	}
+	absoluteName := name.value
+	if levelInteger.Sign() > 0 {
+		resolved, exception := resolveRelativeImport(
+			caller, name.value, &intValue{value: levelInteger},
+		)
+		if exception != nil {
+			return nil, exception, nil
+		}
+		absoluteName = resolved
+	}
+	return runtimeState.importModuleSynchronously(absoluteName, fromList)
+}
+
+// importModuleSynchronously resolves, executes, and links a complete qualified import.
+func (runtimeState *Runtime) importModuleSynchronously(
+	name string,
+	fromList Value,
+) (Value, *Exception, error) {
+	if mapped, found, exception := runtimeState.moduleMap.get(&stringValue{value: name}); exception != nil {
+		return nil, exception, nil
+	} else if found {
+		if _, nativeModule := mapped.(*Module); !nativeModule {
+			return mapped, nil, nil
+		}
+	}
+	names := qualifiedImportNames(name)
+	for index, currentName := range names {
+		module, found := runtimeState.modules[currentName]
+		publish := false
+		if found {
+			// The runtime's cache remains authoritative when Python code removes
+			// an entry from sys.modules. A subsequent import must nevertheless
+			// restore the public mapping, matching CPython's observable behavior.
+			runtimeState.cacheModule(currentName, module)
+		}
+		if !found {
+			mapped, mappedFound, exception := runtimeState.moduleMap.get(
+				&stringValue{value: currentName},
+			)
+			if exception != nil {
+				return nil, exception, nil
+			}
+			if mappedFound {
+				module, found = mapped.(*Module)
+			}
+		}
+		if !found {
+			module, found = runtimeState.loadSystemModule(currentName)
+			publish = found
+		}
+		if !found {
+			if runtimeState.loader == nil {
+				return nil, missingModuleException(currentName), nil
+			}
+			request := ModuleRequest{Name: currentName}
+			if index != 0 {
+				parent := runtimeState.modules[names[index-1]]
+				if parent == nil || !parent.isPackage {
+					return nil, missingModuleException(currentName), nil
+				}
+				request.SearchLocations = slices.Clone(parent.searchLocations)
+			} else {
+				request.SearchLocations = runtimeState.topLevelSearchLocations()
+			}
+			spec, loaded, err := runtimeState.loader(request)
+			if err != nil {
+				return nil, nil, err
+			}
+			if !loaded {
+				return nil, missingModuleException(currentName), nil
+			}
+			var moduleFrame *frame
+			module, moduleFrame, err = runtimeState.newModuleFrame(currentName, spec, nil)
+			if err != nil {
+				return nil, nil, err
+			}
+			runtimeState.cacheModule(currentName, module)
+			_, raised, err := execute(&threadState{current: moduleFrame})
+			if err != nil {
+				runtimeState.deleteModule(currentName)
+				return nil, nil, err
+			}
+			if raised != nil {
+				runtimeState.deleteModule(currentName)
+				return nil, raised.exception, nil
+			}
+			publish = true
+		}
+		if index != 0 && publish {
+			parent := runtimeState.modules[names[index-1]]
+			child := currentName[strings.LastIndexByte(currentName, '.')+1:]
+			parent.globals.values[child] = module
+		}
+	}
+	selected := names[0]
+	if tuple, ok := fromList.(*tupleValue); ok && len(tuple.elements) != 0 {
+		selected = name
+	}
+	return runtimeState.modules[selected], nil, nil
+}
+
+func missingModuleException(name string) *Exception {
+	return newException("ModuleNotFoundError", "No module named '"+name+"'")
+}
+
 // executeImportName validates compiler-supplied operands, then resumes or
 // starts the ordered loading of one absolute module path.
 func executeImportName(
@@ -129,10 +261,22 @@ func advanceImport(
 				}
 			}
 			if module, found := frame.runtime.modules[name]; found {
-				if parent != nil {
-					child := name[strings.LastIndexByte(name, '.')+1:]
-					parent.globals.values[child] = module
+				frame.runtime.cacheModule(name, module)
+				request.next++
+				continue
+			}
+			mapped, mappedFound, mappedException := frame.runtime.moduleMap.get(
+				&stringValue{value: name},
+			)
+			if mappedException != nil {
+				return instructionOutcome{}, frame.failure(index, "module name is not hashable")
+			}
+			if mappedFound {
+				module, ok := mapped.(*Module)
+				if !ok {
+					return missingModuleOutcome(name), nil
 				}
+				frame.runtime.modules[name] = module
 				request.next++
 				continue
 			}
@@ -163,6 +307,8 @@ func advanceImport(
 			loadRequest := ModuleRequest{Name: name}
 			if parent != nil {
 				loadRequest.SearchLocations = slices.Clone(parent.searchLocations)
+			} else {
+				loadRequest.SearchLocations = frame.runtime.topLevelSearchLocations()
 			}
 			spec, found, err := frame.runtime.loader(loadRequest)
 			if err != nil {
@@ -180,6 +326,7 @@ func advanceImport(
 				return instructionOutcome{}, err
 			}
 			frame.runtime.cacheModule(name, module)
+			request.next++
 			imported.moduleImport = &moduleImport{module: module, request: request}
 			return instructionOutcome{kind: called, frame: imported}, nil
 		}
@@ -202,6 +349,29 @@ func advanceImport(
 		}
 		return pushOutcome(frame, index, result)
 	}
+}
+
+// topLevelSearchLocations reads the live sys.path while retaining configured fallback roots.
+func (runtimeState *Runtime) topLevelSearchLocations() []string {
+	sys := runtimeState.modules["sys"]
+	if sys == nil {
+		return slices.Clone(runtimeState.path)
+	}
+	pathValue, found := sys.globals.get("path")
+	path, ok := pathValue.(*listValue)
+	if !found || !ok {
+		return slices.Clone(runtimeState.path)
+	}
+	locations := make([]string, 0, len(path.elements))
+	for _, element := range path.elements {
+		if location, ok := element.(*stringValue); ok {
+			locations = append(locations, location.value)
+		}
+	}
+	if len(locations) == 0 && runtimeState.path == nil {
+		return nil
+	}
+	return locations
 }
 
 // startNextFromImport expands package wildcard exports and selects the next
@@ -294,6 +464,8 @@ func validateFromList(frame *frame, index int, value Value) error {
 	return nil
 }
 
+// executeImportFrom resolves a requested export, including module-level
+// __getattr__ and lazy child-module fallback behavior.
 func executeImportFrom(
 	frame *frame,
 	index int,
@@ -308,6 +480,18 @@ func executeImportFrom(
 	}
 	value, found := module.globals.get(name)
 	if !found {
+		if fallback, hasFallback := module.globals.get("__getattr__"); hasFallback {
+			value, exception, err := callValueSynchronously(
+				frame, fallback, []Value{&stringValue{value: name}},
+			)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+			return pushOutcome(frame, index, value)
+		}
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(

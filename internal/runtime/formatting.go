@@ -10,6 +10,8 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 )
 
+// executeConvertValue applies str, repr, or ascii conversion to the top stack
+// value and replaces it with the resulting Python string.
 func executeConvertValue(
 	frame *frame,
 	index int,
@@ -22,11 +24,32 @@ func executeConvertValue(
 	var text string
 	switch conversion {
 	case bytecode.ConversionString:
-		text = valueText(value)
+		converted, exception, err := pythonString(frame, value)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		text = converted.value
 	case bytecode.ConversionRepr:
-		text = value.Repr()
+		converted, exception, err := builtinRepr(frame, []Value{value})
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		text = converted.(*stringValue).value
 	case bytecode.ConversionASCII:
-		text = asciiRepresentation(value.Repr())
+		converted, exception, err := builtinRepr(frame, []Value{value})
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		text = asciiRepresentation(converted.(*stringValue).value)
 	default:
 		return instructionOutcome{}, frame.failure(index, "invalid formatted conversion")
 	}
@@ -41,7 +64,14 @@ func executeFormatSimple(frame *frame, index int) (instructionOutcome, error) {
 	if _, exactString := value.(*stringValue); exactString {
 		return pushOutcome(frame, index, value)
 	}
-	return pushOutcome(frame, index, &stringValue{value: valueText(value)})
+	text, exception, err := pythonString(frame, value)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	return pushOutcome(frame, index, text)
 }
 
 // executeFormatWithSpec consumes a value and string specification, preserves
@@ -63,7 +93,14 @@ func executeFormatWithSpec(frame *frame, index int) (instructionOutcome, error) 
 		if _, exactString := value.(*stringValue); exactString {
 			return pushOutcome(frame, index, value)
 		}
-		return pushOutcome(frame, index, &stringValue{value: valueText(value)})
+		text, exception, err := pythonString(frame, value)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		return pushOutcome(frame, index, text)
 	}
 	var formatted string
 	var exception *Exception

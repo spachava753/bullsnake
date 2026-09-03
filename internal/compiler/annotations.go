@@ -67,6 +67,8 @@ func (compiler *compilerState) compileFunctionAnnotations(
 	return true, nil
 }
 
+// deferModuleAnnotation records one lazy module annotation and emits the
+// namespace bookkeeping that lets the synthesized annotator publish it later.
 func (compiler *compilerState) deferModuleAnnotation(
 	statement *compilerast.AnnAssignStmt,
 	name string,
@@ -77,11 +79,17 @@ func (compiler *compilerState) deferModuleAnnotation(
 		name:      name,
 		index:     index,
 	})
-	if err := compiler.emit(
-		bytecode.LoadName,
-		compiler.nameIndex(conditionalAnnotationsName),
-		statement.Span(),
-	); err != nil {
+	loadOpcode := bytecode.LoadName
+	loadOperand := compiler.nameIndex(conditionalAnnotationsName)
+	if compiler.scope.Kind == resolver.ClassScope {
+		loadOpcode = bytecode.LoadDeref
+		var err error
+		loadOperand, err = compiler.derefIndex(conditionalAnnotationsName)
+		if err != nil {
+			return compiler.error(statement.Span(), "%v", err)
+		}
+	}
+	if err := compiler.emit(loadOpcode, loadOperand, statement.Span()); err != nil {
 		return err
 	}
 	if err := compiler.emit(
@@ -149,7 +157,15 @@ func (compiler *compilerState) compileDeferredAnnotation(annotation deferredAnno
 	); err != nil {
 		return err
 	}
-	if err := compiler.emit(
+	if compiler.scope.Flags&resolver.CanSeeClassScope != 0 {
+		conditional, err := compiler.derefIndex(conditionalAnnotationsName)
+		if err != nil {
+			return compiler.error(span, "%v", err)
+		}
+		if err := compiler.emit(bytecode.LoadDeref, conditional, span); err != nil {
+			return err
+		}
+	} else if err := compiler.emit(
 		bytecode.LoadGlobal,
 		compiler.nameIndex(conditionalAnnotationsName),
 		span,
@@ -213,6 +229,9 @@ func (compiler *compilerState) newAnnotationCompiler(
 	child.addLocal("format")
 	if scope.Flags&resolver.CanSeeClassScope != 0 {
 		child.addFree("__classdict__")
+		if _, classAnnotation := owner.(*compilerast.AnnAssignStmt); classAnnotation {
+			child.addFree(conditionalAnnotationsName)
+		}
 	}
 	child.initializeScopeLayout(scope)
 	return child

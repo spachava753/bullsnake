@@ -24,6 +24,7 @@ const (
 	exceptionHandlerControlCleanup controlCleanupKind = iota
 	handledScopeControlCleanup
 	finallyControlCleanup
+	withControlCleanup
 )
 
 type controlCleanup struct {
@@ -31,6 +32,8 @@ type controlCleanup struct {
 	handlerDepth int
 	exception    exceptionHandlerCleanup
 	finalBody    []compilerast.Stmt
+	managerDepth int
+	async        bool
 }
 
 // compileRaiseStatement evaluates an optional exception and cause before
@@ -580,6 +583,8 @@ func (compiler *compilerState) emitControlCleanupsFrom(
 			err = compiler.emit(bytecode.LeaveExcept, 0, span)
 		case finallyControlCleanup:
 			err = compiler.compileStatements(cleanup.finalBody)
+		case withControlCleanup:
+			err = compiler.emitNormalWithExit(cleanup.managerDepth, cleanup.async, span)
 		default:
 			err = compiler.error(span, "unknown control cleanup kind %d", cleanup.kind)
 		}

@@ -22,9 +22,45 @@ type fakeClock struct {
 	err       error
 }
 
+type fixedTimeZone struct {
+	location *time.Location
+	calls    int
+}
+
+func (zone *fixedTimeZone) LocalTime(instant time.Time) (time.Time, error) {
+	zone.calls++
+	return instant.In(zone.location), nil
+}
+
 type fileGuard struct {
 	host.FileSystem
 	reads int
+}
+
+type recordingFileMutator struct {
+	removed     []string
+	removedDirs []string
+	err         error
+}
+
+type recordingWorkingDirectory struct {
+	names []string
+	err   error
+}
+
+func (directory *recordingWorkingDirectory) Chdir(name string) error {
+	directory.names = append(directory.names, name)
+	return directory.err
+}
+
+func (mutator *recordingFileMutator) Remove(name string) error {
+	mutator.removed = append(mutator.removed, name)
+	return mutator.err
+}
+
+func (mutator *recordingFileMutator) RemoveDir(name string) error {
+	mutator.removedDirs = append(mutator.removedDirs, name)
+	return mutator.err
 }
 
 func (guard *fileGuard) ReadDir(string) ([]fs.DirEntry, error) {
@@ -50,20 +86,28 @@ func TestConfiguredSystemModules(t *testing.T) {
 		now:       time.Unix(123, 500_000_000),
 		monotonic: 2500 * time.Millisecond,
 	}
+	zone := &fixedTimeZone{location: time.FixedZone("test", 60*60)}
+	directory := &recordingWorkingDirectory{}
 	var output bytes.Buffer
 	runtime := bullruntime.NewWithConfig(bullruntime.Config{
 		Path: []string{"/stdlib", "/application"},
 		Host: host.Services{
-			Clock:  clock,
-			Stdout: &output,
+			Clock:            clock,
+			TimeZone:         zone,
+			WorkingDirectory: directory,
+			Stdout:           &output,
 		},
 	})
 	module, err := runtime.ExecuteModule("configured", compileSource(t,
-		"import sys\n"+
+		"import os\n"+
+			"import sys\n"+
 			"import time\n"+
 			"wall = time.time()\n"+
 			"counter = time.perf_counter()\n"+
+			"local = time.localtime(0)\n"+
+			"stamp = time.ctime(0)\n"+
 			"time.sleep(1.5)\n"+
+			"os.chdir('/sandbox')\n"+
 			"written = sys.stdout.write('ready')\n"+
 			"paths = sys.path\n"))
 	if err != nil {
@@ -71,6 +115,8 @@ func TestConfiguredSystemModules(t *testing.T) {
 	}
 	assertModuleRepr(t, module, "wall", "123.5")
 	assertModuleRepr(t, module, "counter", "2.5")
+	assertModuleRepr(t, module, "local", "(1970, 1, 1, 1, 0, 0, 3, 1, 0)")
+	assertModuleRepr(t, module, "stamp", "'Thu Jan  1 01:00:00 1970'")
 	assertModuleRepr(t, module, "written", "5")
 	assertModuleRepr(t, module, "paths", "['/stdlib', '/application']")
 	if output.String() != "ready" {
@@ -78,6 +124,58 @@ func TestConfiguredSystemModules(t *testing.T) {
 	}
 	if len(clock.slept) != 1 || clock.slept[0] != 1500*time.Millisecond {
 		t.Fatalf("sleep calls = %v, want [1.5s]", clock.slept)
+	}
+	if zone.calls != 2 {
+		t.Fatalf("time zone calls = %d, want 2", zone.calls)
+	}
+	if len(directory.names) != 1 || directory.names[0] != "/sandbox" {
+		t.Fatalf("working-directory calls = %v, want [/sandbox]", directory.names)
+	}
+}
+
+func TestStandardLibraryRuntimePrimitives(t *testing.T) {
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("primitives", compileSource(t, `
+values = [3, 1, 2]
+values.sort(key=lambda value: -value)
+
+class Display:
+    def __repr__(self):
+        return "custom"
+
+class Duration:
+    def __init__(self, value):
+        self.value = value
+    def __sub__(self, other):
+        return Duration(self.value - other.value)
+    def __abs__(self):
+        return Duration(abs(self.value))
+    def __le__(self, other):
+        return self.value <= other.value
+
+display = repr(Display())
+difference = abs(Duration(2) - Duration(5)).value
+ordered = Duration(2) <= Duration(3)
+items = [1, 2, 3]
+items[:] = [4, 5]
+subset = {1} <= {1, 2}
+division = divmod(-5, 2)
+number = 1.5 + 2j
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{
+		"values":     "[3, 2, 1]",
+		"display":    "'custom'",
+		"difference": "3",
+		"ordered":    "True",
+		"items":      "[4, 5]",
+		"subset":     "True",
+		"division":   "(-3, 1)",
+		"number":     "(1.5+2j)",
+	} {
+		assertModuleRepr(t, module, name, want)
 	}
 }
 
@@ -116,6 +214,68 @@ func TestSystemModuleHostPolicyIsEnforced(t *testing.T) {
 	}
 	if files.reads != 1 {
 		t.Fatalf("directory reads = %d, want 1", files.reads)
+	}
+}
+
+func TestRandomBytesUseHostEntropy(t *testing.T) {
+	runtime := bullruntime.NewWithConfig(bullruntime.Config{
+		Host: host.Services{Entropy: bytes.NewReader([]byte{0x00, 0x7f, 0x80, 0xff})},
+	})
+	module, err := runtime.ExecuteModule("entropy", compileSource(t,
+		"import os\nrandom_bytes = os.urandom(4)\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertModuleRepr(t, module, "random_bytes", `b'\x00\x7f\x80\xff'`)
+}
+
+func TestEntropyDenialIsPermissionError(t *testing.T) {
+	runtime := bullruntime.NewWithConfig(bullruntime.Config{})
+	module, err := runtime.ExecuteModule("denied_entropy", compileSource(t,
+		"import os\nos.urandom(1)\n"))
+	if module != nil {
+		t.Fatalf("module = %#v, want nil", module)
+	}
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Exception().TypeName(); got != "PermissionError" {
+		t.Fatalf("exception type = %q, want PermissionError", got)
+	}
+}
+
+func TestRemovalCapabilityRoutesCalls(t *testing.T) {
+	mutator := &recordingFileMutator{}
+	runtime := bullruntime.NewWithConfig(bullruntime.Config{
+		Host: host.Services{FileMutator: mutator},
+	})
+	_, err := runtime.ExecuteModule("mutations", compileSource(t,
+		"import os\nos.unlink('/virtual/file')\nos.rmdir('/virtual/dir')\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := mutator.removed; len(got) != 1 || got[0] != "/virtual/file" {
+		t.Fatalf("removed files = %v, want [/virtual/file]", got)
+	}
+	if got := mutator.removedDirs; len(got) != 1 || got[0] != "/virtual/dir" {
+		t.Fatalf("removed directories = %v, want [/virtual/dir]", got)
+	}
+}
+
+func TestDeniedRemovalRaisesPermissionError(t *testing.T) {
+	runtime := bullruntime.NewWithConfig(bullruntime.Config{})
+	module, err := runtime.ExecuteModule("denied", compileSource(t,
+		"import os\nos.unlink('/virtual/file')\n"))
+	if module != nil {
+		t.Fatalf("module = %#v, want nil", module)
+	}
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want *runtime.UncaughtException", err, err)
+	}
+	if got := raised.Exception().TypeName(); got != "PermissionError" {
+		t.Fatalf("exception type = %q, want PermissionError", got)
 	}
 }
 

@@ -35,9 +35,12 @@ type frame struct {
 	globals           *Namespace
 	builtins          *Namespace
 	previous          *frame
+	logicalPrevious   *frame
 	classBuild        *classBuild
 	instanceInit      *instanceInit
-	unittestRun       *unittestRunState
+	generator         *generatorValue
+	coroutine         *coroutineValue
+	asyncGenerator    *asyncGeneratorValue
 	moduleImport      *moduleImport
 	pendingImport     *importRequest
 	handledExceptions []handledException
@@ -126,5 +129,40 @@ func (frame *frame) failure(index int, message string) error {
 		Instruction: index,
 		Span:        frame.position(index),
 		Message:     message,
+	}
+}
+
+// popClassNamespaceValue consumes the captured namespace used by lazy method
+// annotations and performs its non-invoking string-key lookup.
+func popClassNamespaceValue(
+	frame *frame,
+	index int,
+	name string,
+) (Value, bool, *Exception, error) {
+	mapping, ok := frame.pop()
+	if !ok {
+		return nil, false, nil, frame.failure(index, "operand stack underflow")
+	}
+	switch mapping := mapping.(type) {
+	case *namespaceValue:
+		value, found := mapping.namespace.get(name)
+		return value, found, nil, nil
+	case *dictValue:
+		value, found, exception := mapping.get(&stringValue{value: name})
+		return value, found, exception, nil
+	case *instanceValue:
+		getter, found, exception, err := lookupBoundSpecialMethod(frame, mapping, "__getitem__")
+		if err != nil || exception != nil || !found {
+			return nil, false, exception, err
+		}
+		value, exception, err := callValueSynchronously(
+			frame, getter, []Value{&stringValue{value: name}},
+		)
+		if exception != nil && exception.class == keyErrorType {
+			return nil, false, nil, nil
+		}
+		return value, exception == nil && err == nil, exception, err
+	default:
+		return nil, false, nil, frame.failure(index, "class namespace is not a mapping")
 	}
 }

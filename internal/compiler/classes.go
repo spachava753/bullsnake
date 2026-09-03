@@ -42,15 +42,44 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 	}
 	needsClassClosure := scope.Flags&resolver.NeedsClassClosure != 0
 	needsClassDict := scope.Flags&resolver.NeedsClassDict != 0
+	lazyAnnotations := scope.Flags&resolver.UsesAnnotations != 0 &&
+		compiler.table.Features&resolver.FutureAnnotations == 0
 	if needsClassClosure {
 		child.addCell("__class__")
 	}
 	if needsClassDict {
 		child.addCell("__classdict__")
 	}
+	if lazyAnnotations {
+		child.addCell(conditionalAnnotationsName)
+	}
 	child.initializeDerefLayout(scope)
 	if err := child.emitClassNamespace(statement.Span()); err != nil {
 		return err
+	}
+	if scope.Flags&resolver.UsesAnnotations != 0 {
+		opcode := bytecode.BuildSet
+		name := conditionalAnnotationsName
+		if compiler.table.Features&resolver.FutureAnnotations != 0 {
+			opcode = bytecode.BuildMap
+			name = "__annotations__"
+		}
+		if err := child.emit(opcode, 0, statement.Span()); err != nil {
+			return err
+		}
+		storeOpcode := bytecode.StoreName
+		storeOperand := child.nameIndex(name)
+		if lazyAnnotations {
+			storeOpcode = bytecode.StoreDeref
+			var indexErr error
+			storeOperand, indexErr = child.derefIndex(name)
+			if indexErr != nil {
+				return compiler.error(statement.Span(), "%v", indexErr)
+			}
+		}
+		if err := child.emit(storeOpcode, storeOperand, statement.Span()); err != nil {
+			return err
+		}
 	}
 	if needsClassDict {
 		index, indexErr := child.derefIndex("__classdict__")
@@ -66,6 +95,11 @@ func (compiler *compilerState) compileClassDefinition(statement *compilerast.Cla
 	}
 	if err := child.compileStatements(statement.Body); err != nil {
 		return err
+	}
+	if compiler.table.Features&resolver.FutureAnnotations == 0 {
+		if err := child.compileDeferredAnnotations(); err != nil {
+			return err
+		}
 	}
 	if err := child.emitClassReturn(needsClassClosure, needsClassDict, statement.Span()); err != nil {
 		return err

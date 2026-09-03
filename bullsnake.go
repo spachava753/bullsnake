@@ -50,9 +50,10 @@ func New(config Config) *Interpreter {
 	}
 	return &Interpreter{
 		runtime: internalruntime.NewWithConfig(internalruntime.Config{
-			Loader: loader,
-			Path:   path,
-			Host:   config.Host,
+			Loader:   loader,
+			Path:     path,
+			Host:     config.Host,
+			Compiler: compile,
 		}),
 		host: config.Host,
 	}

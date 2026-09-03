@@ -30,7 +30,11 @@ func (compiler *compilerState) compileDeleteTarget(expression compilerast.Expr) 
 		if err := compiler.compileExpr(expression.Value); err != nil {
 			return err
 		}
-		return compiler.emit(bytecode.DeleteAttr, compiler.nameIndex(expression.Name), expression.Span())
+		return compiler.emit(
+			bytecode.DeleteAttr,
+			compiler.nameIndex(compiler.mangleName(expression.Name)),
+			expression.Span(),
+		)
 	case *compilerast.SubscriptExpr:
 		if expression.Context != compilerast.Delete {
 			return compiler.error(expression.Span(), "subscript delete target has the wrong context")

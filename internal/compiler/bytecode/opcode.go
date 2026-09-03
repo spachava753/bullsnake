@@ -19,6 +19,23 @@ const (
 
 const unpackExBeforeBits = 8
 
+const matchSequenceCountBits = 16
+
+// PackMatchSequence records the number of sequence subpatterns and an optional
+// starred subpattern index. A star index of -1 means fixed-length matching.
+func PackMatchSequence(count, starIndex int) (uint32, bool) {
+	if count < 0 || count >= 1<<matchSequenceCountBits || starIndex < -1 || starIndex >= count {
+		return 0, false
+	}
+	return uint32(count) | uint32(starIndex+1)<<matchSequenceCountBits, true
+}
+
+// MatchSequenceCounts decodes a sequence pattern's count and starred index.
+func MatchSequenceCounts(operand uint32) (count, starIndex int) {
+	return int(operand & (1<<matchSequenceCountBits - 1)),
+		int(operand>>matchSequenceCountBits) - 1
+}
+
 // PackUnpackEx encodes counts around one starred assignment target.
 func PackUnpackEx(before, after uint32) (uint32, bool) {
 	if before >= 1<<unpackExBeforeBits || after > ^uint32(0)>>unpackExBeforeBits {
@@ -123,6 +140,8 @@ const (
 	CallEx
 	GetIter
 	ForIter
+	GetAIter
+	AsyncForIter
 	StoreAttr
 	StoreSubscript
 	UnpackSequence
@@ -160,6 +179,12 @@ const (
 	Reraise
 	EnterExcept
 	LeaveExcept
+	YieldValue
+	ExceptionType
+	MatchSequence
+	MatchMapping
+	MatchClass
+	AwaitValue
 )
 
 var opcodeNames = [...]string{
@@ -201,6 +226,8 @@ var opcodeNames = [...]string{
 	"CALL_EX",
 	"GET_ITER",
 	"FOR_ITER",
+	"GET_AITER",
+	"ASYNC_FOR_ITER",
 	"STORE_ATTR",
 	"STORE_SUBSCR",
 	"UNPACK_SEQUENCE",
@@ -238,6 +265,12 @@ var opcodeNames = [...]string{
 	"RERAISE",
 	"ENTER_EXCEPT",
 	"LEAVE_EXCEPT",
+	"YIELD_VALUE",
+	"EXCEPTION_TYPE",
+	"MATCH_SEQUENCE",
+	"MATCH_MAPPING",
+	"MATCH_CLASS",
+	"AWAIT_VALUE",
 }
 
 // String returns the disassembly spelling of an opcode.
@@ -254,12 +287,12 @@ func (opcode Opcode) HasOperand() bool {
 	case LoadConst, LoadName, StoreName, Copy, ConvertValue, BuildString,
 		BuildTuple, BuildList, BuildSet, BuildMap, UnaryOp, BinaryOp, Swap,
 		CompareOp, Jump, PopJumpIfFalse, PopJumpIfTrue, JumpIfFalseOrPop,
-		JumpIfTrueOrPop, LoadAttr, BuildSlice, Call, CallEx, ForIter, StoreAttr,
+		JumpIfTrueOrPop, LoadAttr, BuildSlice, Call, CallEx, ForIter, AsyncForIter, StoreAttr,
 		UnpackSequence, UnpackEx, InplaceOp, DeleteName, DeleteAttr,
 		RaiseVarargs, LoadFast, StoreFast, DeleteFast, LoadGlobal, StoreGlobal,
 		DeleteGlobal, MakeFunction, SetFunctionAttribute, LoadDeref, StoreDeref,
 		DeleteDeref, LoadClosure, ImportName, ImportFrom, LoadFromDictOrGlobals,
-		LoadFromDictOrDeref, EnterExcept:
+		LoadFromDictOrDeref, EnterExcept, MatchSequence, MatchMapping, MatchClass:
 		return true
 	default:
 		return false
@@ -270,10 +303,12 @@ func (opcode Opcode) HasOperand() bool {
 // Jump edges with different effects are tracked by the compiler's labels.
 func (opcode Opcode) StackEffect(operand uint32) int {
 	switch opcode {
-	case LoadConst, LoadName, Copy, ForIter, LoadAssertionError,
+	case LoadConst, LoadName, Copy, ForIter, AsyncForIter, LoadAssertionError,
 		LoadNotImplementedError, LoadFast, LoadGlobal, MakeFunction, LoadDeref,
 		LoadClosure, ImportFrom, LoadBuildClass, LoadLocals:
 		return 1
+	case YieldValue, ExceptionType, MatchSequence, AwaitValue, GetAIter:
+		return 0
 	case StoreName, StoreFast, StoreGlobal, PopTop, ReturnValue, FormatWithSpec,
 		BinaryOp, InplaceOp, CompareOp, PopJumpIfFalse, PopJumpIfTrue,
 		JumpIfFalseOrPop, JumpIfTrueOrPop, BinarySubscript, DeleteAttr,
@@ -281,8 +316,10 @@ func (opcode Opcode) StackEffect(operand uint32) int {
 		SetFunctionAttribute, StoreDeref, ImportName, ImportStar, PrepareReraiseStar,
 		Reraise, EnterExcept:
 		return -1
-	case MapSet, StoreAttr, DeleteSubscript:
+	case MapSet, StoreAttr, DeleteSubscript, MatchClass:
 		return -2
+	case MatchMapping:
+		return -1
 	case StoreSubscript:
 		return -3
 	case UnpackSequence:

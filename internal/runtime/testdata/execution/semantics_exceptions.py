@@ -611,7 +611,7 @@ class_cause = False
 try:
     raise ValueError from TypeError
 except ValueError as error:
-    class_cause = f'{error.__cause__!r}' == 'TypeError("")'
+    class_cause = f'{error.__cause__!r}' == "TypeError('')"
     assert error.__suppress_context__ is True
 assert class_cause is True
 
@@ -681,7 +681,7 @@ try:
         raise ValueError('outer') from TypeError('cause')
 except ValueError as error:
     explicit_context = error.__context__ is saved_explicit_context
-    assert f'{error.__cause__!r}' == 'TypeError("cause")'
+    assert f'{error.__cause__!r}' == "TypeError('cause')"
     assert error.__suppress_context__ is True
 assert explicit_context is True
 
@@ -722,7 +722,7 @@ class SpecificProblem(Problem):
     pass
 
 problem = Problem('broken')
-assert f'{problem!r}' == 'Problem("broken")'
+assert f'{problem!r}' == "Problem('broken')"
 
 caught_identity = False
 try:
@@ -742,7 +742,7 @@ caught_builtin_parent = False
 try:
     raise SpecificProblem
 except Exception as caught:
-    caught_builtin_parent = f'{caught!r}' == 'SpecificProblem("")'
+    caught_builtin_parent = f'{caught!r}' == "SpecificProblem('')"
 assert caught_builtin_parent is True
 
 caught_tuple = False
@@ -768,7 +768,7 @@ assert group.message == 'batch'
 assert group.exceptions is group.exceptions
 assert group.exceptions[0] is first_group_error
 assert group.exceptions[1] is second_group_error
-assert f'{group!r}' == 'ExceptionGroup("batch", [ValueError("bad"), TypeError("wrong")])'
+assert f'{group!r}' == "ExceptionGroup('batch', [ValueError('bad'), TypeError('wrong')])"
 
 nested_group = ExceptionGroup('nested', (group, ValueError('later')))
 assert nested_group.exceptions[0] is group
@@ -987,3 +987,16 @@ except* ValueError:
     nested_result = nested_choice()
 assert handled_item == 1
 assert nested_result == 7
+# case: break leaves an inner handler before discarding loop state
+completed_nested_break = False
+try:
+    for item in [1]:
+        try:
+            break
+        except ValueError:
+            pass
+    completed_nested_break = True
+except Exception:
+    pass
+assert completed_nested_break is True
+# ---

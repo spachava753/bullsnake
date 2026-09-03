@@ -37,7 +37,7 @@ func (compiler *compilerState) emitJump(opcode bytecode.Opcode, label *jumpLabel
 		fallthroughDepth--
 	case bytecode.JumpIfFalseOrPop, bytecode.JumpIfTrueOrPop:
 		fallthroughDepth--
-	case bytecode.ForIter:
+	case bytecode.ForIter, bytecode.AsyncForIter:
 		targetDepth--
 		fallthroughDepth++
 	default:

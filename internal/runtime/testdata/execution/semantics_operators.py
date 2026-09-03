@@ -68,6 +68,10 @@ assert f'{not_nonzero!r}' == "False", "not_nonzero"
 assert f'{not_text!r}' == "False", "not_text"
 # ---
 # case: basic integer operations
+assert 2 ** 10 == 1024
+assert 2 ** -2 == 0.25
+assert '[%s:%r:%d]' % ('x', 'y', 3) == "[x:'y':3]"
+assert '%(name)s' % {'name': 'value'} == 'value'
 addition = 40 + 2
 bool_addition = True + 2
 subtraction = 1000000000000000000000000000000 - 1

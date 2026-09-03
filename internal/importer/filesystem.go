@@ -54,6 +54,7 @@ func (loader *FileSystem) Load(request bullruntime.ModuleRequest) (bullruntime.M
 		roots = request.SearchLocations
 		relative = parts[len(parts)-1]
 	}
+	var namespaceLocations []string
 	for _, root := range roots {
 		packageFile := filepath.Join(root, relative, "__init__.py")
 		unit, found, err := loader.readUnit(packageFile)
@@ -72,6 +73,13 @@ func (loader *FileSystem) Load(request bullruntime.ModuleRequest) (bullruntime.M
 				SearchLocations: []string{filepath.Dir(packageFile)},
 			}, true, nil
 		}
+		packageDirectory := filepath.Join(root, relative)
+		info, statErr := loader.files.Stat(packageDirectory)
+		if statErr == nil && info.IsDir() {
+			namespaceLocations = append(namespaceLocations, packageDirectory)
+		} else if statErr != nil && !errors.Is(statErr, fs.ErrNotExist) {
+			return bullruntime.ModuleSpec{}, true, fmt.Errorf("load module %q: %w", name, statErr)
+		}
 
 		moduleFile := filepath.Join(root, relative+".py")
 		unit, found, err = loader.readUnit(moduleFile)
@@ -85,6 +93,16 @@ func (loader *FileSystem) Load(request bullruntime.ModuleRequest) (bullruntime.M
 			}
 			return bullruntime.ModuleSpec{Code: code, Origin: moduleFile}, true, nil
 		}
+	}
+	if len(namespaceLocations) != 0 {
+		code, err := compileUnit(source.Unit{Filename: "<namespace " + name + ">", Text: ""})
+		if err != nil {
+			return bullruntime.ModuleSpec{}, true, fmt.Errorf("compile module %q: %w", name, err)
+		}
+		return bullruntime.ModuleSpec{
+			Code: code, IsPackage: true, IsNamespace: true,
+			SearchLocations: namespaceLocations,
+		}, true, nil
 	}
 	return bullruntime.ModuleSpec{}, false, nil
 }

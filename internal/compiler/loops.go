@@ -12,6 +12,7 @@ type loopContext struct {
 	continueDepth int
 	breakDepth    int
 	cleanupDepth  int
+	handlerDepth  int
 }
 
 // compileLoopTransfer emits cleanups inside the target loop, removes temporary
@@ -27,6 +28,11 @@ func (compiler *compilerState) compileLoopTransfer(
 		compiler.restoreControlCleanups(cleanupState)
 		return err
 	}
+	if loop.handlerDepth < 0 || loop.handlerDepth > len(compiler.activeHandlers) {
+		compiler.restoreControlCleanups(cleanupState)
+		return compiler.error(span, "loop control handler depth out of range")
+	}
+	compiler.activeHandlers = compiler.activeHandlers[:loop.handlerDepth]
 	if compiler.reachable {
 		if compiler.stackDepth < targetDepth {
 			compiler.restoreControlCleanups(cleanupState)
@@ -69,6 +75,7 @@ func (compiler *compilerState) compileWhileStatement(statement *compilerast.Whil
 		continueDepth: compiler.stackDepth,
 		breakDepth:    compiler.stackDepth,
 		cleanupDepth:  len(compiler.controlCleanups),
+		handlerDepth:  len(compiler.activeHandlers),
 	})
 	if err := compiler.compileStatements(statement.Body); err != nil {
 		return err
@@ -95,9 +102,6 @@ func (compiler *compilerState) compileWhileStatement(statement *compilerast.Whil
 // compileForStatement retains one iterator beneath each body and records the
 // pre-iterator depth so break can remove only this loop's iterator state.
 func (compiler *compilerState) compileForStatement(statement *compilerast.ForStmt) error {
-	if statement.Async {
-		return compiler.error(statement.Span(), "async for is not compiled")
-	}
 	baseDepth := compiler.stackDepth
 	start := compiler.newLabel()
 	end := compiler.newLabel()
@@ -109,13 +113,19 @@ func (compiler *compilerState) compileForStatement(statement *compilerast.ForStm
 	if err := compiler.compileExpr(statement.Iterable); err != nil {
 		return err
 	}
-	if err := compiler.emit(bytecode.GetIter, 0, statement.Iterable.Span()); err != nil {
+	iteratorOpcode := bytecode.GetIter
+	iterationOpcode := bytecode.ForIter
+	if statement.Async {
+		iteratorOpcode = bytecode.GetAIter
+		iterationOpcode = bytecode.AsyncForIter
+	}
+	if err := compiler.emit(iteratorOpcode, 0, statement.Iterable.Span()); err != nil {
 		return err
 	}
 	if err := compiler.markLabel(start, statement.Span()); err != nil {
 		return err
 	}
-	if err := compiler.emitJump(bytecode.ForIter, normalExit, statement.Span()); err != nil {
+	if err := compiler.emitJump(iterationOpcode, normalExit, statement.Span()); err != nil {
 		return err
 	}
 	if err := compiler.compileStore(statement.Target); err != nil {
@@ -128,6 +138,7 @@ func (compiler *compilerState) compileForStatement(statement *compilerast.ForStm
 		continueDepth: compiler.stackDepth,
 		breakDepth:    baseDepth,
 		cleanupDepth:  len(compiler.controlCleanups),
+		handlerDepth:  len(compiler.activeHandlers),
 	})
 	if err := compiler.compileStatements(statement.Body); err != nil {
 		return err

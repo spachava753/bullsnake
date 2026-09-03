@@ -24,6 +24,17 @@ func TestSourceValidationPrecedesGrammar(t *testing.T) {
 	}
 }
 
+func TestMatchSoftKeywordInTupleAssignment(t *testing.T) {
+	root, err := Parse("input.py", "match, rest = values\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignment, ok := root.Body[0].(*compilerast.AssignStmt)
+	if !ok || len(assignment.Targets) != 1 {
+		t.Fatalf("statement = %#v, want tuple assignment", root.Body[0])
+	}
+}
+
 // TestParsePreservesSourceSpans covers successful-node locations, which the
 // structural corpus intentionally omits to keep its AST snapshots readable.
 func TestParsePreservesSourceSpans(t *testing.T) {

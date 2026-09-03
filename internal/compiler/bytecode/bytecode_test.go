@@ -230,6 +230,16 @@ func TestOpcodeFormattingAndStackEffects(t *testing.T) {
 	if got := GetIter.StackEffect(0); got != 0 {
 		t.Fatalf("GET_ITER stack effect = %d, want 0", got)
 	}
+	asyncIterator := Instruction{Opcode: AsyncForIter, Operand: 12}
+	if got := asyncIterator.String(); got != "ASYNC_FOR_ITER 12" {
+		t.Fatalf("async iterator instruction = %q", got)
+	}
+	if got := AsyncForIter.StackEffect(12); got != 1 {
+		t.Fatalf("ASYNC_FOR_ITER fallthrough stack effect = %d, want 1", got)
+	}
+	if got := GetAIter.StackEffect(0); got != 0 {
+		t.Fatalf("GET_AITER stack effect = %d, want 0", got)
+	}
 	store := Instruction{Opcode: StoreAttr, Operand: 5}
 	if got := store.String(); got != "STORE_ATTR 5" {
 		t.Fatalf("attribute store instruction = %q", got)

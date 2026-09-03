@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
 )
@@ -13,6 +14,7 @@ const (
 	called
 	returned
 	raised
+	yielded
 )
 
 type instructionOutcome struct {
@@ -62,6 +64,22 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 			}
 			thread.current = outcome.frame
 		case returned:
+			if active.generator != nil {
+				if err := finishGenerator(active, index); err != nil {
+					return nil, nil, err
+				}
+				thread.current = active.previous
+				active.previous = nil
+				continue
+			}
+			if active.coroutine != nil {
+				if err := finishCoroutine(active, index, outcome.value); err != nil {
+					return nil, nil, err
+				}
+				thread.current = active.previous
+				active.previous = nil
+				continue
+			}
 			thread.current = active.previous
 			result := outcome.value
 			if active.instanceInit != nil {
@@ -89,11 +107,47 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				result = initialization.instance
 			}
 			if active.classBuild != nil {
-				result = active.classBuild.finish(result)
+				class := active.classBuild.finish(result).(*typeValue)
+				result = class
+				var hook Value
+				var found bool
+				if len(class.bases) != 0 {
+					hook, found = class.bases[0].lookup("__init_subclass__")
+				} else {
+					hook, found = builtinTypeMethod("object", "__init_subclass__")
+				}
+				if found {
+					_, exception, hookErr := callValueSynchronously(
+						active, bindCallable(hook, class), nil,
+					)
+					if hookErr != nil {
+						return nil, nil, hookErr
+					}
+					if exception != nil {
+						caller := thread.current
+						unhandled, routeErr := routeException(
+							thread, caller, caller.instruction-1, exception, false,
+						)
+						if routeErr != nil {
+							return nil, nil, routeErr
+						}
+						if unhandled != nil {
+							return nil, unhandled, nil
+						}
+						continue
+					}
+				}
 			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
 				active.moduleImport = nil
+				if separator := strings.LastIndexByte(loaded.module.name, '.'); separator >= 0 {
+					parent := active.runtime.modules[loaded.module.name[:separator]]
+					if parent == nil {
+						return nil, nil, active.failure(index, "import parent is not cached")
+					}
+					parent.globals.values[loaded.module.name[separator+1:]] = loaded.module
+				}
 				if thread.current == nil || thread.current.instruction == 0 {
 					return nil, nil, active.failure(index, "import frame has no suspended caller")
 				}
@@ -103,43 +157,6 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				thread.current.pendingImport = loaded.request
 				thread.current.instruction--
 				continue
-			}
-			if active.unittestRun != nil {
-				if thread.current == nil {
-					return nil, nil, active.failure(index, "unittest frame has no caller")
-				}
-				resumed, resumeErr := resumeUnittestRun(
-					thread.current,
-					active.unittestRun.instruction,
-					active.unittestRun,
-				)
-				if resumeErr != nil {
-					return nil, nil, resumeErr
-				}
-				switch resumed.kind {
-				case advance:
-					continue
-				case called:
-					thread.current = resumed.frame
-					continue
-				case raised:
-					unhandled, routeErr := routeException(
-						thread,
-						thread.current,
-						active.unittestRun.instruction,
-						resumed.exception,
-						false,
-					)
-					if routeErr != nil {
-						return nil, nil, routeErr
-					}
-					if unhandled != nil {
-						return nil, unhandled, nil
-					}
-					continue
-				default:
-					return nil, nil, active.failure(index, "invalid unittest continuation")
-				}
 			}
 			if thread.current == nil {
 				return result, nil, nil
@@ -164,11 +181,77 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 			if unhandled != nil {
 				return nil, unhandled, nil
 			}
+		case yielded:
+			generator := active.generator
+			if generator == nil || !generator.running || active.previous == nil {
+				return nil, nil, active.failure(index, "yield outside a resumed generator")
+			}
+			caller := active.previous
+			generator.running = false
+			generator.needsResume = true
+			active.previous = nil
+			thread.current = caller
+			if !caller.push(outcome.value) {
+				return nil, nil, caller.failure(
+					caller.instruction,
+					"operand stack overflow while yielding to caller",
+				)
+			}
 		default:
 			return nil, nil, active.failure(index, "unknown execution outcome")
 		}
 	}
 	return nil, nil, &BytecodeError{Instruction: -1, Message: "execution has no frame"}
+}
+
+// finishCoroutine replaces the awaitable retained by AWAIT_VALUE with the
+// coroutine's return value and marks its detached frame complete.
+func finishCoroutine(active *frame, index int, result Value) error {
+	coroutine := active.coroutine
+	caller := active.previous
+	if coroutine == nil || !coroutine.running || caller == nil {
+		return active.failure(index, "returned coroutine has no suspended caller")
+	}
+	instructionIndex := caller.instruction - 1
+	if instructionIndex < 0 || instructionIndex >= len(caller.code.instructions) {
+		return caller.failure(instructionIndex, "coroutine caller has no active instruction")
+	}
+	instruction := caller.code.instructions[instructionIndex]
+	if instruction.Opcode != bytecode.AwaitValue || len(caller.stack) == 0 ||
+		caller.stack[len(caller.stack)-1] != coroutine {
+		return caller.failure(instructionIndex, "coroutine caller is not suspended at AWAIT_VALUE")
+	}
+	caller.pop()
+	if !caller.push(result) {
+		return caller.failure(instructionIndex, "operand stack overflow while returning from await")
+	}
+	coroutine.running = false
+	coroutine.done = true
+	return nil
+}
+
+// finishGenerator marks a returned generator exhausted and completes the
+// suspended FOR_ITER edge in its caller without exposing the return value.
+func finishGenerator(active *frame, index int) error {
+	generator := active.generator
+	caller := active.previous
+	if generator == nil || !generator.running || caller == nil {
+		return active.failure(index, "returned generator has no suspended caller")
+	}
+	instructionIndex := caller.instruction - 1
+	if instructionIndex < 0 || instructionIndex >= len(caller.code.instructions) {
+		return caller.failure(instructionIndex, "generator caller has no active instruction")
+	}
+	instruction := caller.code.instructions[instructionIndex]
+	if instruction.Opcode != bytecode.ForIter || len(caller.stack) == 0 ||
+		caller.stack[len(caller.stack)-1] != generator {
+		return caller.failure(instructionIndex, "generator caller is not suspended at FOR_ITER")
+	}
+	caller.pop()
+	caller.instruction = int(instruction.Operand)
+	generator.running = false
+	generator.done = true
+	return nil
 }
 
 // routeException searches the current frame and its callers for a protected
@@ -236,6 +319,16 @@ func routeException(
 		}
 		current.discardImportedModule()
 		caller := current.previous
+		if current.generator != nil {
+			current.generator.running = false
+			current.generator.done = true
+			current.previous = nil
+		}
+		if current.coroutine != nil {
+			current.coroutine.running = false
+			current.coroutine.done = true
+			current.previous = nil
+		}
 		if caller == nil {
 			thread.current = nil
 			return unhandled, nil
@@ -266,6 +359,67 @@ func executeInstruction(
 	case bytecode.LoadConst:
 		value := frame.code.constants[instruction.Operand]
 		return pushOutcome(frame, index, value)
+	case bytecode.YieldValue:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		return instructionOutcome{kind: yielded, value: value}, nil
+	case bytecode.ExceptionType:
+		value, ok := frame.pop()
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		exception, ok := value.(*Exception)
+		if !ok {
+			return instructionOutcome{}, frame.failure(index, "EXCEPTION_TYPE value is not an exception")
+		}
+		var exceptionClass Value = exception.class
+		if exception.userClass != nil {
+			exceptionClass = exception.userClass
+		}
+		return pushOutcome(frame, index, exceptionClass)
+	case bytecode.MatchSequence:
+		return executeMatchSequence(frame, index, instruction.Operand)
+	case bytecode.MatchMapping:
+		return executeMatchMapping(frame, index, instruction.Operand != 0)
+	case bytecode.MatchClass:
+		return executeMatchClass(frame, index, int(instruction.Operand))
+	case bytecode.AwaitValue:
+		if len(frame.stack) == 0 {
+			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
+		}
+		awaited := frame.stack[len(frame.stack)-1]
+		coroutine, ok := awaited.(*coroutineValue)
+		if !ok {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("TypeError", "object "+awaited.TypeName()+" can't be used in 'await' expression"),
+			}, nil
+		}
+		if coroutine.done {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("RuntimeError", "cannot reuse already awaited coroutine"),
+			}, nil
+		}
+		if coroutine.immediate != nil || coroutine.immediateException != nil {
+			frame.pop()
+			coroutine.done = true
+			if coroutine.immediateException != nil {
+				return instructionOutcome{kind: raised, exception: coroutine.immediateException}, nil
+			}
+			return pushOutcome(frame, index, coroutine.immediate)
+		}
+		if coroutine.running {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("ValueError", "coroutine already executing"),
+			}, nil
+		}
+		coroutine.running = true
+		coroutine.frame.previous = frame
+		return instructionOutcome{kind: called, frame: coroutine.frame}, nil
 	case bytecode.ConvertValue:
 		return executeConvertValue(frame, index, instruction.Operand)
 	case bytecode.FormatSimple:
@@ -288,6 +442,55 @@ func executeInstruction(
 				kind:      raised,
 				exception: newException("NameError", fmt.Sprintf("name '%s' is not defined", name)),
 			}, nil
+		}
+		return pushOutcome(frame, index, value)
+	case bytecode.LoadLocals:
+		return pushOutcome(frame, index, &namespaceValue{namespace: frame.locals})
+	case bytecode.LoadFromDictOrGlobals:
+		name := frame.code.names[instruction.Operand]
+		value, found, exception, err := popClassNamespaceValue(frame, index, name)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if !found {
+			value, found = frame.globals.get(name)
+			if !found {
+				value, found = frame.builtins.get(name)
+			}
+		}
+		if !found {
+			return instructionOutcome{
+				kind:      raised,
+				exception: newException("NameError", fmt.Sprintf("name '%s' is not defined", name)),
+			}, nil
+		}
+		return pushOutcome(frame, index, value)
+	case bytecode.LoadFromDictOrDeref:
+		derefIndex := int(instruction.Operand)
+		var name string
+		if derefIndex < len(frame.code.cells) {
+			name = frame.code.cells[derefIndex]
+		} else {
+			name = frame.code.freeVars[derefIndex-len(frame.code.cells)]
+		}
+		value, found, exception, err := popClassNamespaceValue(frame, index, name)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if !found {
+			value = frame.deref[derefIndex].value
+			if value == nil {
+				return instructionOutcome{
+					kind:      raised,
+					exception: unboundDerefException(frame.code, derefIndex),
+				}, nil
+			}
 		}
 		return pushOutcome(frame, index, value)
 	case bytecode.LoadFast:
@@ -336,6 +539,34 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		name := frame.code.names[instruction.Operand]
+		if class, ok := owner.(*typeValue); name == "__annotations__" && ok {
+			value, exception, err := materializeClassAnnotations(frame, class)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+			return pushOutcome(frame, index, value)
+		}
+		if name == "__class__" {
+			instance, isInstance := owner.(*instanceValue)
+			attribute, hasOverride := Value(nil), false
+			if isInstance {
+				attribute, hasOverride = instance.class.lookup(name)
+				if descriptor, ok := attribute.(*descriptorValue); !ok || descriptor.kind != propertyDescriptor {
+					hasOverride = false
+				}
+			}
+			if !hasOverride {
+				return pushOutcome(frame, index, runtimeTypeOf(owner))
+			}
+		}
+		if _, ok := owner.(valueIterator); ok {
+			if value, found := directAttribute(owner, name); found {
+				return pushOutcome(frame, index, value)
+			}
+		}
 		switch owner := owner.(type) {
 		case attributeValue:
 			value, found := owner.attribute(name)
@@ -350,8 +581,23 @@ func executeInstruction(
 			}
 			return pushOutcome(frame, index, value)
 		case *Module:
+			if name == "__dict__" {
+				return pushOutcome(frame, index, &namespaceValue{namespace: owner.globals})
+			}
 			value, found := owner.globals.get(name)
 			if !found {
+				if fallback, fallbackFound := owner.globals.get("__getattr__"); fallbackFound {
+					value, exception, err := callValueSynchronously(
+						frame, fallback, []Value{&stringValue{value: name}},
+					)
+					if err != nil {
+						return instructionOutcome{}, err
+					}
+					if exception != nil {
+						return instructionOutcome{kind: raised, exception: exception}, nil
+					}
+					return pushOutcome(frame, index, value)
+				}
 				return instructionOutcome{
 					kind: raised,
 					exception: newException(
@@ -362,7 +608,10 @@ func executeInstruction(
 			}
 			return pushOutcome(frame, index, value)
 		case *typeValue:
-			value, found := owner.lookup(name)
+			if value, found := intrinsicTypeAttribute(owner, name); found {
+				return pushOutcome(frame, index, value)
+			}
+			value, found, fromMetaclass := lookupTypeAttribute(owner, name)
 			if !found {
 				return instructionOutcome{
 					kind: raised,
@@ -372,14 +621,53 @@ func executeInstruction(
 					),
 				}, nil
 			}
-			return pushOutcome(frame, index, value)
+			if fromMetaclass {
+				return pushOutcome(frame, index, bindCallable(value, owner))
+			}
+			if resolved, descriptor, exception, err := resolvePythonDescriptor(
+				frame, value, None, owner,
+			); descriptor {
+				if err != nil {
+					return instructionOutcome{}, err
+				}
+				if exception != nil {
+					return instructionOutcome{kind: raised, exception: exception}, nil
+				}
+				return pushOutcome(frame, index, resolved)
+			}
+			return pushOutcome(frame, index, bindClassAttribute(value, owner))
 		case *instanceValue:
+			if name == "__dict__" {
+				return pushOutcome(frame, index, &namespaceValue{namespace: owner.attributes})
+			}
 			value, found := owner.attributes.get(name)
 			fromClass := !found
 			if !found {
 				value, found = owner.class.lookup(name)
 			}
+			if !found && owner.sequence != nil {
+				value, found = listMethod(owner.sequence, name)
+				fromClass = false
+			}
+			if !found && owner.mapping != nil {
+				value, found = owner.mapping.attribute(name)
+				fromClass = false
+			}
 			if !found {
+				if fallback, fallbackFound := owner.class.lookup("__getattr__"); fallbackFound {
+					value, exception, err := callValueSynchronously(
+						frame,
+						bindCallable(fallback, owner),
+						[]Value{&stringValue{value: name}},
+					)
+					if err != nil {
+						return instructionOutcome{}, err
+					}
+					if exception != nil {
+						return instructionOutcome{kind: raised, exception: exception}, nil
+					}
+					return pushOutcome(frame, index, value)
+				}
 				return instructionOutcome{
 					kind: raised,
 					exception: newException(
@@ -389,11 +677,46 @@ func executeInstruction(
 				}, nil
 			}
 			if fromClass {
-				switch function := value.(type) {
+				if resolved, descriptor, exception, err := resolvePythonDescriptor(
+					frame, value, owner, owner.class,
+				); descriptor {
+					if err != nil {
+						return instructionOutcome{}, err
+					}
+					if exception != nil {
+						return instructionOutcome{kind: raised, exception: exception}, nil
+					}
+					return pushOutcome(frame, index, resolved)
+				}
+				switch descriptor := value.(type) {
 				case *functionValue:
-					value = &boundMethodValue{function: function, self: owner}
+					value = &boundMethodValue{function: descriptor, self: owner}
 				case *nativeFunctionValue:
-					value = &boundNativeMethodValue{function: function, self: owner}
+					value = bindCallable(descriptor, owner)
+				case *descriptorValue:
+					switch descriptor.kind {
+					case classMethodDescriptor:
+						value = bindDescriptorCallable(descriptor.callable, owner.class)
+					case staticMethodDescriptor:
+						value = descriptor.callable
+					case propertyDescriptor:
+						return executeFunctionCall(
+							frame,
+							index,
+							len(frame.stack),
+							descriptor.callable,
+							[]Value{owner},
+							nil,
+						)
+					}
+				case *memberDescriptorValue:
+					stored, found := owner.attributes.get(descriptor.name)
+					if !found {
+						return instructionOutcome{kind: raised, exception: newException(
+							"AttributeError", "'"+owner.class.name+"' object has no attribute '"+name+"'",
+						)}, nil
+					}
+					value = stored
 				}
 			}
 			return pushOutcome(frame, index, value)
@@ -420,9 +743,47 @@ func executeInstruction(
 		case *Module:
 			owner.globals.values[name] = value
 		case *typeValue:
-			owner.namespace.values[name] = value
+			setTypeAttribute(owner, name, value)
 		case *instanceValue:
+			_, exception, err := setInstanceAttribute(frame, owner, name, value)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+		case *functionValue:
+			setFunctionAttribute(owner, name, value)
+		case *nativeFunctionValue:
+			if owner.attributes == nil {
+				owner.attributes = newNamespace()
+			}
 			owner.attributes.values[name] = value
+		case *descriptorValue:
+			if owner.attributes == nil {
+				owner.attributes = newNamespace()
+			}
+			owner.attributes.values[name] = value
+		case *weakReferenceValue:
+			owner.attributes.values[name] = value
+		case *fileValue:
+			if owner.attributes == nil {
+				owner.attributes = newNamespace()
+			}
+			owner.attributes.values[name] = value
+		case *Exception:
+			owner.setAttribute(name, value)
+		case *tracebackValue:
+			if name != "tb_next" || (value != None && value.TypeName() != "traceback") {
+				return instructionOutcome{kind: raised, exception: newException(
+					"TypeError", "traceback attribute is not writable",
+				)}, nil
+			}
+			owner.next = value
+		case *builtinTypeValue, *exceptionTypeValue:
+			return instructionOutcome{kind: raised, exception: newException(
+				"TypeError", "cannot set attributes of built-in/extension type",
+			)}, nil
 		default:
 			return instructionOutcome{
 				kind: raised,
@@ -449,8 +810,14 @@ func executeInstruction(
 			attributes = owner.namespace
 			missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
 		case *instanceValue:
-			attributes = owner.attributes
-			missingMessage = "'" + owner.class.name + "' object has no attribute '" + name + "'"
+			_, exception, err := deleteInstanceAttribute(frame, owner, name)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+			return instructionOutcome{kind: advance}, nil
 		}
 		if attributes == nil {
 			return instructionOutcome{
@@ -471,7 +838,11 @@ func executeInstruction(
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
-		frame.locals.values[frame.code.names[instruction.Operand]] = value
+		name := frame.code.names[instruction.Operand]
+		if _, found := frame.locals.values[name]; !found {
+			frame.locals.order = append(frame.locals.order, name)
+		}
+		frame.locals.values[name] = value
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.DeleteName:
 		name := frame.code.names[instruction.Operand]
@@ -568,7 +939,13 @@ func executeInstruction(
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
-		takeJump := truthValue(value)
+		takeJump, exception, err := truthValueForFrame(frame, value)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
 		if instruction.Opcode == bytecode.PopJumpIfFalse {
 			takeJump = !takeJump
 		}
@@ -581,7 +958,13 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		value := frame.stack[len(frame.stack)-1]
-		takeJump := truthValue(value)
+		takeJump, exception, err := truthValueForFrame(frame, value)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
 		if instruction.Opcode == bytecode.JumpIfFalseOrPop {
 			takeJump = !takeJump
 		}
@@ -600,7 +983,7 @@ func executeInstruction(
 	case bytecode.BuildMap:
 		return executeBuildMap(frame, index, int(instruction.Operand))
 	case bytecode.MapSet:
-		return executeMapSet(frame, index)
+		return executeMapSet(frame, index, int(instruction.Operand))
 	case bytecode.MapUpdate:
 		return executeMapUpdate(frame, index)
 	case bytecode.MapMerge:
@@ -612,9 +995,11 @@ func executeInstruction(
 	case bytecode.ImportStar:
 		return executeImportStar(frame, index)
 	case bytecode.MakeFunction:
+		code := frame.code.children[instruction.Operand]
 		function := &functionValue{
-			code:    frame.code.children[instruction.Operand],
+			code:    code,
 			globals: frame.globals,
+			doc:     functionDoc(code),
 		}
 		return pushOutcome(frame, index, function)
 	case bytecode.SetFunctionAttribute:
@@ -735,11 +1120,11 @@ func executeInstruction(
 			instruction.Operand == bytecode.CallExWithKeywords,
 		)
 	case bytecode.SetAdd:
-		return executeSetAdd(frame, index)
+		return executeSetAdd(frame, index, int(instruction.Operand))
 	case bytecode.SetUpdate:
 		return executeSetUpdate(frame, index)
 	case bytecode.ListAppend:
-		return executeListAppend(frame, index)
+		return executeListAppend(frame, index, int(instruction.Operand))
 	case bytecode.ListExtend:
 		return executeListExtend(frame, index)
 	case bytecode.ListToTuple:
@@ -750,6 +1135,10 @@ func executeInstruction(
 		return executeGetIter(frame, index)
 	case bytecode.ForIter:
 		return executeForIter(frame, index, int(instruction.Operand))
+	case bytecode.GetAIter:
+		return executeGetAIter(frame, index)
+	case bytecode.AsyncForIter:
+		return executeAsyncForIter(frame, index, int(instruction.Operand))
 	case bytecode.BinarySubscript:
 		return executeBinarySubscript(frame, index)
 	case bytecode.StoreSubscript:

@@ -80,7 +80,8 @@ func (parser *parserState) parseStatement() ([]compilerast.Stmt, error) {
 			return nil, peekErr
 		}
 		_, augmented := augmentedOperators[next.Kind]
-		if next.Kind == lexer.Equal || next.Kind == lexer.ColonEqual || augmented {
+		if next.Kind == lexer.Equal || next.Kind == lexer.ColonEqual ||
+			next.Kind == lexer.Comma || augmented {
 			return parser.parseSimpleStatementLine()
 		}
 		statement, err = parser.parseMatchStatement()

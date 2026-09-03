@@ -90,6 +90,31 @@ assert f'{result!r}' == "42", "result"
 assert f'{after!r}' == "0", "after"
 assert f'{nested_result!r}' == "7", "nested_result"
 # ---
+# case: class namespaces captured for deferred method annotations
+class Model:
+    Field = int
+    def convert(self, value: Field) -> Field:
+        return value
+model = Model()
+assert model.convert(8) == 8
+# ---
+# case: class annotations are lazily materialized
+annotation_events = 0
+def class_marker():
+    global annotation_events
+    annotation_events += 1
+    return int
+class AnnotatedModel:
+    value: class_marker()
+    if True:
+        conditional: str
+before_class_annotations = annotation_events
+class_annotations = AnnotatedModel.__annotations__
+assert before_class_annotations == 0
+assert annotation_events == 1
+assert class_annotations == {'value': int, 'conditional': str}
+assert AnnotatedModel.__annotations__ is class_annotations
+# ---
 # case: function frames and calls
 module_value = 10
 def add(left, right):

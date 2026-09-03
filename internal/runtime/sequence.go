@@ -49,6 +49,10 @@ func (value *listValue) Repr() string {
 }
 func (*listValue) isValue() {}
 
+func (value *listValue) attribute(name string) (Value, bool) {
+	return listMethod(value, name)
+}
+
 func executeBuildSequence(
 	frame *frame,
 	index int,
@@ -89,13 +93,31 @@ func executeUnpackSequence(
 	case *listValue:
 		elements = sequence.elements
 	default:
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				"cannot unpack non-iterable "+sequence.TypeName()+" object",
-			),
-		}, nil
+		iterator, exception, err := newIteratorForFrame(frame, sequence)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if iterator == nil {
+			return instructionOutcome{kind: raised, exception: newException(
+				"TypeError", "cannot unpack non-iterable "+sequence.TypeName()+" object",
+			)}, nil
+		}
+		for {
+			value, available, exception, err := nextNativeIterator(frame.runtime, iterator)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+			if !available {
+				break
+			}
+			elements = append(elements, value)
+		}
 	}
 	if len(elements) < count {
 		return instructionOutcome{
@@ -127,12 +149,12 @@ func executeUnpackSequence(
 	return instructionOutcome{kind: advance}, nil
 }
 
-func executeListAppend(frame *frame, instruction int) (instructionOutcome, error) {
+func executeListAppend(frame *frame, instruction int, depth int) (instructionOutcome, error) {
 	value, ok := frame.pop()
-	if !ok || len(frame.stack) == 0 {
+	if !ok || depth < 0 || depth >= len(frame.stack) {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
-	list, ok := frame.stack[len(frame.stack)-1].(*listValue)
+	list, ok := frame.stack[len(frame.stack)-1-depth].(*listValue)
 	if !ok {
 		return instructionOutcome{}, frame.failure(
 			instruction,
@@ -143,8 +165,8 @@ func executeListAppend(frame *frame, instruction int) (instructionOutcome, error
 	return instructionOutcome{kind: advance}, nil
 }
 
-// executeListExtend keeps the accumulator on the stack and appends elements
-// from the tuple/list iterable above it in source order.
+// executeListExtend keeps the accumulator on the stack and drains the iterable
+// above it in source order, including VM-backed generators.
 func executeListExtend(frame *frame, instruction int) (instructionOutcome, error) {
 	iterable, ok := frame.pop()
 	if !ok || len(frame.stack) == 0 {
@@ -157,13 +179,14 @@ func executeListExtend(frame *frame, instruction int) (instructionOutcome, error
 			"LIST_EXTEND accumulator is not a list",
 		)
 	}
-	var elements []Value
-	switch iterable := iterable.(type) {
-	case *tupleValue:
-		elements = iterable.elements
-	case *listValue:
-		elements = iterable.elements
-	default:
+	iterator, exception, err := newIteratorForFrame(frame, iterable)
+	if err != nil {
+		return instructionOutcome{}, err
+	}
+	if exception != nil {
+		return instructionOutcome{kind: raised, exception: exception}, nil
+	}
+	if iterator == nil {
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(
@@ -172,7 +195,19 @@ func executeListExtend(frame *frame, instruction int) (instructionOutcome, error
 			),
 		}, nil
 	}
-	list.elements = append(list.elements, elements...)
+	for {
+		value, available, exception, err := nextNativeIterator(frame.runtime, iterator)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if !available {
+			break
+		}
+		list.elements = append(list.elements, value)
+	}
 	return instructionOutcome{kind: advance}, nil
 }
 
@@ -204,6 +239,69 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
+	if class, ok := container.(*builtinTypeValue); ok {
+		return pushOutcome(frame, instruction, newGenericAlias(class, indexValue))
+	}
+	if class, ok := container.(*typeValue); ok {
+		if method, found := class.lookup("__class_getitem__"); found {
+			callable := bindCallable(method, class)
+			if _, descriptor := method.(*descriptorValue); descriptor {
+				callable = bindClassAttribute(method, class)
+			}
+			value, exception, err := callValueSynchronously(frame, callable, []Value{indexValue})
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+			return pushOutcome(frame, instruction, value)
+		}
+		return pushOutcome(frame, instruction, newGenericAlias(class, indexValue))
+	}
+	if namespace, ok := container.(*namespaceValue); ok {
+		name, stringKey := indexValue.(*stringValue)
+		if !stringKey {
+			return instructionOutcome{kind: raised, exception: newException(
+				"TypeError", "namespace keys must be strings",
+			)}, nil
+		}
+		value, found := namespace.namespace.get(name.value)
+		if !found {
+			return instructionOutcome{kind: raised, exception: newException("KeyError", name.Repr())}, nil
+		}
+		return pushOutcome(frame, instruction, value)
+	}
+	var mappingOwner *instanceValue
+	if instance, ok := container.(*instanceValue); ok {
+		if method, found, exception, err := lookupBoundSpecialMethod(frame, instance, "__getitem__"); found {
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+			value, exception, err := callValueSynchronously(
+				frame, method, []Value{indexValue},
+			)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+			return pushOutcome(frame, instruction, value)
+		}
+		switch {
+		case instance.mapping != nil:
+			mappingOwner = instance
+			container = instance.mapping
+		case instance.sequence != nil:
+			container = instance.sequence
+		case instance.tuple != nil:
+			container = instance.tuple
+		}
+	}
 
 	if dictionary, ok := container.(*dictValue); ok {
 		value, found, exception := dictionary.get(indexValue)
@@ -211,6 +309,20 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 			return instructionOutcome{kind: raised, exception: exception}, nil
 		}
 		if !found {
+			if mappingOwner != nil {
+				if missing, exists := mappingOwner.class.lookup("__missing__"); exists {
+					value, callException, err := callValueSynchronously(
+						frame, bindCallable(missing, mappingOwner), []Value{indexValue},
+					)
+					if err != nil {
+						return instructionOutcome{}, err
+					}
+					if callException != nil {
+						return instructionOutcome{kind: raised, exception: callException}, nil
+					}
+					return pushOutcome(frame, instruction, value)
+				}
+			}
 			return instructionOutcome{
 				kind:      raised,
 				exception: newException("KeyError", indexValue.Repr()),
@@ -325,13 +437,31 @@ func executeUnpackEx(
 	case *listValue:
 		elements = sequence.elements
 	default:
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				"cannot unpack non-iterable "+sequence.TypeName()+" object",
-			),
-		}, nil
+		iterator, exception, err := newIteratorForFrame(frame, sequence)
+		if err != nil {
+			return instructionOutcome{}, err
+		}
+		if exception != nil {
+			return instructionOutcome{kind: raised, exception: exception}, nil
+		}
+		if iterator == nil {
+			return instructionOutcome{kind: raised, exception: newException(
+				"TypeError", "cannot unpack non-iterable "+sequence.TypeName()+" object",
+			)}, nil
+		}
+		for {
+			value, available, exception, err := nextNativeIterator(frame.runtime, iterator)
+			if err != nil {
+				return instructionOutcome{}, err
+			}
+			if exception != nil {
+				return instructionOutcome{kind: raised, exception: exception}, nil
+			}
+			if !available {
+				break
+			}
+			elements = append(elements, value)
+		}
 	}
 	minimum := before + after
 	if len(elements) < minimum {

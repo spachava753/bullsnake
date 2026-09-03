@@ -37,12 +37,22 @@ constructor when full current-process access is intended.
 ## CPython test execution
 
 Bullsnake pins compatibility evidence to CPython 3.14.7 commit
-`823f0323ee6ec1402088b73bce1a38473cac36dc`. Its Go-backed `unittest` bootstrap
-can discover `TestCase` subclasses, run their test methods and fixtures through
-the VM, and report results through the configured standard-error capability.
-The checked-in integration suite executes three unchanged CPython files and ten
-of their tests end to end; this is a focused compatibility claim rather than a
-claim that every `unittest` API is implemented.
+`823f0323ee6ec1402088b73bce1a38473cac36dc`. Compatibility work loads the
+pinned pure-Python `Lib/unittest` package through the ordinary source importer;
+there is no alternate Go-native test framework that can hide missing language,
+object-model, import, or standard-library behavior.
+
+The opt-in compatibility test executes all 535 tests in CPython's core
+`test.test_unittest` modules, all 559 tests in its `testmock` package, and the
+unchanged `test_unary` and `test_contains` modules (1,104 tests total):
+
+```sh
+BULLSNAKE_CPYTHON=/path/to/cpython \
+  go test -run TestCPythonUnittestCompatibility -v .
+```
+
+The checkout must be the pinned revision above. The ordinary repository test
+run skips this external-checkout test when `BULLSNAKE_CPYTHON` is unset.
 
 ## Development
 

@@ -71,6 +71,13 @@ func (compiler *compilerState) compileStatement(statement compilerast.Stmt) erro
 		return compiler.compileWhileStatement(statement)
 	case *compilerast.ForStmt:
 		return compiler.compileForStatement(statement)
+	case *compilerast.WithStmt:
+		if len(statement.Items) == 0 {
+			return compiler.error(statement.Span(), "with statement has no context managers")
+		}
+		return compiler.compileWithItem(statement, 0)
+	case *compilerast.MatchStmt:
+		return compiler.compileMatchStatement(statement)
 	case *compilerast.TryStmt:
 		if len(statement.Finally) != 0 {
 			return compiler.compileTryFinally(statement)

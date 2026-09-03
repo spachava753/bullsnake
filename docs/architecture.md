@@ -96,9 +96,10 @@ Each step has one job:
 - The runtime validates the complete code object before executing it.
 - The virtual machine, or VM, executes bytecode against Bullsnake values.
 
-Import loading, a public Go API, async scheduling, and Python threads are later
-parts of the design. They should use this same compiler and VM rather than
-creating alternate execution paths.
+Import loading, the public Go API, and the coroutine driver already use this
+compiler and VM. General async scheduling and Python threads remain later parts
+of the design and must extend the same execution path rather than create an
+alternate one.
 
 ## Why Bullsnake uses bytecode
 
@@ -140,21 +141,37 @@ representation as a public API.
 
 The compiler receives an AST and a resolved scope table. It chooses
 instructions, constants, local-variable positions, closure positions, jump
-targets, and source locations.
+targets, and source locations. Class-private names use the resolver scope's
+private owner consistently for symbol indexes and attribute spellings.
 
 The result is an immutable code object. A code object contains the information
-the VM needs to run one module, function, class body, or annotation body. Child
-functions have child code objects rather than hidden Go closures.
+the VM needs to run one module, function, class body, comprehension, or
+annotation body. Child functions and eager comprehensions have child code
+objects rather than hidden Go closures.
+
+Lazy method annotations may retain the live class namespace in a closure cell.
+Dedicated lookup instructions consult that mapping first and then use either
+the annotation function's globals or its enclosing closure cell.
 
 The compiler tracks operand-stack depth while it emits instructions. Every
 control-flow path that joins another path must agree on that depth. This catches
 compiler mistakes before the VM runs them.
+
+Structural pattern matching also uses explicit stack joins. One retained
+subject feeds each case, runtime match instructions return extracted values or
+an internal miss marker, and the compiler restores one failure depth before
+trying the next case.
 
 Exceptions use protected instruction ranges. A range says where the handler
 starts and how much of the operand stack to keep when an instruction raises.
 Normal execution pays no setup cost for entering a `try` block. `finally` and
 handler-name cleanup are compiler-controlled actions that run before a return,
 loop transfer, or propagated exception completes.
+
+Synchronous context managers use those same protected ranges and lexical
+cleanup machinery. Entered managers remain visible to return and loop-transfer
+compilation, while exceptional exits receive the active exception and can
+suppress the pending propagation.
 
 Code objects stay in memory today. A bytecode cache, if one is ever needed,
 will require an explicit format version and must reject stale or foreign data.
@@ -165,13 +182,19 @@ The VM uses explicit Python frames stored on the Go heap. A frame holds the code
 being executed, the next instruction, its operand stack, its local variables,
 closure cells, namespaces, active exception handlers, and a link to its caller.
 
-Python calls switch the current frame in one iterative dispatch loop. They do
-not use Go recursion as the Python call stack. This choice has several benefits:
+Python calls and generator resumptions switch the current frame in one
+iterative dispatch loop. They do not use Go recursion as the Python call stack.
+This choice has several benefits:
 
 - recursive Python code does not require one Go call per Python frame
 - exception unwinding can walk Python frames directly
 - tracebacks use the same frame chain as calls
-- generators and coroutines can later keep a frame and resume it
+- generators and coroutines keep frames between suspension points
+
+Coroutine calls already allocate detached frames, and awaiting one Bullsnake
+coroutine from another uses the same frame switching as an ordinary call. Async
+iteration and scheduling remain separate policy layers rather than alternate
+execution engines.
 
 Before execution, the runtime validates the entire code tree, including child
 functions and unreachable instructions. It checks instruction operands, table
@@ -180,11 +203,6 @@ bytecode fails before the module can make changes.
 
 This validation is a boundary between the compiler and runtime. The runtime
 must not trust code merely because the current compiler produced it.
-
-VM-owned native continuations may schedule Python frames without recursively
-entering the dispatcher. The initial `unittest` runner uses this path for
-`setUp`, test methods, and `tearDown`, so failures use the same exception and
-traceback path as an ordinary Python call.
 
 ## Values and the object model
 
@@ -205,6 +223,11 @@ Python containers cannot be represented as plain Go maps or slices forever.
 Hashing, equality, attribute access, and descriptors may call Python code or
 raise exceptions. Container and object implementations must support those calls
 when the protocols are added.
+
+The initial descriptor slice represents `classmethod`, `staticmethod`, and
+`property` as explicit runtime values. Attribute loading performs their binding
+and can suspend into a Python property getter through the ordinary frame call
+path.
 
 ## Exceptions
 
@@ -247,25 +270,29 @@ reuse one object. Because the cache entry exists before execution, circular
 see the names assigned so far. If execution fails, the runtime removes only
 that module; dependencies that finished successfully remain cached.
 
-The filesystem loader searches configured roots for top-level modules and
-regular packages. Within one location it prefers `name/__init__.py` over
-`name.py`. Child lookup uses the parent package's recorded search locations
+The filesystem loader searches configured roots for top-level modules, regular
+packages, and namespace packages. Within one location it prefers
+`name/__init__.py` over `name.py`; otherwise it combines matching namespace
+directories. Child lookup uses the parent package's recorded search locations
 rather than restarting at global roots. The loader decodes and compiles files
 outside the runtime. Source modules and statically linked Go modules should
-enter through the same runtime loading path. Namespace packages,
-advanced `importlib` hooks, zip imports, reload, and bytecode caches should be
-added only when package tests require their observable behavior.
+enter through the same runtime loading path. Advanced `importlib` hooks, zip
+imports, reload, and bytecode caches should be added only when package tests
+require their observable behavior.
 
 Go-backed system modules use the same runtime cache and Python `Module` values
 as source modules. `sys.modules` observes cache insertion, successful import,
 and rollback through a Python dictionary. Python-side replacement or deletion
 in that dictionary does not yet change the runtime's authoritative cache.
 
-The first test-framework compatibility slice is a Go-backed `unittest` module.
-It deliberately provides a focused `TestCase`, assertion, discovery, fixture,
-and reporting surface instead of loading CPython's complete pure-Python
-package and all of its transitive standard-library dependencies. Compatibility
-is demonstrated with unchanged source files from the pinned CPython tree.
+Test-framework compatibility uses CPython's pinned pure-Python `Lib/unittest`
+package through the ordinary source loader. Bullsnake does not substitute a
+Go-backed runner, so the same compiler, VM, object model, imports, and host
+capability boundary used by application code must support its dependencies.
+The 535 core `test.test_unittest` tests and all 559 tests in its `testmock`
+package pass at the pinned revision, including discovery, command-line,
+interrupt, isolated-asyncio, patching, autospec, magic-method, and async-mock
+coverage.
 
 ## Host capability boundary
 
@@ -279,16 +306,19 @@ process capabilities.
 The first boundary contains:
 
 - a read-only filesystem for source reads, directory listing, metadata, and
-  real-path resolution
-- wall time, monotonic time, and sleeping through one clock
+  real-path resolution, plus a separately grantable filesystem mutation
+  capability
+- wall time, monotonic time, and sleeping through one clock, with local civil
+  time conversion through a separate time-zone capability
+- cryptographic entropy through an independently replaceable entropy source
 - outbound dialing through a network interface, reserved for a future socket
   module
 - arguments, environment, executable, and working-directory process data
 - independently replaceable standard input, output, and error streams
 
 Interfaces grow by adding separate capabilities, not by adding unrelated
-methods to an existing interface. For example, filesystem mutation will use a
-new interface so read-only mocks remain valid. Policy wrappers can record,
+methods to an existing interface. Filesystem mutation uses `FileMutator`, so
+read-only mocks remain valid. Policy wrappers can record,
 rewrite, or reject an operation with `host.ErrDenied`; a system module converts
 that denial to `PermissionError`. Source-loader failures remain Go errors at the
 embedding boundary.
@@ -318,14 +348,19 @@ but they must not mutate Python objects directly.
 
 ## Async and Python threads
 
-Async execution and Python threads are design directions, not implemented
-features.
+Coroutine execution is implemented with suspended Python frames, direct
+`await` between Bullsnake coroutines, asynchronous iteration and
+comprehensions, and a small interpreter-owned root driver.
+The `asyncio` and `contextvars` bootstrap surface is deliberately limited to
+what CPython's `IsolatedAsyncioTestCase` and async-mock tests exercise; it is
+not a general event loop and performs no ambient socket I/O.
 
-A future generator or coroutine will own a suspended Python frame. `await` and
-async iteration will be VM operations over explicit Python protocols. An event
-loop will manage ready tasks, timers, I/O completion, cancellation, and task
-context. Async tasks will not be modeled as one goroutine each because Python
-task scheduling and cancellation need explicit interpreter state.
+A general event loop remains a design direction. It will manage ready tasks,
+timers, host-mediated I/O completion, cancellation, and task context. Async
+tasks will not be modeled as one goroutine each because Python task scheduling
+and cancellation need explicit interpreter state. Python threads remain future
+work; the synchronization objects needed by `ThreadingMock` are
+interpreter-local compatibility primitives.
 
 The intended threading model maps each supported Python thread to one Go
 goroutine. One runtime execution token will initially allow only one such thread
@@ -409,7 +444,8 @@ Bullsnake uses several kinds of evidence:
 
 - focused Go tests for package behavior and internal invariants
 - checked-in Python source fixtures that pass through the complete pipeline
-- unchanged pinned CPython test files executed through `unittest.main()`
+- pinned CPython source files promoted to execution tests as their dependencies
+  become supported
 - negative fixtures for Python errors and unsupported behavior
 - direct malformed-bytecode tests for the runtime validator
 - CPython-derived conformance cases for selected behavior
@@ -426,7 +462,7 @@ promises them.
 The project still needs concrete decisions about:
 
 - the first package compatibility set
-- which additional `unittest` APIs and standard-library dependencies packages require
+- which transitive standard-library dependencies need host-backed modules
 - the Go callback, type, and module extension API
 - namespace-package and extended import-hook behavior
 - generator, coroutine, and scheduler behavior

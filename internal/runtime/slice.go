@@ -8,6 +8,23 @@ type sliceValue struct {
 	step  Value
 }
 
+func constructSlice(arguments []Value) (Value, *Exception) {
+	if len(arguments) < 1 || len(arguments) > 3 {
+		return nil, newException("TypeError", "slice expected 1 to 3 arguments")
+	}
+	start := Value(None)
+	stop := arguments[0]
+	step := Value(None)
+	if len(arguments) >= 2 {
+		start = arguments[0]
+		stop = arguments[1]
+	}
+	if len(arguments) == 3 {
+		step = arguments[2]
+	}
+	return &sliceValue{start: start, stop: stop, step: step}, nil
+}
+
 func (*sliceValue) TypeName() string { return "slice" }
 func (value *sliceValue) Repr() string {
 	return "slice(" + value.start.Repr() + ", " + value.stop.Repr() + ", " +

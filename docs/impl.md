@@ -22,12 +22,12 @@ All compatibility work uses CPython 3.14.7 at commit
 | Lexer | Initial Python 3.14 tokenization, including f-strings and template strings |
 | Parser | A broad Python 3.14 statement and expression grammar |
 | Resolver | Name scopes, closures, contextual checks, annotations, generics, and comprehensions |
-| Compiler | A synchronous executable subset with functions, classes, imports, and exceptions |
+| Compiler | An executable subset with functions, classes, imports, exceptions, generators, and coroutines |
 | Runtime | Modules, values, collections, Python and Go-backed functions, basic classes, and structured exceptions |
-| Imports | Regular source packages plus cached Go-backed system modules |
+| Imports | Regular and namespace source packages plus cached Go-backed system modules |
 | Go API | Explicit host configuration, source/file execution, module lookup, and read-only values |
-| Standard library | Initial `sys`, `time`, `io`, `os`, and `os.path` bootstrap subset |
-| Async and REPL | Not implemented |
+| Standard library | All 535 core `unittest` and 559 `unittest.mock` tests pass; `test_unary` and `test_contains` also pass unchanged |
+| Async and REPL | Coroutine `await`, async iteration/comprehensions, and the `IsolatedAsyncioTestCase` runner work; general scheduling and a REPL do not |
 
 The parser and resolver intentionally cover more language forms than the
 compiler. The compiler also defines some bytecode that the runtime still
@@ -165,6 +165,10 @@ metadata, maximum stack size, and exception-handler ranges. Construction copies
 mutable input, and accessors return copies of tables. Bytecode is an in-memory
 internal format, not a `.pyc` format or a compatibility promise.
 
+Class-private names use the resolver scope's private owner consistently for
+symbol indexes and attribute spellings, so the compiler and runtime share one
+mangled layout.
+
 The compiler tracks operand-stack depth while emitting. Labels patch forward
 jumps and require every incoming control-flow path to agree on the stack depth.
 Protected instruction ranges record where an exception handler starts and how
@@ -178,12 +182,20 @@ The current compiler translates:
 - simple, chained, destructuring, annotated, augmented, and deletion targets
 - `if`, synchronous `while` and `for`, loop `else`, `break`, and `continue`
 - synchronous functions, lambdas, every parameter kind, defaults, decorators,
-  lexical closures, returns, and lazy function annotations
-- basic classes with decorators, bases, class keywords, methods, enclosing
-  closures, and the cells used by class-visible annotations and `__class__`
+  lexical closures, returns, lazy function annotations, eager list, set, and
+  dictionary comprehensions, synchronous generators, coroutine definitions,
+  `await`, and lazy asynchronous-generator creation
+- classes with decorators, generic aliases and union bases, C3 multiple
+  inheritance, class keywords, methods, enclosing closures, annotated class
+  attributes, and the cells used by class-visible annotations and `__class__`
 - ordinary imports and assertions
 - ordinary exception handlers, `else`, `finally`, exception groups, `except*`,
   bare reraising, explicit causes, and cleanup during return or loop transfer
+- synchronous context managers, including nested exit ordering, exception
+  suppression, and cleanup during return or loop transfer, plus `async with`
+  over the current coroutine subset
+- structural pattern matching for value, capture, wildcard, OR, sequence,
+  mapping, class, guard, and `as` patterns
 
 The runtime currently executes true division for integer, boolean, and float
 operands, always producing a float. Integer floor division and modulo retain
@@ -198,12 +210,16 @@ prefix, and debug-field behavior needed by the current runtime formatter.
 Functions and class bodies are child code objects. Closures contain explicit
 cell references instead of Go closures. Deferred annotation bodies are also
 children and do not run during an ordinary function definition or call.
+Class bodies that define class-visible method annotations capture a live
+namespace mapping; annotation code checks that mapping before its global or
+enclosing-cell fallback.
 
-The compiler rejects template-string execution, annotated class attributes,
-`from __future__ import annotations`, generic and async definitions,
-comprehensions, `async for`, `with`, pattern matching, generators, and
-coroutines. Unsupported AST forms return compiler errors; they are not
-approximated with similar bytecode.
+Template strings currently preserve their formatted text but not the complete
+interpolation objects exposed by CPython. Class annotations are materialized as
+name entries with `None` placeholders rather than deferred PEP 649 annotation
+functions. The compiler rejects `from __future__ import annotations`, generic
+definitions, asynchronous comprehensions, and `async for`. Unsupported AST
+forms return compiler errors; they are not approximated with similar bytecode.
 
 ## Runtime preparation
 
@@ -235,9 +251,21 @@ An instruction can advance, call another Python frame, return, or raise. A call
 switches the loop to a new frame. A return restores the caller and pushes the
 result. Python recursion therefore does not recurse through the Go call stack.
 
-The `unittest` runner is a VM continuation. It schedules each Python `setUp`,
-test, and `tearDown` method as an ordinary child frame in this same dispatch
-loop. It does not recursively invoke the VM from a Go callback.
+Calling synchronous generator code creates a lazy generator with a detached
+heap frame. `FOR_ITER` attaches that frame to the active caller, and `yield`
+detaches it again after preserving its instruction, operand stack, locals, and
+exception state. Basic `yield from` delegates ordinary iteration. The current
+slice does not yet expose `send`, `throw`, `close`, or a return value from a
+delegated generator.
+
+Calling coroutine and asynchronous-generator code likewise creates distinct
+lazy values without executing the body. Awaiting one Bullsnake coroutine from
+another attaches its frame and returns its result through the same VM loop.
+Coroutines expose `close`. The `asyncio.Runner` compatibility layer drives a
+root coroutine, preserves selected `contextvars` state, and supplies the
+cancellation behavior exercised by `IsolatedAsyncioTestCase`. It is not a
+general event loop; asynchronous iteration and host-backed async I/O are not
+implemented.
 
 A raised Python exception follows protected ranges in the current code. If a
 range matches, the VM trims the operand stack to its recorded depth, pushes the
@@ -250,17 +278,31 @@ Frames also track exceptions active inside handlers and final suites. This makes
 bare `raise`, implicit context, explicit causes, and replacement by a newer
 return, loop transfer, or exception work across nested calls and cleanup.
 
+Synchronous `with` keeps each entered manager on the operand stack across its
+protected suite. Normal and control-transfer exits call
+`__exit__(None, None, None)`; exceptional exits receive the exception class and
+instance and may suppress propagation with a truthy result. Traceback arguments
+are currently `None` because Python traceback objects are not exposed yet.
+
 ## Runtime values
 
 Runtime values implement a sealed `Value` interface. Current concrete values
 include the Python singletons, arbitrary-precision integers, binary64 floats,
 complex numbers, strings, bytes, tuples, lists, dictionaries, sets, slices,
-iterators, modules, functions, classes, instances, Python and Go-backed bound
-methods, built-in type markers, and exceptions.
+iterators, generators, coroutines, asynchronous generators, modules, functions,
+classes, instances, Python and Go-backed bound methods, built-in type markers,
+and exceptions.
+
+The internal class-namespace mapping is a live `Value` wrapper around the
+class body's namespace. It exists for lazy annotation lookup and does not copy
+or bypass later class-body assignments.
 
 The object model implements the behavior needed by the executable subset.
-Collections support displays, unpacking, iteration, membership, integer and
-slice subscription, and dictionary item mutation. Current values also support
+Collections support displays, eager comprehensions, unpacking, iteration,
+membership, integer and slice subscription, and dictionary item mutation.
+Comprehensions run in isolated child scopes, evaluate their first iterable in
+the enclosing scope, and retain nested iterators above one collection
+accumulator. Current values also support
 truth testing, selected scalar operations and comparisons, and attribute access
 for modules, basic classes, and instances. Dictionaries and sets currently use
 ordered linear storage. This keeps Python identity and equality checks explicit
@@ -278,16 +320,27 @@ keyword unpacking. Defaults retain the objects created when the definition ran.
 Calls reject duplicate, missing, unexpected, or non-string keyword arguments
 with Python exceptions.
 
-Classes support one base, inherited attribute lookup, bound Python methods,
-ordinary `__init__`, instance and class attribute mutation, and user exception
-subclasses. The object model does not yet implement class keyword arguments,
-multiple inheritance, C3 method order, metaclasses, `super`, `__new__`, or
-general descriptors. Custom exception initializers and methods remain
-unsupported.
+Classes support multiple bases with C3 method resolution, inherited attribute
+lookup, bound Python and built-in methods, ordinary `__init__`, zero- and
+two-argument `super`, instance and class attribute mutation, user exception
+subclasses, and built-in `classmethod`, `staticmethod`, and `property`
+descriptors including getter/setter/deleter cloning. The `metaclass=` keyword
+records a Python metaclass and binds its methods on constructed classes; full
+metaclass construction hooks are not yet invoked. The object model does not yet
+implement other class keyword arguments, `__new__`, general user-defined
+descriptors, or property setter dispatch during assignment. Custom exception
+initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general
 `__format__` dispatch.
+
+Pattern matching evaluates one subject and retains it across failed cases.
+Sequence patterns support one starred remainder, mapping patterns support a
+dictionary remainder, and class patterns use `__match_args__`, keyword
+attributes, and the built-in self-matching scalar and collection types. Missing
+structure produces a pattern miss while invalid pattern metadata raises the
+corresponding Python exception.
 
 ## Exceptions
 
@@ -374,64 +427,85 @@ accepts mocks and policy wrappers.
 
 A missing callback, missing file, or missing callback result raises
 `ModuleNotFoundError`. Filesystem and frontend failures remain Go host errors
-until the runtime has the corresponding Python exception values. Namespace
-packages, dynamic `__path__` changes, finder and loader hooks, reload, and
-import locks remain unimplemented.
+until the runtime has the corresponding Python exception values. The loader
+combines namespace-package directories and publishes namespace `ModuleSpec`
+metadata. General dynamic `__path__` changes, finder and loader hooks, reload,
+and import locks remain unimplemented.
 
 ## Host services and system modules
 
-The public `host.Services` value contains independent filesystem, clock,
-network, process, and standard-stream capabilities. `bullsnake.New` and
+The public `host.Services` value contains independent read-only filesystem,
+filesystem-mutation, clock, time-zone, entropy, network, process,
+working-directory, and standard-stream capabilities. `bullsnake.New` and
 `runtime.NewWithConfig` do not fill nil capabilities. `NewDefault` and the
 legacy internal constructors explicitly select current-process defaults.
 
 The filesystem importer uses `host.FileSystem.ReadFile`. `os.listdir`,
 `os.path.exists`, `isfile`, `isdir`, and `realpath` use that same filesystem.
-Working-directory and environment reads use `host.Process`. `time.time`,
-`monotonic`, `perf_counter`, and `sleep` use `host.Clock`. `sys.stdin`,
-`stdout`, and `stderr` retain only their configured streams. A missing or denied
-system-module capability raises `PermissionError`; other host failures become
-the current `OSError` subset.
+`os.remove`, `os.unlink`, and `os.rmdir` use the separately grantable
+`host.FileMutator`.
+Working-directory and environment reads use `host.Process`, while `os.chdir`
+uses the separately grantable `host.WorkingDirectory`. `time.time`,
+`monotonic`, `perf_counter`, and `sleep` use `host.Clock`; `localtime` and
+`ctime` delegate host-local conversion to `host.TimeZone`. `os.urandom` and
+implicit random seeding use `host.Entropy`. `sys.stdin`, `stdout`, and `stderr`
+retain only their configured streams. A missing or denied system-module
+capability raises `PermissionError`; other host failures become the current
+`OSError` subset.
 
 Go-backed calls are ordinary runtime values dispatched by the VM. They share
-Python call-stack cleanup and exception routing, but currently accept only
-positional arguments. A VM-owned continuation, rather than a nested Go call,
-drives the Python methods selected by `unittest.main`. Implemented bootstrap
-module behavior is intentionally narrow:
+Python call-stack cleanup and exception routing and may opt into keyword-aware
+argument handling. Implemented bootstrap module behavior is intentionally
+narrow:
 
 - `sys` exposes version 3.14.7 metadata, `argv`, `path`, standard streams,
   `modules`, `exc_info`, and `exit`
-- `time` exposes wall time, monotonic/performance time, and sleeping
-- `io` and `_io` expose the `StringIO` operations used for test output capture
-- `os` exposes host data, directory listing, and the first `os.path` operations
+- `time` exposes wall time, local/UTC tuples, monotonic/performance time, and sleeping
+- `io` and `_io` expose the `StringIO` and `BytesIO` operations used by test streams
+- `os` exposes host data, directory listing, metadata, separately authorized
+  removal operations, and the first `os.path` operations
 - `builtins` can be imported and shares the runtime's current built-in values
 - `__future__` exposes the feature names used by the pinned source tests
-- `unittest` exposes `TestCase`, selected common assertions, fixture execution,
-  alphabetical test discovery, `main`, and a minimal successful result object
+- `_abc` provides the registry operations used by the pinned `abc` module
+- `_ast`, `_contextvars`, `_functools`, `_opcode`, `_random`, `_signal`,
+  `_thread`, `_weakref`, `asyncio`, `enum`, `errno`, `importlib`, `itertools`,
+  `math`, `operator`, `pkgutil`, `re`, `reprlib`, `typing`, and `warnings`
+  provide the bootstrap surface required while executing the pinned
+  `unittest` package
 
 The runtime preloads `sys` and `builtins`, then creates other system modules on
 demand through the ordinary module cache. `sys.modules` follows runtime cache
-updates and rollback. Python mutations of `sys.modules`, general native object
-protocols, bytes streams, file objects, and a socket module remain future work.
+updates and rollback, and Python assignments can publish aliases consumed by
+later imports. The regular CPython 3.14.7 `Lib/unittest` package now imports
+successfully from the pinned checkout. Its `TestCase`, assertion context
+managers, fixtures, cleanups, subtests, skips, discovery, program interface,
+interrupt handling, class loader, suites, results, `TextTestRunner`,
+`IsolatedAsyncioTestCase`, `mock`, `patch`, autospeccing, magic-method mocks,
+`ThreadingMock`, and `AsyncMock` execute without a native runner or mock
+substitute.
+Several dependencies above deliberately expose only the surface reached by
+that work: regular expressions use Go's engine, `_signal` keeps
+interpreter-local handlers without touching the process, and `_ast`, `_opcode`,
+`enum`, and `importlib` are compatibility shims rather than complete modules.
+General native object protocols, writable files, bytes streams, and a socket
+module remain future work.
 
-The checked-in conformance test executes unchanged copies of CPython's
-`test_future_single_import.py`, `test_future_multiple_imports.py`, and
-`test_int_literal.py` as `__main__`. Their ten discovered tests complete
-without source, parser, resolver, compiler, validator, or VM failures. This
-proves the current focused `unittest` slice; CPython's complete pure-Python
-`Lib/unittest` package still depends on unsupported language and standard-library
-features.
+The repository keeps unchanged CPython test files as conformance targets. The
+pinned pure-Python `Lib/unittest` package and its transitive import dependencies
+run through the ordinary source-import path; there is no Go-native `unittest`
+substitute. The opt-in integration target passes all 535 core framework tests,
+all 559 `unittest.mock` tests, and the unchanged `test_unary` and
+`test_contains` modules, for 1,104 tests.
 
 ## Deliberate boundaries
 
 The largest current gaps are:
 
 - no Go callback/type/module extension API
-- no namespace packages, broad standard library, or native extension loading
-- no generators, coroutines, async execution, or Python threads
-- no comprehensions, context-manager execution, or structural matching
-- no complete Python object protocol, descriptors, user hashing, or multiple
-  inheritance
+- no broad standard library or native extension loading
+- no generator `send` and only the exception injection and close behavior
+  needed by context managers; no general event loop or Python threads
+- no complete Python object protocol, general descriptors, or user hashing
 - no Python frame and traceback objects, tracing, profiling, debugger hooks, or
   execution budgets
 - no REPL or eval-specific entry point
@@ -446,8 +520,9 @@ Go's garbage collector owns runtime memory. Frames, stacks, namespaces, cells,
 and container entries keep Python references in typed Go pointers and
 interfaces so the collector can trace cycles.
 
-Bullsnake does not implement CPython reference counting, `__del__`, weak
-references, or a compatible `gc` module. The experiments under
+Bullsnake does not implement CPython reference counting, `__del__`, weakref
+callbacks, or a compatible `gc` module. Its current callable weak references
+are strong compatibility wrappers used during standard-library bootstrap. The experiments under
 `experiments/gcprobe` inform these boundaries but are not production runtime
 code.
 
@@ -464,11 +539,15 @@ The repository uses several test layers:
 - expected-error fixtures that check Python exception type and message
 - hand-built malformed-bytecode cases that exercise runtime validation
 - fuzz tests at lexer, parser, and resolver input boundaries
-- unchanged CPython `unittest` files that execute through the public embedding API
+- unchanged CPython source files retained as executable compatibility targets
+- an opt-in external-checkout test for the complete `unittest` self-suite and
+  selected language test modules
 
 The checked-in conformance data pins CPython 3.14.7 at commit
-`823f0323ee6ec1402088b73bce1a38473cac36dc`. It runs offline and requires no
-Python binary, CPython checkout, network access, or generation step.
+`823f0323ee6ec1402088b73bce1a38473cac36dc`. Those default tests run offline and
+require no Python binary, CPython checkout, network access, or generation step.
+Setting `BULLSNAKE_CPYTHON` to that checkout additionally enables the 1,104-test
+standard-library integration target.
 
 Run the repository checks with:
 

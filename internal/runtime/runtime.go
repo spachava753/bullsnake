@@ -12,6 +12,7 @@ import (
 type ModuleSpec struct {
 	Code            *bytecode.Code
 	IsPackage       bool
+	IsNamespace     bool
 	Origin          string
 	SearchLocations []string
 }
@@ -26,24 +27,38 @@ type ModuleRequest struct {
 // ModuleLoader finds one absolute module description.
 type ModuleLoader func(request ModuleRequest) (spec ModuleSpec, found bool, err error)
 
+// SourceCompiler compiles dynamically supplied Python source without granting
+// the runtime any filesystem or process authority.
+type SourceCompiler func(filename, text string) (*bytecode.Code, error)
+
 // Config supplies module discovery, import paths, and explicit host
 // capabilities to one runtime. A zero Host grants no ambient capabilities.
 type Config struct {
-	Loader ModuleLoader
-	Path   []string
-	Host   host.Services
+	Loader   ModuleLoader
+	Path     []string
+	Host     host.Services
+	Compiler SourceCompiler
 }
 
 // Runtime owns mutable interpreter state shared by executions in one isolated
 // Python runtime instance.
 type Runtime struct {
-	builtins  *Namespace
-	modules   map[string]*Module
-	moduleMap *dictValue
-	prepared  map[*bytecode.Code]*preparedCode
-	loader    ModuleLoader
-	path      []string
-	host      host.Services
+	builtins       *Namespace
+	modules        map[string]*Module
+	moduleMap      *dictValue
+	prepared       map[*bytecode.Code]*preparedCode
+	loader         ModuleLoader
+	path           []string
+	host           host.Services
+	compiler       SourceCompiler
+	abcToken       int64
+	abcTypes       map[*typeValue][]Value
+	weakRefs       []*weakReferenceValue
+	coroutines     []*coroutineValue
+	warningState   *warningsState
+	signalHandlers map[int64]Value
+	cancellingTask bool
+	currentContext *contextVarsValue
 }
 
 // New constructs an empty runtime instance without a module loader.
@@ -63,6 +78,8 @@ func NewWithConfig(config Config) *Runtime {
 	return newRuntime(config)
 }
 
+// newRuntime initializes isolated builtins, module caches, exception state, and
+// the exact host capabilities selected by the embedder.
 func newRuntime(config Config) *Runtime {
 	builtins := newNamespace()
 	for _, exceptionType := range builtinExceptionTypes {
@@ -71,15 +88,95 @@ func newRuntime(config Config) *Runtime {
 	for _, builtinType := range builtinTypes {
 		builtins.values[builtinType.name] = builtinType
 	}
-	runtime := &Runtime{
-		builtins:  builtins,
-		modules:   make(map[string]*Module),
-		moduleMap: &dictValue{},
-		prepared:  make(map[*bytecode.Code]*preparedCode),
-		loader:    config.Loader,
-		path:      slices.Clone(config.Path),
-		host:      config.Host,
+	for _, descriptorType := range descriptorTypes {
+		builtins.values[descriptorType.name] = descriptorType
 	}
+	builtins.values["NotImplemented"] = notImplementedSingleton
+	builtins.values["__debug__"] = trueSingleton
+	runtime := &Runtime{
+		builtins:       builtins,
+		modules:        make(map[string]*Module),
+		moduleMap:      &dictValue{},
+		prepared:       make(map[*bytecode.Code]*preparedCode),
+		loader:         config.Loader,
+		path:           slices.Clone(config.Path),
+		host:           config.Host,
+		compiler:       config.Compiler,
+		abcTypes:       make(map[*typeValue][]Value),
+		signalHandlers: make(map[int64]Value),
+	}
+	for _, function := range []*nativeFunctionValue{
+		nativeFunctionNamed("iter", 1, 1, builtinIter),
+		nativeFunctionNamed("reversed", 1, 1, builtinReversed),
+		nativeFunctionNamed("globals", 0, 0, builtinGlobals),
+		nativeFunctionNamed("locals", 0, 0, builtinLocals),
+		nativeFunctionNamed("getattr", 2, 3, builtinGetAttr),
+		nativeFunctionNamed("hasattr", 2, 2, builtinHasAttr),
+		nativeFunctionNamed("setattr", 3, 3, builtinSetAttr),
+		nativeFunctionNamed("delattr", 2, 2, builtinDelAttr),
+		nativeFunctionNamed("dir", 0, 1, builtinDir),
+		nativeFunctionNamed("len", 1, 1, builtinLen),
+		nativeFunctionNamed("isinstance", 2, 2, builtinIsInstance),
+		nativeFunctionNamed("issubclass", 2, 2, builtinIsSubclass),
+		nativeFunctionNamed("callable", 1, 1, builtinCallable),
+		nativeFunctionNamed("abs", 1, 1, builtinAbs),
+		nativeFunctionNamed("round", 1, 2, builtinRound),
+		nativeFunctionNamed("bin", 1, 1, builtinBaseRepresentation(2, "0b")),
+		nativeFunctionNamed("oct", 1, 1, builtinBaseRepresentation(8, "0o")),
+		nativeFunctionNamed("hex", 1, 1, builtinBaseRepresentation(16, "0x")),
+		nativeFunctionNamed("all", 1, 1, builtinAll),
+		nativeFunctionNamed("any", 1, 1, builtinAny),
+		nativeFunctionNamed("next", 1, 2, builtinNext),
+		nativeFunctionNamed("enumerate", 1, 2, builtinEnumerate),
+		nativeFunctionNamed("map", 2, -1, builtinMap),
+		nativeFunctionNamed("filter", 2, 2, builtinFilter),
+		nativeFunctionNamed("sum", 1, 2, builtinSum),
+		nativeFunctionNamed("divmod", 2, 2, builtinDivmod),
+		nativeFunctionNamed("ord", 1, 1, builtinOrd),
+		nativeFunctionNamed("chr", 1, 1, builtinChr),
+		nativeFunctionNamed("id", 1, 1, builtinID),
+		nativeFunctionNamed("repr", 1, 1, builtinRepr),
+		nativeFunctionNamed("ascii", 1, 1, builtinRepr),
+		nativeFunctionNamed("hash", 1, 1, builtinHash),
+		nativeFunctionNamed("super", 0, 2, builtinSuper),
+		nativeFunctionNamed("eval", 1, 3, runtime.builtinEval),
+		nativeFunctionNamed("exec", 1, 3, runtime.builtinExec),
+		nativeFunctionNamed("__import__", 1, 5, runtime.builtinImport),
+	} {
+		runtime.builtins.values[function.name] = function
+	}
+	runtime.builtins.values["sorted"] = nativeKeywordAwareFunctionNamed(
+		"sorted", 1, 1, builtinSorted,
+	)
+	runtime.builtins.values["zip"] = nativeKeywordAwareFunctionNamed(
+		"zip", 0, -1,
+		func(caller *frame, arguments []Value, keywords *dictValue) (Value, *Exception, error) {
+			if keywords != nil {
+				for _, entry := range keywords.entries {
+					name, ok := entry.key.(*stringValue)
+					if !ok || name.value != "strict" {
+						return nil, newException("TypeError", "zip() got an unexpected keyword argument"), nil
+					}
+				}
+			}
+			return builtinZip(caller, arguments)
+		},
+	)
+	runtime.builtins.values["max"] = nativeKeywordAwareFunctionNamed(
+		"max", 1, -1, builtinMax,
+	)
+	runtime.builtins.values["min"] = nativeKeywordAwareFunctionNamed(
+		"min", 1, -1, builtinMin,
+	)
+	runtime.builtins.values["print"] = nativeKeywordAwareFunctionNamed(
+		"print", 0, -1, runtime.builtinPrint,
+	)
+	runtime.builtins.values["__bullsnake_template__"] = nativeFunctionNamed(
+		"__bullsnake_template__", 1, 1, builtinTemplate,
+	)
+	runtime.builtins.values["open"] = nativeKeywordFunctionNamed(
+		"open", 1, 8, runtime.builtinOpen,
+	)
 	runtime.initializeSystemModules()
 	return runtime
 }
@@ -99,15 +196,26 @@ func (runtime *Runtime) ExecuteModuleSpec(name string, spec ModuleSpec) (*Module
 	}
 	previous, replaced := runtime.modules[name]
 	runtime.cacheModule(name, module)
+	_, mainExists := runtime.modules["__main__"]
+	mainAlias := name != "__main__" && !mainExists
+	if mainAlias {
+		runtime.cacheModule("__main__", module)
+	}
 	thread := &threadState{current: moduleFrame}
 
 	_, raised, err := execute(thread)
 	if err != nil {
 		runtime.restoreModule(name, module, previous, replaced)
+		if mainAlias {
+			runtime.deleteModule("__main__")
+		}
 		return nil, err
 	}
 	if raised != nil {
 		runtime.restoreModule(name, module, previous, replaced)
+		if mainAlias {
+			runtime.deleteModule("__main__")
+		}
 		return nil, &UncaughtException{
 			exception: raised.exception,
 			filename:  raised.frame.code.code.Filename(),
@@ -148,6 +256,10 @@ func (runtime *Runtime) newModuleFrame(
 	if spec.Origin != "" {
 		globals.values["__file__"] = &stringValue{value: spec.Origin}
 	}
+	globals.values["__spec__"] = &moduleSpecValue{
+		name: name, origin: spec.Origin,
+		namespace: spec.IsNamespace, searchLocations: slices.Clone(spec.SearchLocations),
+	}
 	if spec.IsPackage {
 		locations := make([]Value, len(spec.SearchLocations))
 		for index, location := range spec.SearchLocations {
@@ -185,6 +297,39 @@ func (runtime *Runtime) newModuleFrame(
 		builtins:   runtime.builtins,
 		previous:   previous,
 	}, nil
+}
+
+type moduleSpecValue struct {
+	name            string
+	origin          string
+	namespace       bool
+	searchLocations []string
+}
+
+func (*moduleSpecValue) TypeName() string { return "ModuleSpec" }
+func (*moduleSpecValue) Repr() string     { return "ModuleSpec(...)" }
+func (*moduleSpecValue) isValue()         {}
+
+// attribute exposes importlib-compatible module-spec metadata to Python code.
+func (spec *moduleSpecValue) attribute(name string) (Value, bool) {
+	switch name {
+	case "name":
+		return &stringValue{value: spec.name}, true
+	case "loader":
+		return None, true
+	case "origin":
+		if spec.origin == "" {
+			return None, true
+		}
+		return &stringValue{value: spec.origin}, true
+	case "submodule_search_locations":
+		if !spec.namespace {
+			return None, true
+		}
+		return stringList(spec.searchLocations), true
+	default:
+		return nil, false
+	}
 }
 
 func (runtime *Runtime) restoreModule(

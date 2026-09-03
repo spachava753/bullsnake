@@ -1,6 +1,7 @@
 package host
 
 import (
+	"crypto/rand"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -9,6 +10,20 @@ import (
 )
 
 type osFileSystem struct{}
+
+type osFileMutator struct{}
+
+type systemEntropy struct{}
+
+type systemTimeZone struct{}
+
+func (systemEntropy) Read(buffer []byte) (int, error) {
+	return rand.Read(buffer)
+}
+
+func (systemTimeZone) LocalTime(instant time.Time) (time.Time, error) {
+	return instant.In(time.Local), nil
+}
 
 func (osFileSystem) ReadFile(name string) ([]byte, error) {
 	return os.ReadFile(name)
@@ -24,6 +39,14 @@ func (osFileSystem) Stat(name string) (fs.FileInfo, error) {
 
 func (osFileSystem) RealPath(name string) (string, error) {
 	return filepath.EvalSymlinks(name)
+}
+
+func (osFileMutator) Remove(name string) error {
+	return os.Remove(name)
+}
+
+func (osFileMutator) RemoveDir(name string) error {
+	return os.Remove(name)
 }
 
 type systemClock struct {
@@ -59,4 +82,8 @@ func (osProcess) Executable() (string, error) {
 
 func (osProcess) Getwd() (string, error) {
 	return os.Getwd()
+}
+
+func (osProcess) Chdir(name string) error {
+	return os.Chdir(name)
 }

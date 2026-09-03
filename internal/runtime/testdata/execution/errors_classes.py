@@ -5,16 +5,6 @@
 class Broken(1):
     pass
 # ---
-# case: multiple inheritance
-# error: TypeError
-# message: "multiple inheritance is not supported"
-class Left:
-    pass
-class Right:
-    pass
-class Child(Left, Right):
-    pass
-# ---
 # case: initializer return value
 # error: TypeError
 # message: "__init__() should return None, not 'int'"

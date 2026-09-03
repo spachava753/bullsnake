@@ -9,6 +9,17 @@ type cellValue struct {
 func (*cellValue) TypeName() string { return "cell" }
 func (*cellValue) Repr() string     { return "<cell>" }
 func (*cellValue) isValue()         {}
+func (cell *cellValue) attribute(name string) (Value, bool) {
+	if name != "cell_contents" || cell.value == nil {
+		return nil, false
+	}
+	return cell.value, true
+}
+
+var cellType = &builtinTypeValue{
+	name:    "cell",
+	matches: func(value Value) bool { _, ok := value.(*cellValue); return ok },
+}
 
 func initializeDeref(
 	code *preparedCode,

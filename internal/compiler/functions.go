@@ -10,9 +10,6 @@ import (
 // compileFunctionDefinition validates the required-parameter subset, compiles
 // one independent child code object, and binds the resulting function.
 func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.FunctionDefStmt) error {
-	if statement.Async {
-		return compiler.error(statement.Span(), "async functions are not compiled")
-	}
 	if len(statement.TypeParameters) != 0 {
 		return compiler.error(statement.Span(), "generic functions are not compiled")
 	}
@@ -86,6 +83,13 @@ func (compiler *compilerState) newFunctionCompiler(
 	}
 	if scope.Flags&resolver.Nested != 0 {
 		flags |= bytecode.Nested
+	}
+	if scope.Flags&resolver.AsyncFunction != 0 && scope.Flags&resolver.Generator != 0 {
+		flags |= bytecode.AsyncGenerator
+	} else if scope.Flags&resolver.AsyncFunction != 0 {
+		flags |= bytecode.Coroutine
+	} else if scope.Flags&resolver.Generator != 0 {
+		flags |= bytecode.Generator
 	}
 	child := &compilerState{
 		filename:            compiler.filename,
@@ -265,6 +269,11 @@ func (compiler *compilerState) compileReturnStatement(statement *compilerast.Ret
 		return err
 	}
 	if compiler.reachable {
+		// A return leaves every enclosing protected region. Cleanup suites have
+		// already been emitted above; the remaining stack compaction and return
+		// must not retain an outer handler whose saved depth includes discarded
+		// loop or context-manager state.
+		compiler.activeHandlers = nil
 		for compiler.stackDepth > 1 {
 			if err := compiler.emit(bytecode.Swap, 2, statement.Span()); err != nil {
 				compiler.restoreControlCleanups(cleanupState)

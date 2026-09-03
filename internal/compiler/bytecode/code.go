@@ -12,11 +12,14 @@ import (
 type CodeFlags uint32
 
 const (
-	Optimized CodeFlags = 1 << iota
-	NewLocals
-	VarArgs
-	VarKeywords
-	Nested
+	Optimized      CodeFlags = 0x0001
+	NewLocals      CodeFlags = 0x0002
+	VarArgs        CodeFlags = 0x0004
+	VarKeywords    CodeFlags = 0x0008
+	Nested         CodeFlags = 0x0010
+	Generator      CodeFlags = 0x0020
+	Coroutine      CodeFlags = 0x0080
+	AsyncGenerator CodeFlags = 0x0200
 )
 
 var codeFlagNames = [...]struct {
@@ -28,6 +31,9 @@ var codeFlagNames = [...]struct {
 	{VarArgs, "VarArgs"},
 	{VarKeywords, "VarKeywords"},
 	{Nested, "Nested"},
+	{Generator, "Generator"},
+	{Coroutine, "Coroutine"},
+	{AsyncGenerator, "AsyncGenerator"},
 }
 
 // String returns the stable dump spelling of code flags.

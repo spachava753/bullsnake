@@ -31,7 +31,11 @@ func (compiler *compilerState) compileAugmentedAssignment(statement *compilerast
 		if err := compiler.emit(bytecode.Copy, 1, target.Span()); err != nil {
 			return err
 		}
-		if err := compiler.emit(bytecode.LoadAttr, compiler.nameIndex(target.Name), target.Span()); err != nil {
+		if err := compiler.emit(
+			bytecode.LoadAttr,
+			compiler.nameIndex(compiler.mangleName(target.Name)),
+			target.Span(),
+		); err != nil {
 			return err
 		}
 	case *compilerast.SubscriptExpr:
@@ -71,7 +75,11 @@ func (compiler *compilerState) compileAugmentedAssignment(statement *compilerast
 		if err := compiler.emit(bytecode.Swap, 2, target.Span()); err != nil {
 			return err
 		}
-		return compiler.emit(bytecode.StoreAttr, compiler.nameIndex(target.Name), target.Span())
+		return compiler.emit(
+			bytecode.StoreAttr,
+			compiler.nameIndex(compiler.mangleName(target.Name)),
+			target.Span(),
+		)
 	case *compilerast.SubscriptExpr:
 		if err := compiler.emit(bytecode.Swap, 3, target.Span()); err != nil {
 			return err
