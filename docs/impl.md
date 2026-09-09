@@ -841,6 +841,20 @@ loader and complete interpreter pipeline. The
 to replace those assertions with the unchanged synchronous CPython test
 framework.
 
+## Internal host configuration
+
+`runtime.NewWithConfig` copies UTF-8 arguments and retains the supplied source
+loader. Empty arguments become `[""]`. Invalid argument encoding returns a Go
+construction error. There is no ambient host access. The private per-runtime
+constructor registry sits between the cache and source loader. Constructors
+populate a cached module without dummy code; failure removes that module while
+completed dependencies remain cached. Duplicate registrations are rejected.
+
+`sys` currently provides `argv` and the six ordinary/original stream attributes.
+All streams start as `None`; replacing an ordinary attribute leaves its original
+reference unchanged. Stream operations, counters, and exception-state helpers
+are not implemented yet. Existing bootstrap modules remain preloaded.
+
 ## Deliberate boundaries
 
 The largest current gaps are:

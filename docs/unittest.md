@@ -47,7 +47,7 @@ Neither is part of this milestone.
 | Python execution | Functions, all parameter kinds, decorators, closures, classes, inheritance, loops, comprehensions, generators, exceptions, and context managers have execution tests. |
 | Objects and builtins | Method binding, properties, `super`, attribute helpers, type checks, user-defined iteration and comparisons, sorting, and many string and collection methods work within the documented subset. |
 | Imports | Source modules, regular packages, relative imports, repeated and circular imports, and cleanup after a failed import are tested. |
-| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. General Go module registration and system modules are still missing. |
+| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. Private per-runtime Go constructors now initialize modules through the importer; `sys` exposes isolated arguments and absent-stream defaults. Other system operations are still missing. |
 | Standard-library tests | Unchanged `colorsys.py` runs with adapted versions of all eight upstream public test methods. These use plain assertions, not `TestCase` objects. |
 
 The [language tests](../internal/runtime/testdata/execution/) run Python source
@@ -81,8 +81,9 @@ Separate import probes at the same revision reported:
 | `abc` | Reached `Lib/_weakrefset.py:5:1`, then failed because `_weakref` was missing. |
 
 These are recorded probe results, not checks in the current Go test suite.
-Repeat them against the pinned source when implementation resumes, and turn
-working imports into checked-in regression tests. An import success alone does
+The five import probes were repeated against main at `d202a6f` on 2026-09-09
+and produced the same results. The historical 61-module compilation sweep has
+not been repeated. Working imports still need checked-in regression tests. An import success alone does
 not establish that a module's public functions work.
 
 The evidence supports moving on to system-module work. It does not establish
@@ -95,8 +96,9 @@ interfaces, following the approach used by `io/fs`. A capability is an operation
 the host makes available, such as writing output or reading a clock. The caller
 can supply any implementation that satisfies its interface.
 
-This section proposes the first contracts. None of this configuration or module
-registration exists yet. The Go names below are illustrative; the public API
+The private constructor registry and initial `runtime.Config` argument/loader
+configuration are implemented and tested. Stream and counter providers below
+remain the next slices. The Go names below are illustrative; the public API
 will follow tested internal implementations.
 
 ### Small interfaces, supplied explicitly
@@ -521,5 +523,5 @@ The synchronous in-memory milestone is complete when:
 - All repository checks pass without network access or a Python executable.
 
 After that, add permission-controlled filesystem discovery and signal handling.
-Plan mock and async testing separately. The immediate next task is to review the
-proposed capability contracts and test the first internal module implementation.
+Plan mock and async testing separately. The immediate next task is structured exception support followed by the stream
+and performance-counter adapters. The overall milestone remains blocked.

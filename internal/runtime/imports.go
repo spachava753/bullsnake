@@ -145,6 +145,16 @@ func advanceImport(
 				request.next++
 				continue
 			}
+			if constructor, found := frame.runtime.constructors[name]; found {
+				_, exception, err := frame.runtime.initializeModule(name, constructor)
+				if err != nil {
+					return instructionOutcome{}, err
+				}
+				if exception != nil {
+					return raiseOutcome(exception), nil
+				}
+				continue
+			}
 			if frame.runtime.loader == nil {
 				if name == request.fallbackName {
 					request.next++

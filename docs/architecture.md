@@ -540,7 +540,7 @@ Mutable interpreter state belongs to a `Runtime`. Today that includes builtins,
 prepared code, and the module cache, including modules whose bodies are still
 initializing. The direction is for scheduler state, thread state,
 configuration, and Go module registration to belong to the same runtime
-instance.
+instance. Arguments and a private Go constructor registry now have this ownership.
 
 This ownership makes isolation explicit. Separate runtimes may execute in
 parallel without silently sharing modules or mutable Python values.
@@ -600,8 +600,8 @@ and `fs.FS` where their contracts fit. Optional interfaces add operations withou
 requiring every provider to implement them. Host access must be explicit, with
 no fallback to process-global resources when a capability is absent. The
 [unittest module design](unittest.md#design-for-go-backed-modules) proposes the
-first configuration, ownership, and module-creation contracts. These are not
-implemented yet.
+first configuration, ownership, and module-creation contracts. The internal argument configuration and constructor registry now exist; stream
+and counter adapters remain planned.
 
 A Go callback may call back into Python only through an execution context owned
 by the runtime. Background goroutines may finish host work and post a result,

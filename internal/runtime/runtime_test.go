@@ -643,3 +643,49 @@ func compileSource(t *testing.T, source string) *bytecode.Code {
 	}
 	return code
 }
+
+func TestConfiguredArgumentsIsolation(t *testing.T) {
+	args := []string{"tests", "case"}
+	first, err := bullruntime.NewWithConfig(bullruntime.Config{Args: args})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := bullruntime.NewWithConfig(bullruntime.Config{Args: args})
+	if err != nil {
+		t.Fatal(err)
+	}
+	args[0] = "changed"
+	code := compileSource(t, "import sys\nassert sys.argv == ['tests', 'case']\nsys.argv.append('local')\n")
+	for _, runtime := range []*bullruntime.Runtime{first, second} {
+		if _, err := runtime.ExecuteModule("check", code); err != nil {
+			t.Fatal(err)
+		}
+	}
+	left, _ := first.Module("sys")
+	right, _ := second.Module("sys")
+	if left == right {
+		t.Fatal("runtimes share sys")
+	}
+}
+
+func TestInvalidArgumentEncoding(t *testing.T) {
+	runtime, err := bullruntime.NewWithConfig(bullruntime.Config{Args: []string{string([]byte{0xff})}})
+	if runtime != nil || err == nil {
+		t.Fatalf("construction = %v, %v", runtime, err)
+	}
+}
+
+func TestNativeModulePrecedesSource(t *testing.T) {
+	calls := 0
+	runtime := bullruntime.NewWithLoader(func(request bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+		calls++
+		return bullruntime.ModuleSpec{}, false, nil
+	})
+	code := compileSource(t, "import sys\nimport sys as again\nassert sys is again\nsys.marker = 42\n")
+	if _, err := runtime.ExecuteModule("check", code); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatalf("source loader called %d times", calls)
+	}
+}
