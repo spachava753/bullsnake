@@ -863,7 +863,11 @@ completed dependencies remain cached. Duplicate registrations are rejected.
 `sys` currently provides `argv` and the six ordinary/original stream attributes.
 All streams start as `None`; replacing an ordinary attribute leaves its original
 reference unchanged. `sys.exit` raises catchable `SystemExit` and never exits the Go process.
-Stream operations, counters, and exception-state helpers are not implemented yet. Existing bootstrap modules remain preloaded.
+`time.perf_counter` converts a caller-supplied `PerfCounter` duration to seconds.
+Missing counters raise `PermissionError`; typed nil providers fail construction.
+The provider promises nondecreasing values from a fixed arbitrary origin. There
+is no clock fallback, wall time, sleeping, or scheduling. Stream operations and
+exception-state helpers are not implemented yet. Existing bootstrap modules remain preloaded.
 
 ## Deliberate boundaries
 

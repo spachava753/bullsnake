@@ -3,6 +3,7 @@ package runtime_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/spachava753/bullsnake/internal/compiler"
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
@@ -706,5 +707,35 @@ func TestSystemExitHostBoundary(t *testing.T) {
 	}
 	if _, err := runtime.ExecuteModule("after_exit", compileSource(t, "answer = 42\n")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+type sequenceCounter struct {
+	values []time.Duration
+	calls  int
+}
+
+func (counter *sequenceCounter) PerfCounter() time.Duration {
+	value := counter.values[counter.calls]
+	counter.calls++
+	return value
+}
+
+func TestPerformanceCounterProvider(t *testing.T) {
+	counter := &sequenceCounter{values: []time.Duration{1500 * time.Millisecond, 1750 * time.Millisecond}}
+	runtime, err := bullruntime.NewWithConfig(bullruntime.Config{Counter: counter})
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := compileSource(t, "import time\nstart = time.perf_counter()\nassert start == 1.5\nassert time.perf_counter() - start == 0.25\n")
+	if _, err := runtime.ExecuteModule("timing", code); err != nil {
+		t.Fatal(err)
+	}
+	if counter.calls != 2 {
+		t.Fatalf("counter calls = %d", counter.calls)
+	}
+	var absent *sequenceCounter
+	if runtime, err := bullruntime.NewWithConfig(bullruntime.Config{Counter: absent}); runtime != nil || err == nil {
+		t.Fatal("typed nil counter accepted")
 	}
 }

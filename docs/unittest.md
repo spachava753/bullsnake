@@ -97,8 +97,8 @@ the host makes available, such as writing output or reading a clock. The caller
 can supply any implementation that satisfies its interface.
 
 The private constructor registry and initial `runtime.Config` argument/loader
-configuration are implemented and tested. Stream and counter providers below
-remain the next slices. The Go names below are illustrative; the public API
+configuration are implemented and tested. The performance counter is implemented with fake-provider and denial tests.
+Stream providers below remain the next slice. The Go names below are illustrative; the public API
 will follow tested internal implementations.
 
 ### Small interfaces, supplied explicitly
@@ -523,4 +523,4 @@ The synchronous in-memory milestone is complete when:
 - All repository checks pass without network access or a Python executable.
 
 After that, add permission-controlled filesystem discovery and signal handling.
-Plan mock and async testing separately. The immediate next task is the stream and performance-counter adapters. The overall milestone remains blocked.
+Plan mock and async testing separately. The immediate next task is the stream adapters. The overall milestone remains blocked.

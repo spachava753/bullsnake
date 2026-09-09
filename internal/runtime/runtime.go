@@ -34,6 +34,7 @@ type Runtime struct {
 	loader       ModuleLoader
 	constructors map[string]moduleConstructor
 	args         []string
+	counter      PerfCounter
 }
 
 // New constructs an empty runtime instance without a module loader.
@@ -79,6 +80,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 		args:         []string{""},
 	}
 	runtime.constructors["sys"] = moduleConstructor{initialize: initializeSys}
+	runtime.constructors["time"] = moduleConstructor{initialize: initializeTime}
 	return runtime
 }
 
