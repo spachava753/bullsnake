@@ -58,7 +58,6 @@ type frame struct {
 	filtering           *filterCall
 	sorting             *sortCall
 	representation      *representationCall
-	attributeBuiltin    *attributeBuiltinCall
 	iteration           *iterationCall
 	membership          *membershipCall
 	subscription        *subscriptionCall

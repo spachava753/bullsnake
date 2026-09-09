@@ -720,8 +720,7 @@ its current names through the ordinary iterator and comparison continuations,
 then raises TypeError before running `__init__`. Names must be strings.
 Class-body and three-argument `type` namespace entries alone do not set the
 flag. Built-in exception allocation keeps its separate behavior. This is the
-allocation prerequisite for ABCMeta; automatic abstract-method computation,
-and virtual subclass registration are still missing.
+allocation prerequisite for ABCMeta; virtual subclass registration is still missing.
 
 A generic class stores one stable `__type_params__` tuple in its own namespace.
 Class statements and methods capture the same parameter objects. Bullsnake does
@@ -746,6 +745,24 @@ format forms covered by execution tests. It does not yet provide general
 `__format__` dispatch.
 
 
+### Abstract-method computation
+
+The private Go `_abc` module now exposes `_abc_init` for the implemented
+abstract-method computation subset. It snapshots direct class attributes,
+resolves their live `__isabstractmethod__` markers, then iterates inherited names
+and resolves overrides through ordinary class lookup. A successful computation
+stores a frozen set and updates the allocation flag. Attribute, iterator, and
+truth callbacks run in the VM; a failure leaves the previous abstract metadata
+unchanged. Properties check getter, setter, and deleter markers in order;
+classmethod and staticmethod markers follow their wrapped values. Bound methods
+expose the underlying function's marker.
+
+Registry/cache setup, `_abc_impl`, and the remaining `_abc` exports are not
+implemented. Unchanged `abc.py` consequently still selects its Python fallback
+and stops at missing `_weakref`. The helper's source fixtures exercise the
+ABCMeta construction algorithm without claiming a successful `abc` import.
+Weak-reference lifetime/callback design and regex compatibility remain deferred.
+
 ### Metaclass construction checkpoint
 
 User classes may now inherit `type`. Class statements select the most-derived
@@ -762,8 +779,7 @@ while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
-and general metaclass descriptor precedence remain separate gaps. Automatic
-abstract-method computation is the next ABC slice; importing abc remains blocked.
+and general metaclass descriptor precedence remain separate gaps. The abstract-method computation subset is described above; importing abc remains blocked.
 
 ## Exceptions
 

@@ -2,12 +2,6 @@ package runtime
 
 import "strconv"
 
-type attributeBuiltinCall struct {
-	instruction    int
-	attributeError Value
-	presence       bool
-}
-
 // executeBuiltinGetattr performs dynamic attribute lookup and records a default
 // on any child frame whose escaping AttributeError should be suppressed.
 func executeBuiltinGetattr(
@@ -51,29 +45,20 @@ func executeBuiltinGetattr(
 		defaultValue = arguments[2]
 	}
 	discardCallSegment(caller, base)
-	outcome, err := executeDynamicAttributeLoad(caller, instruction, owner, name.value)
-	if err != nil {
-		return instructionOutcome{}, err
-	}
 	if !hasDefault {
-		return outcome, nil
+		return executeDynamicAttributeLoad(caller, instruction, owner, name.value)
 	}
-	if outcome.kind == raised && isAttributeError(outcome.exception) {
-		return pushOutcome(caller, instruction, defaultValue)
-	}
-	if outcome.kind == called {
-		if outcome.frame == nil {
-			return instructionOutcome{}, caller.failure(
-				instruction,
-				"getattr attribute call has no frame",
-			)
+	return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
+		return executeDynamicAttributeLoad(caller, instruction, owner, name.value)
+	}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
+		if exception != nil {
+			if isAttributeError(exception) {
+				return pushOutcome(current, instruction, defaultValue)
+			}
+			return raiseOutcome(exception), nil
 		}
-		outcome.frame.attributeBuiltin = &attributeBuiltinCall{
-			instruction:    instruction,
-			attributeError: defaultValue,
-		}
-	}
-	return outcome, nil
+		return pushOutcome(current, instruction, result)
+	})
 }
 
 // executeBuiltinHasattr returns one boolean after the same dynamic lookup used
@@ -111,43 +96,17 @@ func executeBuiltinHasattr(
 
 	owner := arguments[0]
 	discardCallSegment(caller, base)
-	outcome, err := executeDynamicAttributeLoad(caller, instruction, owner, name.value)
-	if err != nil {
-		return instructionOutcome{}, err
-	}
-	switch outcome.kind {
-	case advance:
-		if _, ok := caller.pop(); !ok {
-			return instructionOutcome{}, caller.failure(
-				instruction,
-				"hasattr lookup returned without a value",
-			)
+	return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
+		return executeDynamicAttributeLoad(caller, instruction, owner, name.value)
+	}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
+		if exception != nil {
+			if isAttributeError(exception) {
+				return pushOutcome(current, instruction, falseSingleton)
+			}
+			return raiseOutcome(exception), nil
 		}
-		return pushOutcome(caller, instruction, trueSingleton)
-	case called:
-		if outcome.frame == nil {
-			return instructionOutcome{}, caller.failure(
-				instruction,
-				"hasattr attribute call has no frame",
-			)
-		}
-		outcome.frame.attributeBuiltin = &attributeBuiltinCall{
-			instruction:    instruction,
-			attributeError: falseSingleton,
-			presence:       true,
-		}
-		return outcome, nil
-	case raised:
-		if isAttributeError(outcome.exception) {
-			return pushOutcome(caller, instruction, falseSingleton)
-		}
-		return outcome, nil
-	default:
-		return instructionOutcome{}, caller.failure(
-			instruction,
-			"invalid hasattr attribute outcome",
-		)
-	}
+		return pushOutcome(current, instruction, trueSingleton)
+	})
 }
 
 func isAttributeError(exception *Exception) bool {

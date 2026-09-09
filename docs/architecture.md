@@ -442,7 +442,7 @@ Abstract allocation state belongs to each user class. Assigning
 `__abstractmethods__` resolves truth through the VM before storing the value and
 flag together. Allocation diagnostics reuse resumable collection and sorting
 operations, so Python callbacks stay in the existing frame loop. A metaclass
-will compute each subclass's abstract methods; the allocation layer does not
+can use the native `_abc_init` computation helper for each subclass's abstract methods; the allocation layer does not
 propagate or recompute that metadata.
 
 A Python special method may call arbitrary Python code. The VM therefore keeps
@@ -537,8 +537,7 @@ while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
-and general metaclass descriptor precedence remain separate gaps. Automatic
-abstract-method computation is the next ABC slice; importing abc remains blocked.
+and general metaclass descriptor precedence remain separate gaps. Abstract-method computation now uses these continuations to scan direct attributes and inherited names; registry helpers and the abc import remain blocked.
 
 ## Exceptions
 

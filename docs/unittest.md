@@ -474,16 +474,33 @@ ordinary user class prevents instantiation when its truth value is true. The
 runtime retains the metadata, isolates it from subclasses, supports deletion and
 reassignment, and formats sorted missing-method diagnostics through Python
 iterator/comparison continuations. Truth failures leave the prior state intact.
-These source tests do not import `abc`; automatic abstract-method computation
-remains next. Weak-reference lifetime/callback design
+These source tests do not import `abc`; abstract-method computation is now tested through the native helper. Weak-reference lifetime/callback design
 and regex compatibility are deferred while these independent prerequisites land.
-No `_abc` or `_weakref` substitute is exposed.
+Only the implemented `_abc_init` computation helper is exposed; `_weakref` remains absent.
 
 Choose between implementing the `_abc` helper used by `abc.py` and supporting
 its `_py_abc` fallback through `_weakref`, `weakref`, and `_weakrefset`. Either
 route still needs class creation, abstract-method checks, subclass registration,
 and the matching behavior in `isinstance` and `issubclass`.
 
+
+### Abstract-method computation
+
+The private Go `_abc` module now exposes `_abc_init` for the implemented
+abstract-method computation subset. It snapshots direct class attributes,
+resolves their live `__isabstractmethod__` markers, then iterates inherited names
+and resolves overrides through ordinary class lookup. A successful computation
+stores a frozen set and updates the allocation flag. Attribute, iterator, and
+truth callbacks run in the VM; a failure leaves the previous abstract metadata
+unchanged. Properties check getter, setter, and deleter markers in order;
+classmethod and staticmethod markers follow their wrapped values. Bound methods
+expose the underlying function's marker.
+
+Registry/cache setup, `_abc_impl`, and the remaining `_abc` exports are not
+implemented. Unchanged `abc.py` consequently still selects its Python fallback
+and stops at missing `_weakref`. The helper's source fixtures exercise the
+ABCMeta construction algorithm without claiming a successful `abc` import.
+Weak-reference lifetime/callback design and regex compatibility remain deferred.
 
 ### Metaclass construction checkpoint
 
@@ -501,8 +518,7 @@ while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
-and general metaclass descriptor precedence remain separate gaps. Automatic
-abstract-method computation is the next ABC slice; importing abc remains blocked.
+and general metaclass descriptor precedence remain separate gaps. The abstract-method computation subset is described above; importing abc remains blocked.
 
 ### Weak references need a memory and callback design
 

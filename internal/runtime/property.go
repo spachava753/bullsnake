@@ -113,6 +113,9 @@ func executePropertyAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "__isabstractmethod__":
+		return executePropertyAbstractMarker(frame, instruction, []Value{property.getter, property.setter, property.deleter})
+
 	case "fget":
 		return pushOutcome(frame, instruction, propertyValueOrNone(property.getter))
 	case "fset":

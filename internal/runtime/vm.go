@@ -922,17 +922,6 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 						"descriptor special method has no caller",
 					)
 				}
-				attributeBuiltin := active.attributeBuiltin
-				active.attributeBuiltin = nil
-				if attributeBuiltin != nil && attributeBuiltin.presence {
-					if !thread.current.push(trueSingleton) {
-						return nil, nil, thread.current.failure(
-							attributeBuiltin.instruction,
-							"operand stack overflow while returning hasattr result",
-						)
-					}
-					continue
-				}
 				attributeOutcome, attributeErr := finishAttributeCall(
 					thread.current,
 					call,
@@ -948,12 +937,6 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					)
 				}
 				continue
-			}
-			if active.attributeBuiltin != nil {
-				if active.attributeBuiltin.presence {
-					result = trueSingleton
-				}
-				active.attributeBuiltin = nil
 			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
@@ -1099,31 +1082,6 @@ route:
 				}
 				current.instruction = int(handler.Target)
 				thread.current = current
-				return nil, nil
-			}
-
-			if current.attributeBuiltin != nil && isAttributeError(exception) {
-				call := current.attributeBuiltin
-				current.attributeBuiltin = nil
-				for index := range current.stack {
-					current.stack[index] = nil
-				}
-				current.stack = current.stack[:0]
-				current.discardImportedModule()
-				caller := current.previous
-				if caller == nil {
-					return nil, current.failure(
-						currentInstruction,
-						"getattr attribute call has no caller",
-					)
-				}
-				if !caller.push(call.attributeError) {
-					return nil, caller.failure(
-						call.instruction,
-						"operand stack overflow while returning attribute fallback",
-					)
-				}
-				thread.current = caller
 				return nil, nil
 			}
 

@@ -15,7 +15,7 @@ type abstractMethodsStore struct {
 // finishAbstractMethodsStore snapshots abstractness without propagating it to
 // subclasses; ABCMeta is responsible for computing each subclass's own value.
 func finishAbstractMethodsStore(frame *frame, call *abstractMethodsStore, abstract bool) (instructionOutcome, error) {
-	call.class.namespace.values["__abstractmethods__"] = call.value
+	call.class.setAttribute("__abstractmethods__", call.value)
 	call.class.abstract = abstract
 	if call.returnNone {
 		return pushOutcome(frame, call.instruction, None)

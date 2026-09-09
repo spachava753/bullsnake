@@ -61,6 +61,9 @@ func executeMethodDescriptorAttributeLoad(
 	callable Value,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "__isabstractmethod__" {
+		return executeAbstractMarker(frame, instruction, callable)
+	}
 	if name == "__func__" || name == "__wrapped__" {
 		return pushOutcome(frame, instruction, callable)
 	}

@@ -52,6 +52,10 @@ func finishClassBody(caller *frame, build *classBuild, cell Value) (instructionO
 		if exception != nil {
 			return raiseOutcome(exception), nil
 		}
+		if class, ok := result.(*typeValue); ok {
+			build.namespace.dictionary = nil
+			build.namespace.values = class.namespace.values
+		}
 		if classCell, ok := cell.(*cellValue); ok && isClassValue(result) {
 			if classCell.value == nil {
 				return raiseOutcome(newException("RuntimeError", "__class__ not set defining '"+build.name+"'. Was __classcell__ propagated to type.__new__?")), nil

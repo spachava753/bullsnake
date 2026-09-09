@@ -23,6 +23,14 @@ func executeDynamicAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch owner := owner.(type) {
+	case *boundMethodValue:
+		if name == "__func__" {
+			return pushOutcome(frame, instruction, owner.callable)
+		}
+		if name == "__self__" {
+			return pushOutcome(frame, instruction, owner.self)
+		}
+		return executeDynamicAttributeLoad(frame, instruction, owner.callable, name)
 	case *hostTextStream:
 		return executeHostStreamAttributeLoad(frame, instruction, owner, name)
 	case *functionValue:
@@ -367,7 +375,7 @@ func executeDynamicAttributeStore(
 		if readOnlyTypeMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
-		owner.namespace.values[name] = value
+		owner.setAttribute(name, value)
 	case *instanceValue:
 		return executeInstanceAttributeStore(frame, instruction, owner, name, value)
 	default:

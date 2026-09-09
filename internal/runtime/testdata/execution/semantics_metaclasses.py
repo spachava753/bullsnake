@@ -197,3 +197,10 @@ class C:
         return __class__
 assert C().owner() is C
 assert not hasattr(C, '__classcell__')
+# ---
+# case: class annotations retain the finished class namespace
+class C:
+    Kind = int
+    value: Kind
+C.Kind = str
+assert C.__annotations__['value'] is str

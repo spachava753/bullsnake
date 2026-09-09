@@ -11,17 +11,18 @@ func (*buildClassValue) isValue()         {}
 var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
-	name          string
-	qualifiedName string
-	module        string
-	namespace     *Namespace
-	bases         []*typeValue
-	mro           []*typeValue
-	objectBase    bool
-	abstract      bool
-	metaclass     *typeValue
-	nativeBase    *nativeTypeValue
-	exceptionBase *exceptionTypeValue
+	name           string
+	qualifiedName  string
+	module         string
+	namespace      *Namespace
+	bases          []*typeValue
+	mro            []*typeValue
+	objectBase     bool
+	abstract       bool
+	metaclass      *typeValue
+	namespaceOrder []string
+	nativeBase     *nativeTypeValue
+	exceptionBase  *exceptionTypeValue
 }
 
 func (class *typeValue) TypeName() string {
@@ -204,6 +205,7 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 		return nil, exception
 	}
 	class.mro = mro
+	class.namespaceOrder = append([]string(nil), build.namespaceOrder...)
 	if function, ok := class.namespace.values["__new__"].(*functionValue); ok {
 		class.namespace.values["__new__"] = &staticMethodValue{callable: function}
 	}
@@ -503,3 +505,12 @@ var _ Value = (*buildClassValue)(nil)
 var _ Value = (*typeValue)(nil)
 var _ Value = (*instanceValue)(nil)
 var _ Value = (*boundMethodValue)(nil)
+
+// setAttribute retains class insertion order for namespace snapshots while
+// ordinary replacement keeps an existing attribute's position.
+func (class *typeValue) setAttribute(name string, value Value) {
+	if _, found := class.namespace.values[name]; !found {
+		class.namespaceOrder = append(class.namespaceOrder, name)
+	}
+	class.namespace.values[name] = value
+}
