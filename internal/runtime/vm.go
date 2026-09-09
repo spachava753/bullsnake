@@ -1376,6 +1376,9 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		name := frame.code.names[instruction.Operand]
+		if name == "__class__" {
+			return executeDynamicAttributeLoad(frame, index, owner, name)
+		}
 		switch owner := owner.(type) {
 		case *typeVarValue:
 			switch name {

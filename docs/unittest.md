@@ -475,16 +475,15 @@ ordinary user class prevents instantiation when its truth value is true. The
 runtime retains the metadata, isolates it from subclasses, supports deletion and
 reassignment, and formats sorted missing-method diagnostics through Python
 iterator/comparison continuations. Truth failures leave the prior state intact.
-These source tests do not import `abc`; abstract-method computation is now tested through the native helper. Weak-reference lifetime/callback design
-and regex compatibility are deferred while these independent prerequisites land.
-Only the implemented `_abc_init` computation helper is exposed; `_weakref` remains absent.
+These source tests do not yet import `abc`. Abstract computation and virtual
+registration now have native-helper tests; Python weakref callbacks and regex
+compatibility remain deferred. `_weakref` remains absent.
 
-Choose between implementing the `_abc` helper used by `abc.py` and supporting
-its `_py_abc` fallback through `_weakref`, `weakref`, and `_weakrefset`. Either
-route still needs class creation, abstract-method checks, subclass registration,
-and matching behavior in `isinstance` and `issubclass`. Metaclass check hooks
-and native fallback through `super` now have source-to-result tests; virtual
-registration itself still depends on the deferred weak-reference design.
+The selected route implements the native `_abc` helpers used by unchanged
+`abc.py`. Class construction, abstract checks, virtual registration, and
+metaclass instance/subclass checks now have source-to-result tests. The remaining
+`_get_dump` helper must supply real weak diagnostic references before `abc` can
+use this route; no placeholder exports are provided.
 
 
 ### Abstract-method computation
@@ -499,11 +498,22 @@ unchanged. Properties check getter, setter, and deleter markers in order;
 classmethod and staticmethod markers follow their wrapped values. Bound methods
 expose the underlying function's marker.
 
-Registry/cache setup, `_abc_impl`, and the remaining `_abc` exports are not
-implemented. Unchanged `abc.py` consequently still selects its Python fallback
-and stops at missing `_weakref`. The helper's source fixtures exercise the
-ABCMeta construction algorithm without claiming a successful `abc` import.
-Weak-reference lifetime/callback design and regex compatibility remain deferred.
+`_abc_init` now also installs fresh `_abc_impl` state. Virtual registration,
+instance/subclass checks, cache tokens, and registry/cache reset helpers are
+implemented. Registries and both caches hold Go weak pointers to class
+allocations, with lazy pruning. Tokens are isolated per runtime; new registration
+invalidates negative caches across ABCs. Checks honor subclass hooks before
+nominal inheritance, then registered classes and immediate subclasses, through
+ordinary VM continuations. Hooks must return bool or NotImplemented.
+
+Source tests cover transitive registration, cycle rejection, native and exception
+class registration, cache resets, mutations during callbacks, reported versus
+actual instance classes, and errors. Go tests verify that actual ABC registries
+and caches do not retain discarded classes and that runtime tokens are isolated.
+General metaclass hashing/equality and native-base subclass enumeration remain
+outside this subset. `_get_dump` is still absent, so unchanged `abc.py` still
+selects its fallback and fails at missing `_weakref`. Python weakref callbacks
+and regex compatibility remain deferred.
 
 ### Metaclass construction checkpoint
 
@@ -536,7 +546,7 @@ interpreter can safely run it, rather than running inside a Go cleanup callback.
 The internal lifetime choice is now Go `weak.Pointer` to actual class allocations,
 with dead entries pruned synchronously on access. Immediate user-subclass links
 use this storage and have source behavior plus Go GC ownership tests. ABC
-registries will use the same approach. Public `_weakref` and callback delivery
+registries and caches use the same approach. Public `_weakref` and callback delivery
 remain deferred; no second collector or CPython reference counting is planned.
 
 ### Failure reports need Python-visible traceback objects
@@ -612,7 +622,7 @@ The synchronous in-memory milestone is complete when:
 
 After that, add permission-controlled filesystem discovery and signal handling.
 Plan mock and async testing separately. The independent ABC class-construction
-and abstract-method computation slices are tested. Virtual registration and full
-`abc` import remain blocked on deferred weak-reference support. In-memory `_io`
+and abstract-method computation slices are tested. Virtual registration is tested through native helpers; full
+`abc` import still needs the diagnostic dump helper. In-memory `_io`
 and unchanged `io.py` are the next independent work. No unittest test has executed
 yet; the overall milestone remains blocked.

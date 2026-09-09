@@ -39,6 +39,7 @@ type Runtime struct {
 	stdout       io.Writer
 	stderr       io.Writer
 	counter      PerfCounter
+	abcToken     uint64
 }
 
 // New constructs an empty runtime instance without a module loader.

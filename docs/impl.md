@@ -724,7 +724,7 @@ its current names through the ordinary iterator and comparison continuations,
 then raises TypeError before running `__init__`. Names must be strings.
 Class-body and three-argument `type` namespace entries alone do not set the
 flag. Built-in exception allocation keeps its separate behavior. This is the
-allocation prerequisite for ABCMeta; virtual subclass registration is still missing.
+allocation prerequisite for ABCMeta; virtual subclass registration is described below.
 
 A generic class stores one stable `__type_params__` tuple in its own namespace.
 Class statements and methods capture the same parameter objects. Bullsnake does
@@ -761,11 +761,22 @@ unchanged. Properties check getter, setter, and deleter markers in order;
 classmethod and staticmethod markers follow their wrapped values. Bound methods
 expose the underlying function's marker.
 
-Registry/cache setup, `_abc_impl`, and the remaining `_abc` exports are not
-implemented. Unchanged `abc.py` consequently still selects its Python fallback
-and stops at missing `_weakref`. The helper's source fixtures exercise the
-ABCMeta construction algorithm without claiming a successful `abc` import.
-Weak-reference lifetime/callback design and regex compatibility remain deferred.
+`_abc_init` now also installs fresh `_abc_impl` state. Virtual registration,
+instance/subclass checks, cache tokens, and registry/cache reset helpers are
+implemented. Registries and both caches hold Go weak pointers to class
+allocations, with lazy pruning. Tokens are isolated per runtime; new registration
+invalidates negative caches across ABCs. Checks honor subclass hooks before
+nominal inheritance, then registered classes and immediate subclasses, through
+ordinary VM continuations. Hooks must return bool or NotImplemented.
+
+Source tests cover transitive registration, cycle rejection, native and exception
+class registration, cache resets, mutations during callbacks, reported versus
+actual instance classes, and errors. Go tests verify that actual ABC registries
+and caches do not retain discarded classes and that runtime tokens are isolated.
+General metaclass hashing/equality and native-base subclass enumeration remain
+outside this subset. `_get_dump` is still absent, so unchanged `abc.py` still
+selects its fallback and fails at missing `_weakref`. Python weakref callbacks
+and regex compatibility remain deferred.
 
 ### Metaclass construction checkpoint
 

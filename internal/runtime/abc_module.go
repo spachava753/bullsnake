@@ -1,9 +1,30 @@
 package runtime
 
-// initializeABC exposes the implemented class-setup helper. Registry and cache
-// helpers remain absent until their weak-reference contracts are implemented.
+import "math/big"
+
+// initializeABC installs class setup, weak registries, checks, and cache controls.
+// The diagnostic dump helper remains a separate slice.
 func initializeABC(runtime *Runtime, module *Module) (*Exception, error) {
 	module.globals.values["_abc_init"] = &builtinFunctionValue{name: "_abc_init", frameCall: executeABCInit}
+	module.globals.values["_abc_register"] = abcHelper("_abc_register", 2, registerABC)
+	module.globals.values["_abc_subclasscheck"] = abcHelper("_abc_subclasscheck", 2, checkABCSubclass)
+	module.globals.values["_abc_instancecheck"] = abcHelper("_abc_instancecheck", 2, checkABCInstance)
+	module.globals.values["get_cache_token"] = abcHelper("get_cache_token", 0, func(caller *frame, instruction int, arguments []Value) (instructionOutcome, error) {
+		return pushOutcome(caller, instruction, &intValue{value: *new(big.Int).SetUint64(runtime.abcToken)})
+	})
+	for _, name := range []string{"_reset_registry", "_reset_caches"} {
+		module.globals.values[name] = abcHelper(name, 1, func(caller *frame, instruction int, arguments []Value) (instructionOutcome, error) {
+			return withABCData(caller, instruction, arguments[0], func(current *frame, data *abcData) (instructionOutcome, error) {
+				if name == "_reset_registry" {
+					data.registry.entries = nil
+				} else {
+					data.positive.entries = nil
+					data.negative.entries = nil
+				}
+				return pushOutcome(current, instruction, None)
+			})
+		})
+	}
 	return nil, nil
 }
 
@@ -78,6 +99,7 @@ func (call *abcComputation) next(caller *frame) (instructionOutcome, error) {
 	methods := &frozenSetValue{entries: call.names.entries}
 	call.class.setAttribute("__abstractmethods__", methods)
 	call.class.abstract = len(methods.entries) != 0
+	call.class.setAttribute("_abc_impl", &abcData{version: caller.runtime.abcToken})
 	return pushOutcome(caller, call.instruction, None)
 }
 

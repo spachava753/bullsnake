@@ -22,6 +22,15 @@ func executeDynamicAttributeLoad(
 	owner Value,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "__class__" {
+		if _, instance := owner.(*instanceValue); !instance {
+			class, exception := typeOf(owner)
+			if exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			return pushOutcome(frame, instruction, class)
+		}
+	}
 	if outcome, found, err := executeDescriptorSubclassAttribute(frame, instruction, owner, name); found || err != nil {
 		return outcome, err
 	}
@@ -261,7 +270,10 @@ func executeTypeAttributeLoad(
 		}
 	}
 	if !found {
-		if name == "__subclasses__" {
+		if name == "__subclasshook__" {
+			return pushOutcome(frame, instruction, defaultSubclassHook())
+		}
+		if name == "__subclasses__" || name == "__subclasscheck__" || name == "__instancecheck__" {
 			method, _ := nativeMetaclassMethod(name)
 			return pushOutcome(frame, instruction, &boundMethodValue{callable: method, self: owner})
 		}
@@ -323,6 +335,9 @@ func executeInstanceAttributeLoad(
 		return pushOutcome(frame, instruction, value)
 	}
 	if !classFound {
+		if name == "__class__" {
+			return pushOutcome(frame, instruction, owner.class)
+		}
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(

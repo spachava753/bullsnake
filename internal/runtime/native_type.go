@@ -90,6 +90,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
+	"_abc._abc_data":                   nativeType("_abc", "_abc_data"),
 	"object":                           objectNativeType,
 	"NoneType":                         noneNativeType,
 	"bool":                             boolNativeType,
@@ -469,6 +470,9 @@ func executeNativeTypeAttributeLoad(
 	class *nativeTypeValue,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "__subclasshook__" {
+		return pushOutcome(frame, instruction, defaultSubclassHook())
+	}
 	if class == typeNativeType {
 		if method, found := nativeMetaclassMethod(name); found {
 			return pushOutcome(frame, instruction, method)

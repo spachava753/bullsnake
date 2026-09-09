@@ -77,11 +77,21 @@ func userSubclasses(arguments []Value, keywords *dictValue) (Value, *Exception) 
 		return nil, newException("TypeError", "__subclasses__() requires a user class receiver")
 	}
 	result := &listValue{}
-	class.subclasses.prune()
-	for _, reference := range class.subclasses.entries {
+	for _, reference := range class.subclasses.snapshot() {
 		if child := reference.value(); child != nil {
 			result.elements = append(result.elements, child)
 		}
 	}
 	return result, nil
+}
+
+func (set *weakClassSet) add(class Value) {
+	if !set.contains(class) {
+		set.entries = append(set.entries, makeWeakClass(class))
+	}
+}
+
+func (set *weakClassSet) snapshot() []weakClass {
+	set.prune()
+	return append([]weakClass(nil), set.entries...)
 }

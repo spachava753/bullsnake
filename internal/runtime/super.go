@@ -237,6 +237,9 @@ func lookupAfterClass(receiverType, start *typeValue, name string) (Value, bool)
 			return value, true
 		}
 	}
+	if name == "__subclasshook__" {
+		return defaultSubclassHook(), true
+	}
 	if receiverType.isSubclassOfNative(typeNativeType) {
 		return nativeMetaclassMethod(name)
 	}

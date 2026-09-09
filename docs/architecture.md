@@ -537,7 +537,7 @@ while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
-and general metaclass descriptor precedence remain separate gaps. Abstract-method computation now uses these continuations to scan direct attributes and inherited names; registry helpers and the abc import remain blocked.
+and general metaclass descriptor precedence remain separate gaps. Abstract-method computation now uses these continuations to scan direct attributes and inherited names; weak registry/cache helpers use the same path; the abc import still needs diagnostic dumps.
 
 ## Exceptions
 
@@ -686,7 +686,8 @@ External resources can use explicit `close()` methods and synchronous context
 managers. Go-side lifecycle APIs remain necessary for host resources. Weak
 class references now use Go `weak.Pointer` targeting actual class allocations.
 Immediate subclass links are weak and prune dead entries on access. ABC registries
-will use the same storage. Collection follows Go tracing GC, with no promise of
+and positive/negative caches use the same storage, with one invalidation token
+per runtime. Collection follows Go tracing GC, with no promise of
 immediate reclamation after `del`. Public Python weakrefs and callback delivery
 remain deferred; callbacks must run at a safe VM point, never on a Go cleanup
 goroutine.
