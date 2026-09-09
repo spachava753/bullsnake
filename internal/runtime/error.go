@@ -189,6 +189,16 @@ func executeUserExceptionTypeCall(
 			),
 		}, nil
 	}
+	builtin := class.builtinExceptionBase()
+	if builtin == unicodeEncodeErrorType || builtin == unicodeDecodeErrorType {
+		result, exception := newUnicodeError(builtin, arguments)
+		discardCallSegment(caller, base)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		result.userClass = class
+		return pushOutcome(caller, instruction, result)
+	}
 	message := exceptionMessage(arguments)
 	exception := newUserException(class, message)
 	exception.setArguments(arguments)
@@ -304,6 +314,9 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 		if isExceptionGroupType(raised) {
 			return nil, exceptionGroupArityError(0)
 		}
+		if raised == unicodeEncodeErrorType || raised == unicodeDecodeErrorType {
+			return newUnicodeError(raised, nil)
+		}
 		return newExceptionOfType(raised, ""), nil
 	case *typeValue:
 		if !raised.isExceptionClass() {
@@ -317,6 +330,10 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 		}
 		if raised.builtinExceptionBaseFor(baseExceptionGroupType) != nil {
 			return nil, exceptionGroupArityError(0)
+		}
+		builtin := raised.builtinExceptionBase()
+		if builtin == unicodeEncodeErrorType || builtin == unicodeDecodeErrorType {
+			return newUnicodeError(builtin, nil)
 		}
 		return newUserException(raised, ""), nil
 	default:

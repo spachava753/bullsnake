@@ -9,8 +9,8 @@ Before making changes, use these files as the sources of truth:
 - `docs/architecture.md` records project goals, design choices, and compatibility
   boundaries.
 - `docs/impl.md` describes what the code does now and what is still missing.
-- `docs/unittest.md` tracks the first standard-library milestone and the proposed
-  Go-backed module design using caller-supplied, composable capability interfaces.
+- `docs/unittest.md` tracks the first standard-library milestone and the implemented
+  initial Go-backed module design using caller-supplied, composable capability interfaces.
   Its first host configuration covers arguments, standard streams, and a
   performance counter; Python filesystem access comes later.
 - The code and tests define the current behavior. If they disagree with the

@@ -373,7 +373,8 @@ Add behavior tests that prove:
 The internal configuration now supplies arguments, separate input/output/error
 providers, and a performance counter. Tests cover defaults, original references,
 runtime isolation, borrowed ownership, optional Flush/IsTerminal, denied timing,
-provider failures, short writes, split UTF-8 input, Unicode counts, repeated
+provider failures, short writes, split UTF-8 input, Unicode counts and structured
+codec exceptions (including subclasses and bare-raise validation), repeated
 close, flush failures, and SystemExit. Streams remain non-seekable. They use
 strict UTF-8 and fixed LF line boundaries without newline translation.
 

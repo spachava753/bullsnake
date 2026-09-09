@@ -902,7 +902,8 @@ current read without raising. Short writes, invalid provider counts, and write
 errors cannot report full success; BlockingIOError retains the count of complete
 characters accepted. Wrapped provider errors map to the fixed errno vocabulary;
 provider-only PathError paths are omitted. UnicodeEncodeError and
-UnicodeDecodeError preserve codec arguments and offsets. Strict decoding errors
+UnicodeDecodeError preserve codec arguments and offsets, including user subclasses.
+Bare raises of those classes enforce their required constructor arguments. Strict decoding errors
 identify the first invalid byte consumed by the incremental reader; they do not
 claim CPython's internal buffer size or offsets within its buffer.
 

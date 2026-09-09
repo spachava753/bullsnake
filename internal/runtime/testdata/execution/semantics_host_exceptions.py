@@ -92,3 +92,20 @@ try:
     assert False
 except TypeError:
     pass
+
+# ---
+# case: codec exception subclasses and bare raises use constructor validation
+class DecodeFailure(UnicodeDecodeError):
+    pass
+error = DecodeFailure('utf-8', b'\xff', 0, 1, 'invalid')
+assert type(error) is DecodeFailure
+assert error.object == b'\xff'
+assert error.args == ('utf-8', b'\xff', 0, 1, 'invalid')
+for cls in [UnicodeEncodeError, UnicodeDecodeError, DecodeFailure]:
+    try:
+        raise cls
+        assert False
+    except TypeError:
+        pass
+assert UnicodeEncodeError('utf-8', 'x', False, True, 'invalid').start == 0
+assert type(UnicodeEncodeError('utf-8', 'x', False, True, 'invalid').start) is int
