@@ -35,6 +35,11 @@ func executeDynamicAttributeLoad(
 		return outcome, err
 	}
 	switch owner := owner.(type) {
+	case *classWeakReference:
+		if name == "__callback__" {
+			return pushOutcome(frame, instruction, None)
+		}
+		return raiseOutcome(newException("AttributeError", "weak reference has no attribute '"+name+"'")), nil
 	case *boundMethodValue:
 		if name == "__func__" {
 			return pushOutcome(frame, instruction, owner.callable)

@@ -41,7 +41,8 @@ func (reference weakClass) value() Value {
 // weakClassSet retains insertion order but never owns its member classes.
 // Dead entries are pruned synchronously on access; no cleanup callback runs.
 type weakClassSet struct {
-	entries []weakClass
+	entries    []weakClass
+	references map[weakClass]*classWeakReference
 }
 
 func (set *weakClassSet) prune() {
@@ -49,6 +50,8 @@ func (set *weakClassSet) prune() {
 	for _, entry := range set.entries {
 		if entry.value() != nil {
 			live = append(live, entry)
+		} else {
+			delete(set.references, entry)
 		}
 	}
 	clear(set.entries[len(live):])
@@ -94,4 +97,9 @@ func (set *weakClassSet) add(class Value) {
 func (set *weakClassSet) snapshot() []weakClass {
 	set.prune()
 	return append([]weakClass(nil), set.entries...)
+}
+
+func (set *weakClassSet) reset() {
+	set.entries = nil
+	set.references = nil
 }

@@ -774,9 +774,23 @@ class registration, cache resets, mutations during callbacks, reported versus
 actual instance classes, and errors. Go tests verify that actual ABC registries
 and caches do not retain discarded classes and that runtime tokens are isolated.
 General metaclass hashing/equality and native-base subclass enumeration remain
-outside this subset. `_get_dump` is still absent, so unchanged `abc.py` still
-selects its fallback and fails at missing `_weakref`. Python weakref callbacks
-and regex compatibility remain deferred.
+outside this subset.
+
+`_get_dump` returns independent sets sharing callback-free weak class references.
+They are callable, return None after collection, cache their target's hash, and
+compare by live class identity; distinct dead references compare unequal. Saved
+dumps do not retain their target classes. Their `__callback__` is None, unlike
+CPython's private registry-removal callbacks: Bullsnake prunes on access. These
+references have no public constructor and do not expose `_weakref` or `weakref`.
+Python callbacks and regex compatibility remain deferred.
+
+Unchanged `abc.py` now imports through the native helpers. The project-owned
+standard-library regression test executes ABC/ABCMeta construction, modern and
+legacy abstract decorators, concrete overrides, virtual and transitive
+registration, structural hooks, instance checks, and cache resets. It is not
+CPython's full test_abc suite. Execution probes still find `update_abstractmethods`
+blocked at class `__dict__` access (abc.py:177), and `_dump_registry` blocked at
+missing `print` (abc.py:127). Native `_get_dump` itself is tested independently.
 
 ### Metaclass construction checkpoint
 
@@ -794,7 +808,8 @@ while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
-and general metaclass descriptor precedence remain separate gaps. The abstract-method computation subset is described above; importing abc remains blocked.
+and general metaclass descriptor precedence remain separate gaps. The tested ABC
+subset and remaining API gaps are described above.
 
 Metaclass instance/subclass hooks and their return-value truth callbacks execute
 in the VM. Nested tuple candidates short-circuit in order. An exact instance
@@ -924,7 +939,8 @@ Bullsnake vendors selected CPython 3.14.7 standard-library modules under
 `stdlib/3.14`. Unchanged `operator`, `keyword`, and `heapq` now run selected regression tests
 for calls, classification, and heap operations. The synchronous unittest sources
 and the initial io/abc dependency files are vendored for offline import probes;
-they remain blocked at missing `_io` and `_weakref` respectively. The full
+unittest remains blocked at missing `_io`, while abc imports and has a
+project-owned source regression test. The full
 transitive dependency closure is not present. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
 module executes all eight upstream public test methods through the filesystem
@@ -1018,8 +1034,10 @@ access. Native-base subclass enumeration is not implemented yet. Tests verify
 that live parents do not retain dead subclass cycles and that instances and
 promoted references keep their classes alive.
 
-Bullsnake does not implement CPython reference counting, `__del__`, public Python
-weak references, or a compatible `gc` module. The experiments under
+Bullsnake does not implement CPython reference counting, `__del__`, general Python
+weakref construction/callbacks, or a compatible `gc` module. The callback-free
+class references returned by ABC diagnostics are the only Python-visible weak
+references currently supported. The experiments under
 `experiments/gcprobe` inform these boundaries but are not production runtime
 code.
 

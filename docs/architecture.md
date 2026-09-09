@@ -537,7 +537,10 @@ while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
-and general metaclass descriptor precedence remain separate gaps. Abstract-method computation now uses these continuations to scan direct attributes and inherited names; weak registry/cache helpers use the same path; the abc import still needs diagnostic dumps.
+and general metaclass descriptor precedence remain separate gaps. Abstract-method
+computation scans direct attributes and inherited names through these
+continuations. Weak registry/cache helpers use the same path. Unchanged abc now
+imports and has selected execution tests.
 
 ## Exceptions
 
@@ -688,9 +691,11 @@ class references now use Go `weak.Pointer` targeting actual class allocations.
 Immediate subclass links are weak and prune dead entries on access. ABC registries
 and positive/negative caches use the same storage, with one invalidation token
 per runtime. Collection follows Go tracing GC, with no promise of
-immediate reclamation after `del`. Public Python weakrefs and callback delivery
-remain deferred; callbacks must run at a safe VM point, never on a Go cleanup
-goroutine.
+immediate reclamation after `del`. ABC diagnostic dumps expose callback-free
+class references without keeping targets alive. Dumps share reference objects
+but copy their sets; dead references return None and retain cached hashes.
+General Python weakref construction and callback delivery remain deferred.
+Callbacks must run at a safe VM point, never on a Go cleanup goroutine.
 
 ## Rules the implementation must preserve
 
@@ -763,7 +768,7 @@ The project still needs concrete decisions about:
 - the public Go embedding and extension API
 - namespace-package and extended import-hook behavior
 - async scheduling, Python threads, and the execution-token policy
-- weak-reference lifetime and safe callback delivery
+- general weakref eligibility, compatibility, and safe Python callback delivery
 - Python-visible frame and traceback objects
 
 The [unittest compatibility roadmap](unittest.md) explains why several of these

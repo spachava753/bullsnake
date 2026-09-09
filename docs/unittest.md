@@ -6,7 +6,7 @@ still blocked.
 The goal is to run CPython's unchanged synchronous `unittest` package, then use
 it to run unchanged standard-library tests. Much of the Python language support
 needed for this work already exists. The next phase needs Go-backed system
-modules and more runtime behavior, especially class creation, weak references,
+modules and more runtime behavior, especially in-memory I/O, general weak references,
 and tracebacks that Python code can inspect.
 
 This document tracks that milestone. The [architecture](architecture.md)
@@ -89,14 +89,16 @@ and again after the host slices, with the same import outcomes. Operator,
 keyword, and heapq now also have checked-in execution regression tests. The
 historical 61-module compilation sweep has not been repeated.
 
-The current failures can be reproduced offline from the repository root:
+After the weak ABC registry slices, `abc` imports and has checked-in execution
+tests. `unittest` still fails at `io.py:53:8` because `_io` is absent. Reproduce
+these current outcomes offline from the repository root:
 
 ```sh
 go run ./tools/importprobe stdlib/3.14 abc unittest
 ```
 
-The probe reports expected current failures and exits unsuccessfully. It is a
-checkpoint diagnostic, not a passing unittest test. No TestCase/TestResult,
+The probe reports abc success and the current unittest failure, then exits
+unsuccessfully. It is a checkpoint diagnostic, not a passing unittest test. No TestCase/TestResult,
 suite/loader, text runner, or unittest.main execution has succeeded yet. An import success alone does
 not establish that a module's public functions work.
 
@@ -475,15 +477,14 @@ ordinary user class prevents instantiation when its truth value is true. The
 runtime retains the metadata, isolates it from subclasses, supports deletion and
 reassignment, and formats sorted missing-method diagnostics through Python
 iterator/comparison continuations. Truth failures leave the prior state intact.
-These source tests do not yet import `abc`. Abstract computation and virtual
-registration now have native-helper tests; Python weakref callbacks and regex
-compatibility remain deferred. `_weakref` remains absent.
+Runtime source fixtures test the native helpers, and a standard-library test
+now exercises unchanged `abc.py`. Python weakref callbacks and regex compatibility
+remain deferred. `_weakref` remains absent.
 
 The selected route implements the native `_abc` helpers used by unchanged
 `abc.py`. Class construction, abstract checks, virtual registration, and
-metaclass instance/subclass checks now have source-to-result tests. The remaining
-`_get_dump` helper must supply real weak diagnostic references before `abc` can
-use this route; no placeholder exports are provided.
+metaclass instance/subclass checks now have source-to-result tests. `_get_dump`
+supplies real weak diagnostic references, so unchanged `abc.py` uses this route.
 
 
 ### Abstract-method computation
@@ -511,9 +512,23 @@ class registration, cache resets, mutations during callbacks, reported versus
 actual instance classes, and errors. Go tests verify that actual ABC registries
 and caches do not retain discarded classes and that runtime tokens are isolated.
 General metaclass hashing/equality and native-base subclass enumeration remain
-outside this subset. `_get_dump` is still absent, so unchanged `abc.py` still
-selects its fallback and fails at missing `_weakref`. Python weakref callbacks
-and regex compatibility remain deferred.
+outside this subset.
+
+`_get_dump` returns independent sets sharing callback-free weak class references.
+They are callable, return None after collection, cache their target's hash, and
+compare by live class identity; distinct dead references compare unequal. Saved
+dumps do not retain their target classes. Their `__callback__` is None, unlike
+CPython's private registry-removal callbacks: Bullsnake prunes on access. These
+references have no public constructor and do not expose `_weakref` or `weakref`.
+Python callbacks and regex compatibility remain deferred.
+
+Unchanged `abc.py` now imports through the native helpers. The project-owned
+standard-library regression test executes ABC/ABCMeta construction, modern and
+legacy abstract decorators, concrete overrides, virtual and transitive
+registration, structural hooks, instance checks, and cache resets. It is not
+CPython's full test_abc suite. Execution probes still find `update_abstractmethods`
+blocked at class `__dict__` access (abc.py:177), and `_dump_registry` blocked at
+missing `print` (abc.py:127). Native `_get_dump` itself is tested independently.
 
 ### Metaclass construction checkpoint
 
@@ -531,7 +546,8 @@ while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
-and general metaclass descriptor precedence remain separate gaps. The abstract-method computation subset is described above; importing abc remains blocked.
+and general metaclass descriptor precedence remain separate gaps. The tested ABC
+subset and remaining API gaps are described above.
 
 ### Internal weak class references and deferred Python callbacks
 
@@ -622,7 +638,7 @@ The synchronous in-memory milestone is complete when:
 
 After that, add permission-controlled filesystem discovery and signal handling.
 Plan mock and async testing separately. The independent ABC class-construction
-and abstract-method computation slices are tested. Virtual registration is tested through native helpers; full
-`abc` import still needs the diagnostic dump helper. In-memory `_io`
-and unchanged `io.py` are the next independent work. No unittest test has executed
+and abstract-method computation slices are tested. Virtual registration is tested
+through both native helpers and unchanged `abc.py`, which now imports. In-memory
+`_io` and unchanged `io.py` are the next independent work. No unittest test has executed
 yet; the overall milestone remains blocked.

@@ -10,9 +10,9 @@ import (
 	"github.com/spachava753/bullsnake/internal/compiler/resolver"
 )
 
-func runABCRegistryFixture(t *testing.T, runtime *Runtime) *Module {
+func runABCRegistryFixture(t *testing.T, runtime *Runtime, name string) *Module {
 	t.Helper()
-	path := "testdata/host/abc_registry.py"
+	path := "testdata/host/abc_" + name + ".py"
 	source, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func runABCRegistryFixture(t *testing.T, runtime *Runtime) *Module {
 	if err != nil {
 		t.Fatal(err)
 	}
-	module, err := runtime.ExecuteModule("registry", code)
+	module, err := runtime.ExecuteModule(name, code)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func runABCRegistryFixture(t *testing.T, runtime *Runtime) *Module {
 
 func testABCRegistryOwnership(t *testing.T) {
 	runtime := New()
-	module := runABCRegistryFixture(t, runtime)
+	module := runABCRegistryFixture(t, runtime, "registry")
 	base := module.globals.values["Base"].(*typeValue)
 	data := base.namespace.values["_abc_impl"].(*abcData)
 	var references []weakClass
@@ -62,17 +62,18 @@ func testABCRegistryOwnership(t *testing.T) {
 			t.Fatal("dead ABC entry was not pruned")
 		}
 	}
+	runABCRegistryFixture(t, runtime, "collected")
 	goruntime.KeepAlive(runtime)
 	goruntime.KeepAlive(module)
 }
 
 func testABCRegistryIsolation(t *testing.T) {
 	first, second := New(), New()
-	firstModule := runABCRegistryFixture(t, first)
+	firstModule := runABCRegistryFixture(t, first, "registry")
 	if second.abcToken != 0 {
 		t.Fatal("registration changed another runtime's token")
 	}
-	secondModule := runABCRegistryFixture(t, second)
+	secondModule := runABCRegistryFixture(t, second, "registry")
 	firstBase := firstModule.globals.values["Base"].(*typeValue)
 	secondBase := secondModule.globals.values["Base"].(*typeValue)
 	if firstBase.namespace.values["_abc_impl"] == secondBase.namespace.values["_abc_impl"] {

@@ -3,9 +3,10 @@ package runtime
 import "math/big"
 
 // initializeABC installs class setup, weak registries, checks, and cache controls.
-// The diagnostic dump helper remains a separate slice.
+// Diagnostic snapshots use callback-free weak references to class allocations.
 func initializeABC(runtime *Runtime, module *Module) (*Exception, error) {
 	module.globals.values["_abc_init"] = &builtinFunctionValue{name: "_abc_init", frameCall: executeABCInit}
+	module.globals.values["_get_dump"] = abcHelper("_get_dump", 1, dumpABC)
 	module.globals.values["_abc_register"] = abcHelper("_abc_register", 2, registerABC)
 	module.globals.values["_abc_subclasscheck"] = abcHelper("_abc_subclasscheck", 2, checkABCSubclass)
 	module.globals.values["_abc_instancecheck"] = abcHelper("_abc_instancecheck", 2, checkABCInstance)
@@ -16,10 +17,10 @@ func initializeABC(runtime *Runtime, module *Module) (*Exception, error) {
 		module.globals.values[name] = abcHelper(name, 1, func(caller *frame, instruction int, arguments []Value) (instructionOutcome, error) {
 			return withABCData(caller, instruction, arguments[0], func(current *frame, data *abcData) (instructionOutcome, error) {
 				if name == "_reset_registry" {
-					data.registry.entries = nil
+					data.registry.reset()
 				} else {
-					data.positive.entries = nil
-					data.negative.entries = nil
+					data.positive.reset()
+					data.negative.reset()
 				}
 				return pushOutcome(current, instruction, None)
 			})

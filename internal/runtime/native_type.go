@@ -90,6 +90,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
+	"weakref.ReferenceType":            nativeType("weakref", "ReferenceType"),
 	"_abc._abc_data":                   nativeType("_abc", "_abc_data"),
 	"object":                           objectNativeType,
 	"NoneType":                         noneNativeType,

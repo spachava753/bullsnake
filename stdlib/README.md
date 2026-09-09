@@ -29,6 +29,10 @@ current blockers without Python or network access:
 go run ./tools/importprobe stdlib/3.14 abc unittest
 ```
 
-`abc` stops at `_weakrefset.py:5:1` because `_weakref` is absent. `unittest`
-stops at `io.py:53:8` because `_io` is absent. The adapted colorsys tests remain
+`abc` now imports through native `_abc` helpers backed by Go weak pointers.
+Project-owned `tests/test_abc.py` exercises abstract construction, descriptors,
+virtual registration, hooks, and checks against unchanged abc.py. It is not the
+upstream test_abc suite. `update_abstractmethods` and the printing debug helper
+still need class dictionary access and `print`, respectively. `unittest` stops
+at `io.py:53:8` because `_io` is absent. The adapted colorsys tests remain
 in place until unchanged unittest execution can replace them.

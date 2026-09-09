@@ -107,7 +107,7 @@ func checkABCSubclass(caller *frame, instruction int, arguments []Value) (instru
 			return pushOutcome(current, instruction, trueSingleton)
 		}
 		if data.version != current.runtime.abcToken {
-			data.negative.entries = nil
+			data.negative.reset()
 			data.version = current.runtime.abcToken
 		} else if data.negative.contains(candidate) {
 			return pushOutcome(current, instruction, falseSingleton)
