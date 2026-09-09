@@ -466,7 +466,8 @@ class is created. Unchanged `io.py` uses both through `abc.ABCMeta` to define
 
 Bullsnake can now define classes that inherit `classmethod`, `staticmethod`, or
 `property`. This lets `abc.py` get past its older descriptor helper definitions.
-Constructing instances of descriptor subclasses still fails. Subclassing `type`,
+ABC-style descriptor subclasses now construct and bind, including initialization
+through `super` and abstractproperty markers. Subclassing `type`,
 selecting `metaclass=`, and calling metaclass `__new__` now have source-to-result tests.
 
 The first ABC allocation slice is tested: assigning `__abstractmethods__` to an
@@ -556,8 +557,8 @@ Known gaps to check as execution advances are:
 
 - Custom attribute lookup through `__getattribute__` and `__getattr__`, plus
   more readable and writable class and function metadata.
-- Construction of native-type subclasses, including descriptors
-  and the container subclasses needed by code such as `namedtuple`.
+- Broader native-type subclass construction, especially container subclasses
+  needed by code such as `namedtuple`. Initial descriptor subclasses now work.
 - Dictionary and set keys whose hashing or equality calls Python methods.
   Direct `hash(obj)` supports a user method today, but container keys do not.
 - List, set, and frozen-set equality involving user-defined element equality.
@@ -606,5 +607,8 @@ The synchronous in-memory milestone is complete when:
 - All repository checks pass without network access or a Python executable.
 
 After that, add permission-controlled filesystem discovery and signal handling.
-Plan mock and async testing separately. The immediate next task is `abc` class construction, followed by `_io` and
-unchanged `io.py`. No unittest test has executed yet. The overall milestone remains blocked.
+Plan mock and async testing separately. The independent ABC class-construction
+and abstract-method computation slices are tested. Virtual registration and full
+`abc` import remain blocked on deferred weak-reference support. In-memory `_io`
+and unchanged `io.py` are the next independent work. No unittest test has executed
+yet; the overall milestone remains blocked.

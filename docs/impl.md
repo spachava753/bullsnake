@@ -422,8 +422,8 @@ subclasses of `object`. A user class with no named base, or with `object` as its
 sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
 A user class may instead use `classmethod`, `staticmethod`, or `property` as its
 sole native base. That native ancestry appears in class metadata and
-`issubclass`; constructing an instance of such a user subclass remains
-unsupported. Other native bases and mixed native/user direct bases remain
+`issubclass`. Descriptor subclass construction and Python initialization now
+work for the documented wrapper subset. Other native bases and mixed native/user direct bases remain
 unsupported. The `bool`, `int`, `str`, and `range` bindings are native type
 objects and retain their implemented constructor behavior. `range` accepts one
 to three integer or boolean arguments,
@@ -633,8 +633,12 @@ The built-in `property`, `classmethod`, and `staticmethod` names are callable
 native type objects. Property supports direct construction and decorator-style
 `getter`, `setter`, and `deleter` copies. Properties expose their accessor fields,
 explicit documentation, and the class-assigned name. Function-docstring
-inference remains unsupported. A user class may inherit one descriptor type but
-cannot yet construct its specialized wrapper values. `classmethod` binds its
+inference remains unsupported. A user class may inherit one descriptor type and construct specialized wrapper
+values. The wrappers retain their user-class identity and attributes, run Python
+initializers, and support native initialization through `super`. Property
+accessor copies reconstruct the subclass and run its initializer. General
+custom descriptor-subclass special methods and data-descriptor mutation overrides
+remain outside this initial wrapper subset. `classmethod` binds its
 wrapped callable to the accessed class from either class or instance lookup;
 `staticmethod` returns its wrapped callable unchanged. Both wrappers expose
 `__func__` and `__wrapped__`.

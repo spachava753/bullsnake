@@ -22,6 +22,9 @@ func executeDynamicAttributeLoad(
 	owner Value,
 	name string,
 ) (instructionOutcome, error) {
+	if outcome, found, err := executeDescriptorSubclassAttribute(frame, instruction, owner, name); found || err != nil {
+		return outcome, err
+	}
 	switch owner := owner.(type) {
 	case *boundMethodValue:
 		if name == "__func__" {
@@ -351,6 +354,13 @@ func executeDynamicAttributeStore(
 	name string,
 	value Value,
 ) (instructionOutcome, error) {
+	if state := descriptorIdentity(owner); state != nil && state.class != nil {
+		if _, overridden := state.class.lookup(name); !overridden && (name == "__func__" || name == "__wrapped__" || name == "__isabstractmethod__" || name == "fget" || name == "fset" || name == "fdel") {
+			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		state.attributes.values[name] = value
+		return instructionOutcome{kind: advance}, nil
+	}
 	switch owner := owner.(type) {
 	case *Module:
 		owner.globals.values[name] = value

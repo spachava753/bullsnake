@@ -491,8 +491,8 @@ function mutation rules. Functions retain arbitrary assigned attributes.
 Instance writes and deletes continue to run data descriptors through the frame
 loop. The built-in `property`, `classmethod`, and `staticmethod` names are
 callable type objects. A user class may inherit one of them, and its class
-metadata includes that native base; constructing such a user subclass remains
-later work. Native `property` values use the descriptor path for getter, setter,
+metadata includes that native base. Specialized wrappers retain their class and
+instance attributes in native storage; Python initializers run through the VM. Native `property` values use the descriptor path for getter, setter,
 and deleter functions. `classmethod` binds its wrapped callable to the class
 through which the attribute was accessed; `staticmethod` returns its wrapped
 callable without binding. Zero- and explicit-argument `super` values search

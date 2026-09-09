@@ -1461,24 +1461,8 @@ func executeInstruction(
 			}
 		case *functionValue:
 			return executeFunctionAttributeLoad(frame, index, owner, name)
-		case *classMethodValue:
-			return executeMethodDescriptorAttributeLoad(
-				frame,
-				index,
-				owner,
-				owner.callable,
-				name,
-			)
-		case *staticMethodValue:
-			return executeMethodDescriptorAttributeLoad(
-				frame,
-				index,
-				owner,
-				owner.callable,
-				name,
-			)
-		case *propertyValue:
-			return executePropertyAttributeLoad(frame, index, owner, name)
+		case *classMethodValue, *staticMethodValue, *propertyValue, *boundMethodValue:
+			return executeDynamicAttributeLoad(frame, index, owner, name)
 		case *templateValue:
 			return executeTemplateAttributeLoad(frame, index, owner, name)
 		case *interpolationValue:

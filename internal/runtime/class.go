@@ -410,11 +410,7 @@ func executeTypeCall(
 		)
 	}
 	if class.nativeClassBase() != nil {
-		discardCallSegment(caller, base)
-		return raiseOutcome(newException(
-			"NotImplementedError",
-			"native descriptor subclasses cannot be instantiated",
-		)), nil
+		return executeDescriptorSubclassCall(caller, instruction, base, class, arguments, keywords)
 	}
 	initializerValue, hasInitializer := class.lookup("__init__")
 	if !hasInitializer && (len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0)) {

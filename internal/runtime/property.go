@@ -3,6 +3,7 @@ package runtime
 import "fmt"
 
 type propertyValue struct {
+	descriptorState
 	getter  Value
 	setter  Value
 	deleter Value
@@ -10,9 +11,14 @@ type propertyValue struct {
 	name    string
 }
 
-func (*propertyValue) TypeName() string { return "property" }
-func (*propertyValue) Repr() string     { return "<property object>" }
-func (*propertyValue) isValue()         {}
+func (value *propertyValue) TypeName() string {
+	if value.class != nil {
+		return value.class.name
+	}
+	return "property"
+}
+func (*propertyValue) Repr() string { return "<property object>" }
+func (*propertyValue) isValue()     {}
 
 type propertyAccessorKind uint8
 
@@ -211,6 +217,11 @@ func executePropertyAccessorCall(
 		case propertyDeleterCopy:
 			copy.deleter = accessor
 		}
+	}
+	if copy.class != nil {
+		return executeDescriptorSubclassCall(caller, instruction, base, copy.class, []Value{
+			propertyValueOrNone(copy.getter), propertyValueOrNone(copy.setter), propertyValueOrNone(copy.deleter), copy.doc,
+		}, nil)
 	}
 	discardCallSegment(caller, base)
 	return pushOutcome(caller, instruction, &copy)

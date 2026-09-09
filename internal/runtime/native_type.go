@@ -405,6 +405,9 @@ func executeDynamicTypeCall(
 // typeOf returns an existing user or exception class before consulting the
 // immutable native type table for Go-backed values.
 func typeOf(value Value) (Value, *Exception) {
+	if state := descriptorIdentity(value); state != nil && state.class != nil {
+		return state.class, nil
+	}
 	switch value := value.(type) {
 	case *hostTextStream:
 		return hostTextStreamType, nil

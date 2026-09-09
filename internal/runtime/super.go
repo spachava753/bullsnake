@@ -132,6 +132,9 @@ func validateSuperReceiver(start *typeValue, receiver Value) (*typeValue, *Excep
 		}
 		description = "type " + receiver.name
 	}
+	if state := descriptorIdentity(receiver); state != nil && state.class != nil {
+		receiverType = state.class
+	}
 	if receiverType != nil && receiverType.isSubclassOf(start) {
 		return receiverType, nil
 	}
@@ -236,6 +239,9 @@ func lookupAfterClass(receiverType, start *typeValue, name string) (Value, bool)
 	}
 	if receiverType.isSubclassOfNative(typeNativeType) {
 		return nativeMetaclassMethod(name)
+	}
+	if receiverType.nativeClassBase() != nil && name == "__init__" {
+		return &builtinFunctionValue{name: "descriptor.__init__", call: initializeDescriptor}, true
 	}
 	return nil, false
 }
