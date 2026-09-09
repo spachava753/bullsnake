@@ -611,7 +611,7 @@ class_cause = False
 try:
     raise ValueError from TypeError
 except ValueError as error:
-    class_cause = f'{error.__cause__!r}' == 'TypeError("")'
+    class_cause = f'{error.__cause__!r}' == 'TypeError()'
     assert error.__suppress_context__ is True
 assert class_cause is True
 
@@ -742,7 +742,7 @@ caught_builtin_parent = False
 try:
     raise SpecificProblem
 except Exception as caught:
-    caught_builtin_parent = f'{caught!r}' == 'SpecificProblem("")'
+    caught_builtin_parent = f'{caught!r}' == 'SpecificProblem()'
 assert caught_builtin_parent is True
 
 caught_tuple = False

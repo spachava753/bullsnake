@@ -58,6 +58,8 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}
+	builtins.values["IOError"] = osErrorType
+	builtins.values["EnvironmentError"] = osErrorType
 	builtins.values["NotImplemented"] = notImplementedSingleton
 	builtins.values["__name__"] = &stringValue{value: "builtins"}
 	builtins.values["__package__"] = &stringValue{value: ""}

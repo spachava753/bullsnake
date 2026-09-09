@@ -528,6 +528,10 @@ implicit context, and `raise ... from ...` records an explicit cause. Exception
 groups use the same unwind path. `except*` splits a group, runs every matching
 clause, and then recombines unmatched or newly raised exceptions.
 
+Exceptions now preserve structured constructor arguments and the initial
+SystemExit/OSError fields. OSError errno selection uses a documented fixed
+POSIX/Linux vocabulary rather than ambient platform state.
+
 Python traceback objects and broad frame inspection are separate features. The
 runtime currently keeps only the information needed for host-facing tracebacks
 and future expansion. `BaseException.with_traceback(None)` clears that retained

@@ -231,9 +231,9 @@ The missing-capability rule is Bullsnake's explicit host-access policy.
 Unimplemented interpreter behavior keeps its existing rejection checks until
 implemented; ordinary Python operation failures are not invalid bytecode.
 
-Error support is a prerequisite for the adapters. The runtime still needs
+Error support is a prerequisite for the adapters. The runtime now implements
 `SystemExit` and its `code` attribute, the relevant `OSError` subclasses, and
-structured exception arguments. Preserve relevant `args`, `errno`, and
+structured exception arguments. `sys.exit` raises through the ordinary VM path. Preserve relevant `args`, `errno`, and
 Python-visible filenames rather than reducing provider errors to strings.
 `io.UnsupportedOperation` must match both `OSError` and `ValueError`; the current
 additional-base mechanism used by exception groups offers a starting point.
@@ -523,5 +523,4 @@ The synchronous in-memory milestone is complete when:
 - All repository checks pass without network access or a Python executable.
 
 After that, add permission-controlled filesystem discovery and signal handling.
-Plan mock and async testing separately. The immediate next task is structured exception support followed by the stream
-and performance-counter adapters. The overall milestone remains blocked.
+Plan mock and async testing separately. The immediate next task is the stream and performance-counter adapters. The overall milestone remains blocked.

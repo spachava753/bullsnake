@@ -729,6 +729,16 @@ format forms covered by execution tests. It does not yet provide general
 
 ## Exceptions
 
+Python exceptions retain constructor objects in a stable `args` tuple, including
+empty and multiple arguments. `SystemExit` retains its `code` and derives from
+`BaseException`, not `Exception`. The OSError family exposes `errno`, `strerror`,
+`filename`, and `filename2`; filename-bearing constructors keep the first two
+arguments in `args`. Exact `OSError` construction selects a subclass using a
+fixed POSIX/Linux errno vocabulary; explicit subclasses retain their type.
+`BlockingIOError` supports an integer `characters_written` third argument.
+`IOError` and `EnvironmentError` are aliases of `OSError`. General exception
+attribute mutation and user argument string-method dispatch remain unsupported.
+
 Python exceptions are `Value` implementations. The runtime has the built-in
 exception classes needed by current operations and follows their inheritance
 when matching handlers. `raise` accepts an exception instance or a supported
@@ -852,8 +862,8 @@ completed dependencies remain cached. Duplicate registrations are rejected.
 
 `sys` currently provides `argv` and the six ordinary/original stream attributes.
 All streams start as `None`; replacing an ordinary attribute leaves its original
-reference unchanged. Stream operations, counters, and exception-state helpers
-are not implemented yet. Existing bootstrap modules remain preloaded.
+reference unchanged. `sys.exit` raises catchable `SystemExit` and never exits the Go process.
+Stream operations, counters, and exception-state helpers are not implemented yet. Existing bootstrap modules remain preloaded.
 
 ## Deliberate boundaries
 

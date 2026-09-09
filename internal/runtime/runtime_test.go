@@ -689,3 +689,22 @@ func TestNativeModulePrecedesSource(t *testing.T) {
 		t.Fatalf("source loader called %d times", calls)
 	}
 }
+
+func TestSystemExitHostBoundary(t *testing.T) {
+	code := compileSource(t, "import sys\nsys.exit(7)\n")
+	runtime := bullruntime.New()
+	module, err := runtime.ExecuteModule("exit", code)
+	var raised *bullruntime.UncaughtException
+	if module != nil || !errors.As(err, &raised) {
+		t.Fatalf("execution = %v, %v", module, err)
+	}
+	if raised.Exception().TypeName() != "SystemExit" || raised.Exception().Message() != "7" {
+		t.Fatalf("exception = %v", raised)
+	}
+	if _, found := runtime.Module("exit"); found {
+		t.Fatal("failed module remained cached")
+	}
+	if _, err := runtime.ExecuteModule("after_exit", compileSource(t, "answer = 42\n")); err != nil {
+		t.Fatal(err)
+	}
+}

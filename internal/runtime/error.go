@@ -35,6 +35,7 @@ func (exceptionType *exceptionTypeValue) isSubclassOf(parent *exceptionTypeValue
 
 var (
 	baseExceptionType       = &exceptionTypeValue{name: "BaseException"}
+	systemExitType          = &exceptionTypeValue{name: "SystemExit", base: baseExceptionType}
 	generatorExitType       = &exceptionTypeValue{name: "GeneratorExit", base: baseExceptionType}
 	exceptionType           = &exceptionTypeValue{name: "Exception", base: baseExceptionType}
 	baseExceptionGroupType  = &exceptionTypeValue{name: "BaseExceptionGroup", base: baseExceptionType}
@@ -61,6 +62,7 @@ var (
 
 var builtinExceptionTypes = []*exceptionTypeValue{
 	baseExceptionType,
+	systemExitType,
 	generatorExitType,
 	exceptionType,
 	baseExceptionGroupType,
@@ -83,6 +85,11 @@ var builtinExceptionTypes = []*exceptionTypeValue{
 	zeroDivisionErrorType,
 	typeErrorType,
 	valueErrorType,
+	osErrorType, permissionErrorType, fileNotFoundErrorType, fileExistsErrorType,
+	notADirectoryErrorType, isADirectoryErrorType, blockingIOErrorType,
+	interruptedErrorType, timeoutErrorType, connectionErrorType, brokenPipeErrorType,
+	connectionAbortedErrorType, connectionRefusedErrorType, connectionResetErrorType,
+	childProcessErrorType,
 }
 
 // executeExceptionTypeCall validates an internal exception-class call, converts
@@ -118,6 +125,7 @@ func executeExceptionTypeCall(
 	}
 	message := exceptionMessage(arguments)
 	exception := newExceptionOfType(exceptionType, message)
+	exception.setArguments(arguments)
 	if exceptionType.isSubclassOf(stopIterationType) {
 		exception.stopIterationValue = None
 		if len(arguments) != 0 {
@@ -169,6 +177,7 @@ func executeUserExceptionTypeCall(
 	}
 	message := exceptionMessage(arguments)
 	exception := newUserException(class, message)
+	exception.setArguments(arguments)
 	if class.isSubclassOfBuiltinException(stopIterationType) {
 		exception.stopIterationValue = None
 		if len(arguments) != 0 {
@@ -210,6 +219,8 @@ type Exception struct {
 	class              *exceptionTypeValue
 	userClass          *typeValue
 	message            string
+	args               *tupleValue
+	fields             *Namespace
 	group              *tupleValue
 	stopIterationValue Value
 	cause              *Exception
@@ -230,7 +241,13 @@ func newException(typeName, message string) *Exception {
 }
 
 func newExceptionOfType(exceptionType *exceptionTypeValue, message string) *Exception {
-	return &Exception{class: exceptionType, message: message}
+	exception := &Exception{class: exceptionType, message: message}
+	if message == "" {
+		exception.setArguments(nil)
+	} else {
+		exception.setArguments([]Value{&stringValue{value: message}})
+	}
+	return exception
 }
 
 func newStopIteration(value Value) *Exception {
@@ -330,7 +347,23 @@ func (exception *Exception) tracebackFrames() []TracebackFrame {
 // attribute returns the chain fields shared by all exceptions and the immutable
 // message and child tuple held by an exception group.
 func (exception *Exception) attribute(name string) (Value, bool) {
+	if name == "args" {
+		return exception.arguments(), true
+	}
+	if exception.fields != nil {
+		if value, found := exception.fields.get(name); found {
+			return value, true
+		}
+	}
 	switch name {
+	case "code":
+		if exception.class.isSubclassOf(systemExitType) {
+			return None, true
+		}
+	case "errno", "strerror", "filename", "filename2":
+		if exception.class.isSubclassOf(osErrorType) {
+			return None, true
+		}
 	case "value":
 		if exception.class == nil || !exception.class.isSubclassOf(stopIterationType) {
 			return nil, false
@@ -367,6 +400,7 @@ func (exception *Exception) attribute(name string) (Value, bool) {
 	default:
 		return nil, false
 	}
+	return nil, false
 }
 
 // TypeName returns the Python exception class name.
@@ -386,6 +420,9 @@ func (exception *Exception) Message() string {
 			len(exception.group.elements),
 		)
 	}
+	if text, ok := exception.osErrorMessage(); ok {
+		return text
+	}
 	return exception.message
 }
 
@@ -395,7 +432,14 @@ func (exception *Exception) Repr() string {
 		children := (&listValue{elements: exception.group.elements}).Repr()
 		return exception.TypeName() + "(" + strconv.Quote(exception.message) + ", " + children + ")"
 	}
-	return exception.TypeName() + "(" + strconv.Quote(exception.message) + ")"
+	args := exception.arguments().elements
+	if len(args) == 1 {
+		if value, ok := args[0].(*stringValue); ok {
+			return exception.TypeName() + "(" + strconv.Quote(value.value) + ")"
+		}
+		return exception.TypeName() + "(" + args[0].Repr() + ")"
+	}
+	return exception.TypeName() + exception.arguments().Repr()
 }
 
 func (*Exception) isValue() {}

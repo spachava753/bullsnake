@@ -1,4 +1,4 @@
-# name: default arguments and absent streams
+# case: default arguments and absent streams
 import sys
 assert sys.argv == [""]
 assert sys.stdin is None

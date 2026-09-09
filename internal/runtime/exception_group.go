@@ -90,6 +90,7 @@ func executeExceptionGroupTypeCall(
 		userClass: userClass,
 		message:   message.value,
 		group:     &tupleValue{elements: children},
+		args:      &tupleValue{elements: slices.Clone(arguments)},
 	}
 	for index := base; index < len(caller.stack); index++ {
 		caller.stack[index] = nil

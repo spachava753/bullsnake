@@ -138,7 +138,7 @@ func valueText(value Value) string {
 	case *stringValue:
 		return value.value
 	case *Exception:
-		return value.message
+		return value.Message()
 	default:
 		return value.Repr()
 	}
