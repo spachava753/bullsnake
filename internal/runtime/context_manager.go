@@ -13,6 +13,12 @@ func executeLoadSpecial(
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
+	if stream, ok := owner.(*hostTextStream); ok {
+		if name == "__enter__" || name == "__exit__" {
+			return executeHostStreamAttributeLoad(frame, instruction, stream, name)
+		}
+		return raiseOutcome(missingSpecialMethod(owner, name)), nil
+	}
 	if generator, asyncGenerator := owner.(*generatorValue); asyncGenerator &&
 		generator.kind == asyncGeneratorObject {
 		var value Value

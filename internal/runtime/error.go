@@ -11,13 +11,18 @@ import (
 
 type exceptionTypeValue struct {
 	name           string
+	module         string
 	base           *exceptionTypeValue
 	additionalBase *exceptionTypeValue
 }
 
 func (*exceptionTypeValue) TypeName() string { return "type" }
 func (exceptionType *exceptionTypeValue) Repr() string {
-	return "<class '" + exceptionType.name + "'>"
+	name := exceptionType.name
+	if exceptionType.module != "" && exceptionType.module != "builtins" {
+		name = exceptionType.module + "." + name
+	}
+	return "<class '" + name + "'>"
 }
 func (*exceptionTypeValue) isValue() {}
 
@@ -35,6 +40,7 @@ func (exceptionType *exceptionTypeValue) isSubclassOf(parent *exceptionTypeValue
 
 var (
 	baseExceptionType       = &exceptionTypeValue{name: "BaseException"}
+	systemExitType          = &exceptionTypeValue{name: "SystemExit", base: baseExceptionType}
 	generatorExitType       = &exceptionTypeValue{name: "GeneratorExit", base: baseExceptionType}
 	exceptionType           = &exceptionTypeValue{name: "Exception", base: baseExceptionType}
 	baseExceptionGroupType  = &exceptionTypeValue{name: "BaseExceptionGroup", base: baseExceptionType}
@@ -61,6 +67,7 @@ var (
 
 var builtinExceptionTypes = []*exceptionTypeValue{
 	baseExceptionType,
+	systemExitType,
 	generatorExitType,
 	exceptionType,
 	baseExceptionGroupType,
@@ -83,6 +90,12 @@ var builtinExceptionTypes = []*exceptionTypeValue{
 	zeroDivisionErrorType,
 	typeErrorType,
 	valueErrorType,
+	unicodeErrorType, unicodeEncodeErrorType, unicodeDecodeErrorType,
+	osErrorType, permissionErrorType, fileNotFoundErrorType, fileExistsErrorType,
+	notADirectoryErrorType, isADirectoryErrorType, blockingIOErrorType,
+	interruptedErrorType, timeoutErrorType, connectionErrorType, brokenPipeErrorType,
+	connectionAbortedErrorType, connectionRefusedErrorType, connectionResetErrorType,
+	childProcessErrorType,
 }
 
 // executeExceptionTypeCall validates an internal exception-class call, converts
@@ -116,8 +129,17 @@ func executeExceptionTypeCall(
 			),
 		}, nil
 	}
+	if exceptionType == unicodeEncodeErrorType || exceptionType == unicodeDecodeErrorType {
+		result, exception := newUnicodeError(exceptionType, arguments)
+		discardCallSegment(caller, base)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(caller, instruction, result)
+	}
 	message := exceptionMessage(arguments)
 	exception := newExceptionOfType(exceptionType, message)
+	exception.setArguments(arguments)
 	if exceptionType.isSubclassOf(stopIterationType) {
 		exception.stopIterationValue = None
 		if len(arguments) != 0 {
@@ -167,8 +189,19 @@ func executeUserExceptionTypeCall(
 			),
 		}, nil
 	}
+	builtin := class.builtinExceptionBase()
+	if builtin == unicodeEncodeErrorType || builtin == unicodeDecodeErrorType {
+		result, exception := newUnicodeError(builtin, arguments)
+		discardCallSegment(caller, base)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		result.userClass = class
+		return pushOutcome(caller, instruction, result)
+	}
 	message := exceptionMessage(arguments)
 	exception := newUserException(class, message)
+	exception.setArguments(arguments)
 	if class.isSubclassOfBuiltinException(stopIterationType) {
 		exception.stopIterationValue = None
 		if len(arguments) != 0 {
@@ -184,7 +217,7 @@ func exceptionMessage(arguments []Value) string {
 		if text, ok := arguments[0].(*stringValue); ok {
 			return text.value
 		}
-		return arguments[0].Repr()
+		return valueText(arguments[0])
 	}
 	if len(arguments) > 1 {
 		return (&tupleValue{elements: arguments}).Repr()
@@ -210,6 +243,8 @@ type Exception struct {
 	class              *exceptionTypeValue
 	userClass          *typeValue
 	message            string
+	args               *tupleValue
+	fields             *Namespace
 	group              *tupleValue
 	stopIterationValue Value
 	cause              *Exception
@@ -230,7 +265,13 @@ func newException(typeName, message string) *Exception {
 }
 
 func newExceptionOfType(exceptionType *exceptionTypeValue, message string) *Exception {
-	return &Exception{class: exceptionType, message: message}
+	exception := &Exception{class: exceptionType, message: message}
+	if message == "" {
+		exception.setArguments(nil)
+	} else {
+		exception.setArguments([]Value{&stringValue{value: message}})
+	}
+	return exception
 }
 
 func newStopIteration(value Value) *Exception {
@@ -273,6 +314,9 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 		if isExceptionGroupType(raised) {
 			return nil, exceptionGroupArityError(0)
 		}
+		if raised == unicodeEncodeErrorType || raised == unicodeDecodeErrorType {
+			return newUnicodeError(raised, nil)
+		}
 		return newExceptionOfType(raised, ""), nil
 	case *typeValue:
 		if !raised.isExceptionClass() {
@@ -286,6 +330,10 @@ func normalizeRaisedValue(value Value, invalidMessage string) (*Exception, *Exce
 		}
 		if raised.builtinExceptionBaseFor(baseExceptionGroupType) != nil {
 			return nil, exceptionGroupArityError(0)
+		}
+		builtin := raised.builtinExceptionBase()
+		if builtin == unicodeEncodeErrorType || builtin == unicodeDecodeErrorType {
+			return newUnicodeError(builtin, nil)
 		}
 		return newUserException(raised, ""), nil
 	default:
@@ -330,7 +378,23 @@ func (exception *Exception) tracebackFrames() []TracebackFrame {
 // attribute returns the chain fields shared by all exceptions and the immutable
 // message and child tuple held by an exception group.
 func (exception *Exception) attribute(name string) (Value, bool) {
+	if name == "args" {
+		return exception.arguments(), true
+	}
+	if exception.fields != nil {
+		if value, found := exception.fields.get(name); found {
+			return value, true
+		}
+	}
 	switch name {
+	case "code":
+		if exception.class.isSubclassOf(systemExitType) {
+			return None, true
+		}
+	case "errno", "strerror", "filename", "filename2":
+		if exception.class.isSubclassOf(osErrorType) {
+			return None, true
+		}
 	case "value":
 		if exception.class == nil || !exception.class.isSubclassOf(stopIterationType) {
 			return nil, false
@@ -367,6 +431,7 @@ func (exception *Exception) attribute(name string) (Value, bool) {
 	default:
 		return nil, false
 	}
+	return nil, false
 }
 
 // TypeName returns the Python exception class name.
@@ -386,6 +451,12 @@ func (exception *Exception) Message() string {
 			len(exception.group.elements),
 		)
 	}
+	if text, ok := exception.osErrorMessage(); ok {
+		return text
+	}
+	if exception.args != nil && exception.class != unicodeEncodeErrorType && exception.class != unicodeDecodeErrorType {
+		return exceptionMessage(exception.args.elements)
+	}
 	return exception.message
 }
 
@@ -395,7 +466,14 @@ func (exception *Exception) Repr() string {
 		children := (&listValue{elements: exception.group.elements}).Repr()
 		return exception.TypeName() + "(" + strconv.Quote(exception.message) + ", " + children + ")"
 	}
-	return exception.TypeName() + "(" + strconv.Quote(exception.message) + ")"
+	args := exception.arguments().elements
+	if len(args) == 1 {
+		if value, ok := args[0].(*stringValue); ok {
+			return exception.TypeName() + "(" + strconv.Quote(value.value) + ")"
+		}
+		return exception.TypeName() + "(" + args[0].Repr() + ")"
+	}
+	return exception.TypeName() + exception.arguments().Repr()
 }
 
 func (*Exception) isValue() {}

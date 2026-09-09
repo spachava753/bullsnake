@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"io"
 	"slices"
 	"strings"
 
@@ -28,10 +29,16 @@ type ModuleLoader func(request ModuleRequest) (spec ModuleSpec, found bool, err 
 // Runtime owns mutable interpreter state shared by executions in one isolated
 // Python runtime instance.
 type Runtime struct {
-	builtins *Namespace
-	modules  map[string]*Module
-	prepared map[*bytecode.Code]*preparedCode
-	loader   ModuleLoader
+	builtins     *Namespace
+	modules      map[string]*Module
+	prepared     map[*bytecode.Code]*preparedCode
+	loader       ModuleLoader
+	constructors map[string]moduleConstructor
+	args         []string
+	stdin        io.Reader
+	stdout       io.Writer
+	stderr       io.Writer
+	counter      PerfCounter
 }
 
 // New constructs an empty runtime instance without a module loader.
@@ -56,6 +63,8 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}
+	builtins.values["IOError"] = osErrorType
+	builtins.values["EnvironmentError"] = osErrorType
 	builtins.values["NotImplemented"] = notImplementedSingleton
 	builtins.values["__name__"] = &stringValue{value: "builtins"}
 	builtins.values["__package__"] = &stringValue{value: ""}
@@ -66,12 +75,17 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	stringPackage, templateLibrary := newTemplateLibraryModules()
 	modules[stringPackage.name] = stringPackage
 	modules[templateLibrary.name] = templateLibrary
-	return &Runtime{
-		builtins: builtins,
-		modules:  modules,
-		prepared: make(map[*bytecode.Code]*preparedCode),
-		loader:   loader,
+	runtime := &Runtime{
+		builtins:     builtins,
+		modules:      modules,
+		prepared:     make(map[*bytecode.Code]*preparedCode),
+		loader:       loader,
+		constructors: make(map[string]moduleConstructor),
+		args:         []string{""},
 	}
+	runtime.constructors["sys"] = moduleConstructor{initialize: initializeSys}
+	runtime.constructors["time"] = moduleConstructor{initialize: initializeTime}
+	return runtime
 }
 
 // ExecuteModule validates and executes one code object as an ordinary module.
@@ -131,6 +145,32 @@ func (runtime *Runtime) newModuleFrame(
 	if prepared.code.Flags()&bytecode.AsyncGenerator != 0 {
 		return nil, nil, prepared.failure(-1, "module code cannot be an async generator")
 	}
+	module := newModule(name, spec)
+	globals := module.globals
+	fastLocals := make([]Value, len(prepared.locals))
+	deref, ok := initializeDeref(prepared, fastLocals, nil)
+	if !ok {
+		return nil, nil, prepared.failure(
+			-1,
+			"module closure has 0 cells for %d free variables",
+			len(prepared.freeVars),
+		)
+	}
+	return module, &frame{
+		runtime:    runtime,
+		code:       prepared,
+		stack:      make([]Value, 0, prepared.stackSize),
+		fastLocals: fastLocals,
+		deref:      deref,
+		locals:     globals,
+		globals:    globals,
+		builtins:   runtime.builtins,
+		previous:   previous,
+	}, nil
+}
+
+// newModule creates import metadata without fabricating source bytecode.
+func newModule(name string, spec ModuleSpec) *Module {
 	globals := newNamespace()
 	globals.values["__name__"] = &stringValue{value: name}
 	packageName := name
@@ -161,26 +201,8 @@ func (runtime *Runtime) newModuleFrame(
 		isPackage:       spec.IsPackage,
 		searchLocations: searchLocations,
 	}
-	fastLocals := make([]Value, len(prepared.locals))
-	deref, ok := initializeDeref(prepared, fastLocals, nil)
-	if !ok {
-		return nil, nil, prepared.failure(
-			-1,
-			"module closure has 0 cells for %d free variables",
-			len(prepared.freeVars),
-		)
-	}
-	return module, &frame{
-		runtime:    runtime,
-		code:       prepared,
-		stack:      make([]Value, 0, prepared.stackSize),
-		fastLocals: fastLocals,
-		deref:      deref,
-		locals:     globals,
-		globals:    globals,
-		builtins:   runtime.builtins,
-		previous:   previous,
-	}, nil
+
+	return module
 }
 
 func (runtime *Runtime) restoreModule(

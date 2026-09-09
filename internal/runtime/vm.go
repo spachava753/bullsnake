@@ -1567,6 +1567,8 @@ func executeInstruction(
 					),
 				}, nil
 			}
+		case *hostTextStream:
+			return executeHostStreamAttributeLoad(frame, index, owner, name)
 		case *Exception:
 			return executeExceptionAttributeLoad(frame, index, owner, name)
 		case *Module:

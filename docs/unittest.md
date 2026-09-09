@@ -47,7 +47,7 @@ Neither is part of this milestone.
 | Python execution | Functions, all parameter kinds, decorators, closures, classes, inheritance, loops, comprehensions, generators, exceptions, and context managers have execution tests. |
 | Objects and builtins | Method binding, properties, `super`, attribute helpers, type checks, user-defined iteration and comparisons, sorting, and many string and collection methods work within the documented subset. |
 | Imports | Source modules, regular packages, relative imports, repeated and circular imports, and cleanup after a failed import are tested. |
-| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. General Go module registration and system modules are still missing. |
+| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. Private per-runtime Go constructors now initialize modules through the importer; `sys` exposes isolated arguments, borrowed UTF-8 streams, and catchable exit; `time.perf_counter` uses only the supplied counter. `_io` and the remaining import dependencies are still missing. |
 | Standard-library tests | Unchanged `colorsys.py` runs with adapted versions of all eight upstream public test methods. These use plain assertions, not `TestCase` objects. |
 
 The [language tests](../internal/runtime/testdata/execution/) run Python source
@@ -55,8 +55,11 @@ through parsing, name resolution, compilation, bytecode validation, and
 execution. The [standard-library runner](../stdlib/stdlib_test.go) uses the
 filesystem loader and creates a fresh runtime for each test module.
 
-The checked-in standard-library tree contains only `colorsys.py` and its adapted
-test. It does not yet contain `unittest` or its dependencies.
+The checked-in tree now also contains unchanged `operator`, `keyword`, and
+`heapq` with passing source-to-result smoke tests. The synchronous unittest
+sources and the initial io/abc dependency sources are vendored unchanged for
+offline reproduction. The full dependency closure is not present, unittest still
+does not import, and colorsys still runs adapted assertions.
 
 ### Results from the earlier compatibility probes
 
@@ -81,9 +84,25 @@ Separate import probes at the same revision reported:
 | `abc` | Reached `Lib/_weakrefset.py:5:1`, then failed because `_weakref` was missing. |
 
 These are recorded probe results, not checks in the current Go test suite.
-Repeat them against the pinned source when implementation resumes, and turn
-working imports into checked-in regression tests. An import success alone does
+The five import probes were repeated against main at `d202a6f` on 2026-09-09
+and again after the host slices, with the same import outcomes. Operator,
+keyword, and heapq now also have checked-in execution regression tests. The
+historical 61-module compilation sweep has not been repeated.
+
+The current failures can be reproduced offline from the repository root:
+
+```sh
+go run ./tools/importprobe stdlib/3.14 abc unittest
+```
+
+The probe reports expected current failures and exits unsuccessfully. It is a
+checkpoint diagnostic, not a passing unittest test. No TestCase/TestResult,
+suite/loader, text runner, or unittest.main execution has succeeded yet. An import success alone does
 not establish that a module's public functions work.
+
+An execution smoke test after the host slices exposed missing list item
+assignment inside `heapq.heapify`. Native integer/boolean list assignment now has
+source fixtures; slice mutation remains unsupported.
 
 The evidence supports moving on to system-module work. It does not establish
 that all the language features needed by `unittest` are finished.
@@ -95,8 +114,10 @@ interfaces, following the approach used by `io/fs`. A capability is an operation
 the host makes available, such as writing output or reading a clock. The caller
 can supply any implementation that satisfies its interface.
 
-This section proposes the first contracts. None of this configuration or module
-registration exists yet. The Go names below are illustrative; the public API
+The private constructor registry and initial `runtime.Config` argument/loader
+configuration are implemented and tested. The performance counter is implemented with fake-provider and denial tests.
+Borrowed UTF-8 stream adapters now have source fixtures and Go provider tests.
+The broader io/ABC surface below remains planned. The Go names below are illustrative; the public API
 will follow tested internal implementations.
 
 ### Small interfaces, supplied explicitly
@@ -229,9 +250,10 @@ The missing-capability rule is Bullsnake's explicit host-access policy.
 Unimplemented interpreter behavior keeps its existing rejection checks until
 implemented; ordinary Python operation failures are not invalid bytecode.
 
-Error support is a prerequisite for the adapters. The runtime still needs
+Error support is a prerequisite for the adapters. The runtime now implements
 `SystemExit` and its `code` attribute, the relevant `OSError` subclasses, and
-structured exception arguments. Preserve relevant `args`, `errno`, and
+structured exception arguments, including text that follows mutations of retained
+native values. `sys.exit` raises through the ordinary VM path. Preserve relevant `args`, `errno`, and
 Python-visible filenames rather than reducing provider errors to strings.
 `io.UnsupportedOperation` must match both `OSError` and `ValueError`; the current
 additional-base mechanism used by exception groups offers a starting point.
@@ -346,6 +368,21 @@ Add behavior tests that prove:
   boundary as a Python exception when uncaught, without terminating the process.
 - Unchanged Python dependencies and tests use these wrappers through the normal
   importer and interpreter.
+
+### Tested host checkpoint
+
+The internal configuration now supplies arguments, separate input/output/error
+providers, and a performance counter. Tests cover defaults, original references,
+runtime isolation, borrowed ownership, optional Flush/IsTerminal, denied timing,
+provider failures, short writes, split UTF-8 input, Unicode counts and structured
+codec exceptions (including subclasses and bare-raise validation), repeated
+close, flush failures, and SystemExit. Streams remain non-seekable. They use
+strict UTF-8 and fixed LF line boundaries without newline translation.
+
+The host wrappers currently support direct reads/writes and context management;
+iteration, writelines, io ABC inheritance, and the in-memory StringIO type remain
+future slices. `sys.modules` and active exception/traceback state are also still
+missing. None of these host tests establishes unittest compatibility.
 
 ## What to do next
 
@@ -521,5 +558,5 @@ The synchronous in-memory milestone is complete when:
 - All repository checks pass without network access or a Python executable.
 
 After that, add permission-controlled filesystem discovery and signal handling.
-Plan mock and async testing separately. The immediate next task is to review the
-proposed capability contracts and test the first internal module implementation.
+Plan mock and async testing separately. The immediate next task is `abc` class construction, followed by `_io` and
+unchanged `io.py`. No unittest test has executed yet. The overall milestone remains blocked.

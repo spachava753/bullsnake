@@ -320,7 +320,7 @@ func callTargetName(frame *frame) string {
 }
 
 // executeStoreSubscript consumes value, container, and key in compiler stack
-// order, then applies mapping key validation and insertion semantics.
+// order, then applies native list replacement or mapping insertion semantics.
 func executeStoreSubscript(frame *frame, instruction int) (instructionOutcome, error) {
 	key, ok := frame.pop()
 	if !ok {
@@ -333,6 +333,12 @@ func executeStoreSubscript(frame *frame, instruction int) (instructionOutcome, e
 	value, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	if list, ok := container.(*listValue); ok {
+		if exception := list.assignIndex(key, value); exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return instructionOutcome{kind: advance}, nil
 	}
 	dictionary, ok := container.(*dictValue)
 	if !ok {

@@ -509,6 +509,12 @@ behavior, returns `None`, and replaces the target contents only after success.
 Bullsnake does not yet expose an empty target to sort callbacks or detect target
 mutation during sorting as CPython does.
 
+List item assignment now accepts native integer and boolean indexes, including
+negative indexes, and preserves list and assigned-element identity. Invalid
+indexes leave the list unchanged. Slice assignment, deletion, and user-defined
+`__index__` conversion are still unsupported. This closes the indexed replacement
+operation used by unchanged `heapq.heapify` and `heappop`.
+
 Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
 `keys`, `update`, and `values` methods. Copy clones ordered entry storage while
 retaining key and value identities. The view methods return live `dict_items`,
@@ -729,6 +735,17 @@ format forms covered by execution tests. It does not yet provide general
 
 ## Exceptions
 
+Python exceptions retain constructor objects in a stable `args` tuple, including
+empty and multiple arguments. Ordinary exception text observes subsequent
+mutations of retained native-container arguments. `SystemExit` retains its `code` and derives from
+`BaseException`, not `Exception`. The OSError family exposes `errno`, `strerror`,
+`filename`, and `filename2`; filename-bearing constructors keep the first two
+arguments in `args`. Exact `OSError` construction selects a subclass using a
+fixed POSIX/Linux errno vocabulary; explicit subclasses retain their type.
+`BlockingIOError` supports an integer `characters_written` third argument.
+`IOError` and `EnvironmentError` are aliases of `OSError`. General exception
+attribute mutation and user argument string-method dispatch remain unsupported.
+
 Python exceptions are `Value` implementations. The runtime has the built-in
 exception classes needed by current operations and follows their inheritance
 when matching handlers. `raise` accepts an exception instance or a supported
@@ -834,12 +851,70 @@ reload, import locks, and a general standard-library distribution remain
 unimplemented.
 
 Bullsnake vendors selected CPython 3.14.7 standard-library modules under
-`stdlib/3.14`. The first module is the unchanged `colorsys.py`. Its adapted test
+`stdlib/3.14`. Unchanged `operator`, `keyword`, and `heapq` now run selected regression tests
+for calls, classification, and heap operations. The synchronous unittest sources
+and the initial io/abc dependency files are vendored for offline import probes;
+they remain blocked at missing `_io` and `_weakref` respectively. The full
+transitive dependency closure is not present. The original first executable
+module remains unchanged `colorsys.py`. Its adapted test
 module executes all eight upstream public test methods through the filesystem
 loader and complete interpreter pipeline. The
 [unittest compatibility roadmap](unittest.md) records the remaining work needed
 to replace those assertions with the unchanged synchronous CPython test
 framework.
+
+## Internal host configuration
+
+`runtime.NewWithConfig` copies UTF-8 arguments and retains the supplied source
+loader. Empty arguments become `[""]`. Invalid argument encoding returns a Go
+construction error. There is no ambient host access. The private per-runtime
+constructor registry sits between the cache and source loader. Constructors
+populate a cached module without dummy code; failure removes that module while
+completed dependencies remain cached. Duplicate registrations are rejected.
+
+`sys` provides `argv`, `exit`, and ordinary/original standard-stream attributes.
+Unconfigured streams initialize to `None`. Configured streams receive fresh
+`bullsnake.HostTextStream` wrappers; original attributes retain their identities
+after ordinary attributes are replaced. `sys.exit` normalizes None and tuple
+statuses as CPython does, preserves a supplied SystemExit instance, and raises
+through the VM without exiting Go.
+
+Host streams borrow `io.Reader` or `io.Writer`. They use strict UTF-8, count
+characters rather than bytes, preserve newlines, and delimit `readline` on LF
+(the equivalent of fixed `newline="\n"`). They expose `read`, `readline`,
+`write`, `flush`, `close`, context management, stream status queries, and fixed
+`encoding`, `errors`, and `closed` attributes. Size arguments currently accept
+native integers/booleans; `read` also accepts None. Custom `__index__` size
+conversion, iteration, `writelines`, and broader TextIOBase behavior remain later
+work. These wrappers do not yet inherit the not-yet-implemented io ABCs.
+
+Only output `Flusher` and either direction's `Terminal` are recognized as
+optional interfaces. No output buffer is added. Missing Flush means no work;
+missing IsTerminal means false. Seeking, telling, truncating, descriptors, and
+the wrong read/write direction raise the internal `io.UnsupportedOperation`
+class, which matches OSError and ValueError. The `io` module is still absent.
+Closing flushes output and closes the wrapper even if flushing raises. It never
+calls a borrowed provider's Close, and repeated close does nothing. Other I/O
+and status operations on a closed wrapper raise ValueError.
+
+Input buffering retains bytes returned alongside an error or EOF. A provider
+failure after decoded text is delivered on the next nonzero read. EOF ends the
+current read without raising. Short writes, invalid provider counts, and write
+errors cannot report full success; BlockingIOError retains the count of complete
+characters accepted. Wrapped provider errors map to the fixed errno vocabulary;
+provider-only PathError paths are omitted. UnicodeEncodeError and
+UnicodeDecodeError preserve codec arguments and offsets, including user subclasses.
+Bare raises of those classes enforce their required constructor arguments. Strict decoding errors
+identify the first invalid byte consumed by the incremental reader; they do not
+claim CPython's internal buffer size or offsets within its buffer.
+
+`time.perf_counter` converts a caller-supplied `PerfCounter` duration to seconds.
+Missing counters raise PermissionError; typed nil providers fail construction.
+The provider promises nondecreasing values from a fixed arbitrary origin. There
+is no clock fallback, wall time, sleeping, or scheduling. Provider calls run
+synchronously and may block indefinitely. No cancellation guarantee is made.
+`sys.modules`, active exception helpers, Python traceback objects, `_io`, and
+unchanged `io.py` remain unimplemented.
 
 ## Deliberate boundaries
 

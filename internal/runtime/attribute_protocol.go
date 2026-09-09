@@ -23,6 +23,8 @@ func executeDynamicAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch owner := owner.(type) {
+	case *hostTextStream:
+		return executeHostStreamAttributeLoad(frame, instruction, owner, name)
 	case *functionValue:
 		return executeFunctionAttributeLoad(frame, instruction, owner, name)
 	case *classMethodValue:
