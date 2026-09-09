@@ -736,7 +736,8 @@ format forms covered by execution tests. It does not yet provide general
 ## Exceptions
 
 Python exceptions retain constructor objects in a stable `args` tuple, including
-empty and multiple arguments. `SystemExit` retains its `code` and derives from
+empty and multiple arguments. Ordinary exception text observes subsequent
+mutations of retained native-container arguments. `SystemExit` retains its `code` and derives from
 `BaseException`, not `Exception`. The OSError family exposes `errno`, `strerror`,
 `filename`, and `filename2`; filename-bearing constructors keep the first two
 arguments in `args`. Exact `OSError` construction selects a subclass using a

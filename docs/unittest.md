@@ -252,7 +252,8 @@ implemented; ordinary Python operation failures are not invalid bytecode.
 
 Error support is a prerequisite for the adapters. The runtime now implements
 `SystemExit` and its `code` attribute, the relevant `OSError` subclasses, and
-structured exception arguments. `sys.exit` raises through the ordinary VM path. Preserve relevant `args`, `errno`, and
+structured exception arguments, including text that follows mutations of retained
+native values. `sys.exit` raises through the ordinary VM path. Preserve relevant `args`, `errno`, and
 Python-visible filenames rather than reducing provider errors to strings.
 `io.UnsupportedOperation` must match both `OSError` and `ValueError`; the current
 additional-base mechanism used by exception groups offers a starting point.

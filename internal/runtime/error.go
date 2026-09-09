@@ -217,7 +217,7 @@ func exceptionMessage(arguments []Value) string {
 		if text, ok := arguments[0].(*stringValue); ok {
 			return text.value
 		}
-		return arguments[0].Repr()
+		return valueText(arguments[0])
 	}
 	if len(arguments) > 1 {
 		return (&tupleValue{elements: arguments}).Repr()
@@ -453,6 +453,9 @@ func (exception *Exception) Message() string {
 	}
 	if text, ok := exception.osErrorMessage(); ok {
 		return text
+	}
+	if exception.args != nil && exception.class != unicodeEncodeErrorType && exception.class != unicodeDecodeErrorType {
+		return exceptionMessage(exception.args.elements)
 	}
 	return exception.message
 }

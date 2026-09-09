@@ -27,8 +27,12 @@ Run all four required gates before each finished commit. Do not claim milestone 
 - ce4c3f6: borrowed strict UTF-8 standard streams, provider errors and Unicode errors.
 - 70767d4: native integer/boolean list assignment, exposed by heapq execution.
 
-The next commit vendors unchanged synchronous unittest and initial io/abc sources,
-plus operator/keyword/heapq and their passing behavior smoke test. Every copied
+- ec92045: unchanged synchronous unittest and initial io/abc sources,
+  plus operator/keyword/heapq and their passing behavior smoke test.
+- 25e9336: codec exception subclass and bare-raise constructor validation.
+- Final review: exception text follows retained mutable native argument values.
+
+Every copied
 source was compared byte-for-byte with its pinned Git blob, not just a checkout.
 
 Offline reproduction:

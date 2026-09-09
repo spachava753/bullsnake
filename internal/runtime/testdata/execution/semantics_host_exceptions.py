@@ -109,3 +109,15 @@ for cls in [UnicodeEncodeError, UnicodeDecodeError, DecodeFailure]:
         pass
 assert UnicodeEncodeError('utf-8', 'x', False, True, 'invalid').start == 0
 assert type(UnicodeEncodeError('utf-8', 'x', False, True, 'invalid').start) is int
+
+# ---
+# case: exception text observes retained mutable arguments
+payload = [1]
+error = ValueError(payload)
+payload.append(2)
+assert error.args[0] is payload
+assert str(error) == '[1, 2]'
+error = ValueError(payload, 'detail')
+payload.append(3)
+assert str(error) == "([1, 2, 3], 'detail')"
+assert str(SystemExit(ValueError('detail'))) == 'detail'
