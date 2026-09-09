@@ -711,6 +711,19 @@ immutable, read-only `__bases__`, `__base__`, and `__mro__` metadata. A built-in
 exception class may still be the sole direct base; multiple user exception
 classes use ordinary C3 ancestry.
 
+Ordinary user-class allocation now enforces the abstract flag set by assigning
+`__abstractmethods__`. Assignment evaluates Python truth before storing the
+original object and the flag; a failed truth callback leaves both unchanged.
+Deletion clears the flag. Reading this metadata uses only the class's own
+namespace, and assignment does not update subclasses. Mutating the retained
+object does not recompute the flag. A blocked constructor collects and sorts
+its current names through the ordinary iterator and comparison continuations,
+then raises TypeError before running `__init__`. Names must be strings.
+Class-body and three-argument `type` namespace entries alone do not set the
+flag. Built-in exception allocation keeps its separate behavior. This is the
+allocation prerequisite for ABCMeta; automatic abstract-method computation,
+metaclass construction, and virtual subclass registration are still missing.
+
 A generic class stores one stable `__type_params__` tuple in its own namespace.
 Class statements and methods capture the same parameter objects. Bullsnake does
 not yet add an implicit `Generic[...]` base or support class specialization. A

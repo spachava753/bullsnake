@@ -438,6 +438,13 @@ separate from evaluated interpolation values and their source metadata; creating
 one does not format those values. More of Python's data model will be added when
 language features or packages require it.
 
+Abstract allocation state belongs to each user class. Assigning
+`__abstractmethods__` resolves truth through the VM before storing the value and
+flag together. Allocation diagnostics reuse resumable collection and sorting
+operations, so Python callbacks stay in the existing frame loop. A metaclass
+will compute each subclass's abstract methods; the allocation layer does not
+propagate or recompute that metadata.
+
 A Python special method may call arbitrary Python code. The VM therefore keeps
 the requesting instruction suspended while the method's frame runs in the same
 iterative dispatch loop. User-defined truth testing for conditions and `bool`,

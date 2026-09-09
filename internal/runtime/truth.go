@@ -25,6 +25,7 @@ type truthCall struct {
 	sorting       *sortCall
 	sortReverse   *sortCall
 	splitlines    *stringSplitlinesCall
+	abstractStore *abstractMethodsStore
 }
 
 // executeTruthOperation resolves one value for a bytecode truth operation.
@@ -222,6 +223,9 @@ func completeTruthCall(
 	call *truthCall,
 	truth bool,
 ) (instructionOutcome, error) {
+	if call.abstractStore != nil {
+		return finishAbstractMethodsStore(frame, call.abstractStore, truth)
+	}
 	if call.filtering != nil {
 		return finishFilterTruth(frame, call.filtering, truth)
 	}

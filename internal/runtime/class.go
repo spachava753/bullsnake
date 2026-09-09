@@ -18,6 +18,7 @@ type typeValue struct {
 	bases         []*typeValue
 	mro           []*typeValue
 	objectBase    bool
+	abstract      bool
 	nativeBase    *nativeTypeValue
 	exceptionBase *exceptionTypeValue
 }
@@ -382,15 +383,30 @@ func executeTypeCall(
 			"native descriptor subclasses cannot be instantiated",
 		)), nil
 	}
-	instance := &instanceValue{class: class, attributes: newNamespace()}
 	initializerValue, hasInitializer := class.lookup("__init__")
-	if !hasInitializer {
-		if len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0) {
-			return instructionOutcome{
-				kind:      raised,
-				exception: newException("TypeError", class.name+"() takes no arguments"),
-			}, nil
+	if !hasInitializer && (len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0)) {
+		return raiseOutcome(newException("TypeError", class.name+"() takes no arguments")), nil
+	}
+	if class.abstract {
+		discardCallSegment(caller, base)
+		methods, found := class.namespace.get("__abstractmethods__")
+		if !found {
+			return raiseOutcome(newException("AttributeError", "__abstractmethods__")), nil
 		}
+		return startCollectionConstructor(caller, &collectionConstructorCall{
+			instruction: instruction,
+			kind:        collectionSorted,
+			iterable:    methods,
+			sorting: &sortCall{
+				instruction:   instruction,
+				key:           None,
+				reverseValue:  falseSingleton,
+				abstractClass: class,
+			},
+		})
+	}
+	instance := &instanceValue{class: class, attributes: newNamespace()}
+	if !hasInitializer {
 		for index := base; index < len(caller.stack); index++ {
 			caller.stack[index] = nil
 		}

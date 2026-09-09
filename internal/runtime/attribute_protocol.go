@@ -186,6 +186,11 @@ func executeTypeAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "__abstractmethods__":
+		if value, found := owner.namespace.get(name); found {
+			return pushOutcome(frame, instruction, value)
+		}
+		return raiseOutcome(newException("AttributeError", name)), nil
 	case "__name__":
 		return pushOutcome(frame, instruction, &stringValue{value: owner.name})
 	case "__qualname__":
@@ -337,6 +342,14 @@ func executeDynamicAttributeStore(
 		}
 		owner.attributes.values[name] = value
 	case *typeValue:
+		if name == "__abstractmethods__" {
+			return executeTruthWithCall(frame, value, &truthCall{
+				instruction: instruction,
+				abstractStore: &abstractMethodsStore{
+					instruction: instruction, class: owner, value: value,
+				},
+			})
+		}
 		if readOnlyTypeMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
@@ -375,6 +388,12 @@ func executeDynamicAttributeDelete(
 	case *typeValue:
 		if readOnlyTypeMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		if name == "__abstractmethods__" {
+			if _, found := owner.namespace.get(name); !found {
+				return raiseOutcome(newException("AttributeError", name)), nil
+			}
+			owner.abstract = false
 		}
 		attributes = owner.namespace
 		missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"

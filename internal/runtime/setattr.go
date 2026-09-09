@@ -47,6 +47,10 @@ func executeBuiltinSetattr(
 	)
 	if err != nil || outcome.kind != advance {
 		if outcome.kind == called {
+			if outcome.frame != nil && outcome.frame.truth != nil && outcome.frame.truth.abstractStore != nil {
+				outcome.frame.truth.abstractStore.returnNone = true
+				return outcome, err
+			}
 			if outcome.frame == nil || outcome.frame.attribute == nil {
 				return instructionOutcome{}, caller.failure(
 					instruction,

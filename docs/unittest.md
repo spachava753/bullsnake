@@ -469,6 +469,16 @@ Bullsnake can now define classes that inherit `classmethod`, `staticmethod`, or
 Constructing instances of those subclasses still fails. Subclassing `type`,
 selecting `metaclass=`, and calling metaclass `__new__` are also unsupported.
 
+The first ABC allocation slice is tested: assigning `__abstractmethods__` to an
+ordinary user class prevents instantiation when its truth value is true. The
+runtime retains the metadata, isolates it from subclasses, supports deletion and
+reassignment, and formats sorted missing-method diagnostics through Python
+iterator/comparison continuations. Truth failures leave the prior state intact.
+These source tests do not import `abc`; metaclass construction and automatic
+abstract-method computation remain next. Weak-reference lifetime/callback design
+and regex compatibility are deferred while these independent prerequisites land.
+No `_abc` or `_weakref` substitute is exposed.
+
 Choose between implementing the `_abc` helper used by `abc.py` and supporting
 its `_py_abc` fallback through `_weakref`, `weakref`, and `_weakrefset`. Either
 route still needs class creation, abstract-method checks, subclass registration,

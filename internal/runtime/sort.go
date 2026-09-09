@@ -12,18 +12,19 @@ type sortItem struct {
 }
 
 type sortCall struct {
-	instruction  int
-	key          Value
-	reverseValue Value
-	reverse      bool
-	values       []Value
-	items        []sortItem
-	keyIndex     int
-	position     int
-	scan         int
-	current      sortItem
-	inserting    bool
-	target       *listValue
+	instruction   int
+	key           Value
+	reverseValue  Value
+	reverse       bool
+	values        []Value
+	items         []sortItem
+	keyIndex      int
+	position      int
+	scan          int
+	current       sortItem
+	inserting     bool
+	target        *listValue
+	abstractClass *typeValue
 }
 
 // executeBuiltinSorted validates the keyword-only controls, then collects the
@@ -247,6 +248,9 @@ func continueSortInsertion(
 			)), nil
 		}
 		finishSortInsertionStep(call, ordered && comparison < 0)
+	}
+	if call.abstractClass != nil {
+		return raiseOutcome(abstractAllocationError(call.abstractClass, call.items)), nil
 	}
 	values := make([]Value, len(call.items))
 	for index, item := range call.items {
