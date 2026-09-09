@@ -86,6 +86,10 @@ and produced the same results. The historical 61-module compilation sweep has
 not been repeated. Working imports still need checked-in regression tests. An import success alone does
 not establish that a module's public functions work.
 
+An execution smoke test after the host slices exposed missing list item
+assignment inside `heapq.heapify`. Native integer/boolean list assignment now has
+source fixtures; slice mutation remains unsupported.
+
 The evidence supports moving on to system-module work. It does not establish
 that all the language features needed by `unittest` are finished.
 

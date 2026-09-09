@@ -509,6 +509,12 @@ behavior, returns `None`, and replaces the target contents only after success.
 Bullsnake does not yet expose an empty target to sort callbacks or detect target
 mutation during sorting as CPython does.
 
+List item assignment now accepts native integer and boolean indexes, including
+negative indexes, and preserves list and assigned-element identity. Invalid
+indexes leave the list unchanged. Slice assignment, deletion, and user-defined
+`__index__` conversion are still unsupported. This closes the indexed replacement
+operation used by unchanged `heapq.heapify` and `heappop`.
+
 Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
 `keys`, `update`, and `values` methods. Copy clones ordered entry storage while
 retaining key and value identities. The view methods return live `dict_items`,
