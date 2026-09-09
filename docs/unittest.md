@@ -55,8 +55,11 @@ through parsing, name resolution, compilation, bytecode validation, and
 execution. The [standard-library runner](../stdlib/stdlib_test.go) uses the
 filesystem loader and creates a fresh runtime for each test module.
 
-The checked-in standard-library tree contains only `colorsys.py` and its adapted
-test. It does not yet contain `unittest` or its dependencies.
+The checked-in tree now also contains unchanged `operator`, `keyword`, and
+`heapq` with passing source-to-result smoke tests. The synchronous unittest
+sources and the initial io/abc dependency sources are vendored unchanged for
+offline reproduction. The full dependency closure is not present, unittest still
+does not import, and colorsys still runs adapted assertions.
 
 ### Results from the earlier compatibility probes
 
@@ -82,8 +85,19 @@ Separate import probes at the same revision reported:
 
 These are recorded probe results, not checks in the current Go test suite.
 The five import probes were repeated against main at `d202a6f` on 2026-09-09
-and produced the same results. The historical 61-module compilation sweep has
-not been repeated. Working imports still need checked-in regression tests. An import success alone does
+and again after the host slices, with the same import outcomes. Operator,
+keyword, and heapq now also have checked-in execution regression tests. The
+historical 61-module compilation sweep has not been repeated.
+
+The current failures can be reproduced offline from the repository root:
+
+```sh
+go run ./.plan/probe stdlib/3.14 abc unittest
+```
+
+The probe reports expected current failures and exits unsuccessfully. It is a
+checkpoint diagnostic, not a passing unittest test. No TestCase/TestResult,
+suite/loader, text runner, or unittest.main execution has succeeded yet. An import success alone does
 not establish that a module's public functions work.
 
 An execution smoke test after the host slices exposed missing list item

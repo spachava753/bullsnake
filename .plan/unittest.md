@@ -18,3 +18,34 @@ Slices:
 5. Python tracebacks, test cases/results, suites/loaders, reports, colorsys, main.
 
 Run all four required gates before each finished commit. Do not claim milestone completion from imports.
+
+## Tested checkpoint
+
+- 44901dc: private native constructors and isolated arguments/default sys attributes.
+- 7b996b6: structured exception args, SystemExit/sys.exit, OSError family.
+- 0941aab: caller-supplied performance counter; no ambient timing.
+- ce4c3f6: borrowed strict UTF-8 standard streams, provider errors and Unicode errors.
+- 70767d4: native integer/boolean list assignment, exposed by heapq execution.
+
+The next commit vendors unchanged synchronous unittest and initial io/abc sources,
+plus operator/keyword/heapq and their passing behavior smoke test. Every copied
+source was compared byte-for-byte with its pinned Git blob, not just a checkout.
+
+Offline reproduction:
+    go run ./.plan/probe stdlib/3.14 abc unittest
+Current failing operations:
+    abc -> _weakrefset.py:5:1 -> from _weakref import ref -> ModuleNotFoundError
+    unittest -> io.py:53:8 -> import _io -> ModuleNotFoundError
+
+No unittest case, result, suite, loader, runner, or main has executed. Next work:
+ABC/metaclass construction; _io and unchanged io; genuine weak references with a
+settled lifetime/safe-VM callback design; Python traceback/frame/exception state;
+remaining unchanged import dependencies and execution operations. Full source
+closure and unchanged colorsys test replacement remain pending. No weak-reference
+lifetime policy has been chosen or exposed; no strong-reference substitute exists.
+Regex compatibility, filesystem path permissions, signals, and public extension
+APIs remain separate decisions; no new authority was granted for them.
+
+All four required gates passed before each finished commit. Final offline gates
+use GOPROXY=off and GOSUMDB=off with Go 1.27.1 and the unchanged pinned tool/deps.
+The historical 61-source compilation sweep was not repeated and is not new evidence.

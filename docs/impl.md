@@ -850,7 +850,12 @@ reload, import locks, and a general standard-library distribution remain
 unimplemented.
 
 Bullsnake vendors selected CPython 3.14.7 standard-library modules under
-`stdlib/3.14`. The first module is the unchanged `colorsys.py`. Its adapted test
+`stdlib/3.14`. Unchanged `operator`, `keyword`, and `heapq` now run selected regression tests
+for calls, classification, and heap operations. The synchronous unittest sources
+and the initial io/abc dependency files are vendored for offline import probes;
+they remain blocked at missing `_io` and `_weakref` respectively. The full
+transitive dependency closure is not present. The original first executable
+module remains unchanged `colorsys.py`. Its adapted test
 module executes all eight upstream public test methods through the filesystem
 loader and complete interpreter pipeline. The
 [unittest compatibility roadmap](unittest.md) records the remaining work needed
