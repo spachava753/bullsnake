@@ -88,29 +88,274 @@ not establish that a module's public functions work.
 The evidence supports moving on to system-module work. It does not establish
 that all the language features needed by `unittest` are finished.
 
+## Design for Go-backed modules
+
+The chosen direction is to describe host capabilities with small, composable Go
+interfaces, following the approach used by `io/fs`. A capability is an operation
+the host makes available, such as writing output or reading a clock. The caller
+can supply any implementation that satisfies its interface.
+
+This section proposes the first contracts. None of this configuration or module
+registration exists yet. The Go names below are illustrative; the public API
+will follow tested internal implementations.
+
+### Small interfaces, supplied explicitly
+
+Go's `fs.FS` requires only `Open`. Helpers such as `fs.Stat` and `fs.ReadDir` use
+optional interfaces when available and otherwise try the operations on an opened
+file. Follow that pattern: require only what an operation needs, and use extra
+interfaces for additional behavior or a correct fallback.
+
+Reuse standard Go interfaces where their meaning fits. The first configuration
+needs `io.Writer` for output and `io.Reader` for input. Read-only filesystem
+access can use `fs.FS` later, once its path rules are defined. Add a Bullsnake
+interface only when the standard library has no suitable contract.
+
+For example, the initial configuration could look like this:
+
+```go
+// Proposed types, not an implemented API.
+type Flusher interface {
+    Flush() error
+}
+
+type Terminal interface {
+    IsTerminal() bool
+}
+
+type PerfCounter interface {
+    PerfCounter() time.Duration
+}
+
+type HostConfig struct {
+    Args    []string
+    Stdin   io.Reader
+    Stdout  io.Writer
+    Stderr  io.Writer
+    Counter PerfCounter
+}
+```
+
+Output can go to a `bytes.Buffer`; a custom writer needs only `Write`, without
+also implementing input, seeking, or terminal operations. A `bufio.Writer`
+already implements `Flusher`. Tests can supply a predictable counter.
+Applications can supply their own implementations without depending on Python
+object types. Filesystem access is absent from this first configuration; the
+existing source loader remains a separate way to load Python files.
+
+Use typed configuration fields, not an untyped collection of services or one
+large interface with a method for every system operation. Each adapter must name
+the optional interfaces it recognizes. Check those interfaces on the supplied
+value, rather than checking concrete Go types or exposing every available method.
+
+The initial output adapter recognizes `Flusher` and `Terminal`. It adds no
+buffering of its own. Without `Flusher`, `flush` has nothing to drain; without
+`Terminal`, `isatty` returns false. A provider with its own pending buffer must
+provide `Flush` if Python is to flush it. An implemented method can still fail;
+its presence does not guarantee success for every underlying resource.
+
+Keep the initial host text streams non-seekable, even if the supplied object
+implements `io.Seeker`. A Go file representing a pipe still has a `Seek` method,
+and Go byte offsets do not implement Python text-stream positions. Those
+positions can include decoding state. `StringIO` owns its separate in-memory
+position rules. A later file adapter can add seeking with the appropriate
+Python behavior and tests.
+
+The counter returns a nondecreasing duration from a fixed, arbitrary origin.
+The Python wrapper converts it to seconds for `time.perf_counter()`. It grants
+no wall-clock, sleeping, timer, or scheduling operations. Define those interfaces
+separately if later tests need them.
+
+### Python behavior stays in the module implementation
+
+The caller provides Go services. Bullsnake's Go-backed module code turns them
+into Python values and implements argument checks, return values, exceptions,
+and object behavior. It must use the same call and attribute paths as other
+runtime values.
+
+| Python module or behavior | Source of its state or operations |
+| --- | --- |
+| `sys.argv` | Copy configured arguments into a fresh Python list. If the configuration supplies no entries, use `[""]`; unchanged `unittest.main()` reads `argv[0]`. |
+| Platform information | Describe the configured environment and Bullsnake implementation without silently copying process globals or pretending to be CPython. |
+| `sys.stdin`, `stdout`, and `stderr` | Python stream wrappers around the supplied Go reader or writers, or `None` when absent. Python can replace these attributes without changing the original configuration. |
+| `sys.__stdin__`, `__stdout__`, and `__stderr__` | Initially reference the same objects as the corresponding standard streams. Replacing `sys.stdout`, for example, leaves `sys.__stdout__` unchanged. |
+| `sys.modules`, `exc_info`, and `exception` | The runtime's live module cache and active handled exception. These are interpreter state, not host-provider interfaces. |
+| `sys.exit` | Raise Python `SystemExit`. Python may catch it; an uncaught exit crosses the Go execution boundary as a Python exception. Never call `os.Exit`. |
+| `_io` in-memory streams | Runtime-owned objects with no filesystem capability. `StringIO` implements Python text positions, character counts, and close behavior. |
+| `_io` file streams and `os` filesystem operations | Explicit filesystem access, with additional interfaces for operations beyond read-only access. |
+| `time.perf_counter` | The configured counter only. |
+| `signal` | Runtime-owned Python handlers plus separately supplied host signal access, when signal handling is implemented. Importing the module must not install process handlers. |
+
+The text wrapper must not confuse Go byte counts with Python character counts.
+For the first host-stream adapter, use a documented UTF-8 encoding policy and
+test non-ASCII text, partial writes, and errors. Other encodings and configurable
+newline handling can follow. Do not claim that `io.Writer` itself implements
+Python's text-stream contract.
+
+Operations that use `sys.stdout` or `sys.stderr` must resolve the current Python
+attribute, rather than bypassing it and writing to the configured Go writer.
+An API given an explicit stream, such as `TextTestRunner`, may retain that stream
+as Python specifies. Importing `sys` again returns the same module and preserves
+any replacements.
+
+### Missing capabilities do not grant host access
+
+Configuration supplies authority as well as an implementation. No filesystem,
+clock, stream, environment, or signal operation may fall back to ambient Go
+process state. An eventual convenience configuration that uses the real host
+must be an explicit choice.
+
+Keep module availability separate from permission to perform an operation.
+`sys`, in-memory `_io`, and pure path or constant helpers should work without
+filesystem access. Imports still have to satisfy the real Python dependencies;
+this rule does not permit placeholder classes or functions.
+
+An unconfigured standard stream appears as `None` in both its ordinary and
+original `sys` attributes. Callers that need output must supply a stream;
+Bullsnake does not quietly use `os.Stdout` or discard the output.
+
+Keep configuration errors, denied access, and operation failures distinct:
+
+| Situation | Result |
+| --- | --- |
+| Invalid Go configuration, such as duplicate module registrations | Return a Go error during runtime construction, before Python runs. Omitting an optional capability is valid configuration. |
+| Host capability not supplied | Raise `PermissionError` when the operation is attempted. This includes a missing counter and, later, missing filesystem access. Never substitute fabricated results or consult the host process. |
+| Operation not supported by a particular Python stream | Raise `io.UnsupportedOperation`. The initial host text adapters reject seeking even when their Go provider has a `Seek` method. |
+| Go provider reports an I/O failure | Translate it into the appropriate `OSError` subclass at the Python module boundary. |
+| Reading or writing a closed Python stream | Raise `ValueError`. Repeated `close` calls have no effect; other methods follow their Python closed-stream rules. |
+
+The missing-capability rule is Bullsnake's explicit host-access policy.
+`NotImplementedError` must not stand in for intentionally withheld access.
+Unimplemented interpreter behavior keeps its existing rejection checks until
+implemented; ordinary Python operation failures are not invalid bytecode.
+
+Error support is a prerequisite for the adapters. The runtime still needs
+`SystemExit` and its `code` attribute, the relevant `OSError` subclasses, and
+structured exception arguments. Preserve relevant `args`, `errno`, and
+Python-visible filenames rather than reducing provider errors to strings.
+`io.UnsupportedOperation` must match both `OSError` and `ValueError`; the current
+additional-base mechanism used by exception groups offers a starting point.
+
+Use `errors.Is` for classifications such as `fs.ErrNotExist` and
+`fs.ErrPermission`, and `errors.As` to inspect structured errors such as
+`fs.PathError`. Report paths as seen by Python, not incidental host paths used
+inside an adapter. Keep end of input separate from failure, and retain bytes
+returned alongside an error before handling that error.
+
+A fallback may only use already supplied capabilities. Read-only file access
+must not discover a concrete `*os.File` and acquire unrelated process access
+through its descriptor. Likewise, a missing optimized filesystem method must
+not trigger a call to Go's process-wide `os` functions.
+
+### Filesystem paths and resource ownership need their own rules
+
+Use `fs.FS` later for the read-only operations it can represent, with
+`fstest.MapFS` as one useful test provider. It does not define file creation,
+writes, renames, removal, or Python's complete path behavior. Add small
+interfaces for those operations when discovery or file tests require them,
+rather than requiring a full filesystem implementation upfront.
+
+`fs.FS` names are slash-separated paths relative to a root, not arbitrary Python
+paths. The Python adapter must define how its configured roots and working
+directory map to those names, including absolute paths and `..`. Settle and test
+that mapping before exposing file operations. An `fs.FS` value alone is not a
+security sandbox; confinement, including symlink behavior, depends on the
+provider. Importing Python source and granting Python file access are separate
+choices, even if the host deliberately supplies the same filesystem to both.
+
+Configuration copies ordinary data such as arguments but retains references to
+capability providers. Providers passed in as standard streams are borrowed.
+Closing a Python wrapper closes that wrapper and flushes as appropriate; it does
+not close the host object merely because it also implements `io.Closer`.
+A file opened for Python is owned by that Python stream and closes its returned
+handle. Do not depend on garbage collection to close files.
+
+Each runtime gets fresh modules, Python stream wrappers, and other mutable
+Python state. The caller may deliberately share a Go writer or filesystem
+between runtimes, but must then account for its shared state and concurrent use.
+
+Provider calls are synchronous in the first implementation. An arbitrary
+`io.Reader` or `io.Writer` may block indefinitely; passing a `context.Context`
+through the interpreter cannot interrupt such a call by itself. Cancellable I/O
+needs a separate provider contract later. The first API promises neither I/O
+timeouts nor forced shutdown of a blocked provider.
+
+Provider goroutines must not mutate Python objects or call Python directly.
+Future signal delivery must hand events back to the interpreter for execution.
+
+### Create Go-backed modules through the ordinary importer
+
+Keep an internal registry of module constructors on each runtime. On import,
+check the module cache first, then a registered Go constructor, then the source
+loader. Reject duplicate Go registrations during configuration. Registered Go
+modules take precedence over same-named source files; replacing a host provider
+should not require replacing Python module source.
+
+The importer creates and caches a module before initializing it, so repeated
+and circular imports observe the same object. A Go constructor populates that
+module for its runtime. Failed initialization follows the existing cache cleanup
+rules, and package children use the existing parent binding rules. Initialization
+must not open files or install signal handlers simply because a module was
+imported.
+
+The current `ModuleSpec` carries compiled Python code. Extend the internal
+loading path to distinguish source execution from Go initialization; do not
+invent empty bytecode to represent a Go module. Python code still receives full
+bytecode validation, and any Python calls made by native operations still run
+through the existing interpreter frame loop.
+
+Supplying a capability must not require writing a module constructor. The first
+milestone can keep constructors private while accepting caller implementations
+of the small Go interfaces. A general public API for registering custom Python
+modules remains separate work.
+
+### Build and test the smallest useful configuration
+
+First implement module creation and isolated configuration. Add the exception
+types and attributes needed by each operation before exposing its stream or
+counter adapter. Then add the streams, active exception state, and counter
+needed by the in-memory test runner. Keep Python filesystem access, process
+operations, and signal-handler control out of that first configuration. The
+abstract-class, weak-reference, and traceback work below is still required;
+Go interfaces do not remove those Python compatibility requirements.
+
+Add behavior tests that prove:
+
+- Empty argument configuration produces `sys.argv == [""]`, and configured
+  argument lists are copied rather than shared between runtimes.
+- Missing streams initialize both ordinary and original `sys` attributes to
+  `None`. Supplied streams initially share identity with their original
+  attributes, and later replacements leave those originals unchanged.
+- A minimal writer works without optional interfaces. Output wrappers use
+  `Flush` and `IsTerminal` when supplied, but remain non-seekable even when the
+  provider implements `io.Seeker`.
+- Repeated imports preserve module identity, failed imports clean up correctly,
+  and separate runtimes do not share mutable Python module state.
+- Replacing a Python stream redirects operations that use that attribute.
+  Closing a wrapper does not close a borrowed host writer, repeated close is
+  harmless, and closed-stream operations and flush failures follow Python rules.
+- Missing capabilities raise the documented errors without touching host
+  resources. I/O exceptions retain their relevant attributes, and
+  `io.UnsupportedOperation` is caught as both `OSError` and `ValueError`.
+- Readers retain data returned alongside end of input or an error. Partial
+  writes and write failures are not reported as complete successful writes.
+  Text adapters handle non-ASCII text without confusing bytes and characters.
+- A fake counter controls runner timing without consulting the real clock.
+  A missing counter raises `PermissionError`.
+- `SystemExit` preserves its `code`, can be caught in Python, and crosses the Go
+  boundary as a Python exception when uncaught, without terminating the process.
+- Unchanged Python dependencies and tests use these wrappers through the normal
+  importer and interpreter.
+
 ## What to do next
 
-### 1. Decide how Go-backed modules get their state and permissions
+### 1. Implement the module and capability design
 
-This is the current pause point. Before exposing system modules, decide how the
-embedding Go program supplies or denies access to host resources. A public Go
-API is not required yet, but the internal design must leave these choices with
-the host.
-
-Add an internal way to create Go-backed modules for each runtime. Use the same
-module cache and attribute behavior as Python modules, and keep mutable state
-isolated between runtimes.
-
-| Module or service | Decision needed |
-| --- | --- |
-| `sys` | How to expose the live module cache, arguments, replaceable streams, active exceptions, exit requests, and selected platform information. |
-| `_io` | Start with in-memory streams. Decide separately how `open`, `FileIO`, descriptors, buffering, and text encoding will work. |
-| `time` | How the host supplies or permits the clock used by `perf_counter`. |
-| `signal` | What can be imported without installing handlers, and how a host opts into process signal access later. |
-| `os`, `posix`, `stat`, `errno` | What metadata and path behavior imports need, and how filesystem and process access will be configured before discovery is enabled. |
-
-The existing Go filesystem loader can read Python source files. It does not give
-Python code an `open` builtin or an `os` module.
+Begin with the internal module constructors and typed configuration described
+above. Implement each adapter's exception prerequisites before exposing its
+operations. Prove isolation, defaults, denied access, and caller-supplied output
+with focused tests before adding more system operations. Keep exact public Go
+names open until those internal contracts work.
 
 ### 2. Make the unchanged package import
 
@@ -276,5 +521,5 @@ The synchronous in-memory milestone is complete when:
 - All repository checks pass without network access or a Python executable.
 
 After that, add permission-controlled filesystem discovery and signal handling.
-Plan mock and async testing separately. The immediate next task remains the
-runtime-owned module and host-access design.
+Plan mock and async testing separately. The immediate next task is to review the
+proposed capability contracts and test the first internal module implementation.

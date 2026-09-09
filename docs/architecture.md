@@ -593,6 +593,16 @@ The public value and extension contracts should not expose internal code
 objects, frames, or object layouts. Go modules should register explicitly with
 a runtime or builder. Static linking is the first distribution model.
 
+Host services will use small, composable Go interfaces, following `io/fs`.
+Callers supply implementations; Go-backed Python modules own Python argument,
+value, and exception behavior. Reuse standard interfaces such as `io.Writer`
+and `fs.FS` where their contracts fit. Optional interfaces add operations without
+requiring every provider to implement them. Host access must be explicit, with
+no fallback to process-global resources when a capability is absent. The
+[unittest module design](unittest.md#design-for-go-backed-modules) proposes the
+first configuration, ownership, and module-creation contracts. These are not
+implemented yet.
+
 A Go callback may call back into Python only through an execution context owned
 by the runtime. Background goroutines may finish host work and post a result,
 but they must not mutate Python objects directly.
@@ -708,7 +718,8 @@ promises them.
 The project still needs concrete decisions about:
 
 - the package compatibility set after synchronous `unittest`
-- the runtime capability model for `sys`, I/O, filesystems, clocks, and signals
+- the exact host-capability interfaces and path rules for filesystem and signal
+  access, building on the composable-interface design
 - the public Go embedding and extension API
 - namespace-package and extended import-hook behavior
 - async scheduling, Python threads, and the execution-token policy
