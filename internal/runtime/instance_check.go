@@ -56,6 +56,8 @@ func instanceMatchesClass(instance Value, candidate Value) (bool, *Exception) {
 		}
 	case *typeValue:
 		switch instance := instance.(type) {
+		case *typeValue:
+			return instance.metaclass != nil && instance.metaclass.isSubclassOf(candidate), nil
 		case *instanceValue:
 			return instance.class.isSubclassOf(candidate), nil
 		case *Exception:

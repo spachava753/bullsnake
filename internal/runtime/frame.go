@@ -43,6 +43,7 @@ type frame struct {
 	builtins            *Namespace
 	previous            *frame
 	classBuild          *classBuild
+	nativeContinuation  *nativeContinuation
 	instanceInit        *instanceInit
 	classAnnotations    *classAnnotationLoad
 	functionAnnotations *functionAnnotationLoad

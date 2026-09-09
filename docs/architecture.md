@@ -432,7 +432,7 @@ Set-like operations on dictionary views and other native collection or text
 methods remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
-descriptor behavior. Metaclass selection, MRO-entry rewriting, unions, and
+descriptor behavior. MRO-entry rewriting, unions, and
 custom metaclass checks remain later work. A template keeps literal strings
 separate from evaluated interpolation values and their source metadata; creating
 one does not format those values. More of Python's data model will be added when
@@ -519,6 +519,26 @@ Current list, set, and frozen-set equality recurses through values with fixed
 runtime equality; user-defined element equality still needs a suspended
 comparison path. Container and object implementations must support those calls
 when the protocols are added.
+
+
+### Metaclass construction checkpoint
+
+User classes may now inherit `type`. Class statements select the most-derived
+compatible metaclass before executing the body, call `__prepare__`, and pass its
+exact dictionary to `__new__` and `__init__`. Python factory functions are also
+accepted as metaclasses. Dictionary namespaces retain body writes and deletions;
+custom mapping namespaces remain unsupported. `type.__new__`, metaclass `super`,
+class-cell propagation, inherited metaclass identity, and dynamic `type`
+construction share the same class builder. Construction exceptions propagate
+through the existing VM and are catchable at the class statement.
+
+Native operations can retain ordered result continuations on their Python caller
+while a child frame executes. They resume after the child's existing protocols
+complete; error continuations run before the caller's Python exception handlers.
+This supports metaclass call sequences without using the Go stack for Python
+calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+and general metaclass descriptor precedence remain separate gaps. Automatic
+abstract-method computation is the next ABC slice; importing abc remains blocked.
 
 ## Exceptions
 

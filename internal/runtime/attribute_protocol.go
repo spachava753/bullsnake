@@ -235,6 +235,20 @@ func executeTypeAttributeLoad(
 		return pushOutcome(frame, instruction, result)
 	}
 	value, found := owner.lookup(name)
+	if !found && owner.isSubclassOfNative(typeNativeType) {
+		value, found = nativeMetaclassMethod(name)
+	}
+	if !found && owner.metaclass != nil {
+		if method, exists := owner.metaclass.lookup(name); exists {
+			if function, ok := method.(*functionValue); ok {
+				return pushOutcome(frame, instruction, &boundMethodValue{callable: function, self: owner})
+			}
+			if bound, ok := bindMethodDescriptor(method, owner.metaclass); ok {
+				return pushOutcome(frame, instruction, bound)
+			}
+			return pushOutcome(frame, instruction, method)
+		}
+	}
 	if !found {
 		return instructionOutcome{
 			kind: raised,

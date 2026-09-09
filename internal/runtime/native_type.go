@@ -180,6 +180,7 @@ func executeNativeTypeCall(
 				instruction,
 				base,
 				arguments,
+				nil,
 			)
 		}
 		if len(arguments) != 1 {
@@ -279,6 +280,7 @@ func executeDynamicTypeCall(
 	instruction int,
 	base int,
 	arguments []Value,
+	metaclass *typeValue,
 ) (instructionOutcome, error) {
 	name, ok := arguments[0].(*stringValue)
 	if !ok {
@@ -306,6 +308,20 @@ func executeDynamicTypeCall(
 			"TypeError",
 			"type.__new__() argument 3 must be dict, not "+invalidType,
 		)), nil
+	}
+	explicit := Value(typeNativeType)
+	if metaclass != nil {
+		explicit = metaclass
+	}
+	selected, selectionError := selectMetaclass(explicit, baseTuple.elements)
+	if selectionError != nil {
+		discardCallSegment(caller, base)
+		return raiseOutcome(selectionError), nil
+	}
+	if selected != explicit {
+		arguments = append([]Value(nil), arguments...)
+		discardCallSegment(caller, base)
+		return executeMetaclassCall(caller, instruction, selected.(*typeValue), arguments, nil)
 	}
 	bases, exceptionBase, nativeBase, objectBase, exception := resolveClassBases(
 		baseTuple.elements,
@@ -367,7 +383,18 @@ func executeDynamicTypeCall(
 		build.recordStore("__qualname__")
 	}
 
-	result, exception := build.finish(None)
+	cell, hasCell := namespace.get("__classcell__")
+	if hasCell {
+		if _, ok := cell.(*cellValue); !ok {
+			discardCallSegment(caller, base)
+			return raiseOutcome(newException("TypeError", "__classcell__ must be a nonlocal cell, not <class '"+cell.TypeName()+"'>")), nil
+		}
+		delete(namespace.values, "__classcell__")
+	}
+	result, exception := build.finish(cell)
+	if class, ok := result.(*typeValue); ok {
+		class.metaclass = metaclass
+	}
 	discardCallSegment(caller, base)
 	if exception != nil {
 		return raiseOutcome(exception), nil
@@ -381,7 +408,12 @@ func typeOf(value Value) (Value, *Exception) {
 	switch value := value.(type) {
 	case *hostTextStream:
 		return hostTextStreamType, nil
-	case *nativeTypeValue, *typeValue, *exceptionTypeValue:
+	case *typeValue:
+		if value.metaclass != nil {
+			return value.metaclass, nil
+		}
+		return typeNativeType, nil
+	case *nativeTypeValue, *exceptionTypeValue:
 		return typeNativeType, nil
 	case *instanceValue:
 		return value.class, nil
@@ -434,6 +466,11 @@ func executeNativeTypeAttributeLoad(
 	class *nativeTypeValue,
 	name string,
 ) (instructionOutcome, error) {
+	if class == typeNativeType {
+		if method, found := nativeMetaclassMethod(name); found {
+			return pushOutcome(frame, instruction, method)
+		}
+	}
 	if name == "__contains__" {
 		switch class {
 		case setNativeType:

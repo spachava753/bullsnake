@@ -461,8 +461,7 @@ metaclass `__instancecheck__` methods are not implemented. Three-argument `type`
 uses the same class builder as a class statement. It accepts a string name, a
 tuple of currently supported bases, and a dictionary with string keys. It
 supplies default module and qualified-name metadata, honors explicit values,
-and supports methods, C3 inheritance, and user exception classes. Metaclass
-selection, `__mro_entries__`, and non-string namespace keys remain unsupported.
+and supports methods, C3 inheritance, and user exception classes. `__mro_entries__` and non-string namespace keys remain unsupported.
 The `dir` builtin returns sorted bound names from the current frame or from a
 module, user class MRO, or instance namespace. It includes computed class
 metadata and does not yet invoke custom `__dir__`. The remaining built-in type
@@ -722,7 +721,7 @@ then raises TypeError before running `__init__`. Names must be strings.
 Class-body and three-argument `type` namespace entries alone do not set the
 flag. Built-in exception allocation keeps its separate behavior. This is the
 allocation prerequisite for ABCMeta; automatic abstract-method computation,
-metaclass construction, and virtual subclass registration are still missing.
+and virtual subclass registration are still missing.
 
 A generic class stores one stable `__type_params__` tuple in its own namespace.
 Class statements and methods capture the same parameter objects. Bullsnake does
@@ -738,13 +737,33 @@ class-only rule for `__aenter__` and `__aexit__`; the runtime requires native
 coroutines from both methods. Asynchronous iteration also looks up `__aiter__`
 and `__anext__` on the class, and requires a native coroutine from each
 `__anext__` call. The object model does not yet implement complete annotation
-attribute mutation rules, class keyword arguments, metaclasses, `__new__`, or
+attribute mutation rules, generic instance `__new__`, or
 custom `__getattribute__`, `__getattr__`, and `__setattr__`. Custom exception
 initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general
 `__format__` dispatch.
+
+
+### Metaclass construction checkpoint
+
+User classes may now inherit `type`. Class statements select the most-derived
+compatible metaclass before executing the body, call `__prepare__`, and pass its
+exact dictionary to `__new__` and `__init__`. Python factory functions are also
+accepted as metaclasses. Dictionary namespaces retain body writes and deletions;
+custom mapping namespaces remain unsupported. `type.__new__`, metaclass `super`,
+class-cell propagation, inherited metaclass identity, and dynamic `type`
+construction share the same class builder. Construction exceptions propagate
+through the existing VM and are catchable at the class statement.
+
+Native operations can retain ordered result continuations on their Python caller
+while a child frame executes. They resume after the child's existing protocols
+complete; error continuations run before the caller's Python exception handlers.
+This supports metaclass call sequences without using the Go stack for Python
+calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+and general metaclass descriptor precedence remain separate gaps. Automatic
+abstract-method computation is the next ABC slice; importing abc remains blocked.
 
 ## Exceptions
 

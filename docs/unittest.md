@@ -466,16 +466,16 @@ class is created. Unchanged `io.py` uses both through `abc.ABCMeta` to define
 
 Bullsnake can now define classes that inherit `classmethod`, `staticmethod`, or
 `property`. This lets `abc.py` get past its older descriptor helper definitions.
-Constructing instances of those subclasses still fails. Subclassing `type`,
-selecting `metaclass=`, and calling metaclass `__new__` are also unsupported.
+Constructing instances of descriptor subclasses still fails. Subclassing `type`,
+selecting `metaclass=`, and calling metaclass `__new__` now have source-to-result tests.
 
 The first ABC allocation slice is tested: assigning `__abstractmethods__` to an
 ordinary user class prevents instantiation when its truth value is true. The
 runtime retains the metadata, isolates it from subclasses, supports deletion and
 reassignment, and formats sorted missing-method diagnostics through Python
 iterator/comparison continuations. Truth failures leave the prior state intact.
-These source tests do not import `abc`; metaclass construction and automatic
-abstract-method computation remain next. Weak-reference lifetime/callback design
+These source tests do not import `abc`; automatic abstract-method computation
+remains next. Weak-reference lifetime/callback design
 and regex compatibility are deferred while these independent prerequisites land.
 No `_abc` or `_weakref` substitute is exposed.
 
@@ -483,6 +483,26 @@ Choose between implementing the `_abc` helper used by `abc.py` and supporting
 its `_py_abc` fallback through `_weakref`, `weakref`, and `_weakrefset`. Either
 route still needs class creation, abstract-method checks, subclass registration,
 and the matching behavior in `isinstance` and `issubclass`.
+
+
+### Metaclass construction checkpoint
+
+User classes may now inherit `type`. Class statements select the most-derived
+compatible metaclass before executing the body, call `__prepare__`, and pass its
+exact dictionary to `__new__` and `__init__`. Python factory functions are also
+accepted as metaclasses. Dictionary namespaces retain body writes and deletions;
+custom mapping namespaces remain unsupported. `type.__new__`, metaclass `super`,
+class-cell propagation, inherited metaclass identity, and dynamic `type`
+construction share the same class builder. Construction exceptions propagate
+through the existing VM and are catchable at the class statement.
+
+Native operations can retain ordered result continuations on their Python caller
+while a child frame executes. They resume after the child's existing protocols
+complete; error continuations run before the caller's Python exception handlers.
+This supports metaclass call sequences without using the Go stack for Python
+calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+and general metaclass descriptor precedence remain separate gaps. Automatic
+abstract-method computation is the next ABC slice; importing abc remains blocked.
 
 ### Weak references need a memory and callback design
 
@@ -518,7 +538,7 @@ Known gaps to check as execution advances are:
 
 - Custom attribute lookup through `__getattribute__` and `__getattr__`, plus
   more readable and writable class and function metadata.
-- Construction of native-type subclasses, including descriptors, metaclasses,
+- Construction of native-type subclasses, including descriptors
   and the container subclasses needed by code such as `namedtuple`.
 - Dictionary and set keys whose hashing or equality calls Python methods.
   Direct `hash(obj)` supports a user method today, but container keys do not.
