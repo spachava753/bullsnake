@@ -108,8 +108,12 @@ func executeMetaclassCall(caller *frame, instruction int, metaclass *typeValue, 
 	})
 }
 
+// nativeMetaclassMethod supplies the supported type descriptors for direct
+// access and inherited metaclass operations.
 func nativeMetaclassMethod(name string) (Value, bool) {
 	switch name {
+	case "__subclasses__":
+		return &builtinFunctionValue{name: "type.__subclasses__", call: userSubclasses}, true
 	case "__instancecheck__", "__subclasscheck__":
 		return &builtinFunctionValue{name: "type." + name, call: func(arguments []Value, keywords *dictValue) (Value, *Exception) {
 			return nativeTypeCheck(arguments, keywords, name == "__subclasscheck__")

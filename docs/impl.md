@@ -1000,8 +1000,15 @@ Go's garbage collector owns runtime memory. Frames, stacks, namespaces, cells,
 and container entries keep Python references in typed Go pointers and
 interfaces so the collector can trace cycles.
 
-Bullsnake does not implement CPython reference counting, `__del__`, weak
-references, or a compatible `gc` module. The experiments under
+User classes keep immediate subclass links as Go weak pointers to the actual
+class allocations. `C.__subclasses__()` and `type.__subclasses__(C)` return a
+fresh strong list in definition order for user classes, pruning dead links on
+access. Native-base subclass enumeration is not implemented yet. Tests verify
+that live parents do not retain dead subclass cycles and that instances and
+promoted references keep their classes alive.
+
+Bullsnake does not implement CPython reference counting, `__del__`, public Python
+weak references, or a compatible `gc` module. The experiments under
 `experiments/gcprobe` inform these boundaries but are not production runtime
 code.
 

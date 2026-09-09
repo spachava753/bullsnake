@@ -261,6 +261,10 @@ func executeTypeAttributeLoad(
 		}
 	}
 	if !found {
+		if name == "__subclasses__" {
+			method, _ := nativeMetaclassMethod(name)
+			return pushOutcome(frame, instruction, &boundMethodValue{callable: method, self: owner})
+		}
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(

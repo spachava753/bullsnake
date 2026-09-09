@@ -684,8 +684,12 @@ not fit normal Python finalization semantics.
 The baseline therefore omits `__del__` and a CPython-compatible `gc` module.
 External resources can use explicit `close()` methods and synchronous context
 managers. Go-side lifecycle APIs remain necessary for host resources. Weak
-references may be added if package tests need them, but Python callbacks would
-run later at a safe VM point, never on a Go cleanup goroutine.
+class references now use Go `weak.Pointer` targeting actual class allocations.
+Immediate subclass links are weak and prune dead entries on access. ABC registries
+will use the same storage. Collection follows Go tracing GC, with no promise of
+immediate reclamation after `del`. Public Python weakrefs and callback delivery
+remain deferred; callbacks must run at a safe VM point, never on a Go cleanup
+goroutine.
 
 ## Rules the implementation must preserve
 

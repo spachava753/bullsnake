@@ -523,7 +523,7 @@ This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
 and general metaclass descriptor precedence remain separate gaps. The abstract-method computation subset is described above; importing abc remains blocked.
 
-### Weak references need a memory and callback design
+### Internal weak class references and deferred Python callbacks
 
 A weak reference lets code refer to an object without keeping it alive.
 `unittest.signals` creates a `WeakKeyDictionary` even when Ctrl-C handling is
@@ -533,7 +533,11 @@ A dictionary that holds strong references would keep test results alive and
 would not reproduce weak-reference callbacks. Bullsnake uses Go's garbage
 collector. Any Python callback triggered by collection must wait until the
 interpreter can safely run it, rather than running inside a Go cleanup callback.
-Settle that design before exposing `_weakref`.
+The internal lifetime choice is now Go `weak.Pointer` to actual class allocations,
+with dead entries pruned synchronously on access. Immediate user-subclass links
+use this storage and have source behavior plus Go GC ownership tests. ABC
+registries will use the same approach. Public `_weakref` and callback delivery
+remain deferred; no second collector or CPython reference counting is planned.
 
 ### Failure reports need Python-visible traceback objects
 

@@ -16,6 +16,7 @@ type typeValue struct {
 	module         string
 	namespace      *Namespace
 	bases          []*typeValue
+	subclasses     weakClassSet
 	mro            []*typeValue
 	objectBase     bool
 	abstract       bool
@@ -205,6 +206,9 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 		return nil, exception
 	}
 	class.mro = mro
+	for _, base := range class.bases {
+		base.subclasses.entries = append(base.subclasses.entries, makeWeakClass(class))
+	}
 	class.namespaceOrder = append([]string(nil), build.namespaceOrder...)
 	if function, ok := class.namespace.values["__new__"].(*functionValue); ok {
 		class.namespace.values["__new__"] = &staticMethodValue{callable: function}

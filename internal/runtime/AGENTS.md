@@ -27,7 +27,9 @@ All live Python references must stay in typed Go pointers or interfaces so Go's
 collector can see them. Python calls switch heap-allocated frames in the one VM
 loop instead of using Go calls as the Python call stack. Runtime-owned mutable
 state belongs to one `Runtime`; only documented immutable singletons may be
-shared.
+shared. Internal class registries may hold Go `weak.Pointer` references to the
+actual class allocations. Prune dead entries on the VM goroutine; never use a
+temporary interface box as the weak target or invoke Python from a GC callback.
 
 Validation and execution must agree. When an opcode becomes supported, update
 operand checks, stack paths, dispatch, runtime values, Python errors, tests, and
@@ -58,3 +60,6 @@ do not run as default-runtime execution chunks. Keep Python assertions in those
 files and provider call counts, ownership, and isolation assertions in Go.
 Private constructor tests may use the runtime package to inspect registration,
 circular initialization, and rollback without publishing extension APIs.
+
+Private memory-ownership tests may inspect weak class storage and force Go GC.
+Keep Python-visible behavior in source fixtures; GC timing is a Go-facing contract.
