@@ -21,16 +21,16 @@ Run all four required gates before each finished commit. Do not claim milestone 
 
 ## Tested checkpoint
 
-- 44901dc: private native constructors and isolated arguments/default sys attributes.
-- 7b996b6: structured exception args, SystemExit/sys.exit, OSError family.
-- 0941aab: caller-supplied performance counter; no ambient timing.
-- ce4c3f6: borrowed strict UTF-8 standard streams, provider errors and Unicode errors.
-- 70767d4: native integer/boolean list assignment, exposed by heapq execution.
+- 5793fd0: private native constructors and isolated arguments/default sys attributes.
+- cffdcb6: structured exception args, SystemExit/sys.exit, OSError family.
+- e79c63c: caller-supplied performance counter; no ambient timing.
+- 9bafd84: borrowed strict UTF-8 standard streams, provider errors and Unicode errors.
+- a2080ac: native integer/boolean list assignment, exposed by heapq execution.
 
-- ec92045: unchanged synchronous unittest and initial io/abc sources,
+- 0b1963e: unchanged synchronous unittest and initial io/abc sources,
   plus operator/keyword/heapq and their passing behavior smoke test.
-- 25e9336: codec exception subclass and bare-raise constructor validation.
-- Final review: exception text follows retained mutable native argument values.
+- 18e335f: codec exception subclass and bare-raise constructor validation.
+- 9ecca4f: exception text follows retained mutable native argument values.
 
 Every copied
 source was compared byte-for-byte with its pinned Git blob, not just a checkout.
