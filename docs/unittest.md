@@ -1,247 +1,280 @@
-# Running CPython's `unittest`
+# First major milestone: run Python's unittest
 
-Status: planned compatibility milestone
+Status: language groundwork is in place; importing and running `unittest` is
+still blocked.
 
-This document records what remains before Bullsnake can run the unchanged
-synchronous `unittest` package from CPython 3.14.7. It complements the
-[architecture](architecture.md), which explains long-term design choices, and
-the [implementation guide](impl.md), which describes code that exists now.
+The goal is to run CPython's unchanged synchronous `unittest` package, then use
+it to run unchanged standard-library tests. Much of the Python language support
+needed for this work already exists. The next phase needs Go-backed system
+modules and more runtime behavior, especially class creation, weak references,
+and tracebacks that Python code can inspect.
 
-## Target
+This document tracks that milestone. The [architecture](architecture.md)
+explains the interpreter's design, and the [implementation guide](impl.md)
+describes its full supported language subset.
 
-The first target is the synchronous package imported by `unittest/__init__.py`:
-
-- import the unchanged package and its eager dependencies
-- run `TestCase`, `TestResult`, `TestSuite`, and `TestLoader`
-- run `TextTestRunner` against an in-memory text stream
-- execute `unittest.main()` with runtime-owned arguments and streams
-- replace Bullsnake's adapted colorsys assertions with CPython's unchanged
-  `test_colorsys.py`
-
-`unittest.mock` and `IsolatedAsyncioTestCase` are later milestones. Mock needs a
-larger reflection and attribute model. The async class needs an event loop,
-context state, and cancellation behavior. Filesystem discovery and catch-break
-signal handling also come after the in-memory synchronous runner.
-
-## Reference and current result
+## What we want to run
 
 The reference is CPython 3.14.7 at commit
-`823f0323ee6ec1402088b73bce1a38473cac36dc`.
+`823f0323ee6ec1402088b73bce1a38473cac36dc`. Keep its Python source unchanged so
+passing tests demonstrate compatibility with the real framework.
 
-An exact frontend sweep compiles all 61 Python source modules observed while a
-pinned CPython process imports the synchronous package. This covers the syntax,
-name resolution, and bytecode construction needed by the current import graph.
-Dormant functions may still expose runtime gaps when tests begin to call them.
+The synchronous milestone covers:
 
-Executing the unchanged package through Bullsnake's filesystem loader currently
-stops here:
+- `TestCase` and `TestResult`: run test methods and record passes, failures,
+  errors, skips, and expected failures, including setup, teardown, cleanups,
+  and subtests.
+- `TestSuite` and `TestLoader`: group tests and select them by name or from
+  modules that are already imported.
+- `TextTestRunner`: write the test report to `io.StringIO`, a text stream held
+  in memory.
+- CPython's unchanged `test_colorsys.py`: replace our adapted assertions with
+  the original tests running under `unittest`.
+- `unittest.main()`: use arguments and output streams supplied to the runtime,
+  without taking over the embedding Go program's process.
+
+Finding tests by scanning directories and handling Ctrl-C during a test run come
+later. `unittest.mock` needs more support for inspecting and changing objects.
+`IsolatedAsyncioTestCase` needs an event loop, task context, and cancellation.
+Neither is part of this milestone.
+
+## Where we are now
+
+### Implemented and tested in this repository
+
+| Area | Progress relevant to unittest |
+| --- | --- |
+| Python execution | Functions, all parameter kinds, decorators, closures, classes, inheritance, loops, comprehensions, generators, exceptions, and context managers have execution tests. |
+| Objects and builtins | Method binding, properties, `super`, attribute helpers, type checks, user-defined iteration and comparisons, sorting, and many string and collection methods work within the documented subset. |
+| Imports | Source modules, regular packages, relative imports, repeated and circular imports, and cleanup after a failed import are tested. |
+| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. General Go module registration and system modules are still missing. |
+| Standard-library tests | Unchanged `colorsys.py` runs with adapted versions of all eight upstream public test methods. These use plain assertions, not `TestCase` objects. |
+
+The [language tests](../internal/runtime/testdata/execution/) run Python source
+through parsing, name resolution, compilation, bytecode validation, and
+execution. The [standard-library runner](../stdlib/stdlib_test.go) uses the
+filesystem loader and creates a fresh runtime for each test module.
+
+The checked-in standard-library tree contains only `colorsys.py` and its adapted
+test. It does not yet contain `unittest` or its dependencies.
+
+### Results from the earlier compatibility probes
+
+The last recorded sweep compiled all 61 Python source modules observed while a
+pinned CPython process imported synchronous `unittest`. The parser, name
+resolver, and compiler handled those files. This does not show that every
+function in them can execute.
+
+The last recorded attempt to execute the unchanged package stopped at:
 
 ```text
 Lib/io.py:53:8: ModuleNotFoundError: No module named '_io'
 ```
 
-Focused probes at the same pinned revision currently produce:
+Separate import probes at the same revision reported:
 
-```text
-operator imported
-keyword imported
-heapq imported
-abc -> Lib/_weakrefset.py:5:1: ModuleNotFoundError: No module named '_weakref'
-```
+| Module | Result |
+| --- | --- |
+| `operator` | Imported using its unchanged Python fallback. |
+| `keyword` | Imported unchanged. Its lookup helpers use frozen-set containment methods. |
+| `heapq` | Imported using its unchanged Python fallback. |
+| `abc` | Reached `Lib/_weakrefset.py:5:1`, then failed because `_weakref` was missing. |
 
-The `operator`, `keyword`, and `heapq` results matter because they use their
-unchanged pure-Python fallbacks. Bullsnake does not need native accelerator
-modules merely to make those imports succeed.
+These are recorded probe results, not checks in the current Go test suite.
+Repeat them against the pinned source when implementation resumes, and turn
+working imports into checked-in regression tests. An import success alone does
+not establish that a module's public functions work.
 
-The checked-in standard-library runner still uses adapted plain assertions for
-`colorsys`. It does not yet execute Python `TestCase` objects.
+The evidence supports moving on to system-module work. It does not establish
+that all the language features needed by `unittest` are finished.
 
-## Why `_io` is only the first blocker
+## What to do next
+
+### 1. Decide how Go-backed modules get their state and permissions
+
+This is the current pause point. Before exposing system modules, decide how the
+embedding Go program supplies or denies access to host resources. A public Go
+API is not required yet, but the internal design must leave these choices with
+the host.
+
+Add an internal way to create Go-backed modules for each runtime. Use the same
+module cache and attribute behavior as Python modules, and keep mutable state
+isolated between runtimes.
+
+| Module or service | Decision needed |
+| --- | --- |
+| `sys` | How to expose the live module cache, arguments, replaceable streams, active exceptions, exit requests, and selected platform information. |
+| `_io` | Start with in-memory streams. Decide separately how `open`, `FileIO`, descriptors, buffering, and text encoding will work. |
+| `time` | How the host supplies or permits the clock used by `perf_counter`. |
+| `signal` | What can be imported without installing handlers, and how a host opts into process signal access later. |
+| `os`, `posix`, `stat`, `errno` | What metadata and path behavior imports need, and how filesystem and process access will be configured before discovery is enabled. |
+
+The existing Go filesystem loader can read Python source files. It does not give
+Python code an `open` builtin or an `os` module.
+
+### 2. Make the unchanged package import
+
+Start with `abc` and the class behavior it needs, then in-memory `_io` and
+unchanged `io.py`. Continue through the other dependencies as each import
+reveals the next missing operation. Adding `_io` alone will not make
+`import unittest` succeed.
+
+For `StringIO`, cover `write`, `writelines`, `flush`, `seek`, `tell`, `truncate`,
+`getvalue`, `close`, `closed`, and use in a `with` statement. Provide the stream
+information used by `_colorize`, including a defined `isatty` result. Test that
+Python code can replace `sys.stdout` and `sys.stderr`.
+
+The checkpoint is an exact `import unittest` through the normal loader, with
+its dependencies present and no edits that bypass import-time work.
+
+### 3. Run tests and check their results
+
+Run one passing test through `TestCase` and `TestResult`, then one assertion
+failure and one unexpected exception. Add separate tests for setup and teardown,
+cleanups, skips, expected failures, subtests, and traceback formatting.
+
+This will expose operations that successful imports never exercised. Implement
+each missing behavior with a focused test rather than trying to finish every
+dependency module in advance.
+
+### 4. Load suites, produce reports, and replace the adapted test
+
+Run `TestSuite` and name-based `TestLoader` cases without directory discovery.
+Then run `TextTestRunner` against `StringIO` and compare the complete report.
+Replace the adapted colorsys test with unchanged CPython `test_colorsys.py` once
+these paths work. Finally, exercise `unittest.main()` with runtime-owned
+arguments and streams, without terminating the Go test process.
+
+Go's `testing` package remains the outer runner. Python's `unittest` should own
+test selection, assertions, results, and report formatting. Keep each finished
+change small, add its behavior tests, update the implementation notes, and run
+the repository checks before committing it.
+
+## Blockers and lessons so far
+
+### The package imports more than a small test uses
 
 `unittest.result` imports `io`, `sys`, and `traceback` before defining
-`TestResult`. The public `io` module immediately imports `_io`, then defines
-Python ABC wrappers around native I/O base classes. Supplying only a `StringIO`
-name would move the failure without supporting the module.
+`TestResult`. Unchanged `io.py` imports constants, exceptions, functions, stream
+types, and base classes from `_io`. Adding only a `StringIO` export cannot make
+that source work.
 
-Other eager package paths add these requirements:
+Other imports bring in further dependencies:
 
-| Path | Required behavior |
+| Import path | Dependencies that matter |
 | --- | --- |
-| `unittest.result` | mutable `sys.stdout` and `sys.stderr`, `io.StringIO`, `sys.exc_info`, traceback formatting |
-| `unittest.case` | `functools`, `difflib`, `pprint`, `re`, `warnings`, `collections`, `contextlib`, `traceback`, `time`, and `types` |
-| `unittest.runner` | text streams, `time.perf_counter`, warnings, and `_colorize` |
-| `unittest.signals` | `signal` and `weakref.WeakKeyDictionary` |
-| `unittest.loader` and `unittest.main` | `sys`, `os`, path operations, argument parsing, and filesystem discovery |
+| `unittest.result` | Streams, active exception state, and traceback formatting. |
+| `unittest.case` | `functools`, `difflib`, `pprint`, `re`, `warnings`, `collections`, `contextlib`, `traceback`, `time`, and `types`. |
+| `unittest.runner` | Text streams, `time.perf_counter`, warnings, and `_colorize`. |
+| `unittest.signals` | `signal` and a `weakref.WeakKeyDictionary` created during import. |
+| `unittest.loader` and `unittest.main` | `sys`, `os`, path helpers, argument parsing, and discovery code. |
 
-The package imports all of these modules even when a small test does not call
-every API they contain. Bullsnake validates complete code trees before a module
-body runs, so unsupported code cannot be hidden in an unused function.
+Supporting these imports does not require enabling every filesystem or signal
+operation immediately. It does require real behavior for anything executed
+during import. Bullsnake also validates every compiled function before a
+module runs, including unused functions. Unsupported bytecode cannot be hidden
+there; missing attributes and call behavior may still fail only when executed.
 
-## Remaining runtime foundations
+### I/O also needs abstract classes and metaclasses
 
-### Runtime-owned modules and host access
+An abstract base class, or ABC, can require subclasses to implement methods and
+can register other classes as accepted subclasses. A metaclass controls how a
+class is created. Unchanged `io.py` uses both through `abc.ABCMeta` to define
+`IOBase`, `RawIOBase`, `BufferedIOBase`, and `TextIOBase`.
 
-Bullsnake currently creates a few fixed modules directly inside `Runtime`. The
-standard library needs a deliberate internal module-factory mechanism for
-runtime-owned modules. The mechanism must use the ordinary module cache and
-attribute rules, and it must keep mutable state on one `Runtime`.
+Bullsnake can now define classes that inherit `classmethod`, `staticmethod`, or
+`property`. This lets `abc.py` get past its older descriptor helper definitions.
+Constructing instances of those subclasses still fails. Subclassing `type`,
+selecting `metaclass=`, and calling metaclass `__new__` are also unsupported.
 
-The first host-facing modules need explicit policies:
+Choose between implementing the `_abc` helper used by `abc.py` and supporting
+its `_py_abc` fallback through `_weakref`, `weakref`, and `_weakrefset`. Either
+route still needs class creation, abstract-method checks, subclass registration,
+and the matching behavior in `isinstance` and `issubclass`.
 
-- `sys` needs a live module cache, arguments, streams, exception state, exit
-  behavior, and selected platform metadata.
-- `_io` needs in-memory stream types for the first runner milestone. File-backed
-  `open`, `FileIO`, descriptors, buffering, and encoding policy are required
-  later for discovery.
-- `time` needs a clock policy before exposing `perf_counter`.
-- `signal` needs an opt-in host policy before reading or changing process signal
-  handlers.
-- `os`, `posix`, `stat`, and `errno` need a filesystem and process capability
-  policy before discovery can run.
+### Weak references need a memory and callback design
 
-These APIs must not read or mutate ambient process state accidentally. A host
-must be able to configure or deny them when Bullsnake gains a public runtime
-constructor.
+A weak reference lets code refer to an object without keeping it alive.
+`unittest.signals` creates a `WeakKeyDictionary` even when Ctrl-C handling is
+unused, so choosing `_abc` does not remove the package's weak-reference need.
 
-### I/O and stream objects
+A dictionary that holds strong references would keep test results alive and
+would not reproduce weak-reference callbacks. Bullsnake uses Go's garbage
+collector. Any Python callback triggered by collection must wait until the
+interpreter can safely run it, rather than running inside a Go cleanup callback.
+Settle that design before exposing `_weakref`.
 
-The unchanged `io.py` imports native constants, exceptions, functions, concrete
-streams, and native base classes from `_io`. It then creates `IOBase`,
-`RawIOBase`, `BufferedIOBase`, and `TextIOBase` with `abc.ABCMeta`.
+### Failure reports need Python-visible traceback objects
 
-The first in-memory runner needs:
+The runtime already retains traceback data for Go callers, handles exception
+causes and context, and supports `exception.with_traceback(None)`. That method
+clears retained traceback entries and returns the same exception. It does not
+provide a traceback object to Python.
 
-- `StringIO` with `write`, `writelines`, `flush`, `seek`, `tell`, `truncate`,
-  `getvalue`, `close`, `closed`, and context-manager behavior
-- stream metadata used by `_colorize`, including the chosen `isatty` behavior
-- mutable `sys.stdout` and `sys.stderr` references
-- enough I/O ABC behavior for unchanged `io.py` to define and register classes
+The remaining work includes `sys.exc_info()` and `sys.exception()`, exception
+`args` and mutable `__traceback__` state, and Python objects for traceback links,
+frames, code information, source positions, and frame clearing. Python and Go
+must see consistent views of the same exception and frame data.
 
-Filesystem streams can follow as a separate capability-backed milestone.
+Use this support to run the needed `traceback.TracebackException`, `format_exc`,
+and `clear_frames` behavior. Add the exception and warning classes required by
+the executed dependencies.
 
-### ABCs, metaclasses, and weak references
+### Objects and builtins still have gaps
 
-Bullsnake now lets a user class inherit `classmethod`, `staticmethod`, or
-`property`, which allows unchanged `abc.py` to define its deprecated descriptor
-helpers. The next fallback import reaches `_weakrefset` and then `_weakref`.
+Known gaps to check as execution advances are:
 
-There are two implementation paths, and both need real behavior:
+- Custom attribute lookup through `__getattribute__` and `__getattr__`, plus
+  more readable and writable class and function metadata.
+- Construction of native-type subclasses, including descriptors, metaclasses,
+  and the container subclasses needed by code such as `namedtuple`.
+- Dictionary and set keys whose hashing or equality calls Python methods.
+  Direct `hash(obj)` supports a user method today, but container keys do not.
+- List, set, and frozen-set equality involving user-defined element equality.
+  These containers currently use fixed runtime comparisons.
+- Additional collection, string, bytes, and bytearray methods, and builtin call
+  forms such as `max(iterable)` and `min(iterable)`.
 
-- implement the `_abc` operations used by `abc.py`
-- implement `_weakref`, `weakref`, and `_weakrefset` so `_py_abc` can run
+Two existing differences may also matter to tests: `list.sort` does not expose
+an empty list to callbacks or detect mutation during sorting as CPython does,
+and string casing uses Go's Unicode 17 tables rather than CPython 3.14's Unicode
+16 baseline. Keep these differences visible when a test reaches them.
 
-Either path still needs user subclasses of `type`, class `metaclass=` selection,
-metaclass `__new__` calls, abstract-method collection, virtual subclass
-registration, and matching through `isinstance` and `issubclass`.
+### Prefer Python fallbacks where they work
 
-`unittest.signals` also constructs `weakref.WeakKeyDictionary` during import.
-A strong-reference substitute would keep test results alive and would give the
-wrong callback behavior. Weak callbacks must run at a safe VM point rather than
-inside a Go cleanup callback.
+The `operator` and `heapq` probes show that their native accelerators are not
+needed just to import them. `_functools.cmp_to_key` already exists as a small
+Go-backed helper; other `_functools` exports remain absent so Python fallbacks
+can run.
 
-### Python-visible exceptions, frames, and tracebacks
+Add pinned source dependencies as tests reach them, including supporting modules
+such as `fnmatch`, `inspect`, and `argparse`. Potential native helpers include
+`_abc`, `_collections`, `_heapq`, `_operator`, `_sre`, `_warnings`, and selected
+`itertools` operations. Implement a helper only when the Python fallback is
+absent or cannot provide the required behavior. Every exposed operation needs
+tests for its arguments, results, errors, and relevant object identity rules.
 
-Bullsnake retains enough frame information for a Go host traceback. `unittest`
-needs Python objects and mutable exception state:
+Regular expressions need a separate compatibility decision. Go's regexp package
+cannot be assumed to reproduce Python patterns, flags, groups, match positions,
+and substitutions.
 
-- `sys.exc_info()` and `sys.exception()` tied to the active handled exception
-- exception `args`, `__traceback__`, cause, context, and `with_traceback`
-- traceback links, frame links, code metadata, source positions, and frame
-  clearing
-- `traceback.TracebackException`, `format_exc`, and `clear_frames`
-- the exception and warning classes referenced by the dependency graph
-
-The existing host traceback should remain one view of the same frame data, not
-an independent record with different ordering.
-
-### Object and container behavior
-
-The frontend can compile the dependency graph, and the runtime already covers
-many operations it uses. Execution tests will still need to drive the remaining
-object behavior in small slices. Known areas include:
-
-- custom `__getattribute__`, fallback `__getattr__`, and broader mutable class
-  and function metadata
-- construction of supported native-type subclasses, including descriptor and
-  metaclass instances
-- built-in container subclasses and the behavior needed by `namedtuple`
-- dictionary and set hashing or equality that calls user methods
-- remaining list, dictionary, set, string, bytes, and bytearray methods reached
-  by executed code
-- remaining builtin call forms such as iterable `max` and `min`, plus builtins
-  selected by new execution probes
-
-Placeholders are not progress. Each name needs argument binding, errors,
-identity rules, and behavioral tests before it enters the builtin namespace.
-
-### Pure-Python and helper modules
-
-After the core runtime-owned modules exist, add pinned source modules in the
-order exposed by import and execution tests. The synchronous package directly
-uses behavior from:
-
-```text
-collections contextlib difflib fnmatch functools inspect io pprint
-re time traceback types warnings weakref signal argparse _colorize
-```
-
-Some source modules need side-effect-free native helpers such as `_abc`,
-`_collections`, `_functools`, `_heapq`, `_operator`, `_sre`, `_warnings`, and
-selected `itertools` operations. Prefer an unchanged pure-Python fallback when
-it already works. Add a native helper only when the fallback is absent or cannot
-provide the required semantics.
-
-Regular expressions need a specific compatibility decision. Python pattern,
-match, flag, group, span, and substitution behavior cannot be assumed to match
-Go's regular-expression package.
-
-## Implementation order
-
-Use these milestones as vertical slices rather than implementing whole modules
-at once:
-
-1. Decide the runtime-owned module and host-capability contracts for `sys`,
-   `_io`, clocks, signals, and filesystem access.
-2. Make unchanged `abc` import with tested metaclass and abstract-class behavior.
-3. Implement in-memory `_io` and `io.StringIO`, then make exact
-   `import unittest` succeed.
-4. Run one passing and one failing `TestCase` through `TestResult`, including
-   skip, cleanup, subtest, and traceback paths as separate slices.
-5. Run `TestSuite` and `TestLoader` against already imported modules without
-   filesystem discovery.
-6. Run `TextTestRunner` against `StringIO` and compare its complete text output.
-7. Replace the adapted colorsys test with unchanged CPython
-   `test_colorsys.py`.
-8. Add runtime-owned arguments and streams for `unittest.main()`.
-9. Add capability-backed filesystem discovery and signal handling.
-10. Plan `unittest.mock` and `IsolatedAsyncioTestCase` independently.
-
-At every step, execute the unchanged pinned source. Keep the Go `testing`
-package as the outer runner and create a fresh Bullsnake runtime for isolated
-Python test modules. Python's `unittest` code should own test selection,
-assertion behavior, results, and output once it can run.
-
-## Completion checks
+## How we will know it is done
 
 The synchronous in-memory milestone is complete when:
 
-- the unchanged package imports from the vendored CPython 3.14.7 tree
-- ordinary test methods, fixtures, cleanups, skips, expected failures, subtests,
-  and assertion failures produce the expected `TestResult`
-- exception formatting uses Python-visible traceback state
-- `TestSuite` and name-based `TestLoader` execution work
-- `TextTestRunner` writes the expected output to `StringIO`
-- unchanged `test_colorsys.py` passes through the normal standard-library Go
-  runner
-- the full repository checks pass without network access or a Python executable
+- The unchanged package and required dependencies import from the vendored
+  CPython 3.14.7 source tree.
+- Test methods, setup and teardown, cleanups, skips, expected failures,
+  subtests, assertion failures, and unexpected exceptions produce the expected
+  `TestResult` entries.
+- Failure reports use Python-visible exception and traceback state.
+- `TestSuite` and name-based `TestLoader` execution work.
+- `TextTestRunner` writes the expected complete report to `StringIO`.
+- Unchanged `test_colorsys.py` passes through the standard-library Go runner.
+- `unittest.main()` uses the configured arguments and streams, and its exit
+  request does not terminate the embedding Go process.
+- All repository checks pass without network access or a Python executable.
 
-Discovery, catch-break signals, mock, and async support have their own completion
-checks after this milestone.
-
-## Current pause
-
-Development is paused before `_io`, `sys`, filesystem, clocks, signals, threads,
-and other host-facing native APIs. The next implementation should begin with an
-architecture decision for runtime capabilities and runtime-owned module
-factories. Weak-reference work also needs a memory and callback design before
-`_weakref` is exposed.
+After that, add permission-controlled filesystem discovery and signal handling.
+Plan mock and async testing separately. The immediate next task remains the
+runtime-owned module and host-access design.
