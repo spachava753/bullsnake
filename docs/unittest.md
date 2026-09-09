@@ -481,7 +481,9 @@ Only the implemented `_abc_init` computation helper is exposed; `_weakref` remai
 Choose between implementing the `_abc` helper used by `abc.py` and supporting
 its `_py_abc` fallback through `_weakref`, `weakref`, and `_weakrefset`. Either
 route still needs class creation, abstract-method checks, subclass registration,
-and the matching behavior in `isinstance` and `issubclass`.
+and matching behavior in `isinstance` and `issubclass`. Metaclass check hooks
+and native fallback through `super` now have source-to-result tests; virtual
+registration itself still depends on the deferred weak-reference design.
 
 
 ### Abstract-method computation

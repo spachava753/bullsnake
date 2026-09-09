@@ -454,10 +454,10 @@ copies a native dictionary or consumes tuple/list key-value pairs, then applies
 keyword values. User-defined mapping objects and arbitrary iterable inner pairs
 are not implemented yet. `isinstance` checks native identity, the C3 ancestry of
 a user instance, and built-in or user exception ancestry. `issubclass` applies
-those same ancestry rules directly to class objects. A tuple of candidates is
+those same ancestry rules directly to class objects unless a metaclass hook overrides them. A tuple of candidates is
 processed left to right and may contain nested tuples; a match suppresses errors
-from later entries. `bool` is a native subclass of `int`. Type unions and custom
-metaclass `__instancecheck__` methods are not implemented. Three-argument `type`
+from later entries. `bool` is a native subclass of `int`. Type unions remain unsupported. Metaclass `__instancecheck__` and
+`__subclasscheck__` methods now run through resumable calls and truth conversion. Three-argument `type`
 uses the same class builder as a class statement. It accepts a string name, a
 tuple of currently supported bases, and a dictionary with string keys. It
 supplies default module and qualified-name metadata, honors explicit values,
@@ -780,6 +780,13 @@ complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
 calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
 and general metaclass descriptor precedence remain separate gaps. The abstract-method computation subset is described above; importing abc remains blocked.
+
+Metaclass instance/subclass hooks and their return-value truth callbacks execute
+in the VM. Nested tuple candidates short-circuit in order. An exact instance
+type match bypasses `__instancecheck__`; `__subclasscheck__` can override an
+identical candidate and receives even a non-class first argument. Native type
+check descriptors support `super` without redispatching to the override.
+Non-type checker objects and custom descriptor-valued hooks remain unsupported.
 
 ## Exceptions
 

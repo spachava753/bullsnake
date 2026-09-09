@@ -110,6 +110,10 @@ func executeMetaclassCall(caller *frame, instruction int, metaclass *typeValue, 
 
 func nativeMetaclassMethod(name string) (Value, bool) {
 	switch name {
+	case "__instancecheck__", "__subclasscheck__":
+		return &builtinFunctionValue{name: "type." + name, call: func(arguments []Value, keywords *dictValue) (Value, *Exception) {
+			return nativeTypeCheck(arguments, keywords, name == "__subclasscheck__")
+		}}, true
 	case "__prepare__":
 		return &builtinFunctionValue{name: "type.__prepare__", call: typePrepare}, true
 	case "__new__":

@@ -371,7 +371,8 @@ scalars, collections, functions, classes, modules, exceptions, templates, and
 interpolations needed by the executable subset. Native values have stable type
 objects, and the one-argument `type` form returns those objects or an existing
 user or exception class. `isinstance` and `issubclass` check these identities,
-user class MROs, and exception ancestry. Tuple candidates run from left to right.
+user class MROs, and exception ancestry, with metaclass overrides resolved through
+VM continuations and ordinary truth testing. Tuple candidates run from left to right.
 Native, user, and exception classes expose their basic name metadata through the
 ordinary attribute path. The `dir` builtin reports sorted names from the current
 frame or from implemented module, class-MRO, and instance stores. Custom
@@ -432,8 +433,7 @@ Set-like operations on dictionary views and other native collection or text
 methods remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
-descriptor behavior. MRO-entry rewriting, unions, and
-custom metaclass checks remain later work. A template keeps literal strings
+descriptor behavior. MRO-entry rewriting and type unions remain later work. A template keeps literal strings
 separate from evaluated interpolation values and their source metadata; creating
 one does not format those values. More of Python's data model will be added when
 language features or packages require it.

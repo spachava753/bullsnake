@@ -204,7 +204,7 @@ func executeSuperAttributeLoad(
 			[]Value{receiver, value.receiverType},
 		)
 	}
-	if native, ok := classValue.(*builtinFunctionValue); ok && name == "__init__" && !classMode {
+	if native, ok := classValue.(*builtinFunctionValue); ok && (name == "__init__" || name == "__instancecheck__" || name == "__subclasscheck__") && !classMode {
 		return pushOutcome(frame, instruction, &boundMethodValue{callable: native, self: value.receiver})
 	}
 	if function, ok := classValue.(*functionValue); ok && !classMode {
