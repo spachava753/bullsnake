@@ -28,7 +28,19 @@ for args in [(), (None,), (0,), (7,), ('failed',)]:
         assert False
     except SystemExit as e:
         assert e.code == (args[0] if args else None)
-        assert e.args == args
+        assert e.args == (() if args == (None,) else args)
+for status, expected_args, expected_code in [((), (), None), ((1,), (1,), 1), ((1, 2), (1, 2), (1, 2))]:
+    try:
+        sys.exit(status)
+        assert False
+    except SystemExit as e:
+        assert e.args == expected_args
+        assert e.code == expected_code
+existing = SystemExit(3)
+try:
+    sys.exit(existing)
+except SystemExit as e:
+    assert e is existing
 try:
     sys.exit(1, 2)
     assert False
@@ -62,3 +74,21 @@ e = BlockingIOError(11, 'retry', 3)
 assert e.characters_written == 3
 assert e.filename is None
 assert e.args == (11, 'retry', 3)
+
+# ---
+# case: Unicode errors preserve codec arguments
+for cls, source in [(UnicodeEncodeError, 'hé'), (UnicodeDecodeError, b'\xff')]:
+    e = cls('utf-8', source, 0, 1, 'invalid')
+    assert isinstance(e, UnicodeError)
+    assert isinstance(e, ValueError)
+    assert e.args == ('utf-8', source, 0, 1, 'invalid')
+    assert e.encoding == 'utf-8'
+    assert e.object is source
+    assert e.start == 0
+    assert e.end == 1
+    assert e.reason == 'invalid'
+try:
+    UnicodeDecodeError('utf-8', 'text', 0, 1, 'invalid')
+    assert False
+except TypeError:
+    pass

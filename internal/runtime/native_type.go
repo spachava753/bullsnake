@@ -379,6 +379,8 @@ func executeDynamicTypeCall(
 // immutable native type table for Go-backed values.
 func typeOf(value Value) (Value, *Exception) {
 	switch value := value.(type) {
+	case *hostTextStream:
+		return hostTextStreamType, nil
 	case *nativeTypeValue, *typeValue, *exceptionTypeValue:
 		return typeNativeType, nil
 	case *instanceValue:
@@ -410,7 +412,11 @@ func executeExceptionTypeAttributeLoad(
 	case "__name__", "__qualname__":
 		value = &stringValue{value: class.name}
 	case "__module__":
-		value = &stringValue{value: "builtins"}
+		module := class.module
+		if module == "" {
+			module = "builtins"
+		}
+		value = &stringValue{value: module}
 	default:
 		return raiseOutcome(newException(
 			"AttributeError",

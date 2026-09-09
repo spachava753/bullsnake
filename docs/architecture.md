@@ -605,7 +605,12 @@ requiring every provider to implement them. Host access must be explicit, with
 no fallback to process-global resources when a capability is absent. The
 [unittest module design](unittest.md#design-for-go-backed-modules) proposes the
 first configuration, ownership, and module-creation contracts. The internal argument configuration and constructor registry now exist; the counter adapter uses only a supplied nondecreasing duration provider.
-Stream adapters remain planned.
+Standard-stream adapters now borrow only the configured Reader or Writer. They
+recognize output Flush and input/output IsTerminal, never seeking or ownership
+from unrelated provider interfaces. Closing a wrapper flushes and marks it
+closed, including on failure, without closing the borrowed provider. UTF-8 is
+strict and newline handling is fixed to literal LF boundaries. Operations are
+synchronous; arbitrary provider calls have no promised cancellation or timeout.
 
 A Go callback may call back into Python only through an execution context owned
 by the runtime. Background goroutines may finish host work and post a result,

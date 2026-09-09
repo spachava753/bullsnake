@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"slices"
 	"time"
@@ -14,6 +15,9 @@ type Config struct {
 	Args    []string
 	Loader  ModuleLoader
 	Counter PerfCounter
+	Stdin   io.Reader
+	Stdout  io.Writer
+	Stderr  io.Writer
 }
 
 // NewWithConfig copies argument data and retains the supplied source loader.
@@ -27,11 +31,17 @@ func NewWithConfig(config Config) (*Runtime, error) {
 	if isNilProvider(config.Counter) {
 		return nil, fmt.Errorf("counter is a typed nil provider")
 	}
+	if isNilProvider(config.Stdin) || isNilProvider(config.Stdout) || isNilProvider(config.Stderr) {
+		return nil, fmt.Errorf("standard stream is a typed nil provider")
+	}
 	runtime := newRuntime(config.Loader)
 	if len(config.Args) != 0 {
 		runtime.args = slices.Clone(config.Args)
 	}
 	runtime.counter = config.Counter
+	runtime.stdin = config.Stdin
+	runtime.stdout = config.Stdout
+	runtime.stderr = config.Stderr
 	return runtime, nil
 }
 
@@ -54,3 +64,11 @@ func isNilProvider(provider any) bool {
 		return false
 	}
 }
+
+// Flusher is the only optional output-buffer drain operation recognized by a
+// host text stream. Without it, flushing an open wrapper has no work to do.
+type Flusher interface{ Flush() error }
+
+// Terminal is the optional terminal query recognized by host text streams.
+// Absence means false; it confers no descriptor or signal access.
+type Terminal interface{ IsTerminal() bool }

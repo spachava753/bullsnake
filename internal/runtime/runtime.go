@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"io"
 	"slices"
 	"strings"
 
@@ -34,6 +35,9 @@ type Runtime struct {
 	loader       ModuleLoader
 	constructors map[string]moduleConstructor
 	args         []string
+	stdin        io.Reader
+	stdout       io.Writer
+	stderr       io.Writer
 	counter      PerfCounter
 }
 

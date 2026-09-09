@@ -1,8 +1,16 @@
 package runtime_test
 
 import (
+	"bytes"
 	"errors"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/spachava753/bullsnake/internal/compiler"
@@ -723,19 +731,205 @@ func (counter *sequenceCounter) PerfCounter() time.Duration {
 
 func TestPerformanceCounterProvider(t *testing.T) {
 	counter := &sequenceCounter{values: []time.Duration{1500 * time.Millisecond, 1750 * time.Millisecond}}
-	runtime, err := bullruntime.NewWithConfig(bullruntime.Config{Counter: counter})
-	if err != nil {
-		t.Fatal(err)
-	}
-	code := compileSource(t, "import time\nstart = time.perf_counter()\nassert start == 1.5\nassert time.perf_counter() - start == 0.25\n")
-	if _, err := runtime.ExecuteModule("timing", code); err != nil {
-		t.Fatal(err)
-	}
+	runHostFixture(t, bullruntime.Config{Counter: counter}, "perf_counter")
 	if counter.calls != 2 {
 		t.Fatalf("counter calls = %d", counter.calls)
 	}
 	var absent *sequenceCounter
 	if runtime, err := bullruntime.NewWithConfig(bullruntime.Config{Counter: absent}); runtime != nil || err == nil {
 		t.Fatal("typed nil counter accepted")
+	}
+}
+
+// runHostFixture executes Python behavior against explicitly supplied Go providers.
+func runHostFixture(t *testing.T, config bullruntime.Config, name string) *bullruntime.Module {
+	t.Helper()
+	source, err := os.ReadFile(filepath.Join("testdata", "host", name+".py"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := bullruntime.NewWithConfig(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	module, err := runtime.ExecuteModule(name, compileSource(t, string(source)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return module
+}
+
+type borrowedWriter struct {
+	bytes.Buffer
+	flushes    int
+	closes     int
+	seeks      int
+	flushError error
+}
+
+func (writer *borrowedWriter) Flush() error                   { writer.flushes++; return writer.flushError }
+func (writer *borrowedWriter) Close() error                   { writer.closes++; return nil }
+func (writer *borrowedWriter) IsTerminal() bool               { return true }
+func (writer *borrowedWriter) Seek(int64, int) (int64, error) { writer.seeks++; return 0, nil }
+
+type borrowedReader struct {
+	*strings.Reader
+	closes  int
+	flushes int
+}
+
+func (reader *borrowedReader) Close() error { reader.closes++; return nil }
+func (reader *borrowedReader) Flush() error { reader.flushes++; return nil }
+
+type resultReader struct {
+	data  []byte
+	err   error
+	reads int
+}
+
+func (reader *resultReader) Read(buffer []byte) (int, error) {
+	reader.reads++
+	n := copy(buffer, reader.data)
+	reader.data = reader.data[n:]
+	return n, reader.err
+}
+
+type resultWriter struct {
+	count int
+	err   error
+	calls int
+}
+
+func (writer *resultWriter) Write(buffer []byte) (int, error) {
+	writer.calls++
+	return writer.count, writer.err
+}
+
+func TestHostTextStreams(t *testing.T) {
+	t.Run("borrowed input recognizes no Flush or Close", func(t *testing.T) {
+		reader := &borrowedReader{Reader: strings.NewReader("hé🙂\r\nnext")}
+		runHostFixture(t, bullruntime.Config{Stdin: reader}, "input")
+		if reader.closes != 0 || reader.flushes != 0 {
+			t.Fatal("input used an unrelated provider interface")
+		}
+	})
+	t.Run("invalid UTF-8", func(t *testing.T) {
+		writer := &resultWriter{}
+		runHostFixture(t, bullruntime.Config{Stdout: writer, Stdin: bytes.NewReader([]byte{0xff})}, "unicode_streams")
+		if writer.calls != 0 {
+			t.Fatal("surrogates reached writer")
+		}
+	})
+	t.Run("blocking write character count", func(t *testing.T) {
+		writer := &resultWriter{count: 4, err: syscall.EAGAIN}
+		runHostFixture(t, bullruntime.Config{Stdout: writer}, "blocking_write")
+	})
+	t.Run("split UTF-8 reads", func(t *testing.T) {
+		reader := iotest.OneByteReader(strings.NewReader("hé🙂\r\nnext"))
+		runHostFixture(t, bullruntime.Config{Stdin: reader}, "input")
+	})
+	t.Run("typed nil streams", func(t *testing.T) {
+		var writer *bytes.Buffer
+		for _, config := range []bullruntime.Config{{Stdout: writer}, {Stderr: writer}, {Stdin: writer}} {
+			if runtime, err := bullruntime.NewWithConfig(config); runtime != nil || err == nil {
+				t.Fatal("typed nil stream accepted")
+			}
+		}
+	})
+	t.Run("wrappers are isolated and import does not call providers", func(t *testing.T) {
+		writer := &borrowedWriter{}
+		config := bullruntime.Config{Stdout: writer, Stderr: writer}
+		first, err := bullruntime.NewWithConfig(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		second, err := bullruntime.NewWithConfig(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		source := compileSource(t, "import sys\nassert sys.stdout is not sys.stderr\nassert not sys.stdout.closed\n")
+		for _, runtime := range []*bullruntime.Runtime{first, second} {
+			if _, err := runtime.ExecuteModule("check", source); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if writer.flushes != 0 || writer.closes != 0 || writer.seeks != 0 || writer.Len() != 0 {
+			t.Fatal("import invoked a provider")
+		}
+		if _, err := first.ExecuteModule("close", compileSource(t, "import sys\nsys.stdout.close()\nassert not sys.stderr.closed\n")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := second.ExecuteModule("check", source); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("minimal output and replacement", func(t *testing.T) {
+		var buffer bytes.Buffer
+		runHostFixture(t, bullruntime.Config{Stdout: &buffer}, "output")
+		if buffer.String() != "hé🙂\n" {
+			t.Fatalf("output = %q", buffer.String())
+		}
+	})
+	t.Run("Unicode input and EOF", func(t *testing.T) {
+		reader := &resultReader{data: []byte("hé🙂\r\nnext"), err: io.EOF}
+		runHostFixture(t, bullruntime.Config{Stdin: reader}, "input")
+	})
+	t.Run("data before read error", func(t *testing.T) {
+		reader := &resultReader{data: []byte("hé🙂"), err: fs.ErrPermission}
+		runHostFixture(t, bullruntime.Config{Stdin: reader}, "read_failure")
+		if reader.reads != 1 {
+			t.Fatalf("read calls = %d", reader.reads)
+		}
+	})
+	t.Run("borrowed ownership and optional interfaces", func(t *testing.T) {
+		writer := &borrowedWriter{}
+		runHostFixture(t, bullruntime.Config{Stdout: writer}, "optional_streams")
+		if writer.String() != "borrowed" || writer.closes != 0 || writer.seeks != 0 || writer.flushes != 2 {
+			t.Fatalf("writer = %#v", writer)
+		}
+	})
+	t.Run("flush failure closes wrapper", func(t *testing.T) {
+		writer := &borrowedWriter{flushError: fs.ErrPermission}
+		runHostFixture(t, bullruntime.Config{Stdout: writer}, "flush_failure")
+		if writer.closes != 0 || writer.flushes != 2 {
+			t.Fatalf("closes=%d flushes=%d", writer.closes, writer.flushes)
+		}
+	})
+	t.Run("arguments checked before provider access", func(t *testing.T) {
+		writer := &resultWriter{}
+		reader := &resultReader{err: io.EOF}
+		runHostFixture(t, bullruntime.Config{Stdout: writer, Stdin: reader}, "stream_arguments")
+		if writer.calls != 0 || reader.reads != 0 {
+			t.Fatal("invalid calls reached providers")
+		}
+	})
+	for _, test := range []struct {
+		name   string
+		count  int
+		err    error
+		kind   string
+		number string
+	}{
+		{"short write", 2, nil, "OSError", "5"},
+		{"permission", 0, fs.ErrPermission, "PermissionError", "13"},
+		{"partial error", 3, io.ErrClosedPipe, "BrokenPipeError", "32"},
+		{"path privacy", 0, &fs.PathError{Op: "write", Path: "/private/host/path", Err: fs.ErrNotExist}, "FileNotFoundError", "2"},
+		{"invalid count", 100, nil, "OSError", "5"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			writer := &resultWriter{count: test.count, err: test.err}
+			module := runHostFixture(t, bullruntime.Config{Stdout: writer}, "write_failure")
+			kind, _ := module.Get("error_type")
+			number, _ := module.Get("error_errno")
+			filename, _ := module.Get("error_filename")
+			message, _ := module.Get("error_text")
+			if kind.Repr() != "'"+test.kind+"'" || number.Repr() != test.number || filename.Repr() != "None" || strings.Contains(message.Repr(), "/private") {
+				t.Fatalf("error = %v %v %v %v", kind, number, filename, message)
+			}
+			if writer.calls != 1 {
+				t.Fatalf("write calls = %d", writer.calls)
+			}
+		})
 	}
 }

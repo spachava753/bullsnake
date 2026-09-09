@@ -860,14 +860,48 @@ constructor registry sits between the cache and source loader. Constructors
 populate a cached module without dummy code; failure removes that module while
 completed dependencies remain cached. Duplicate registrations are rejected.
 
-`sys` currently provides `argv` and the six ordinary/original stream attributes.
-All streams start as `None`; replacing an ordinary attribute leaves its original
-reference unchanged. `sys.exit` raises catchable `SystemExit` and never exits the Go process.
+`sys` provides `argv`, `exit`, and ordinary/original standard-stream attributes.
+Unconfigured streams initialize to `None`. Configured streams receive fresh
+`bullsnake.HostTextStream` wrappers; original attributes retain their identities
+after ordinary attributes are replaced. `sys.exit` normalizes None and tuple
+statuses as CPython does, preserves a supplied SystemExit instance, and raises
+through the VM without exiting Go.
+
+Host streams borrow `io.Reader` or `io.Writer`. They use strict UTF-8, count
+characters rather than bytes, preserve newlines, and delimit `readline` on LF
+(the equivalent of fixed `newline="\n"`). They expose `read`, `readline`,
+`write`, `flush`, `close`, context management, stream status queries, and fixed
+`encoding`, `errors`, and `closed` attributes. Size arguments currently accept
+native integers/booleans; `read` also accepts None. Custom `__index__` size
+conversion, iteration, `writelines`, and broader TextIOBase behavior remain later
+work. These wrappers do not yet inherit the not-yet-implemented io ABCs.
+
+Only output `Flusher` and either direction's `Terminal` are recognized as
+optional interfaces. No output buffer is added. Missing Flush means no work;
+missing IsTerminal means false. Seeking, telling, truncating, descriptors, and
+the wrong read/write direction raise the internal `io.UnsupportedOperation`
+class, which matches OSError and ValueError. The `io` module is still absent.
+Closing flushes output and closes the wrapper even if flushing raises. It never
+calls a borrowed provider's Close, and repeated close does nothing. Other I/O
+and status operations on a closed wrapper raise ValueError.
+
+Input buffering retains bytes returned alongside an error or EOF. A provider
+failure after decoded text is delivered on the next nonzero read. EOF ends the
+current read without raising. Short writes, invalid provider counts, and write
+errors cannot report full success; BlockingIOError retains the count of complete
+characters accepted. Wrapped provider errors map to the fixed errno vocabulary;
+provider-only PathError paths are omitted. UnicodeEncodeError and
+UnicodeDecodeError preserve codec arguments and offsets. Strict decoding errors
+identify the first invalid byte consumed by the incremental reader; they do not
+claim CPython's internal buffer size or offsets within its buffer.
+
 `time.perf_counter` converts a caller-supplied `PerfCounter` duration to seconds.
-Missing counters raise `PermissionError`; typed nil providers fail construction.
+Missing counters raise PermissionError; typed nil providers fail construction.
 The provider promises nondecreasing values from a fixed arbitrary origin. There
-is no clock fallback, wall time, sleeping, or scheduling. Stream operations and
-exception-state helpers are not implemented yet. Existing bootstrap modules remain preloaded.
+is no clock fallback, wall time, sleeping, or scheduling. Provider calls run
+synchronously and may block indefinitely. No cancellation guarantee is made.
+`sys.modules`, active exception helpers, Python traceback objects, `_io`, and
+unchanged `io.py` remain unimplemented.
 
 ## Deliberate boundaries
 

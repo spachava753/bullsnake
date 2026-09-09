@@ -51,3 +51,10 @@ Add behavior tests before implementation. Research the pinned CPython revision
 for selected Python behavior and use StarlarkX only as a Go design reference.
 Finish one small runtime slice, run all repository checks, update both design
 documents when needed, and commit it before starting the next slice.
+
+Host configuration tests may load Python files from `testdata/host` using focused
+Go tests in `runtime_test.go`. These files need caller-supplied providers, so they
+do not run as default-runtime execution chunks. Keep Python assertions in those
+files and provider call counts, ownership, and isolation assertions in Go.
+Private constructor tests may use the runtime package to inspect registration,
+circular initialization, and rollback without publishing extension APIs.

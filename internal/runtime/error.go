@@ -11,13 +11,18 @@ import (
 
 type exceptionTypeValue struct {
 	name           string
+	module         string
 	base           *exceptionTypeValue
 	additionalBase *exceptionTypeValue
 }
 
 func (*exceptionTypeValue) TypeName() string { return "type" }
 func (exceptionType *exceptionTypeValue) Repr() string {
-	return "<class '" + exceptionType.name + "'>"
+	name := exceptionType.name
+	if exceptionType.module != "" && exceptionType.module != "builtins" {
+		name = exceptionType.module + "." + name
+	}
+	return "<class '" + name + "'>"
 }
 func (*exceptionTypeValue) isValue() {}
 
@@ -85,6 +90,7 @@ var builtinExceptionTypes = []*exceptionTypeValue{
 	zeroDivisionErrorType,
 	typeErrorType,
 	valueErrorType,
+	unicodeErrorType, unicodeEncodeErrorType, unicodeDecodeErrorType,
 	osErrorType, permissionErrorType, fileNotFoundErrorType, fileExistsErrorType,
 	notADirectoryErrorType, isADirectoryErrorType, blockingIOErrorType,
 	interruptedErrorType, timeoutErrorType, connectionErrorType, brokenPipeErrorType,
@@ -122,6 +128,14 @@ func executeExceptionTypeCall(
 				exceptionType.name+"() takes no keyword arguments",
 			),
 		}, nil
+	}
+	if exceptionType == unicodeEncodeErrorType || exceptionType == unicodeDecodeErrorType {
+		result, exception := newUnicodeError(exceptionType, arguments)
+		discardCallSegment(caller, base)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(caller, instruction, result)
 	}
 	message := exceptionMessage(arguments)
 	exception := newExceptionOfType(exceptionType, message)

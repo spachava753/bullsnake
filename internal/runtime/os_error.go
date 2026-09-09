@@ -16,7 +16,7 @@ var (
 	connectionRefusedErrorType = &exceptionTypeValue{name: "ConnectionRefusedError", base: connectionErrorType}
 	connectionResetErrorType   = &exceptionTypeValue{name: "ConnectionResetError", base: connectionErrorType}
 	childProcessErrorType      = &exceptionTypeValue{name: "ChildProcessError", base: osErrorType}
-	unsupportedOperationType   = &exceptionTypeValue{name: "UnsupportedOperation", base: osErrorType, additionalBase: valueErrorType}
+	unsupportedOperationType   = &exceptionTypeValue{name: "UnsupportedOperation", module: "io", base: osErrorType, additionalBase: valueErrorType}
 )
 
 // errnoExceptionType uses a fixed POSIX/Linux errno vocabulary, independent of
