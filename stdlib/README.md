@@ -26,7 +26,7 @@ The framework does not import yet. From the repository root, reproduce the
 current blockers without Python or network access:
 
 ```sh
-go run ./.plan/probe stdlib/3.14 abc unittest
+go run ./tools/importprobe stdlib/3.14 abc unittest
 ```
 
 `abc` stops at `_weakrefset.py:5:1` because `_weakref` is absent. `unittest`

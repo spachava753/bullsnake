@@ -92,7 +92,7 @@ historical 61-module compilation sweep has not been repeated.
 The current failures can be reproduced offline from the repository root:
 
 ```sh
-go run ./.plan/probe stdlib/3.14 abc unittest
+go run ./tools/importprobe stdlib/3.14 abc unittest
 ```
 
 The probe reports expected current failures and exits unsuccessfully. It is a

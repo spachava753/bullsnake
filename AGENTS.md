@@ -46,6 +46,10 @@ Test program behavior and package contracts. Do not add tests whose only purpose
 is counting fixture entries, checking fixture names, or requiring category
 coverage.
 
+Keep `.plan/` as ignored local harness state between atomic changes. Do not
+commit plans or handoff logs from it. Durable implementation facts belong in the
+existing documentation; reusable diagnostics belong outside `.plan/`.
+
 ## Verification
 
 Run these checks before each finished commit:

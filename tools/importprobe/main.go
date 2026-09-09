@@ -2,12 +2,18 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/spachava753/bullsnake/internal/importer"
 	rt "github.com/spachava753/bullsnake/internal/runtime"
-	"os"
 )
 
+// main probes each requested import in a fresh runtime and reports failures.
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: importprobe SOURCE_ROOT [MODULE ...]")
+		os.Exit(2)
+	}
 	failed := false
 	loader := importer.NewFileSystem(os.Args[1])
 	names := os.Args[2:]
