@@ -68,7 +68,10 @@ type textReadCall struct {
 // short reads loop without Go stack growth; Python reads suspend in the VM.
 func (call *textReadCall) advance(caller *frame) (instructionOutcome, error) {
 	for {
-		call.consume()
+		// Unbounded reads retain old read-ahead until the final decode succeeds.
+		if call.line || call.limit >= 0 || call.eof {
+			call.consume()
+		}
 		if call.done || call.eof {
 			return pushOutcome(caller, call.instruction, &stringValue{value: call.result.String()})
 		}

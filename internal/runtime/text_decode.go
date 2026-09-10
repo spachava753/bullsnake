@@ -7,9 +7,20 @@ type textUnit struct {
 	width int
 }
 
-// decodeChunk retains incomplete UTF-8 and CR prefixes between binary reads.
-// Each output code point records its source byte width for logical positions.
+// decodeChunk publishes text and newline state only after decoding succeeds.
+// A failed chunk leaves earlier incomplete bytes and pending CR available.
 func (stream *textWrapper) decodeChunk(data []byte, final bool) *Exception {
+	updated := *stream
+	if exception := updated.decodeInput(data, final); exception != nil {
+		return exception
+	}
+	*stream = updated
+	return nil
+}
+
+// decodeInput retains incomplete UTF-8 and CR prefixes between binary reads.
+// Each output code point records its source byte width for logical positions.
+func (stream *textWrapper) decodeInput(data []byte, final bool) *Exception {
 	stream.input = append(stream.input, data...)
 	for stream.decodeOffset < len(stream.input) {
 		offset := stream.decodeOffset

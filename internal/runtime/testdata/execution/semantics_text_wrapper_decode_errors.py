@@ -38,3 +38,56 @@ for errors, first in [('replace', '\ufffd'), ('ignore', '\n')]:
     assert tail == ('\nZ' if errors == 'replace' else 'Z')
     stream.seek(position)
     assert stream.read() == tail
+
+# ---
+# case: failed decoding discards the chunk without publishing partial text
+from _io import BytesIO, TextIOWrapper
+for encoding in ['utf-8', 'ascii']:
+    for size in [-1, 2]:
+        stream = TextIOWrapper(BytesIO(b'A\r\n\xff'), encoding=encoding)
+        try:
+            stream.read(size)
+            assert False
+        except UnicodeDecodeError:
+            pass
+        assert stream.newlines is None
+        assert stream.read() == ''
+
+# ---
+# case: failed decoding retains incomplete bytes and pending CR from prior chunks
+from _io import _BufferedIOBase, TextIOWrapper
+class Chunks(_BufferedIOBase):
+    def __init__(self, parts):
+        self.parts = parts
+    def readable(self):
+        return True
+    def read1(self, size):
+        return self.parts.pop(0)
+for parts, result, newlines in [
+    ([b'\xe1', b'\x80X', b'\x80\x80', b''], '\u1000', None),
+    ([b'\r', b'X\xff', b'\nY', b''], '\nY', '\r\n'),
+]:
+    stream = TextIOWrapper(Chunks(parts))
+    try:
+        stream.read(2)
+        assert False
+    except UnicodeDecodeError:
+        pass
+    assert stream.newlines is None
+    assert stream.read(2) == result
+    assert stream.newlines == newlines
+
+# ---
+# case: failed unbounded reads preserve previously decoded read ahead
+from _io import BytesIO, TextIOWrapper
+class Chunks(BytesIO):
+    def read1(self, size):
+        return super().read1(3)
+stream = TextIOWrapper(Chunks(b'abc\xff'))
+assert stream.read(1) == 'a'
+try:
+    stream.read()
+    assert False
+except UnicodeDecodeError:
+    pass
+assert stream.read() == 'bc'

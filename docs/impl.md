@@ -1172,6 +1172,9 @@ Malformed UTF-8 consumes the valid prefix before an invalid continuation as one
 error span or replacement character. Restricted second bytes reject only the
 lead byte, preserving Python's overlong, surrogate, and range-error boundaries.
 Split-prefix fixtures also check newline handling and position restoration.
+Failed decoding discards the new chunk without publishing partial characters or
+newline history. Previously buffered incomplete bytes and pending CR survive;
+unbounded read failures also preserve decoded read-ahead from earlier calls.
 Unknown codecs and unavailable error handlers raise LookupError. Requesting
 `locale` raises PermissionError; codec selection never reads ambient locale,
 environment variables, files, or a process-wide registry.

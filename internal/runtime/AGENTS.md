@@ -45,6 +45,8 @@ guards on the calling frame so Go-error unwinding releases them as well as Pytho
 completion. Never call Python from Go GC. Text codec selection and filesystem
 entry points must preserve explicit host permissions; a source loader is not a
 filesystem provider, and a Python opener does not grant process-file access.
+Text decoding must publish a chunk's characters and newline state only after
+success. Test failure recovery with split input as well as complete byte strings.
 
 ## Testing
 
