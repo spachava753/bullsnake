@@ -245,6 +245,13 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
 
+	if buffer, ok := container.(*bytearrayValue); ok {
+		value, exception := buffer.subscript(indexValue)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(frame, instruction, value)
+	}
 	if dictionary, ok := container.(*dictValue); ok {
 		value, found, exception := dictionary.get(indexValue)
 		if exception != nil {

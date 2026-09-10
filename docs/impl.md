@@ -1132,3 +1132,15 @@ complete native special-method continuation before applying StopIteration
 semantics. StringIO now shares this hierarchy and inherits the line helpers; its native
 buffer methods remain available through unbound class calls and `super`. No GC finalizer calls Python or
 closes streams; callers must use explicit close or context management.
+
+
+### Mutable binary buffers
+
+The first `bytearray` slice supplies writable storage for upcoming binary I/O.
+`bytearray` and `bytes` constructors accept no argument, an integer zero-fill
+size, or current bytes/bytearray buffers. Copies and immutable snapshots do not
+share mutable data. Bytearrays support length, truth, iteration, byte-content
+equality with bytes, integer indexing, slicing, and contiguous/extended slice
+assignment and deletion. Invalid replacements leave the original buffer intact;
+bytearrays are unhashable. Iterable/encoded-text construction, custom index
+callbacks, memory views, and broader bytearray methods remain later slices.

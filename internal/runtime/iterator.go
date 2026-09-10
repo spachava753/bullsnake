@@ -87,6 +87,9 @@ type textIterator struct {
 }
 
 func (iterator *textIterator) TypeName() string {
+	if _, ok := iterator.text.(*bytearrayValue); ok {
+		return "bytearray_iterator"
+	}
 	if _, ok := iterator.text.(*stringValue); ok {
 		return "str_iterator"
 	}
@@ -97,6 +100,8 @@ func (iterator *textIterator) Repr() string {
 }
 func (*textIterator) isValue() {}
 
+// next advances by a code point for strings and by one byte for binary values,
+// consulting mutable bytearray storage on each request.
 func (iterator *textIterator) next() (Value, bool, *Exception) {
 	switch text := iterator.text.(type) {
 	case *stringValue:
@@ -107,6 +112,13 @@ func (iterator *textIterator) next() (Value, bool, *Exception) {
 		start := iterator.offset
 		iterator.offset += size
 		return &stringValue{value: text.value[start:iterator.offset]}, true, nil
+	case *bytearrayValue:
+		if iterator.offset >= len(text.buffer.data) {
+			return nil, false, nil
+		}
+		result := newByteInteger(text.buffer.data[iterator.offset])
+		iterator.offset++
+		return result, true, nil
 	case *bytesValue:
 		if iterator.offset >= len(text.value) {
 			return nil, false, nil
@@ -239,7 +251,7 @@ func newIterator(value Value) (Value, bool) {
 		return &sequenceIterator{sequence: value}, true
 	case *rangeValue:
 		return newRangeIterator(value), true
-	case *stringValue, *bytesValue:
+	case *stringValue, *bytesValue, *bytearrayValue:
 		return &textIterator{text: value}, true
 	case *templateValue:
 		return &templateIterator{template: value}, true

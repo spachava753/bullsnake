@@ -31,11 +31,12 @@ func builtinNativeType(name string) *nativeTypeValue {
 }
 
 var (
-	typeNativeType   = builtinNativeType("type")
-	objectNativeType = builtinNativeType("object")
-	noneNativeType   = builtinNativeType("NoneType")
-	intNativeType    = builtinNativeType("int")
-	boolNativeType   = &nativeTypeValue{
+	bytearrayNativeType = builtinNativeType("bytearray")
+	typeNativeType      = builtinNativeType("type")
+	objectNativeType    = builtinNativeType("object")
+	noneNativeType      = builtinNativeType("NoneType")
+	intNativeType       = builtinNativeType("int")
+	boolNativeType      = &nativeTypeValue{
 		name: "bool", qualname: "bool", module: "builtins", base: intNativeType,
 	}
 	floatNativeType           = builtinNativeType("float")
@@ -69,6 +70,7 @@ var (
 )
 
 var builtinNativeTypes = []*nativeTypeValue{
+	bytesNativeType, bytearrayNativeType,
 	typeNativeType,
 	objectNativeType,
 	boolNativeType,
@@ -90,6 +92,8 @@ var builtinNativeTypes = []*nativeTypeValue{
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
+	"bytearray":                        bytearrayNativeType,
+	"bytearray_iterator":               builtinNativeType("bytearray_iterator"),
 	"weakref.ReferenceType":            nativeType("weakref", "ReferenceType"),
 	"_abc._abc_data":                   nativeType("_abc", "_abc_data"),
 	"object":                           objectNativeType,
@@ -200,6 +204,13 @@ func executeNativeTypeCall(
 		return pushOutcome(caller, instruction, result)
 	}
 	switch class {
+	case bytesNativeType, bytearrayNativeType:
+		result, exception := newBinaryValue(arguments, keywords, class == bytearrayNativeType)
+		discardCallSegment(caller, base)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(caller, instruction, result)
 	case objectNativeType:
 		return executeObjectTypeCall(caller, instruction, base, arguments, keywords)
 	case boolNativeType:

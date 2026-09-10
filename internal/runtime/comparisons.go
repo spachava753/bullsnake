@@ -114,6 +114,12 @@ func executeComparison(
 // valuesEqual implements equality for current scalar, tuple, and list values.
 // Numeric equality includes booleans and exact integer-to-binary64 comparison.
 func valuesEqual(left, right Value) bool {
+	if buffer, ok := left.(*bytearrayValue); ok {
+		left = &bytesValue{value: string(buffer.buffer.data)}
+	}
+	if buffer, ok := right.(*bytearrayValue); ok {
+		right = &bytesValue{value: string(buffer.buffer.data)}
+	}
 	if left == right {
 		return true
 	}

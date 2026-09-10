@@ -144,6 +144,8 @@ func immediateLength(value Value) (int, bool) {
 			offset += size
 		}
 		return length, true
+	case *bytearrayValue:
+		return len(value.buffer.data), true
 	case *bytesValue:
 		return len(value.value), true
 	case *tupleValue:

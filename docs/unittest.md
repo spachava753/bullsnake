@@ -706,3 +706,10 @@ Go storage. They do not grant host access or install GC callbacks. Base line hel
 overrides, exact character hints, EINTR retries, and partial iterator failures.
 StringIO inheritance and subclass overrides are now tested. Raw/buffered
 classes and remaining `_io` helpers are still ahead. The current unittest import failure is unchanged.
+
+
+The binary-I/O prerequisite now includes selected `bytearray` and `bytes`
+construction, mutable byte/slice assignment and deletion, and immutable snapshot
+conversion. Python fixtures verify the buffer-writing pattern needed by
+`readinto`, including extended slices and failed mutations. Memory views and
+raw/buffered streams remain subsequent work; no filesystem capability is added.
