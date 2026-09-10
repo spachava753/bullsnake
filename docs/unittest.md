@@ -755,3 +755,7 @@ BufferedReader is now tested over BytesIO and Python RawIOBase implementations.
 Read-ahead positions, partial and nonblocking results, explicit close/detach,
 callback validation, and failure cleanup are covered. BufferedWriter,
 BufferedRandom, BufferedRWPair, and TextIOWrapper still remain.
+
+BufferedWriter callback tests exposed missing binary concatenation. That
+prerequisite is now tested separately, including bytes snapshots, bytearray
+identity, aliasing, and exported-view resize restrictions.

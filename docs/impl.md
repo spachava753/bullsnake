@@ -1202,3 +1202,9 @@ raw metadata delegation. Tests cover read-ahead, short and nonblocking reads,
 readall delegation, invalid counts, temporary view release, and reentrant calls.
 A per-frame guard rejects reentrant buffer mutation and releases after Python
 exceptions and Go loader failures. There is no finalizer or automatic raw close.
+
+Bytes and bytearray concatenate contiguous byte buffers with `+` and `+=`.
+Bytes results are immutable snapshots; bytearray in-place addition preserves
+identity and rejects growth with exported views. This supports Python raw I/O
+implementations that accumulate output. Reflected user operations still run
+when the right operand does not export a supported contiguous buffer.

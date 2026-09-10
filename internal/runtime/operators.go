@@ -110,6 +110,14 @@ func executeBinary(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
+	if operand == bytecode.BinaryAdd {
+		if result, exception, handled := binaryBufferAdd(left, right, inPlace); handled {
+			if exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			return pushOutcome(frame, index, result)
+		}
+	}
 	if result, exception, handled := templateBinary(left, right, operand); handled {
 		if exception != nil {
 			return instructionOutcome{kind: raised, exception: exception}, nil
