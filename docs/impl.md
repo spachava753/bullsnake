@@ -1108,3 +1108,21 @@ instead of CPython's disconnected-stdout no-op. There is no ambient output or
 silent sink. A deleted sys.stdout raises RuntimeError. Explicit Python streams
 work without host output providers. print currently inherits the existing str
 limitations, including representations of containers holding user objects.
+
+
+### I/O base-class lifecycle
+
+`_io._IOBase` and `_io._TextIOBase` now use per-runtime class allocations with
+private Go instance storage. Their native instance methods bind through ordinary
+attribute lookup and `super`; subclasses retain Python initializers, attributes,
+properties, C3 inheritance, and ABC abstract-class checks. The supplied base
+classes are immutable, while user subclasses remain mutable. Public `__dict__`
+introspection and custom instance `__new__` remain outside this slice.
+
+The initial base surface covers flush/close, context management, status checks,
+unsupported seek/truncate/fileno, and tell delegation to seek. Close invokes a
+Python flush override and marks the base closed even if it raises. Context exit
+invokes the Python close override. TextIOBase provides its unsupported-operation
+defaults and None-valued encoding/errors/newlines. Base line helpers and
+StringIO inheritance follow in separate slices. No GC finalizer calls Python or
+closes streams; callers must use explicit close or context management.

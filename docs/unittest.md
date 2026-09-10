@@ -691,3 +691,15 @@ and instance attributes remain unimplemented. Other `_io` classes and helpers
 are absent. The current unittest import probe stops at missing
 `_collections_abc`; supplying that source will then expose further `_io` and
 object-model gaps. No unittest test has executed.
+
+
+### I/O base-class lifecycle
+
+The native `_IOBase` and `_TextIOBase` lifecycle slice is tested with Python
+subclasses. Tests cover inherited method binding through `super`, private closed
+state, flush failures during close, context-manager close overrides, text-base
+defaults, unsupported operations, immutable base classes, and mutable subclasses.
+These classes use the ordinary runtime class and descriptor paths with private
+Go storage. They do not grant host access or install GC callbacks. Base line
+helpers, StringIO inheritance, raw/buffered classes, and remaining `_io` helpers
+are still ahead. The current unittest import failure is unchanged.

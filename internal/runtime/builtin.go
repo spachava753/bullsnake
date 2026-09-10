@@ -8,6 +8,7 @@ import (
 )
 
 type builtinFunctionValue struct {
+	method    bool
 	name      string
 	call      func(arguments []Value, keywords *dictValue) (Value, *Exception)
 	frameCall func(*frame, int, int, []Value, *dictValue) (instructionOutcome, error)

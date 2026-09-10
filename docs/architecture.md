@@ -792,3 +792,12 @@ through VM continuations. It resolves current sys.stdout per call, while keeping
 the selected stream across conversions and writes within that call. A None
 stdout raises PermissionError under the no-discard host policy; this intentionally
 differs from CPython's disconnected-stdout no-op.
+
+
+Native I/O bases use per-runtime ordinary class allocations with private typed
+Go storage on instances. Their method descriptors participate in normal
+instance lookup, `super`, and C3 inheritance, allowing Python subclasses to
+override operations. Runtime-supplied classes are immutable; user subclasses
+remain mutable. This avoids a separate inheritance model for Go I/O objects.
+Explicit close and context management own lifecycle transitions; garbage
+collection never invokes Python I/O methods.

@@ -11,6 +11,8 @@ func (*buildClassValue) isValue()         {}
 var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
+	ioClass        bool
+	immutable      bool
 	name           string
 	qualifiedName  string
 	module         string
@@ -116,6 +118,7 @@ func (class *typeValue) isSubclassOfNative(parent *nativeTypeValue) bool {
 }
 
 type instanceValue struct {
+	io         *ioState
 	class      *typeValue
 	attributes *Namespace
 }
@@ -153,9 +156,7 @@ func lookupInstanceSpecial(instance *instanceValue, name string) (Value, bool) {
 	if bound, descriptor := bindMethodDescriptor(value, instance.class); descriptor {
 		return bound, true
 	}
-	if function, bind := value.(*functionValue); bind {
-		value = &boundMethodValue{callable: function, self: instance}
-	}
+	value = bindInstanceFunction(value, instance)
 	return value, true
 }
 
@@ -437,6 +438,11 @@ func executeTypeCall(
 				abstractClass: class,
 			},
 		})
+	}
+	for _, parent := range class.mro {
+		if parent.ioClass {
+			return executeIOTypeCall(caller, instruction, base, class, arguments, keywords)
+		}
 	}
 	instance := &instanceValue{class: class, attributes: newNamespace()}
 	if !hasInitializer {
