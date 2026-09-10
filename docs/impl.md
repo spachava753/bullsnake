@@ -1215,3 +1215,9 @@ Nonblocking writes report accepted input in BlockingIOError.characters_written.
 Flush drains pending bytes; seek, truncate, detach, and close flush first. Close
 still attempts raw close after a flush exception. Source tests verify byte
 ordering, mutable input snapshots, partial counts, failure recovery, and close.
+
+`_io.BufferedRandom` now combines the tested reader and writer over one seekable,
+readable, writable raw object. Reads drain pending output; switching to writes
+and explicit flush rewind unread input to the logical position. Failed rewind
+preserves read-ahead for recovery. Source tests cover alternating operations,
+logical positions, capability rejection, truncation, detach, and failed seeks.

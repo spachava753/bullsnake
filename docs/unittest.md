@@ -763,3 +763,7 @@ identity, aliasing, and exported-view resize restrictions.
 BufferedWriter is now tested with BytesIO and Python raw writers, including
 short writes, nonblocking capacity, exact retry counts, and flush failure during
 close. BufferedRandom, BufferedRWPair, and TextIOWrapper remain ahead.
+
+BufferedRandom now executes alternating binary reads and writes with tested
+cursor synchronization and rewind failure recovery. BufferedRWPair and
+TextIOWrapper are still pending; no filesystem access has been introduced.
