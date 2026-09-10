@@ -6,7 +6,7 @@ still blocked.
 The goal is to run CPython's unchanged synchronous `unittest` package, then use
 it to run unchanged standard-library tests. Much of the Python language support
 needed for this work already exists. The next phase needs Go-backed system
-modules and more runtime behavior, especially class creation, weak references,
+modules and more runtime behavior, especially in-memory I/O, general weak references,
 and tracebacks that Python code can inspect.
 
 This document tracks that milestone. The [architecture](architecture.md)
@@ -89,14 +89,16 @@ and again after the host slices, with the same import outcomes. Operator,
 keyword, and heapq now also have checked-in execution regression tests. The
 historical 61-module compilation sweep has not been repeated.
 
-The current failures can be reproduced offline from the repository root:
+After the weak ABC registry slices, `abc` imports and has checked-in execution
+tests. `unittest` still fails at `io.py:53:8` because `_io` is absent. Reproduce
+these current outcomes offline from the repository root:
 
 ```sh
 go run ./tools/importprobe stdlib/3.14 abc unittest
 ```
 
-The probe reports expected current failures and exits unsuccessfully. It is a
-checkpoint diagnostic, not a passing unittest test. No TestCase/TestResult,
+The probe reports abc success and the current unittest failure, then exits
+unsuccessfully. It is a checkpoint diagnostic, not a passing unittest test. No TestCase/TestResult,
 suite/loader, text runner, or unittest.main execution has succeeded yet. An import success alone does
 not establish that a module's public functions work.
 
@@ -466,15 +468,89 @@ class is created. Unchanged `io.py` uses both through `abc.ABCMeta` to define
 
 Bullsnake can now define classes that inherit `classmethod`, `staticmethod`, or
 `property`. This lets `abc.py` get past its older descriptor helper definitions.
-Constructing instances of those subclasses still fails. Subclassing `type`,
-selecting `metaclass=`, and calling metaclass `__new__` are also unsupported.
+ABC-style descriptor subclasses now construct and bind, including initialization
+through `super` and abstractproperty markers. Subclassing `type`,
+selecting `metaclass=`, and calling metaclass `__new__` now have source-to-result tests.
 
-Choose between implementing the `_abc` helper used by `abc.py` and supporting
-its `_py_abc` fallback through `_weakref`, `weakref`, and `_weakrefset`. Either
-route still needs class creation, abstract-method checks, subclass registration,
-and the matching behavior in `isinstance` and `issubclass`.
+The first ABC allocation slice is tested: assigning `__abstractmethods__` to an
+ordinary user class prevents instantiation when its truth value is true. The
+runtime retains the metadata, isolates it from subclasses, supports deletion and
+reassignment, and formats sorted missing-method diagnostics through Python
+iterator/comparison continuations. Truth failures leave the prior state intact.
+Runtime source fixtures test the native helpers, and a standard-library test
+now exercises unchanged `abc.py`. Python weakref callbacks and regex compatibility
+remain deferred. `_weakref` remains absent.
 
-### Weak references need a memory and callback design
+The selected route implements the native `_abc` helpers used by unchanged
+`abc.py`. Class construction, abstract checks, virtual registration, and
+metaclass instance/subclass checks now have source-to-result tests. `_get_dump`
+supplies real weak diagnostic references, so unchanged `abc.py` uses this route.
+
+
+### Abstract-method computation
+
+The private Go `_abc` module now exposes `_abc_init` for the implemented
+abstract-method computation subset. It snapshots direct class attributes,
+resolves their live `__isabstractmethod__` markers, then iterates inherited names
+and resolves overrides through ordinary class lookup. A successful computation
+stores a frozen set and updates the allocation flag. Attribute, iterator, and
+truth callbacks run in the VM; a failure leaves the previous abstract metadata
+unchanged. Properties check getter, setter, and deleter markers in order;
+classmethod and staticmethod markers follow their wrapped values. Bound methods
+expose the underlying function's marker.
+
+`_abc_init` now also installs fresh `_abc_impl` state. Virtual registration,
+instance/subclass checks, cache tokens, and registry/cache reset helpers are
+implemented. Registries and both caches hold Go weak pointers to class
+allocations, with lazy pruning. Tokens are isolated per runtime; new registration
+invalidates negative caches across ABCs. Checks honor subclass hooks before
+nominal inheritance, then registered classes and immediate subclasses, through
+ordinary VM continuations. Hooks must return bool or NotImplemented.
+
+Source tests cover transitive registration, cycle rejection, native and exception
+class registration, cache resets, mutations during callbacks, reported versus
+actual instance classes, and errors. Go tests verify that actual ABC registries
+and caches do not retain discarded classes and that runtime tokens are isolated.
+General metaclass hashing/equality and native-base subclass enumeration remain
+outside this subset.
+
+`_get_dump` returns independent sets sharing callback-free weak class references.
+They are callable, return None after collection, cache their target's hash, and
+compare by live class identity; distinct dead references compare unequal. Saved
+dumps do not retain their target classes. Their `__callback__` is None, unlike
+CPython's private registry-removal callbacks: Bullsnake prunes on access. These
+references have no public constructor and do not expose `_weakref` or `weakref`.
+Python callbacks and regex compatibility remain deferred.
+
+Unchanged `abc.py` now imports through the native helpers. The project-owned
+standard-library regression test executes ABC/ABCMeta construction, modern and
+legacy abstract decorators, concrete overrides, virtual and transitive
+registration, structural hooks, instance checks, and cache resets. It is not
+CPython's full test_abc suite. Execution probes still find `update_abstractmethods`
+blocked at class `__dict__` access (abc.py:177), which remains deferred.
+`_dump_registry` now executes unchanged with explicit or redirected streams;
+its complete report is checked against the runtime's weak-reference repr.
+
+### Metaclass construction checkpoint
+
+User classes may now inherit `type`. Class statements select the most-derived
+compatible metaclass before executing the body, call `__prepare__`, and pass its
+exact dictionary to `__new__` and `__init__`. Python factory functions are also
+accepted as metaclasses. Dictionary namespaces retain body writes and deletions;
+custom mapping namespaces remain unsupported. `type.__new__`, metaclass `super`,
+class-cell propagation, inherited metaclass identity, and dynamic `type`
+construction share the same class builder. Construction exceptions propagate
+through the existing VM and are catchable at the class statement.
+
+Native operations can retain ordered result continuations on their Python caller
+while a child frame executes. They resume after the child's existing protocols
+complete; error continuations run before the caller's Python exception handlers.
+This supports metaclass call sequences without using the Go stack for Python
+calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+and general metaclass descriptor precedence remain separate gaps. The tested ABC
+subset and remaining API gaps are described above.
+
+### Internal weak class references and deferred Python callbacks
 
 A weak reference lets code refer to an object without keeping it alive.
 `unittest.signals` creates a `WeakKeyDictionary` even when Ctrl-C handling is
@@ -484,7 +560,11 @@ A dictionary that holds strong references would keep test results alive and
 would not reproduce weak-reference callbacks. Bullsnake uses Go's garbage
 collector. Any Python callback triggered by collection must wait until the
 interpreter can safely run it, rather than running inside a Go cleanup callback.
-Settle that design before exposing `_weakref`.
+The internal lifetime choice is now Go `weak.Pointer` to actual class allocations,
+with dead entries pruned synchronously on access. Immediate user-subclass links
+use this storage and have source behavior plus Go GC ownership tests. ABC
+registries and caches use the same approach. Public `_weakref` and callback delivery
+remain deferred; no second collector or CPython reference counting is planned.
 
 ### Failure reports need Python-visible traceback objects
 
@@ -508,8 +588,8 @@ Known gaps to check as execution advances are:
 
 - Custom attribute lookup through `__getattribute__` and `__getattr__`, plus
   more readable and writable class and function metadata.
-- Construction of native-type subclasses, including descriptors, metaclasses,
-  and the container subclasses needed by code such as `namedtuple`.
+- Broader native-type subclass construction, especially container subclasses
+  needed by code such as `namedtuple`. Initial descriptor subclasses now work.
 - Dictionary and set keys whose hashing or equality calls Python methods.
   Direct `hash(obj)` supports a user method today, but container keys do not.
 - List, set, and frozen-set equality involving user-defined element equality.
@@ -558,5 +638,25 @@ The synchronous in-memory milestone is complete when:
 - All repository checks pass without network access or a Python executable.
 
 After that, add permission-controlled filesystem discovery and signal handling.
-Plan mock and async testing separately. The immediate next task is `abc` class construction, followed by `_io` and
-unchanged `io.py`. No unittest test has executed yet. The overall milestone remains blocked.
+Plan mock and async testing separately. The independent ABC class-construction
+and abstract-method computation slices are tested. Virtual registration is tested
+through both native helpers and unchanged `abc.py`, which now imports. In-memory
+`_io` and unchanged `io.py` are the next independent work. No unittest test has executed
+yet; the overall milestone remains blocked.
+
+### Printing to Python streams
+
+`print` accepts arbitrary positional values and keyword-only `sep`, `end`,
+`file`, and `flush`. It converts flush truth first, resolves the current
+`sys.stdout` when file is omitted or None, and retains that stream for the call.
+Each write method is resolved before converting its value through Python str.
+Separators, values, and the ending are written separately; earlier output is
+preserved if conversion, writing, or flushing fails. Return values from stream
+methods are ignored. Python callbacks use VM continuations, and host wrappers
+retain their existing Unicode, error, and borrowed-ownership contracts.
+
+Under Bullsnake's explicit host policy, a None stdout raises PermissionError
+instead of CPython's disconnected-stdout no-op. There is no ambient output or
+silent sink. A deleted sys.stdout raises RuntimeError. Explicit Python streams
+work without host output providers. print currently inherits the existing str
+limitations, including representations of containers holding user objects.

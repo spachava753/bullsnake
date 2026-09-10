@@ -22,7 +22,32 @@ func executeDynamicAttributeLoad(
 	owner Value,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "__class__" {
+		if _, instance := owner.(*instanceValue); !instance {
+			class, exception := typeOf(owner)
+			if exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			return pushOutcome(frame, instruction, class)
+		}
+	}
+	if outcome, found, err := executeDescriptorSubclassAttribute(frame, instruction, owner, name); found || err != nil {
+		return outcome, err
+	}
 	switch owner := owner.(type) {
+	case *classWeakReference:
+		if name == "__callback__" {
+			return pushOutcome(frame, instruction, None)
+		}
+		return raiseOutcome(newException("AttributeError", "weak reference has no attribute '"+name+"'")), nil
+	case *boundMethodValue:
+		if name == "__func__" {
+			return pushOutcome(frame, instruction, owner.callable)
+		}
+		if name == "__self__" {
+			return pushOutcome(frame, instruction, owner.self)
+		}
+		return executeDynamicAttributeLoad(frame, instruction, owner.callable, name)
 	case *hostTextStream:
 		return executeHostStreamAttributeLoad(frame, instruction, owner, name)
 	case *functionValue:
@@ -186,6 +211,11 @@ func executeTypeAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "__abstractmethods__":
+		if value, found := owner.namespace.get(name); found {
+			return pushOutcome(frame, instruction, value)
+		}
+		return raiseOutcome(newException("AttributeError", name)), nil
 	case "__name__":
 		return pushOutcome(frame, instruction, &stringValue{value: owner.name})
 	case "__qualname__":
@@ -230,7 +260,28 @@ func executeTypeAttributeLoad(
 		return pushOutcome(frame, instruction, result)
 	}
 	value, found := owner.lookup(name)
+	if !found && owner.isSubclassOfNative(typeNativeType) {
+		value, found = nativeMetaclassMethod(name)
+	}
+	if !found && owner.metaclass != nil {
+		if method, exists := owner.metaclass.lookup(name); exists {
+			if function, ok := method.(*functionValue); ok {
+				return pushOutcome(frame, instruction, &boundMethodValue{callable: function, self: owner})
+			}
+			if bound, ok := bindMethodDescriptor(method, owner.metaclass); ok {
+				return pushOutcome(frame, instruction, bound)
+			}
+			return pushOutcome(frame, instruction, method)
+		}
+	}
 	if !found {
+		if name == "__subclasshook__" {
+			return pushOutcome(frame, instruction, defaultSubclassHook())
+		}
+		if name == "__subclasses__" || name == "__subclasscheck__" || name == "__instancecheck__" {
+			method, _ := nativeMetaclassMethod(name)
+			return pushOutcome(frame, instruction, &boundMethodValue{callable: method, self: owner})
+		}
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(
@@ -289,6 +340,9 @@ func executeInstanceAttributeLoad(
 		return pushOutcome(frame, instruction, value)
 	}
 	if !classFound {
+		if name == "__class__" {
+			return pushOutcome(frame, instruction, owner.class)
+		}
 		return instructionOutcome{
 			kind: raised,
 			exception: newException(
@@ -324,6 +378,13 @@ func executeDynamicAttributeStore(
 	name string,
 	value Value,
 ) (instructionOutcome, error) {
+	if state := descriptorIdentity(owner); state != nil && state.class != nil {
+		if _, overridden := state.class.lookup(name); !overridden && (name == "__func__" || name == "__wrapped__" || name == "__isabstractmethod__" || name == "fget" || name == "fset" || name == "fdel") {
+			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		state.attributes.values[name] = value
+		return instructionOutcome{kind: advance}, nil
+	}
 	switch owner := owner.(type) {
 	case *Module:
 		owner.globals.values[name] = value
@@ -337,10 +398,18 @@ func executeDynamicAttributeStore(
 		}
 		owner.attributes.values[name] = value
 	case *typeValue:
+		if name == "__abstractmethods__" {
+			return executeTruthWithCall(frame, value, &truthCall{
+				instruction: instruction,
+				abstractStore: &abstractMethodsStore{
+					instruction: instruction, class: owner, value: value,
+				},
+			})
+		}
 		if readOnlyTypeMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
-		owner.namespace.values[name] = value
+		owner.setAttribute(name, value)
 	case *instanceValue:
 		return executeInstanceAttributeStore(frame, instruction, owner, name, value)
 	default:
@@ -375,6 +444,12 @@ func executeDynamicAttributeDelete(
 	case *typeValue:
 		if readOnlyTypeMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		if name == "__abstractmethods__" {
+			if _, found := owner.namespace.get(name); !found {
+				return raiseOutcome(newException("AttributeError", name)), nil
+			}
+			owner.abstract = false
 		}
 		attributes = owner.namespace
 		missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"

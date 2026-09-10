@@ -11,18 +11,27 @@ func (*buildClassValue) isValue()         {}
 var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
-	name          string
-	qualifiedName string
-	module        string
-	namespace     *Namespace
-	bases         []*typeValue
-	mro           []*typeValue
-	objectBase    bool
-	nativeBase    *nativeTypeValue
-	exceptionBase *exceptionTypeValue
+	name           string
+	qualifiedName  string
+	module         string
+	namespace      *Namespace
+	bases          []*typeValue
+	subclasses     weakClassSet
+	mro            []*typeValue
+	objectBase     bool
+	abstract       bool
+	metaclass      *typeValue
+	namespaceOrder []string
+	nativeBase     *nativeTypeValue
+	exceptionBase  *exceptionTypeValue
 }
 
-func (*typeValue) TypeName() string { return "type" }
+func (class *typeValue) TypeName() string {
+	if class.metaclass != nil {
+		return class.metaclass.name
+	}
+	return "type"
+}
 func (class *typeValue) Repr() string {
 	if class.module == "" {
 		return "<class '" + class.qualifiedName + "'>"
@@ -162,9 +171,16 @@ type classBuild struct {
 	exceptionBase     *exceptionTypeValue
 	namespaceOrder    []string
 	namespacePosition map[string]int
+	metaclass         Value
+	keywords          *dictValue
+	baseValues        []Value
+	dictionary        *dictValue
 }
 
 func (build *classBuild) recordStore(name string) {
+	if build.dictionary != nil {
+		build.dictionary.set(&stringValue{value: name}, build.namespace.values[name])
+	}
 	if _, found := build.namespacePosition[name]; found {
 		return
 	}
@@ -190,6 +206,13 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 		return nil, exception
 	}
 	class.mro = mro
+	for _, base := range class.bases {
+		base.subclasses.entries = append(base.subclasses.entries, makeWeakClass(class))
+	}
+	class.namespaceOrder = append([]string(nil), build.namespaceOrder...)
+	if function, ok := class.namespace.values["__new__"].(*functionValue); ok {
+		class.namespace.values["__new__"] = &staticMethodValue{callable: function}
+	}
 	for index, name := range build.namespaceOrder {
 		if build.namespacePosition[name] != index {
 			continue
@@ -216,7 +239,7 @@ func resolveClassBases(
 	for _, baseValue := range baseValues {
 		switch classBase := baseValue.(type) {
 		case *typeValue:
-			if classBase.nativeClassBase() != nil && len(baseValues) != 1 {
+			if native := classBase.nativeClassBase(); native != nil && native != typeNativeType && len(baseValues) != 1 {
 				return nil, nil, nil, false, newException(
 					"TypeError",
 					"multiple inheritance with native bases is not supported",
@@ -241,7 +264,7 @@ func resolveClassBases(
 			switch classBase {
 			case objectNativeType:
 				objectBase = true
-			case classMethodNativeType, staticMethodNativeType, propertyNativeType:
+			case typeNativeType, classMethodNativeType, staticMethodNativeType, propertyNativeType:
 				nativeBase = classBase
 			default:
 				return nil, nil, nil, false, newException(
@@ -288,18 +311,27 @@ func executeBuildClassCall(
 			exception: newException("TypeError", "__build_class__: name is not a string"),
 		}, nil
 	}
-	if keywords != nil && len(keywords.entries) != 0 {
-		return instructionOutcome{
-			kind:      raised,
-			exception: newException("TypeError", "class keyword arguments are not supported"),
-		}, nil
+	classKeywords := &dictValue{}
+	var explicit Value
+	if keywords != nil {
+		for _, entry := range keywords.entries {
+			if entry.key.(*stringValue).value == "metaclass" {
+				explicit = entry.value
+			} else {
+				classKeywords.set(entry.key, entry.value)
+			}
+		}
 	}
-	baseValues := arguments[2:]
+	baseValues := append([]Value(nil), arguments[2:]...)
 	bases, exceptionBase, nativeBase, objectBase, baseException := resolveClassBases(
 		baseValues,
 	)
 	if baseException != nil {
 		return instructionOutcome{kind: raised, exception: baseException}, nil
+	}
+	metaclass, metaException := selectMetaclass(explicit, baseValues)
+	if metaException != nil {
+		return raiseOutcome(metaException), nil
 	}
 	locals, exception := bindFunctionArguments(body, nil, nil)
 	if exception != nil {
@@ -334,6 +366,7 @@ func executeBuildClassCall(
 		builtins:   caller.builtins,
 		previous:   caller,
 		classBuild: &classBuild{
+			metaclass: metaclass, keywords: classKeywords, baseValues: baseValues,
 			name:              name.value,
 			qualifiedName:     body.code.code.QualifiedName(),
 			module:            module,
@@ -346,7 +379,7 @@ func executeBuildClassCall(
 			namespacePosition: make(map[string]int),
 		},
 	}
-	return instructionOutcome{kind: called, frame: child}, nil
+	return prepareClassBody(caller, child)
 }
 
 type instanceInit struct {
@@ -365,6 +398,11 @@ func executeTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
+	if class.isSubclassOfNative(typeNativeType) {
+		arguments = append([]Value(nil), arguments...)
+		discardCallSegment(caller, base)
+		return executeMetaclassCall(caller, instruction, class, arguments, keywords)
+	}
 	if class.isExceptionClass() {
 		return executeUserExceptionTypeCall(
 			caller,
@@ -376,21 +414,32 @@ func executeTypeCall(
 		)
 	}
 	if class.nativeClassBase() != nil {
+		return executeDescriptorSubclassCall(caller, instruction, base, class, arguments, keywords)
+	}
+	initializerValue, hasInitializer := class.lookup("__init__")
+	if !hasInitializer && (len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0)) {
+		return raiseOutcome(newException("TypeError", class.name+"() takes no arguments")), nil
+	}
+	if class.abstract {
 		discardCallSegment(caller, base)
-		return raiseOutcome(newException(
-			"NotImplementedError",
-			"native descriptor subclasses cannot be instantiated",
-		)), nil
+		methods, found := class.namespace.get("__abstractmethods__")
+		if !found {
+			return raiseOutcome(newException("AttributeError", "__abstractmethods__")), nil
+		}
+		return startCollectionConstructor(caller, &collectionConstructorCall{
+			instruction: instruction,
+			kind:        collectionSorted,
+			iterable:    methods,
+			sorting: &sortCall{
+				instruction:   instruction,
+				key:           None,
+				reverseValue:  falseSingleton,
+				abstractClass: class,
+			},
+		})
 	}
 	instance := &instanceValue{class: class, attributes: newNamespace()}
-	initializerValue, hasInitializer := class.lookup("__init__")
 	if !hasInitializer {
-		if len(arguments) != 0 || (keywords != nil && len(keywords.entries) != 0) {
-			return instructionOutcome{
-				kind:      raised,
-				exception: newException("TypeError", class.name+"() takes no arguments"),
-			}, nil
-		}
 		for index := base; index < len(caller.stack); index++ {
 			caller.stack[index] = nil
 		}
@@ -456,3 +505,12 @@ var _ Value = (*buildClassValue)(nil)
 var _ Value = (*typeValue)(nil)
 var _ Value = (*instanceValue)(nil)
 var _ Value = (*boundMethodValue)(nil)
+
+// setAttribute retains class insertion order for namespace snapshots while
+// ordinary replacement keeps an existing attribute's position.
+func (class *typeValue) setAttribute(name string, value Value) {
+	if _, found := class.namespace.values[name]; !found {
+		class.namespaceOrder = append(class.namespaceOrder, name)
+	}
+	class.namespace.values[name] = value
+}

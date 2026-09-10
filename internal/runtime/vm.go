@@ -44,13 +44,25 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 	for thread.current != nil {
 		active := thread.current
 		index := active.instruction
-		if index < 0 || index >= len(active.code.instructions) {
-			return nil, nil, active.failure(index, "instruction index out of range")
+		var outcome instructionOutcome
+		var err error
+		if pending := active.nativeContinuation; pending != nil {
+			active.nativeContinuation = pending.next
+			index = pending.instruction
+			result, ok := active.pop()
+			if !ok {
+				return nil, nil, active.failure(index, "native continuation has no result")
+			}
+			outcome, err = pending.resume(active, result, nil)
+		} else {
+			if index < 0 || index >= len(active.code.instructions) {
+				return nil, nil, active.failure(index, "instruction index out of range")
+			}
+			active.pruneHandledExceptions(index)
+			instruction := active.code.instructions[index]
+			active.instruction++
+			outcome, err = executeInstruction(active, index, instruction)
 		}
-		active.pruneHandledExceptions(index)
-		instruction := active.code.instructions[index]
-		active.instruction++
-		outcome, err := executeInstruction(active, index, instruction)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -238,29 +250,27 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 			}
 			if active.classBuild != nil {
 				build := active.classBuild
-				var classException *Exception
-				result, classException = build.finish(result)
-				if classException != nil {
-					if thread.current == nil {
-						return nil, nil, active.failure(
-							index,
-							"class construction has no caller",
-						)
-					}
-					unhandled, routeErr := routeException(
-						thread,
-						thread.current,
-						build.instruction,
-						classException,
-						false,
-					)
-					if routeErr != nil {
-						return nil, nil, routeErr
+				outcome, err := finishClassBody(thread.current, build, result)
+				if err != nil {
+					return nil, nil, err
+				}
+				switch outcome.kind {
+				case advance:
+					continue
+				case called:
+					thread.current = outcome.frame
+					continue
+				case raised:
+					unhandled, err := routeException(thread, thread.current, build.instruction, outcome.exception, false)
+					if err != nil {
+						return nil, nil, err
 					}
 					if unhandled != nil {
 						return nil, unhandled, nil
 					}
 					continue
+				default:
+					return nil, nil, active.failure(index, "invalid class construction outcome")
 				}
 			}
 			if active.mapping != nil {
@@ -912,17 +922,6 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 						"descriptor special method has no caller",
 					)
 				}
-				attributeBuiltin := active.attributeBuiltin
-				active.attributeBuiltin = nil
-				if attributeBuiltin != nil && attributeBuiltin.presence {
-					if !thread.current.push(trueSingleton) {
-						return nil, nil, thread.current.failure(
-							attributeBuiltin.instruction,
-							"operand stack overflow while returning hasattr result",
-						)
-					}
-					continue
-				}
 				attributeOutcome, attributeErr := finishAttributeCall(
 					thread.current,
 					call,
@@ -938,12 +937,6 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 					)
 				}
 				continue
-			}
-			if active.attributeBuiltin != nil {
-				if active.attributeBuiltin.presence {
-					result = trueSingleton
-				}
-				active.attributeBuiltin = nil
 			}
 			if active.moduleImport != nil {
 				loaded := active.moduleImport
@@ -1041,6 +1034,29 @@ route:
 					instruction: currentInstruction,
 				})
 			}
+			if pending := current.nativeContinuation; pending != nil {
+				current.nativeContinuation = pending.next
+				discardCallSegment(current, pending.depth)
+				outcome, err := pending.resume(current, nil, exception)
+				if err != nil {
+					return nil, err
+				}
+				switch outcome.kind {
+				case advance:
+					thread.current = current
+					return nil, nil
+				case called:
+					thread.current = outcome.frame
+					return nil, nil
+				case raised:
+					exception = outcome.exception
+					currentInstruction = pending.instruction
+					skipTraceback = true
+					continue
+				default:
+					return nil, current.failure(pending.instruction, "invalid native exception continuation")
+				}
+			}
 			if handler, ok := current.code.exceptionHandler(currentInstruction); ok {
 				if current.delegation != nil &&
 					(currentInstruction == current.delegation.sendInstruction ||
@@ -1066,31 +1082,6 @@ route:
 				}
 				current.instruction = int(handler.Target)
 				thread.current = current
-				return nil, nil
-			}
-
-			if current.attributeBuiltin != nil && isAttributeError(exception) {
-				call := current.attributeBuiltin
-				current.attributeBuiltin = nil
-				for index := range current.stack {
-					current.stack[index] = nil
-				}
-				current.stack = current.stack[:0]
-				current.discardImportedModule()
-				caller := current.previous
-				if caller == nil {
-					return nil, current.failure(
-						currentInstruction,
-						"getattr attribute call has no caller",
-					)
-				}
-				if !caller.push(call.attributeError) {
-					return nil, caller.failure(
-						call.instruction,
-						"operand stack overflow while returning attribute fallback",
-					)
-				}
-				thread.current = caller
 				return nil, nil
 			}
 
@@ -1385,6 +1376,9 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		name := frame.code.names[instruction.Operand]
+		if name == "__class__" {
+			return executeDynamicAttributeLoad(frame, index, owner, name)
+		}
 		switch owner := owner.(type) {
 		case *typeVarValue:
 			switch name {
@@ -1470,24 +1464,8 @@ func executeInstruction(
 			}
 		case *functionValue:
 			return executeFunctionAttributeLoad(frame, index, owner, name)
-		case *classMethodValue:
-			return executeMethodDescriptorAttributeLoad(
-				frame,
-				index,
-				owner,
-				owner.callable,
-				name,
-			)
-		case *staticMethodValue:
-			return executeMethodDescriptorAttributeLoad(
-				frame,
-				index,
-				owner,
-				owner.callable,
-				name,
-			)
-		case *propertyValue:
-			return executePropertyAttributeLoad(frame, index, owner, name)
+		case *classMethodValue, *staticMethodValue, *propertyValue, *boundMethodValue, *classWeakReference:
+			return executeDynamicAttributeLoad(frame, index, owner, name)
 		case *templateValue:
 			return executeTemplateAttributeLoad(frame, index, owner, name)
 		case *interpolationValue:
@@ -1630,6 +1608,9 @@ func executeInstruction(
 		delete(frame.locals.values, name)
 		if frame.classBuild != nil {
 			delete(frame.classBuild.namespacePosition, name)
+			if frame.classBuild.dictionary != nil {
+				frame.classBuild.dictionary.delete(&stringValue{value: name})
+			}
 		}
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.StoreFast:

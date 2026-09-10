@@ -55,13 +55,18 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "getattr", frameCall: executeBuiltinGetattr},
 	{name: "hasattr", frameCall: executeBuiltinHasattr},
 	{name: "hash", frameCall: executeBuiltinHash},
-	{name: "isinstance", call: builtinIsInstance},
-	{name: "issubclass", call: builtinIsSubclass},
+	{name: "isinstance", frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+		return executeClassCheck(caller, instruction, base, arguments, keywords, false)
+	}},
+	{name: "issubclass", frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+		return executeClassCheck(caller, instruction, base, arguments, keywords, true)
+	}},
 	{name: "iter", frameCall: executeBuiltinIter},
 	{name: "len", frameCall: executeBuiltinLen},
 	{name: "max", call: builtinMax},
 	{name: "min", call: builtinMin},
 	{name: "next", frameCall: executeBuiltinNext},
+	{name: "print", frameCall: executeBuiltinPrint},
 	{name: "repr", frameCall: executeBuiltinRepr},
 	{name: "reversed", call: builtinReversed},
 	{name: "round", frameCall: executeBuiltinRound},

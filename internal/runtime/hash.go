@@ -121,6 +121,8 @@ func fixedValueHash(value Value) (int64, *Exception, bool) {
 		return hashBigInteger(&integer), nil, true
 	}
 	switch value := value.(type) {
+	case *classWeakReference:
+		return value.hash, nil, true
 	case *noneValue:
 		return 0x27d4eb2d, nil, true
 	case *floatValue:

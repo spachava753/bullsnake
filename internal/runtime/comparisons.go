@@ -131,6 +131,13 @@ func valuesEqual(left, right Value) bool {
 	}
 
 	switch left := left.(type) {
+	case *classWeakReference:
+		right, ok := right.(*classWeakReference)
+		if !ok {
+			return false
+		}
+		first, second := left.target.value(), right.target.value()
+		return first != nil && second != nil && first == second
 	case *floatValue:
 		if rightInteger, ok := integerOperand(right); ok {
 			return integerFloatEqual(&rightInteger, left.value)

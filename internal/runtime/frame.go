@@ -43,6 +43,7 @@ type frame struct {
 	builtins            *Namespace
 	previous            *frame
 	classBuild          *classBuild
+	nativeContinuation  *nativeContinuation
 	instanceInit        *instanceInit
 	classAnnotations    *classAnnotationLoad
 	functionAnnotations *functionAnnotationLoad
@@ -57,7 +58,6 @@ type frame struct {
 	filtering           *filterCall
 	sorting             *sortCall
 	representation      *representationCall
-	attributeBuiltin    *attributeBuiltinCall
 	iteration           *iterationCall
 	membership          *membershipCall
 	subscription        *subscriptionCall

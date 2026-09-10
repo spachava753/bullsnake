@@ -127,7 +127,13 @@ func validateSuperReceiver(start *typeValue, receiver Value) (*typeValue, *Excep
 		receiverType = receiver.class
 	case *typeValue:
 		receiverType = receiver
+		if !receiver.isSubclassOf(start) && receiver.metaclass != nil {
+			receiverType = receiver.metaclass
+		}
 		description = "type " + receiver.name
+	}
+	if state := descriptorIdentity(receiver); state != nil && state.class != nil {
+		receiverType = state.class
 	}
 	if receiverType != nil && receiverType.isSubclassOf(start) {
 		return receiverType, nil
@@ -172,7 +178,8 @@ func executeSuperAttributeLoad(
 	if bound, descriptor := bindMethodDescriptor(classValue, value.receiverType); descriptor {
 		return pushOutcome(frame, instruction, bound)
 	}
-	_, classMode := value.receiver.(*typeValue)
+	receiverClass, classMode := value.receiver.(*typeValue)
+	classMode = classMode && receiverClass == value.receiverType
 	if property, ok := classValue.(*propertyValue); ok {
 		if classMode {
 			return pushOutcome(frame, instruction, property)
@@ -200,10 +207,13 @@ func executeSuperAttributeLoad(
 			[]Value{receiver, value.receiverType},
 		)
 	}
+	if native, ok := classValue.(*builtinFunctionValue); ok && (name == "__init__" || name == "__instancecheck__" || name == "__subclasscheck__") && !classMode {
+		return pushOutcome(frame, instruction, &boundMethodValue{callable: native, self: value.receiver})
+	}
 	if function, ok := classValue.(*functionValue); ok && !classMode {
 		classValue = &boundMethodValue{
 			callable: function,
-			self:     value.receiver.(*instanceValue),
+			self:     value.receiver,
 		}
 	}
 	return pushOutcome(frame, instruction, classValue)
@@ -226,6 +236,15 @@ func lookupAfterClass(receiverType, start *typeValue, name string) (Value, bool)
 		if value, found := class.namespace.get(name); found {
 			return value, true
 		}
+	}
+	if name == "__subclasshook__" {
+		return defaultSubclassHook(), true
+	}
+	if receiverType.isSubclassOfNative(typeNativeType) {
+		return nativeMetaclassMethod(name)
+	}
+	if receiverType.nativeClassBase() != nil && name == "__init__" {
+		return &builtinFunctionValue{name: "descriptor.__init__", call: initializeDescriptor}, true
 	}
 	return nil, false
 }

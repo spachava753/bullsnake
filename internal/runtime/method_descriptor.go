@@ -3,20 +3,32 @@ package runtime
 import "strconv"
 
 type classMethodValue struct {
+	descriptorState
 	callable Value
 }
 
-func (*classMethodValue) TypeName() string { return "classmethod" }
+func (value *classMethodValue) TypeName() string {
+	if value.class != nil {
+		return value.class.name
+	}
+	return "classmethod"
+}
 func (method *classMethodValue) Repr() string {
 	return "<classmethod(" + method.callable.Repr() + ")>"
 }
 func (*classMethodValue) isValue() {}
 
 type staticMethodValue struct {
+	descriptorState
 	callable Value
 }
 
-func (*staticMethodValue) TypeName() string { return "staticmethod" }
+func (value *staticMethodValue) TypeName() string {
+	if value.class != nil {
+		return value.class.name
+	}
+	return "staticmethod"
+}
 func (method *staticMethodValue) Repr() string {
 	return "<staticmethod(" + method.callable.Repr() + ")>"
 }
@@ -61,6 +73,9 @@ func executeMethodDescriptorAttributeLoad(
 	callable Value,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "__isabstractmethod__" {
+		return executeAbstractMarker(frame, instruction, callable)
+	}
 	if name == "__func__" || name == "__wrapped__" {
 		return pushOutcome(frame, instruction, callable)
 	}

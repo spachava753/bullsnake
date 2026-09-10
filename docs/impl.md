@@ -422,8 +422,8 @@ subclasses of `object`. A user class with no named base, or with `object` as its
 sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
 A user class may instead use `classmethod`, `staticmethod`, or `property` as its
 sole native base. That native ancestry appears in class metadata and
-`issubclass`; constructing an instance of such a user subclass remains
-unsupported. Other native bases and mixed native/user direct bases remain
+`issubclass`. Descriptor subclass construction and Python initialization now
+work for the documented wrapper subset. Other native bases and mixed native/user direct bases remain
 unsupported. The `bool`, `int`, `str`, and `range` bindings are native type
 objects and retain their implemented constructor behavior. `range` accepts one
 to three integer or boolean arguments,
@@ -454,15 +454,14 @@ copies a native dictionary or consumes tuple/list key-value pairs, then applies
 keyword values. User-defined mapping objects and arbitrary iterable inner pairs
 are not implemented yet. `isinstance` checks native identity, the C3 ancestry of
 a user instance, and built-in or user exception ancestry. `issubclass` applies
-those same ancestry rules directly to class objects. A tuple of candidates is
+those same ancestry rules directly to class objects unless a metaclass hook overrides them. A tuple of candidates is
 processed left to right and may contain nested tuples; a match suppresses errors
-from later entries. `bool` is a native subclass of `int`. Type unions and custom
-metaclass `__instancecheck__` methods are not implemented. Three-argument `type`
+from later entries. `bool` is a native subclass of `int`. Type unions remain unsupported. Metaclass `__instancecheck__` and
+`__subclasscheck__` methods now run through resumable calls and truth conversion. Three-argument `type`
 uses the same class builder as a class statement. It accepts a string name, a
 tuple of currently supported bases, and a dictionary with string keys. It
 supplies default module and qualified-name metadata, honors explicit values,
-and supports methods, C3 inheritance, and user exception classes. Metaclass
-selection, `__mro_entries__`, and non-string namespace keys remain unsupported.
+and supports methods, C3 inheritance, and user exception classes. `__mro_entries__` and non-string namespace keys remain unsupported.
 The `dir` builtin returns sorted bound names from the current frame or from a
 module, user class MRO, or instance namespace. It includes computed class
 metadata and does not yet invoke custom `__dir__`. The remaining built-in type
@@ -634,8 +633,12 @@ The built-in `property`, `classmethod`, and `staticmethod` names are callable
 native type objects. Property supports direct construction and decorator-style
 `getter`, `setter`, and `deleter` copies. Properties expose their accessor fields,
 explicit documentation, and the class-assigned name. Function-docstring
-inference remains unsupported. A user class may inherit one descriptor type but
-cannot yet construct its specialized wrapper values. `classmethod` binds its
+inference remains unsupported. A user class may inherit one descriptor type and construct specialized wrapper
+values. The wrappers retain their user-class identity and attributes, run Python
+initializers, and support native initialization through `super`. Property
+accessor copies reconstruct the subclass and run its initializer. General
+custom descriptor-subclass special methods and data-descriptor mutation overrides
+remain outside this initial wrapper subset. `classmethod` binds its
 wrapped callable to the accessed class from either class or instance lookup;
 `staticmethod` returns its wrapped callable unchanged. Both wrappers expose
 `__func__` and `__wrapped__`.
@@ -711,6 +714,18 @@ immutable, read-only `__bases__`, `__base__`, and `__mro__` metadata. A built-in
 exception class may still be the sole direct base; multiple user exception
 classes use ordinary C3 ancestry.
 
+Ordinary user-class allocation now enforces the abstract flag set by assigning
+`__abstractmethods__`. Assignment evaluates Python truth before storing the
+original object and the flag; a failed truth callback leaves both unchanged.
+Deletion clears the flag. Reading this metadata uses only the class's own
+namespace, and assignment does not update subclasses. Mutating the retained
+object does not recompute the flag. A blocked constructor collects and sorts
+its current names through the ordinary iterator and comparison continuations,
+then raises TypeError before running `__init__`. Names must be strings.
+Class-body and three-argument `type` namespace entries alone do not set the
+flag. Built-in exception allocation keeps its separate behavior. This is the
+allocation prerequisite for ABCMeta; virtual subclass registration is described below.
+
 A generic class stores one stable `__type_params__` tuple in its own namespace.
 Class statements and methods capture the same parameter objects. Bullsnake does
 not yet add an implicit `Generic[...]` base or support class specialization. A
@@ -725,13 +740,84 @@ class-only rule for `__aenter__` and `__aexit__`; the runtime requires native
 coroutines from both methods. Asynchronous iteration also looks up `__aiter__`
 and `__anext__` on the class, and requires a native coroutine from each
 `__anext__` call. The object model does not yet implement complete annotation
-attribute mutation rules, class keyword arguments, metaclasses, `__new__`, or
+attribute mutation rules, generic instance `__new__`, or
 custom `__getattribute__`, `__getattr__`, and `__setattr__`. Custom exception
 initializers and methods remain unsupported.
 
 The formatter supports current strings, integers, booleans, and floats for the
 format forms covered by execution tests. It does not yet provide general
 `__format__` dispatch.
+
+
+### Abstract-method computation
+
+The private Go `_abc` module now exposes `_abc_init` for the implemented
+abstract-method computation subset. It snapshots direct class attributes,
+resolves their live `__isabstractmethod__` markers, then iterates inherited names
+and resolves overrides through ordinary class lookup. A successful computation
+stores a frozen set and updates the allocation flag. Attribute, iterator, and
+truth callbacks run in the VM; a failure leaves the previous abstract metadata
+unchanged. Properties check getter, setter, and deleter markers in order;
+classmethod and staticmethod markers follow their wrapped values. Bound methods
+expose the underlying function's marker.
+
+`_abc_init` now also installs fresh `_abc_impl` state. Virtual registration,
+instance/subclass checks, cache tokens, and registry/cache reset helpers are
+implemented. Registries and both caches hold Go weak pointers to class
+allocations, with lazy pruning. Tokens are isolated per runtime; new registration
+invalidates negative caches across ABCs. Checks honor subclass hooks before
+nominal inheritance, then registered classes and immediate subclasses, through
+ordinary VM continuations. Hooks must return bool or NotImplemented.
+
+Source tests cover transitive registration, cycle rejection, native and exception
+class registration, cache resets, mutations during callbacks, reported versus
+actual instance classes, and errors. Go tests verify that actual ABC registries
+and caches do not retain discarded classes and that runtime tokens are isolated.
+General metaclass hashing/equality and native-base subclass enumeration remain
+outside this subset.
+
+`_get_dump` returns independent sets sharing callback-free weak class references.
+They are callable, return None after collection, cache their target's hash, and
+compare by live class identity; distinct dead references compare unequal. Saved
+dumps do not retain their target classes. Their `__callback__` is None, unlike
+CPython's private registry-removal callbacks: Bullsnake prunes on access. These
+references have no public constructor and do not expose `_weakref` or `weakref`.
+Python callbacks and regex compatibility remain deferred.
+
+Unchanged `abc.py` now imports through the native helpers. The project-owned
+standard-library regression test executes ABC/ABCMeta construction, modern and
+legacy abstract decorators, concrete overrides, virtual and transitive
+registration, structural hooks, instance checks, and cache resets. It is not
+CPython's full test_abc suite. Execution probes still find `update_abstractmethods`
+blocked at class `__dict__` access (abc.py:177), which remains deferred.
+`_dump_registry` now executes unchanged with explicit or redirected streams;
+its complete report is checked against the runtime's weak-reference repr.
+
+### Metaclass construction checkpoint
+
+User classes may now inherit `type`. Class statements select the most-derived
+compatible metaclass before executing the body, call `__prepare__`, and pass its
+exact dictionary to `__new__` and `__init__`. Python factory functions are also
+accepted as metaclasses. Dictionary namespaces retain body writes and deletions;
+custom mapping namespaces remain unsupported. `type.__new__`, metaclass `super`,
+class-cell propagation, inherited metaclass identity, and dynamic `type`
+construction share the same class builder. Construction exceptions propagate
+through the existing VM and are catchable at the class statement.
+
+Native operations can retain ordered result continuations on their Python caller
+while a child frame executes. They resume after the child's existing protocols
+complete; error continuations run before the caller's Python exception handlers.
+This supports metaclass call sequences without using the Go stack for Python
+calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+and general metaclass descriptor precedence remain separate gaps. The tested ABC
+subset and remaining API gaps are described above.
+
+Metaclass instance/subclass hooks and their return-value truth callbacks execute
+in the VM. Nested tuple candidates short-circuit in order. An exact instance
+type match bypasses `__instancecheck__`; `__subclasscheck__` can override an
+identical candidate and receives even a non-class first argument. Native type
+check descriptors support `super` without redispatching to the override.
+Non-type checker objects and custom descriptor-valued hooks remain unsupported.
 
 ## Exceptions
 
@@ -854,7 +940,8 @@ Bullsnake vendors selected CPython 3.14.7 standard-library modules under
 `stdlib/3.14`. Unchanged `operator`, `keyword`, and `heapq` now run selected regression tests
 for calls, classification, and heap operations. The synchronous unittest sources
 and the initial io/abc dependency files are vendored for offline import probes;
-they remain blocked at missing `_io` and `_weakref` respectively. The full
+unittest remains blocked at missing `_io`, while abc imports and has a
+project-owned source regression test. The full
 transitive dependency closure is not present. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
 module executes all eight upstream public test methods through the filesystem
@@ -941,8 +1028,17 @@ Go's garbage collector owns runtime memory. Frames, stacks, namespaces, cells,
 and container entries keep Python references in typed Go pointers and
 interfaces so the collector can trace cycles.
 
-Bullsnake does not implement CPython reference counting, `__del__`, weak
-references, or a compatible `gc` module. The experiments under
+User classes keep immediate subclass links as Go weak pointers to the actual
+class allocations. `C.__subclasses__()` and `type.__subclasses__(C)` return a
+fresh strong list in definition order for user classes, pruning dead links on
+access. Native-base subclass enumeration is not implemented yet. Tests verify
+that live parents do not retain dead subclass cycles and that instances and
+promoted references keep their classes alive.
+
+Bullsnake does not implement CPython reference counting, `__del__`, general Python
+weakref construction/callbacks, or a compatible `gc` module. The callback-free
+class references returned by ABC diagnostics are the only Python-visible weak
+references currently supported. The experiments under
 `experiments/gcprobe` inform these boundaries but are not production runtime
 code.
 
@@ -976,3 +1072,20 @@ git diff --check
 
 Behavior changes should start with a focused source or package test, update the
 relevant implementation notes, and land as one coherent vertical slice.
+
+### Printing to Python streams
+
+`print` accepts arbitrary positional values and keyword-only `sep`, `end`,
+`file`, and `flush`. It converts flush truth first, resolves the current
+`sys.stdout` when file is omitted or None, and retains that stream for the call.
+Each write method is resolved before converting its value through Python str.
+Separators, values, and the ending are written separately; earlier output is
+preserved if conversion, writing, or flushing fails. Return values from stream
+methods are ignored. Python callbacks use VM continuations, and host wrappers
+retain their existing Unicode, error, and borrowed-ownership contracts.
+
+Under Bullsnake's explicit host policy, a None stdout raises PermissionError
+instead of CPython's disconnected-stdout no-op. There is no ambient output or
+silent sink. A deleted sys.stdout raises RuntimeError. Explicit Python streams
+work without host output providers. print currently inherits the existing str
+limitations, including representations of containers holding user objects.

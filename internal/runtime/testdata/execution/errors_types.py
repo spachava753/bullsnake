@@ -273,16 +273,3 @@ frozenset.__contains__({1}, 1)
 # message: "cannot use 'list' as a set element (unhashable type: 'list')"
 {1}.__contains__([])
 # ---
-# case: unsupported native type class base
-# error: TypeError
-# message: "native base 'type' is not supported"
-class NativeTypeSubclass(type):
-    pass
-# ---
-# case: native descriptor subclass construction boundary
-# error: NotImplementedError
-# message: "native descriptor subclasses cannot be instantiated"
-class DeferredPropertySubclass(property):
-    pass
-
-DeferredPropertySubclass(None)

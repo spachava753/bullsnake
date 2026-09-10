@@ -3,7 +3,8 @@ package runtime
 // Namespace stores the string-keyed bindings used by module execution. It is
 // narrower than a Python dict until general mapping protocols are implemented.
 type Namespace struct {
-	values map[string]Value
+	values     map[string]Value
+	dictionary *dictValue
 }
 
 func newNamespace() *Namespace {
@@ -11,6 +12,10 @@ func newNamespace() *Namespace {
 }
 
 func (namespace *Namespace) get(name string) (Value, bool) {
+	if namespace.dictionary != nil {
+		value, found, _ := namespace.dictionary.get(&stringValue{value: name})
+		return value, found
+	}
 	value, ok := namespace.values[name]
 	return value, ok
 }

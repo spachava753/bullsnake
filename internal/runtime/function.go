@@ -140,6 +140,8 @@ func executeFunctionCall(
 	keywords *dictValue,
 ) (instructionOutcome, error) {
 	switch callable := callable.(type) {
+	case *classWeakReference:
+		return executeClassWeakReference(caller, instruction, base, callable, arguments, keywords)
 	case *builtinFunctionValue:
 		return executeBuiltinFunctionCall(
 			caller,
@@ -647,7 +649,8 @@ func isCallableValue(value Value) bool {
 	case *instanceValue:
 		_, found := value.class.lookup("__call__")
 		return found
-	case *builtinFunctionValue,
+	case *classWeakReference,
+		*builtinFunctionValue,
 		*nativeTypeValue,
 		*propertyAccessorMethod,
 		*stringCountMethod,

@@ -371,7 +371,8 @@ scalars, collections, functions, classes, modules, exceptions, templates, and
 interpolations needed by the executable subset. Native values have stable type
 objects, and the one-argument `type` form returns those objects or an existing
 user or exception class. `isinstance` and `issubclass` check these identities,
-user class MROs, and exception ancestry. Tuple candidates run from left to right.
+user class MROs, and exception ancestry, with metaclass overrides resolved through
+VM continuations and ordinary truth testing. Tuple candidates run from left to right.
 Native, user, and exception classes expose their basic name metadata through the
 ordinary attribute path. The `dir` builtin reports sorted names from the current
 frame or from implemented module, class-MRO, and instance stores. Custom
@@ -432,11 +433,17 @@ Set-like operations on dictionary views and other native collection or text
 methods remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
-descriptor behavior. Metaclass selection, MRO-entry rewriting, unions, and
-custom metaclass checks remain later work. A template keeps literal strings
+descriptor behavior. MRO-entry rewriting and type unions remain later work. A template keeps literal strings
 separate from evaluated interpolation values and their source metadata; creating
 one does not format those values. More of Python's data model will be added when
 language features or packages require it.
+
+Abstract allocation state belongs to each user class. Assigning
+`__abstractmethods__` resolves truth through the VM before storing the value and
+flag together. Allocation diagnostics reuse resumable collection and sorting
+operations, so Python callbacks stay in the existing frame loop. A metaclass
+can use the native `_abc_init` computation helper for each subclass's abstract methods; the allocation layer does not
+propagate or recompute that metadata.
 
 A Python special method may call arbitrary Python code. The VM therefore keeps
 the requesting instruction suspended while the method's frame runs in the same
@@ -484,8 +491,8 @@ function mutation rules. Functions retain arbitrary assigned attributes.
 Instance writes and deletes continue to run data descriptors through the frame
 loop. The built-in `property`, `classmethod`, and `staticmethod` names are
 callable type objects. A user class may inherit one of them, and its class
-metadata includes that native base; constructing such a user subclass remains
-later work. Native `property` values use the descriptor path for getter, setter,
+metadata includes that native base. Specialized wrappers retain their class and
+instance attributes in native storage; Python initializers run through the VM. Native `property` values use the descriptor path for getter, setter,
 and deleter functions. `classmethod` binds its wrapped callable to the class
 through which the attribute was accessed; `staticmethod` returns its wrapped
 callable without binding. Zero- and explicit-argument `super` values search
@@ -512,6 +519,28 @@ Current list, set, and frozen-set equality recurses through values with fixed
 runtime equality; user-defined element equality still needs a suspended
 comparison path. Container and object implementations must support those calls
 when the protocols are added.
+
+
+### Metaclass construction checkpoint
+
+User classes may now inherit `type`. Class statements select the most-derived
+compatible metaclass before executing the body, call `__prepare__`, and pass its
+exact dictionary to `__new__` and `__init__`. Python factory functions are also
+accepted as metaclasses. Dictionary namespaces retain body writes and deletions;
+custom mapping namespaces remain unsupported. `type.__new__`, metaclass `super`,
+class-cell propagation, inherited metaclass identity, and dynamic `type`
+construction share the same class builder. Construction exceptions propagate
+through the existing VM and are catchable at the class statement.
+
+Native operations can retain ordered result continuations on their Python caller
+while a child frame executes. They resume after the child's existing protocols
+complete; error continuations run before the caller's Python exception handlers.
+This supports metaclass call sequences without using the Go stack for Python
+calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+and general metaclass descriptor precedence remain separate gaps. Abstract-method
+computation scans direct attributes and inherited names through these
+continuations. Weak registry/cache helpers use the same path. Unchanged abc now
+imports and has selected execution tests.
 
 ## Exceptions
 
@@ -658,8 +687,15 @@ not fit normal Python finalization semantics.
 The baseline therefore omits `__del__` and a CPython-compatible `gc` module.
 External resources can use explicit `close()` methods and synchronous context
 managers. Go-side lifecycle APIs remain necessary for host resources. Weak
-references may be added if package tests need them, but Python callbacks would
-run later at a safe VM point, never on a Go cleanup goroutine.
+class references now use Go `weak.Pointer` targeting actual class allocations.
+Immediate subclass links are weak and prune dead entries on access. ABC registries
+and positive/negative caches use the same storage, with one invalidation token
+per runtime. Collection follows Go tracing GC, with no promise of
+immediate reclamation after `del`. ABC diagnostic dumps expose callback-free
+class references without keeping targets alive. Dumps share reference objects
+but copy their sets; dead references return None and retain cached hashes.
+General Python weakref construction and callback delivery remain deferred.
+Callbacks must run at a safe VM point, never on a Go cleanup goroutine.
 
 ## Rules the implementation must preserve
 
@@ -732,7 +768,7 @@ The project still needs concrete decisions about:
 - the public Go embedding and extension API
 - namespace-package and extended import-hook behavior
 - async scheduling, Python threads, and the execution-token policy
-- weak-reference lifetime and safe callback delivery
+- general weakref eligibility, compatibility, and safe Python callback delivery
 - Python-visible frame and traceback objects
 
 The [unittest compatibility roadmap](unittest.md) explains why several of these
@@ -748,3 +784,11 @@ CPython feature in advance.
 - [Python 3.14 import system](https://docs.python.org/3.14/reference/import.html)
 - [Go garbage collector guide](https://go.dev/doc/gc-guide)
 - [Go memory model](https://go.dev/ref/mem)
+
+### Print stream dispatch
+
+The print builtin calls the selected Python stream's write and flush methods
+through VM continuations. It resolves current sys.stdout per call, while keeping
+the selected stream across conversions and writes within that call. A None
+stdout raises PermissionError under the no-discard host policy; this intentionally
+differs from CPython's disconnected-stdout no-op.
