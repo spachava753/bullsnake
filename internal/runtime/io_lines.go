@@ -3,22 +3,23 @@ package runtime
 import "strings"
 
 type ioLinesCall struct {
-	self        *instanceValue
-	instruction int
-	name        string
-	stage       string
-	input       Value
-	iterator    Value
-	sentinel    Value
-	line        Value
-	peek        Value
-	limit       int
-	limited     bool
-	readSize    int
-	buffer      strings.Builder
-	lines       *listValue
-	done        bool
-	blocked     bool
+	nativeBytesWrite bool
+	self             *instanceValue
+	instruction      int
+	name             string
+	stage            string
+	input            Value
+	iterator         Value
+	sentinel         Value
+	line             Value
+	peek             Value
+	limit            int
+	limited          bool
+	readSize         int
+	buffer           strings.Builder
+	lines            *listValue
+	done             bool
+	blocked          bool
 }
 
 // executeIOLines binds one positional size or iterable before starting a
@@ -104,6 +105,9 @@ func (call *ioLinesCall) operation(caller *frame) (instructionOutcome, error) {
 	case "length":
 		return executeBuiltinLen(caller, call.instruction, len(caller.stack), []Value{call.line}, nil)
 	case "write":
+		if call.nativeBytesWrite {
+			return executeBytesIOMethod(caller, call.instruction, call.self, "write", []Value{call.line}, nil)
+		}
 		return executeMethodCall(caller, call.instruction, call.self, "write", []Value{call.line})
 	case "lookup peek":
 		return executeDynamicAttributeLoad(caller, call.instruction, call.self, "peek")

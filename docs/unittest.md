@@ -738,3 +738,10 @@ readonly/strided rejection, invalid returned sizes, and resize/release denial
 during callbacks. Python exceptions and Go source-loader errors both release
 leases before control returns to the caller. BytesIO and concrete buffering
 classes remain subsequent slices.
+
+
+BytesIO's core in-memory stream behavior is now tested, including byte seeks,
+NUL-filled gaps, readinto, snapshots, native line behavior, close, exported-view
+restrictions, and reinitialization. The StringIO and BytesIO behavior tests use
+the normal source pipeline; no unittest TestCase has executed yet. Concrete
+buffering wrappers and text decoding remain ahead.

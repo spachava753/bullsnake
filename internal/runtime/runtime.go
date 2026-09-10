@@ -29,17 +29,18 @@ type ModuleLoader func(request ModuleRequest) (spec ModuleSpec, found bool, err 
 // Runtime owns mutable interpreter state shared by executions in one isolated
 // Python runtime instance.
 type Runtime struct {
-	builtins     *Namespace
-	modules      map[string]*Module
-	prepared     map[*bytecode.Code]*preparedCode
-	loader       ModuleLoader
-	constructors map[string]moduleConstructor
-	args         []string
-	stdin        io.Reader
-	stdout       io.Writer
-	stderr       io.Writer
-	counter      PerfCounter
-	abcToken     uint64
+	memoryViewClass *typeValue
+	builtins        *Namespace
+	modules         map[string]*Module
+	prepared        map[*bytecode.Code]*preparedCode
+	loader          ModuleLoader
+	constructors    map[string]moduleConstructor
+	args            []string
+	stdin           io.Reader
+	stdout          io.Writer
+	stderr          io.Writer
+	counter         PerfCounter
+	abcToken        uint64
 }
 
 // New constructs an empty runtime instance without a module loader.
@@ -64,7 +65,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}
-	initializeMemoryViewClass(builtins)
+	viewClass := initializeMemoryViewClass(builtins)
 	builtins.values["IOError"] = osErrorType
 	builtins.values["EnvironmentError"] = osErrorType
 	builtins.values["NotImplemented"] = notImplementedSingleton
@@ -78,12 +79,13 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	modules[stringPackage.name] = stringPackage
 	modules[templateLibrary.name] = templateLibrary
 	runtime := &Runtime{
-		builtins:     builtins,
-		modules:      modules,
-		prepared:     make(map[*bytecode.Code]*preparedCode),
-		loader:       loader,
-		constructors: make(map[string]moduleConstructor),
-		args:         []string{""},
+		memoryViewClass: viewClass,
+		builtins:        builtins,
+		modules:         modules,
+		prepared:        make(map[*bytecode.Code]*preparedCode),
+		loader:          loader,
+		constructors:    make(map[string]moduleConstructor),
+		args:            []string{""},
 	}
 	runtime.constructors["sys"] = moduleConstructor{initialize: initializeSys}
 	runtime.constructors["time"] = moduleConstructor{initialize: initializeTime}

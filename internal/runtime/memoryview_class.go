@@ -2,7 +2,7 @@ package runtime
 
 // initializeMemoryViewClass installs an immutable non-subclassable byte-view
 // class using ordinary descriptors and per-instance private storage.
-func initializeMemoryViewClass(namespace *Namespace) {
+func initializeMemoryViewClass(namespace *Namespace) *typeValue {
 	class := newIOClass("memoryview", nil)
 	class.ioClass, class.bufferViewClass, class.module = false, true, "builtins"
 	namespace.values["memoryview"] = class
@@ -41,6 +41,7 @@ func initializeMemoryViewClass(namespace *Namespace) {
 			return pushOutcome(caller, instruction, value)
 		})})
 	}
+	return class
 }
 
 // executeViewMethod checks release and mutability before touching storage.

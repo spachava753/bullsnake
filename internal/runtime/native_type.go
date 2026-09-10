@@ -92,6 +92,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
+	"_io._BytesIOBuffer":               nativeType("_io", "_BytesIOBuffer"),
 	"memory_iterator":                  builtinNativeType("memory_iterator"),
 	"bytearray":                        bytearrayNativeType,
 	"bytearray_iterator":               builtinNativeType("bytearray_iterator"),

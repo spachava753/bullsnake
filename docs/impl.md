@@ -1178,3 +1178,14 @@ exporter or releasing a pinned view raises BufferError. Returned data must be
 bytes and fit the target, and is copied only after validation. Leases release on
 success and Python errors. Frame cleanup also releases them on Go errors, with
 a checked-in source-loader failure/recovery test; cleanup does not depend on GC.
+
+
+`_io.BytesIO` now owns binary storage in the buffered I/O hierarchy. It supports
+byte-position reads, read1/readline/readlines, writable-buffer readinto, writes,
+relative and absolute seeks, truncation, snapshots, getbuffer, context management,
+status queries, and close. Native iteration and writelines bypass subclass
+readline/write overrides, as CPython does; readlines stops when its positive
+hint is reached. Exported views keep the stream alive and forbid writes,
+truncation, and close until released. Tests cover native reinitialization order,
+including size reset before an export error and the distinct closed/None case.
+Pickle state methods and general serialization remain outside this slice.

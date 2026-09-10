@@ -3,6 +3,7 @@ package runtime
 // ioState is private instance storage for Go-backed I/O classes. Class identity,
 // attributes, C3 lookup, and descriptors use the ordinary Python object model.
 type ioState struct {
+	binary *bytesIOState
 	closed bool
 	text   *stringIOValue
 	view   *memoryView
@@ -28,6 +29,12 @@ func executeIOTypeCall(caller *frame, instruction, base int, class *typeValue, a
 	arguments = append([]Value(nil), arguments...)
 	discardCallSegment(caller, base)
 	instance := &instanceValue{class: class, attributes: newNamespace(), io: &ioState{}}
+	for _, parent := range class.mro {
+		if parent.bytesIOClass {
+			instance.io.binary = &bytesIOState{buffer: &byteBuffer{}}
+			break
+		}
+	}
 	return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
 		return executeDynamicAttributeLoad(caller, instruction, instance, "__init__")
 	}, func(current *frame, initializer Value, exception *Exception) (instructionOutcome, error) {

@@ -11,6 +11,7 @@ func (*buildClassValue) isValue()         {}
 var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
+	bytesIOClass    bool
 	bufferViewClass bool
 	ioClass         bool
 	immutable       bool

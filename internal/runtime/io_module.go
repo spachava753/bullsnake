@@ -6,6 +6,7 @@ func initializeIO(_ *Runtime, module *Module) (*Exception, error) {
 	initializeIOBases(module)
 	initializeRawIOClass(module)
 	initializeBufferedIOClass(module)
+	initializeBytesIOClass(module)
 	initializeStringIOClass(module)
 	module.globals.values["UnsupportedOperation"] = unsupportedOperationType
 	module.globals.values["BlockingIOError"] = blockingIOErrorType
