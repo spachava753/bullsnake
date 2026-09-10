@@ -772,3 +772,10 @@ BufferedRWPair now composes the tested reader/writer implementations, including
 constructor callback ordering, independent input/output, terminal queries, and
 closing both sides after failures. TextIOWrapper and remaining `_io` helpers are
 still pending.
+
+TextIOWrapper output now executes against BytesIO, with Unicode character counts,
+explicit codecs, newline translation, buffering controls, and close failure
+behavior tested. The initial encoding policy is deterministic UTF-8 by default,
+with explicit ASCII and Latin-1 also implemented; locale access is denied.
+Reading, text positions, reconfiguration, and the remaining `_io` helpers are
+still pending.

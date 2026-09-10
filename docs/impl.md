@@ -1227,3 +1227,11 @@ Its constructor converts the buffer size once and validates both raw capabilitie
 before construction. Reads and writes delegate to their respective sides;
 close attempts both even after a writer failure, and terminal status checks the
 writer first. Source tests cover independent buffering and lifecycle behavior.
+
+TextIOWrapper's output slice now buffers encoded bytes, counts original Python
+characters, applies output newline translation, and distinguishes write-through
+from line buffering. Flush/detach/close and binary metadata delegation are tested,
+including close after flush failure. UTF-8 is the deterministic default; explicit
+UTF-8, ASCII, and Latin-1 support strict/ignore/replace encoding errors. A request
+for `locale` raises PermissionError, and unavailable codecs raise LookupError.
+There is no ambient locale or codec registry. Text input and positions are next.

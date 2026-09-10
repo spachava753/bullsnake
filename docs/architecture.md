@@ -816,3 +816,9 @@ leases on the calling frame. Normal completion and Python exceptions release
 them directly; Go-error unwinding releases remaining frame leases. A lease
 prevents exporter resizing and view release until the operation finishes.
 These synchronous cleanup rules do not rely on garbage collection.
+
+TextIOWrapper uses deterministic UTF-8 when encoding is omitted. Its initial
+codec set also includes explicit ASCII and Latin-1, with strict, ignore, and
+replace error handling. Unsupported codecs raise LookupError. Asking for the
+host locale raises PermissionError; encoding selection never consults ambient
+locale, environment variables, files, or a process-wide codec registry.
