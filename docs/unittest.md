@@ -750,3 +750,8 @@ IncrementalNewlineDecoder is now tested independently with Python codec objects
 and direct text. It preserves split newline sequences and decoder state across
 calls. Concrete buffered streams and TextIOWrapper remain the next `_io` work;
 this does not change the recorded `_collections_abc` import blocker.
+
+BufferedReader is now tested over BytesIO and Python RawIOBase implementations.
+Read-ahead positions, partial and nonblocking results, explicit close/detach,
+callback validation, and failure cleanup are covered. BufferedWriter,
+BufferedRandom, BufferedRWPair, and TextIOWrapper still remain.

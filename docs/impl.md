@@ -1195,3 +1195,10 @@ It carries pending CR across chunks, records newline kinds, optionally translate
 universal newlines, and delegates reset/getstate/setstate. State flags preserve
 CPython's unsigned 64-bit packing. Source tests cover split CRLF, Unicode,
 final flushing, truth callbacks, state restoration, and decoder failures.
+
+`_io.BufferedReader` now buffers synchronous raw callbacks, with read/read1,
+readinto/readinto1, peek, line iteration, seeks, logical tell, detach, close, and
+raw metadata delegation. Tests cover read-ahead, short and nonblocking reads,
+readall delegation, invalid counts, temporary view release, and reentrant calls.
+A per-frame guard rejects reentrant buffer mutation and releases after Python
+exceptions and Go loader failures. There is no finalizer or automatic raw close.

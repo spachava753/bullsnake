@@ -42,6 +42,10 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				lease.release()
 			}
 			current.bufferLeases = nil
+			for _, guard := range current.ioGuards {
+				guard.release()
+			}
+			current.ioGuards = nil
 			current.discardImportedModule()
 		}
 	}()

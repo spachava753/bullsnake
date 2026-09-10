@@ -32,6 +32,7 @@ type delegationState struct {
 }
 
 type frame struct {
+	ioGuards            []*ioGuard
 	bufferLeases        []*bufferLease
 	runtime             *Runtime
 	code                *preparedCode
