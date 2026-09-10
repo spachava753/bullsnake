@@ -18,6 +18,7 @@ The unchanged synchronous `unittest` sources are retained as the next execution
 target: `__init__`, `__main__`, `case`, `loader`, `main`, `result`, `runner`,
 `signals`, `suite`, and `util`. `io.py`, `abc.py`, `_py_abc.py`, and
 `_weakrefset.py` are the first dependency sources reached by import probes.
+`_collections_abc.py` is now vendored from the same pinned revision too.
 These files come from `Lib/` at the revision above and have no modifications.
 The complete transitive dependency closure is not vendored yet. Mock and async
 unittest source/support are outside this checkpoint.
@@ -34,8 +35,10 @@ Project-owned `tests/test_abc.py` exercises abstract construction, descriptors,
 virtual registration, hooks, and checks against unchanged abc.py. It is not the
 upstream test_abc suite. A separate test checks the full unchanged
 `_dump_registry` report through print, using explicit and redirected Python
-streams. `update_abstractmethods` still needs class dictionary access. `unittest` stops
-at `io.py:56:1` because `_collections_abc` is absent. Native `_io` now supplies
+streams. `update_abstractmethods` still needs class dictionary access. `unittest`
+now executes `_collections_abc.py` and stops at line 87 because `type.__dict__`
+is not implemented. Generic alias construction has passed its first import-time
+use, `type(list[int])`. Native `_io` supplies
 the documented synchronous in-memory streams, buffering and text wrappers, plus
 explicit filesystem denial. See `docs/impl.md` for its codec and buffer limits.
 The adapted colorsys tests remain in place until unchanged unittest execution

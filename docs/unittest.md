@@ -710,20 +710,23 @@ general weakref callbacks, and regex compatibility remain deferred.
 
 ### Current unchanged-source checkpoint
 
-After the in-memory `_io` work, this diagnostic was rerun:
+After class subscription and generic alias construction, `_collections_abc.py`
+is vendored unchanged from the pinned revision. This diagnostic now reaches its
+class namespace introspection:
 
 ```sh
-go run ./tools/importprobe stdlib/3.14 abc unittest
+go run ./tools/importprobe stdlib/3.14 abc _collections_abc io unittest
 ```
 
-It imports unchanged abc successfully and stops unchanged unittest at:
+It imports unchanged abc successfully and stops the remaining modules at:
 
 ```text
-stdlib/3.14/io.py:56:1: ModuleNotFoundError: No module named '_collections_abc'
+stdlib/3.14/_collections_abc.py:87:21: AttributeError: type object 'type' has no attribute '__dict__'
 ```
 
-This is an execution probe, not a unittest success claim. The next operation is
-loading `_collections_abc` for unchanged io.py; subsequent object-model and import
-dependencies remain explicit. No unittest TestCase, suite, runner report,
-unchanged test_colorsys.py, or unittest.main() has executed yet. The complete
-synchronous unittest milestone remains unfinished.
+This is an execution probe, not a unittest success claim. Class namespace views,
+frame locals, and coroutine closing are the next import-time requirements.
+Generic alias runtime operations and the collection mixin families also need
+behavior tests beyond their import-time use. No unittest TestCase, suite, runner
+report, unchanged test_colorsys.py, or unittest.main() has executed yet. The
+complete synchronous unittest milestone remains unfinished.

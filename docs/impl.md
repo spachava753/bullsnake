@@ -956,8 +956,8 @@ Bullsnake vendors selected CPython 3.14.7 standard-library modules under
 `stdlib/3.14`. Unchanged `operator`, `keyword`, and `heapq` now run selected regression tests
 for calls, classification, and heap operations. The synchronous unittest sources
 and the initial io/abc dependency files are vendored for offline import probes;
-unittest now reaches missing `_collections_abc` in `io.py`, while abc imports and has a
-project-owned source regression test. The full
+unittest now reaches missing `type.__dict__` in unchanged `_collections_abc.py`,
+while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
 module executes all eight upstream public test methods through the filesystem
