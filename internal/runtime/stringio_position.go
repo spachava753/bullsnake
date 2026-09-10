@@ -11,6 +11,9 @@ func (stream *stringIOValue) executePositionCall(caller *frame, instruction, bas
 	arguments = append([]Value(nil), arguments...)
 	discardCallSegment(caller, base)
 	minimum, maximum := streamMethodArity(name)
+	if name == "readlines" {
+		maximum = 1
+	}
 	if exception := checkNativeArguments(name, arguments, keywords, minimum, maximum); exception != nil {
 		return raiseOutcome(exception), nil
 	}
@@ -55,6 +58,12 @@ func (stream *stringIOValue) finishPositionCall(caller *frame, instruction int, 
 	offsets := stringCodepointOffsets(stream.value)
 	length := len(offsets) - 1
 	switch name {
+	case "readlines":
+		result, exception := stream.readlines(size)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(caller, instruction, result)
 	case "read", "readline":
 		return pushOutcome(caller, instruction, stream.read(size, name == "readline"))
 	case "truncate":

@@ -96,11 +96,13 @@ func executeStringIOAttributeLoad(caller *frame, instruction int, stream *string
 			return raiseOutcome(newException("ValueError", "I/O operation on closed file")), nil
 		}
 		return pushOutcome(caller, instruction, stream.newlines())
-	case "read", "readline", "seek", "truncate":
+	case "writelines":
+		return pushOutcome(caller, instruction, &builtinFunctionValue{name: name, frameCall: stream.executeWriteLines})
+	case "read", "readline", "readlines", "seek", "truncate":
 		return pushOutcome(caller, instruction, &builtinFunctionValue{name: name, frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 			return stream.executePositionCall(caller, instruction, base, name, arguments, keywords)
 		}})
-	case "write", "getvalue", "flush", "close", "isatty", "__enter__", "__exit__", "tell", "readable", "writable", "seekable":
+	case "write", "getvalue", "flush", "close", "isatty", "__enter__", "__exit__", "tell", "readable", "writable", "seekable", "__iter__", "__next__":
 		return pushOutcome(caller, instruction, &builtinFunctionValue{name: name, call: func(arguments []Value, keywords *dictValue) (Value, *Exception) {
 			return stream.call(name, arguments, keywords)
 		}})
@@ -139,7 +141,16 @@ func (stream *stringIOValue) call(name string, arguments []Value, keywords *dict
 		return &stringValue{value: stream.value}, nil
 	case "isatty":
 		return falseSingleton, nil
-	case "__enter__":
+	case "__next__":
+		value, found, exception := stream.next()
+		if exception != nil {
+			return nil, exception
+		}
+		if !found {
+			return nil, newException("StopIteration", "")
+		}
+		return value, nil
+	case "__enter__", "__iter__":
 		return stream, nil
 	default:
 		return None, nil

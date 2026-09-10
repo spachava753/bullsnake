@@ -1015,8 +1015,10 @@ strings survive later writes and close. No host capability is involved. Reads, n
 readable/writable/seekable queries are also implemented. Size arguments invoke
 Python `__index__` through the VM before checking closed state. Seeking beyond
 EOF preserves the cursor on reads; later writes fill gaps with NUL characters.
-Truncation preserves the cursor and does not extend the buffer. Iteration,
-`writelines`, IOBase inheritance, subclassing, and
+Truncation preserves the cursor and does not extend the buffer. StringIO is
+a self-iterator over lines and supports `readlines` character hints and
+incremental `writelines` from Python iterables. Iterator and write exceptions
+preserve earlier output. IOBase inheritance, subclassing, and
 instance attributes remain later slices; the module exports no placeholders for
 the remaining classes and helpers expected by unchanged `io.py`.
 

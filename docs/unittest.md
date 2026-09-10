@@ -681,8 +681,12 @@ conversion through Python `__index__`, callback failures and closed state,
 Unicode positions, reads beyond EOF, NUL-filled write gaps, and truncation
 without moving the cursor or extending text.
 
-This is not complete StringIO or io compatibility. Iteration, `writelines`,
-IOBase inheritance, subclassing,
+StringIO also supports iteration, `readlines` hints measured in characters,
+and incremental `writelines` from native and Python iterators. Source tests
+cover shared cursor state, exact hint boundaries, errors after partial output,
+and closing the stream from an iterator callback.
+
+This is not complete StringIO or io compatibility. IOBase inheritance, subclassing,
 and instance attributes remain unimplemented. Other `_io` classes and helpers
 are absent. The current unittest import probe stops at missing
 `_collections_abc`; supplying that source will then expose further `_io` and
