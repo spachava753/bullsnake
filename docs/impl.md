@@ -1189,8 +1189,11 @@ VM continuations and validates text results. Exact native instances bypass an
 instance-level readline replacement. Nonzero relative/end text seeks are unsupported.
 
 Reconfigure flushes old encoded output before applying keyword-only options.
-Codec/newline changes are rejected while decoded read state remains; buffering
-flags can change independently. Text output is cleared before its binary write,
+Codec/newline changes are rejected while the decoded buffer remains installed;
+exhausting a bounded read alone does not clear that state. Successful read-all
+with a saved read snapshot and line reads reaching EOF clear the guard. A failed
+first decode does not install a buffer or block reconfiguration. Buffering flags
+can change independently. Text output is cleared before its binary write,
 matching CPython when an exception leaves the partial write count unknown.
 
 Stateful codecs, codec registration, pickle state methods, and comprehensive

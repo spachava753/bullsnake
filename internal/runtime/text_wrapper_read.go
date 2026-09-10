@@ -59,6 +59,9 @@ func (call *textReadCall) advance(caller *frame) (instructionOutcome, error) {
 		if call.done || call.eof {
 			return pushOutcome(caller, call.instruction, &stringValue{value: call.result.String()})
 		}
+		if call.line {
+			call.stream.readStarted = false
+		}
 		suspended := false
 		outcome, err := continueNativeOperation(caller, call.instruction, func() (instructionOutcome, error) {
 			method := "read"
@@ -84,9 +87,15 @@ func (call *textReadCall) advance(caller *frame) (instructionOutcome, error) {
 				return raiseOutcome(newException("TypeError", "underlying read() should have returned a bytes-like object, not '"+result.TypeName()+"'")), nil
 			}
 			call.eof = len(data) == 0 || !call.line && call.limit < 0
-			call.stream.readStarted = true
 			if exception := call.stream.decodeChunk(data, call.eof); exception != nil {
 				return raiseOutcome(exception), nil
+			}
+			if call.line || call.limit >= 0 {
+				call.stream.readStarted = true
+				call.stream.readSnapshot = call.stream.readSnapshot || call.stream.telling
+			} else if call.stream.readSnapshot {
+				// A read-all clears the saved seekable decoded buffer.
+				call.stream.readStarted, call.stream.readSnapshot = false, false
 			}
 			if suspended {
 				return call.advance(current)
@@ -130,5 +139,8 @@ func (call *textReadCall) consume() {
 	}
 	if call.eof && len(stream.decoded) == 0 && stream.pendingCR == nil {
 		stream.input, stream.decodeOffset, stream.skipped = nil, 0, 0
+		if call.line && !call.done {
+			stream.readStarted, stream.readSnapshot = false, false
+		}
 	}
 }

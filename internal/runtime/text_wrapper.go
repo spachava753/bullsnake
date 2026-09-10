@@ -9,6 +9,7 @@ type textWrapper struct {
 	pendingCR                      *textUnit
 	seen                           uint8
 	hasRead1, readStarted, telling bool
+	readSnapshot                   bool
 	buffer                         Value
 	encoding, codec, errors        string
 	newline                        string

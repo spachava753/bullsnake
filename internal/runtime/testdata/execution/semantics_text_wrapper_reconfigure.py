@@ -66,3 +66,53 @@ raw.allowed = True
 s = TextIOWrapper(raw)
 raw.allowed = False
 assert not s.writable()
+
+# ---
+# case: text reconfiguration is allowed after complete reads and line exhaustion
+from _io import TextIOWrapper, BytesIO
+for operation in ['all', 'bounded then all', 'lines', 'unterminated line']:
+    stream = TextIOWrapper(BytesIO(b'a\r\nb'))
+    if operation == 'all':
+        assert stream.read() == 'a\nb'
+    elif operation == 'bounded then all':
+        assert stream.read(1) == 'a'
+        assert stream.read() == '\nb'
+    elif operation == 'lines':
+        assert list(stream) == ['a\n', 'b']
+    else:
+        assert stream.readline() == 'a\n'
+        assert stream.readline() == 'b'
+    assert stream.newlines == '\r\n'
+    stream.reconfigure(encoding='ascii', newline='\r')
+    assert stream.encoding == 'ascii'
+    assert stream.newlines is None
+    assert stream.write('\n') == 1
+    stream.flush()
+    assert stream.buffer.getvalue() == b'a\r\nb\r'
+
+# ---
+# case: exhausted bounded reads still protect decoder configuration
+from _io import TextIOWrapper, BytesIO, UnsupportedOperation
+for size in [3, 4]:
+    stream = TextIOWrapper(BytesIO(b'abc'))
+    assert stream.read(size) == 'abc'
+    try:
+        stream.reconfigure(encoding='ascii')
+        assert False
+    except UnsupportedOperation:
+        pass
+    assert stream.read() == ''
+    stream.reconfigure(encoding='ascii')
+
+# ---
+# case: a failed first decode does not prevent reconfiguration
+from _io import TextIOWrapper, BytesIO
+for size in [-1, 1]:
+    stream = TextIOWrapper(BytesIO(b'\xff'))
+    try:
+        stream.read(size)
+        assert False
+    except UnicodeDecodeError:
+        pass
+    stream.reconfigure(encoding='latin-1')
+    assert stream.encoding == 'latin-1'

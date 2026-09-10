@@ -5,7 +5,7 @@ package runtime
 func (stream *textWrapper) resetInput() {
 	stream.input, stream.decoded, stream.pendingCR = nil, nil, nil
 	stream.decodeOffset, stream.skipped, stream.seen = 0, 0, 0
-	stream.readStarted = false
+	stream.readStarted, stream.readSnapshot = false, false
 }
 
 // executeTextPosition uses byte offsets as restore cookies for the implemented

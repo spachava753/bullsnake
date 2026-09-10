@@ -690,6 +690,10 @@ and close the stack. Other tests exercise partial operations, EINTR without
 duplicate output, index callbacks, nonblocking results, exported views, readonly
 and strided buffers, and failure cleanup. Go-facing tests verify runtime
 identity, provider ownership, GC lifetime, and cleanup after loader errors.
+Follow-up text regressions cover malformed UTF-8 prefix boundaries, recovery
+after decode failures without replaying partial output, subclass readline
+iteration, and reconfiguration after decoded buffers are cleared. Expected
+behavior is checked against the pinned CPython decoder and TextIOWrapper source.
 
 The initial buffer prerequisite includes bytearray and one-dimensional unsigned
 byte memoryviews. Views strongly retain exporters; weak export tables do not

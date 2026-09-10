@@ -28,6 +28,7 @@ func executeTextNext(caller *frame, instruction int, self *instanceValue, class 
 			return raiseOutcome(newException("OSError", "readline() should have returned a str object, not '"+result.TypeName()+"'")), nil
 		}
 		if text.value == "" {
+			stream.readSnapshot = false
 			stream.telling = stream.seekable
 			return raiseOutcome(newException("StopIteration", "")), nil
 		}
