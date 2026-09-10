@@ -819,6 +819,15 @@ identical candidate and receives even a non-class first argument. Native type
 check descriptors support `super` without redispatching to the override.
 Non-type checker objects and custom descriptor-valued hooks remain unsupported.
 
+### Class subscription
+
+Class item access first calls the metaclass `__getitem__` slot when present, then
+falls back to the class's `__class_getitem__` attribute. Python functions named
+`__class_getitem__` become classmethods at class construction, including dynamic
+`type` construction; later assignments retain ordinary descriptor behavior.
+Both callbacks use VM continuations. Missing or disabled subscriptions raise
+TypeError. Native generic aliases remain the next collections ABC prerequisite.
+
 ## Exceptions
 
 Python exceptions retain constructor objects in a stable `args` tuple, including

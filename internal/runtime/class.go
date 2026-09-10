@@ -216,6 +216,9 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	if function, ok := class.namespace.values["__new__"].(*functionValue); ok {
 		class.namespace.values["__new__"] = &staticMethodValue{callable: function}
 	}
+	if function, ok := class.namespace.values["__class_getitem__"].(*functionValue); ok {
+		class.namespace.values["__class_getitem__"] = &classMethodValue{callable: function}
+	}
 	for index, name := range build.namespaceOrder {
 		if build.namespacePosition[name] != index {
 			continue

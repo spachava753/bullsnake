@@ -245,6 +245,9 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
 
+	if class, ok := container.(*typeValue); ok {
+		return executeClassSubscription(frame, instruction, class, indexValue)
+	}
 	if buffer, ok := container.(*bytearrayValue); ok {
 		value, exception := buffer.subscript(indexValue)
 		if exception != nil {
