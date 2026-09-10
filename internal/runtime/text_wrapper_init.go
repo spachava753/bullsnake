@@ -58,8 +58,17 @@ type textInitialization struct {
 // VM continuations, installing state only after all constructor callbacks pass.
 func (call *textInitialization) advance(caller *frame) (instructionOutcome, error) {
 	if call.step == 5 {
-		call.self.io.wrapper = call.stream
-		return pushOutcome(caller, call.instruction, None)
+		return continueNativeOperation(caller, call.instruction, func() (instructionOutcome, error) {
+			return executeDynamicAttributeLoad(caller, call.instruction, call.stream.buffer, "read1")
+		}, func(current *frame, _ Value, exception *Exception) (instructionOutcome, error) {
+			if exception != nil && !isAttributeError(exception) {
+				return raiseOutcome(exception), nil
+			}
+			call.stream.hasRead1 = exception == nil
+			call.stream.telling = call.stream.seekable
+			call.self.io.wrapper = call.stream
+			return pushOutcome(current, call.instruction, None)
+		})
 	}
 	return continueNativeOperation(caller, call.instruction, func() (instructionOutcome, error) {
 		if call.step < 2 {

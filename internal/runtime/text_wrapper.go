@@ -3,19 +3,25 @@ package runtime
 import "strings"
 
 type textWrapper struct {
-	buffer                       Value
-	encoding, codec, errors      string
-	newline                      string
-	universal, translate         bool
-	lineBuffering, writeThrough  bool
-	readable, writable, seekable bool
-	pending                      []byte
+	input                          []byte
+	decoded                        []textUnit
+	decodeOffset, skipped          int
+	pendingCR                      *textUnit
+	seen                           uint8
+	hasRead1, readStarted, telling bool
+	buffer                         Value
+	encoding, codec, errors        string
+	newline                        string
+	universal, translate           bool
+	lineBuffering, writeThrough    bool
+	readable, writable, seekable   bool
+	pending                        []byte
 }
 
 func initializeTextWrapper(module *Module) {
 	class := newIOClass("TextIOWrapper", module.globals.values["_TextIOBase"].(*typeValue))
 	module.globals.values[class.name] = class
-	for _, name := range []string{"__init__", "write", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty"} {
+	for _, name := range []string{"__init__", "read", "readline", "__next__", "write", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty"} {
 		class.setAttribute(name, ioMethod(class, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 			return executeTextWrapper(caller, instruction, self, name, arguments, keywords)
 		}))
@@ -49,7 +55,8 @@ func textWrapperAttribute(caller *frame, instruction int, stream *textWrapper, n
 	case "write_through":
 		value = booleanValue(stream.writeThrough)
 	case "newlines":
-		value = None
+		state := stringIOValue{seen: stream.seen}
+		value = state.newlines()
 	default:
 		if stream.buffer == nil {
 			return raiseOutcome(newException("ValueError", "underlying buffer has been detached")), nil
@@ -64,6 +71,9 @@ func textWrapperAttribute(caller *frame, instruction int, stream *textWrapper, n
 func executeTextWrapper(caller *frame, instruction int, self *instanceValue, name string, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 	if name == "__init__" {
 		return initializeTextStream(caller, instruction, self, arguments, keywords)
+	}
+	if name == "read" || name == "readline" || name == "__next__" {
+		return executeTextRead(caller, instruction, self, name, arguments, keywords)
 	}
 	minimum, maximum := streamMethodArity(name)
 	if exception := checkNativeArguments(name, arguments, keywords, minimum, maximum); exception != nil {
@@ -99,6 +109,7 @@ func executeTextWrapper(caller *frame, instruction int, self *instanceValue, nam
 		case "write":
 			return writeTextWrapper(current, instruction, stream, arguments[0].(*stringValue).value)
 		case "flush":
+			stream.telling = stream.seekable
 			return continueNativeOperation(current, instruction, func() (instructionOutcome, error) { return flushTextBytes(current, instruction, stream) }, func(resumed *frame, _ Value, exception *Exception) (instructionOutcome, error) {
 				if exception != nil {
 					return raiseOutcome(exception), nil

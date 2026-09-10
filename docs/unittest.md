@@ -779,3 +779,9 @@ behavior tested. The initial encoding policy is deterministic UTF-8 by default,
 with explicit ASCII and Latin-1 also implemented; locale access is denied.
 Reading, text positions, reconfiguration, and the remaining `_io` helpers are
 still pending.
+
+TextIOWrapper input now runs through the normal source pipeline, including
+split UTF-8/CRLF, Unicode size limits, line iteration, decoding failures, and
+nonblocking callbacks. Text positions, reconfiguration, and remaining `_io`
+helpers remain unfinished; unchanged unittest still has its separate import
+prerequisites.

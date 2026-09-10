@@ -1235,3 +1235,11 @@ including close after flush failure. UTF-8 is the deterministic default; explici
 UTF-8, ASCII, and Latin-1 support strict/ignore/replace encoding errors. A request
 for `locale` raises PermissionError, and unavailable codecs raise LookupError.
 There is no ambient locale or codec registry. Text input and positions are next.
+
+TextIOWrapper now incrementally reads UTF-8, ASCII, and Latin-1. It carries split
+UTF-8 sequences and CRLF across binary callbacks, counts decoded characters,
+tracks universal newline kinds, and supports read/readline/iteration. Binary
+read1 is selected when available; unbounded reads use read. Tests cover partial
+code points, explicit and universal newlines, structured decoding errors,
+ignore/replace handling, nonblocking results, and flushing output before input.
+Decoded characters retain source-byte widths for the upcoming position methods.
