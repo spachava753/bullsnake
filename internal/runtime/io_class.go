@@ -3,6 +3,7 @@ package runtime
 // ioState is private instance storage for Go-backed I/O classes. Class identity,
 // attributes, C3 lookup, and descriptors use the ordinary Python object model.
 type ioState struct {
+	pair     *bufferedPair
 	buffered *bufferedStream
 	decoder  *newlineDecoder
 	binary   *bytesIOState

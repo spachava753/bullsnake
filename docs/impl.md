@@ -1221,3 +1221,9 @@ readable, writable raw object. Reads drain pending output; switching to writes
 and explicit flush rewind unread input to the logical position. Failed rewind
 preserves read-ahead for recovery. Source tests cover alternating operations,
 logical positions, capability rejection, truncation, detach, and failed seeks.
+
+`_io.BufferedRWPair` composes independent native reader and writer instances.
+Its constructor converts the buffer size once and validates both raw capabilities
+before construction. Reads and writes delegate to their respective sides;
+close attempts both even after a writer failure, and terminal status checks the
+writer first. Source tests cover independent buffering and lifecycle behavior.

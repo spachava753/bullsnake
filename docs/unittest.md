@@ -767,3 +767,8 @@ close. BufferedRandom, BufferedRWPair, and TextIOWrapper remain ahead.
 BufferedRandom now executes alternating binary reads and writes with tested
 cursor synchronization and rewind failure recovery. BufferedRWPair and
 TextIOWrapper are still pending; no filesystem access has been introduced.
+
+BufferedRWPair now composes the tested reader/writer implementations, including
+constructor callback ordering, independent input/output, terminal queries, and
+closing both sides after failures. TextIOWrapper and remaining `_io` helpers are
+still pending.
