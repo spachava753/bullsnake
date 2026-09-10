@@ -1168,6 +1168,10 @@ this contract without depending on GC.
 TextIOWrapper defaults to deterministic UTF-8 and also supports explicit ASCII
 and Latin-1, with strict, ignore, and replace error handling. Invalid input or
 unencodable text raises structured UnicodeDecodeError or UnicodeEncodeError.
+Malformed UTF-8 consumes the valid prefix before an invalid continuation as one
+error span or replacement character. Restricted second bytes reject only the
+lead byte, preserving Python's overlong, surrogate, and range-error boundaries.
+Split-prefix fixtures also check newline handling and position restoration.
 Unknown codecs and unavailable error handlers raise LookupError. Requesting
 `locale` raises PermissionError; codec selection never reads ambient locale,
 environment variables, files, or a process-wide registry.

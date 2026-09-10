@@ -23,8 +23,8 @@ func (stream *textWrapper) decodeChunk(data []byte, final bool) *Exception {
 			}
 			current, width = utf8.DecodeRune(remaining)
 			invalid = current == utf8.RuneError && width == 1
-			if incomplete {
-				width = len(remaining)
+			if invalid {
+				width = malformedUTF8Width(remaining)
 			}
 		} else if stream.codec == "ascii" {
 			invalid = current >= 128
@@ -61,6 +61,27 @@ func (stream *textWrapper) decodeChunk(data []byte, final bool) *Exception {
 		stream.appendDecoded(textUnit{})
 	}
 	return nil
+}
+
+// malformedUTF8Width consumes the valid prefix before a bad continuation, not
+// the offending byte. Range-invalid second bytes leave only the lead in the span.
+func malformedUTF8Width(data []byte) int {
+	lead := data[0]
+	if lead < 0xc2 || lead > 0xf4 {
+		return 1
+	}
+	width := 1
+	for width < len(data) && width < utf8.UTFMax {
+		next := data[width]
+		if next < 0x80 || next > 0xbf {
+			break
+		}
+		if width == 1 && (lead == 0xe0 && next < 0xa0 || lead == 0xed && next >= 0xa0 || lead == 0xf0 && next < 0x90 || lead == 0xf4 && next >= 0x90) {
+			break
+		}
+		width++
+	}
+	return width
 }
 
 // appendDecoded keeps CRLF together and records newline kinds without losing
