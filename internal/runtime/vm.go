@@ -38,6 +38,10 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 			return
 		}
 		for current := thread.current; current != nil; current = current.previous {
+			for _, lease := range current.bufferLeases {
+				lease.release()
+			}
+			current.bufferLeases = nil
 			current.discardImportedModule()
 		}
 	}()

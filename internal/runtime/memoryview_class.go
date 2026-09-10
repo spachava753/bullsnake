@@ -69,6 +69,9 @@ func executeViewMethod(caller *frame, instruction int, self *instanceValue, name
 	}
 	view := self.io.view
 	if name == "release" || name == "__exit__" {
+		if view.pins != 0 {
+			return raiseOutcome(newException("BufferError", "memoryview has exported buffers")), nil
+		}
 		view.released, view.buffer, view.owner = true, nil, nil
 		return pushOutcome(caller, instruction, None)
 	}

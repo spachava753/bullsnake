@@ -1169,3 +1169,12 @@ exports and raises BufferError while a live view remains. Same-size writes stay
 visible through every view. Explicit release drops the owner reference; child
 views retain their own exports. A focused Go GC test verifies non-retention and
 live exporter ownership. There are no finalizers or Python callbacks from GC.
+
+
+`_io._BufferedIOBase` supplies unsupported read/read1/write/detach defaults and
+readinto/readinto1 delegation to Python read/read1 overrides. Writable bytearrays
+and contiguous writable memoryviews stay pinned across callbacks; resizing the
+exporter or releasing a pinned view raises BufferError. Returned data must be
+bytes and fit the target, and is copied only after validation. Leases release on
+success and Python errors. Frame cleanup also releases them on Go errors, with
+a checked-in source-loader failure/recovery test; cleanup does not depend on GC.

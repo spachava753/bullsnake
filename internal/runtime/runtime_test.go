@@ -722,6 +722,27 @@ func TestInMemoryIOModuleIsolation(t *testing.T) {
 	}
 }
 
+func TestBufferedReadIntoHostFailure(t *testing.T) {
+	failure := errors.New("source provider failed")
+	runtime := bullruntime.NewWithLoader(func(bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+		return bullruntime.ModuleSpec{}, false, failure
+	})
+	for index, name := range []string{"io_lease_failure.py", "io_lease_recovery.py"} {
+		data, err := os.ReadFile(filepath.Join("testdata/host", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = runtime.ExecuteModule("check", compileSource(t, string(data)))
+		if index == 0 {
+			if !errors.Is(err, failure) {
+				t.Fatalf("error = %v, want original source-provider failure", err)
+			}
+		} else if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestSystemExitHostBoundary(t *testing.T) {
 	code := compileSource(t, "import sys\nsys.exit(7)\n")
 	runtime := bullruntime.New()

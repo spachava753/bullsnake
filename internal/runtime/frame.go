@@ -32,6 +32,7 @@ type delegationState struct {
 }
 
 type frame struct {
+	bufferLeases        []*bufferLease
 	runtime             *Runtime
 	code                *preparedCode
 	instruction         int

@@ -730,3 +730,11 @@ their exporters, and child views remain valid after parent release. A Go GC
 test checks these lifetime contracts. No weak-reference callback delivery is
 introduced. Multidimensional views, casts, and arbitrary buffer exporters are
 outside this initial binary-I/O surface.
+
+
+BufferedIOBase now delegates readinto/readinto1 through Python read/read1
+overrides, with explicit writable-buffer leases. Tests cover partial fills,
+readonly/strided rejection, invalid returned sizes, and resize/release denial
+during callbacks. Python exceptions and Go source-loader errors both release
+leases before control returns to the caller. BytesIO and concrete buffering
+classes remain subsequent slices.

@@ -7,6 +7,7 @@ import (
 )
 
 type byteBuffer struct {
+	pins  int
 	data  []byte
 	views []weak.Pointer[instanceValue]
 }
@@ -111,6 +112,10 @@ func (value *bytearrayValue) assign(key, replacement Value, remove bool) *Except
 		if step.IsInt64() && step.Int64() == 1 {
 			if stop < start {
 				stop = start
+			}
+			if len(insert) == stop-start {
+				copy(data[start:stop], insert)
+				return nil
 			}
 			if len(insert) != stop-start && value.buffer.hasViews() {
 				return bufferExportError()

@@ -5,6 +5,7 @@ import "weak"
 // memoryView retains its exporter and describes a one-dimensional byte view.
 // Export tables hold weak references to actual Python view allocations.
 type memoryView struct {
+	pins     int
 	buffer   *byteBuffer
 	owner    Value
 	offset   int
@@ -16,6 +17,7 @@ type memoryView struct {
 }
 
 func newViewInstance(class *typeValue, view memoryView) *instanceValue {
+	view.pins = 0
 	view.hash = nil
 	instance := &instanceValue{class: class, attributes: newNamespace(), io: &ioState{view: &view}}
 	view.buffer.views = append(view.buffer.views, weak.Make(instance))
@@ -25,6 +27,9 @@ func newViewInstance(class *typeValue, view memoryView) *instanceValue {
 // hasViews prunes dead or explicitly released exports on the VM goroutine.
 // The exporter never keeps its view objects alive or runs Python from GC.
 func (buffer *byteBuffer) hasViews() bool {
+	if buffer.pins != 0 {
+		return true
+	}
 	live := buffer.views[:0]
 	for _, reference := range buffer.views {
 		if value := reference.Value(); value != nil && value.io != nil && !value.io.view.released {

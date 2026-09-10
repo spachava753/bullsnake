@@ -809,3 +809,10 @@ views on the VM goroutine and reject resizing while exports remain. Child views
 have independent release state. Explicit release drops the exporter reference.
 This models GC-based memory lifetime without retention by the export table or
 Python callbacks from Go GC, and does not govern host resource ownership.
+
+
+Native operations that borrow writable buffers across Python calls register
+leases on the calling frame. Normal completion and Python exceptions release
+them directly; Go-error unwinding releases remaining frame leases. A lease
+prevents exporter resizing and view release until the operation finishes.
+These synchronous cleanup rules do not rely on garbage collection.
