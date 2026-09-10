@@ -826,7 +826,14 @@ falls back to the class's `__class_getitem__` attribute. Python functions named
 `__class_getitem__` become classmethods at class construction, including dynamic
 `type` construction; later assignments retain ordinary descriptor behavior.
 Both callbacks use VM continuations. Missing or disabled subscriptions raise
-TypeError. Native generic aliases remain the next collections ABC prerequisite.
+TypeError.
+
+`list`, `tuple`, `dict`, `set`, `frozenset`, and `type` subscriptions construct
+runtime-owned GenericAlias instances. They retain the origin and one stable
+argument tuple, expose read-only `__origin__` and `__args__`, render nested
+concrete aliases, and provide `__mro_entries__`. Calling the alias type directly
+accepts two positional arguments. Alias calling, comparison, type-parameter
+substitution, subclass construction, and base rewriting remain later slices.
 
 ## Exceptions
 

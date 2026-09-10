@@ -484,6 +484,9 @@ func executeNativeTypeAttributeLoad(
 	class *nativeTypeValue,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "__class_getitem__" && hasNativeClassGetitem(class) {
+		return pushOutcome(frame, instruction, nativeClassGetitem(class))
+	}
 	if name == "__subclasshook__" {
 		return pushOutcome(frame, instruction, defaultSubclassHook())
 	}

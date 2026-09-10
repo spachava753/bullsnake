@@ -985,6 +985,34 @@ func TestHostTextStreams(t *testing.T) {
 	}
 }
 
+func TestGenericAliasRuntimeIdentity(t *testing.T) {
+	code := compileSource(t, "alias_type = type(list[int])\nalias = list[int]\n")
+	firstRuntime, secondRuntime := bullruntime.New(), bullruntime.New()
+	first, err := firstRuntime.ExecuteModule("first", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repeated, err := firstRuntime.ExecuteModule("repeated", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := secondRuntime.ExecuteModule("second", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstClass, _ := first.Get("alias_type")
+	repeatedClass, _ := repeated.Get("alias_type")
+	secondClass, _ := second.Get("alias_type")
+	if firstClass != repeatedClass || firstClass == secondClass {
+		t.Fatal("generic alias class identity is not runtime-owned")
+	}
+	firstAlias, _ := first.Get("alias")
+	repeatedAlias, _ := repeated.Get("alias")
+	if firstAlias == repeatedAlias {
+		t.Fatal("subscriptions unexpectedly share an alias instance")
+	}
+}
+
 func TestPrintHost(t *testing.T) {
 	t.Run("borrowed output", func(t *testing.T) {
 		writer := &borrowedWriter{}

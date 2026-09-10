@@ -11,23 +11,24 @@ func (*buildClassValue) isValue()         {}
 var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
-	bytesIOClass    bool
-	bufferViewClass bool
-	ioClass         bool
-	immutable       bool
-	name            string
-	qualifiedName   string
-	module          string
-	namespace       *Namespace
-	bases           []*typeValue
-	subclasses      weakClassSet
-	mro             []*typeValue
-	objectBase      bool
-	abstract        bool
-	metaclass       *typeValue
-	namespaceOrder  []string
-	nativeBase      *nativeTypeValue
-	exceptionBase   *exceptionTypeValue
+	genericAliasClass bool
+	bytesIOClass      bool
+	bufferViewClass   bool
+	ioClass           bool
+	immutable         bool
+	name              string
+	qualifiedName     string
+	module            string
+	namespace         *Namespace
+	bases             []*typeValue
+	subclasses        weakClassSet
+	mro               []*typeValue
+	objectBase        bool
+	abstract          bool
+	metaclass         *typeValue
+	namespaceOrder    []string
+	nativeBase        *nativeTypeValue
+	exceptionBase     *exceptionTypeValue
 }
 
 func (class *typeValue) TypeName() string {
@@ -120,6 +121,7 @@ func (class *typeValue) isSubclassOfNative(parent *nativeTypeValue) bool {
 }
 
 type instanceValue struct {
+	alias      *genericAliasState
 	io         *ioState
 	class      *typeValue
 	attributes *Namespace
@@ -407,6 +409,9 @@ func executeTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
+	if class.genericAliasClass {
+		return executeGenericAliasConstructor(caller, instruction, base, class, arguments, keywords)
+	}
 	if class.bufferViewClass {
 		return executeMemoryViewTypeCall(caller, instruction, base, class, arguments, keywords)
 	}

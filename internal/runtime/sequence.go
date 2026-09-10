@@ -245,6 +245,9 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
 
+	if class, ok := container.(*nativeTypeValue); ok && (class == typeNativeType || hasNativeClassGetitem(class)) {
+		return pushOutcome(frame, instruction, newGenericAlias(frame.runtime.genericAliasClass, class, indexValue))
+	}
 	if class, ok := container.(*typeValue); ok {
 		return executeClassSubscription(frame, instruction, class, indexValue)
 	}

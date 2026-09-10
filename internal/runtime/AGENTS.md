@@ -35,8 +35,9 @@ Validation and execution must agree. When an opcode becomes supported, update
 operand checks, stack paths, dispatch, runtime values, Python errors, tests, and
 `docs/impl.md` in the same finished slice.
 
-Native I/O classes use per-runtime ordinary class allocations and private typed
-instance storage. Bind native instance methods through the shared attribute,
+Native I/O and generic-alias classes use per-runtime ordinary class allocations
+and private typed instance storage. Shared constructors and method descriptors
+live in native_class.go. Bind native instance methods through the shared attribute,
 special-method, and super paths. Keep supplied class namespaces immutable and
 user subclasses mutable. Do not introduce a separate I/O inheritance path.
 
