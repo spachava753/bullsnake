@@ -3,10 +3,12 @@ package runtime
 import (
 	"math/big"
 	"strconv"
+	"weak"
 )
 
 type byteBuffer struct {
-	data []byte
+	data  []byte
+	views []weak.Pointer[instanceValue]
 }
 
 type bytearrayValue struct {
@@ -22,6 +24,18 @@ func (*bytearrayValue) isValue() {}
 // binaryData returns contiguous supported buffer contents. Callers copy before
 // retaining bytes across mutation or exposing an immutable Python snapshot.
 func binaryData(value Value) ([]byte, *Exception) {
+	if view := viewOf(value); view != nil {
+		if view.released {
+			return nil, releasedViewError()
+		}
+		if view.length == 0 {
+			return nil, nil
+		}
+		if view.stride != 1 && view.length > 1 {
+			return nil, newException("BufferError", "memoryview: underlying buffer is not C-contiguous")
+		}
+		return view.buffer.data[view.offset : view.offset+view.length], nil
+	}
 	switch value := value.(type) {
 	case *bytesValue:
 		return []byte(value.value), nil
@@ -54,7 +68,7 @@ func newBinaryValue(arguments []Value, keywords *dictValue, mutable bool) (Value
 			data = make([]byte, int(size.Int64()))
 		} else {
 			var exception *Exception
-			data, exception = binaryData(arguments[0])
+			data, exception = binaryCopyData(arguments[0])
 			if exception != nil {
 				return nil, exception
 			}
@@ -88,7 +102,7 @@ func (value *bytearrayValue) assign(key, replacement Value, remove bool) *Except
 		}
 		var insert []byte
 		if !remove {
-			insert, exception = binaryData(replacement)
+			insert, exception = binaryCopyData(replacement)
 			if exception != nil {
 				return exception
 			}
@@ -97,6 +111,9 @@ func (value *bytearrayValue) assign(key, replacement Value, remove bool) *Except
 		if step.IsInt64() && step.Int64() == 1 {
 			if stop < start {
 				stop = start
+			}
+			if len(insert) != stop-start && value.buffer.hasViews() {
+				return bufferExportError()
 			}
 			next := make([]byte, 0, len(data)-(stop-start)+len(insert))
 			next = append(next, data[:start]...)
@@ -109,6 +126,9 @@ func (value *bytearrayValue) assign(key, replacement Value, remove bool) *Except
 			return newException("ValueError", "attempt to assign bytes of size "+strconv.Itoa(len(insert))+" to extended slice of size "+strconv.Itoa(len(positions)))
 		}
 		if remove {
+			if len(positions) != 0 && value.buffer.hasViews() {
+				return bufferExportError()
+			}
 			selected := make([]bool, len(data))
 			for _, index := range positions {
 				selected[index] = true
@@ -132,6 +152,9 @@ func (value *bytearrayValue) assign(key, replacement Value, remove bool) *Except
 		return exception
 	}
 	if remove {
+		if value.buffer.hasViews() {
+			return bufferExportError()
+		}
 		value.buffer.data = append(data[:index], data[index+1:]...)
 		return nil
 	}

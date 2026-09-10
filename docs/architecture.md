@@ -801,3 +801,11 @@ override operations. Runtime-supplied classes are immutable; user subclasses
 remain mutable. This avoids a separate inheritance model for Go I/O objects.
 Explicit close and context management own lifecycle transitions; garbage
 collection never invokes Python I/O methods.
+
+
+Memoryview export tables use Go weak pointers to actual Python view allocations.
+Views retain the exporter strongly; resize operations prune dead or released
+views on the VM goroutine and reject resizing while exports remain. Child views
+have independent release state. Explicit release drops the exporter reference.
+This models GC-based memory lifetime without retention by the export table or
+Python callbacks from Go GC, and does not govern host resource ownership.

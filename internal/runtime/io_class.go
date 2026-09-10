@@ -5,6 +5,7 @@ package runtime
 type ioState struct {
 	closed bool
 	text   *stringIOValue
+	view   *memoryView
 }
 
 func newIOClass(name string, base *typeValue) *typeValue {

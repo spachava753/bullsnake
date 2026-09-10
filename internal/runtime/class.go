@@ -11,21 +11,22 @@ func (*buildClassValue) isValue()         {}
 var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
-	ioClass        bool
-	immutable      bool
-	name           string
-	qualifiedName  string
-	module         string
-	namespace      *Namespace
-	bases          []*typeValue
-	subclasses     weakClassSet
-	mro            []*typeValue
-	objectBase     bool
-	abstract       bool
-	metaclass      *typeValue
-	namespaceOrder []string
-	nativeBase     *nativeTypeValue
-	exceptionBase  *exceptionTypeValue
+	bufferViewClass bool
+	ioClass         bool
+	immutable       bool
+	name            string
+	qualifiedName   string
+	module          string
+	namespace       *Namespace
+	bases           []*typeValue
+	subclasses      weakClassSet
+	mro             []*typeValue
+	objectBase      bool
+	abstract        bool
+	metaclass       *typeValue
+	namespaceOrder  []string
+	nativeBase      *nativeTypeValue
+	exceptionBase   *exceptionTypeValue
 }
 
 func (class *typeValue) TypeName() string {
@@ -240,6 +241,9 @@ func resolveClassBases(
 	for _, baseValue := range baseValues {
 		switch classBase := baseValue.(type) {
 		case *typeValue:
+			if classBase.bufferViewClass {
+				return nil, nil, nil, false, newException("TypeError", "type 'memoryview' is not an acceptable base type")
+			}
 			if native := classBase.nativeClassBase(); native != nil && native != typeNativeType && len(baseValues) != 1 {
 				return nil, nil, nil, false, newException(
 					"TypeError",
@@ -399,6 +403,9 @@ func executeTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
+	if class.bufferViewClass {
+		return executeMemoryViewTypeCall(caller, instruction, base, class, arguments, keywords)
+	}
 	if class.isSubclassOfNative(typeNativeType) {
 		arguments = append([]Value(nil), arguments...)
 		discardCallSegment(caller, base)

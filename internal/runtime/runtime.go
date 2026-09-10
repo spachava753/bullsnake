@@ -64,6 +64,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	for _, exceptionType := range builtinExceptionTypes {
 		builtins.values[exceptionType.name] = exceptionType
 	}
+	initializeMemoryViewClass(builtins)
 	builtins.values["IOError"] = osErrorType
 	builtins.values["EnvironmentError"] = osErrorType
 	builtins.values["NotImplemented"] = notImplementedSingleton

@@ -412,6 +412,9 @@ func executeDynamicAttributeStore(
 		}
 		owner.setAttribute(name, value)
 	case *instanceValue:
+		if owner.class.bufferViewClass {
+			return raiseOutcome(newException("AttributeError", "memoryview attributes are read-only")), nil
+		}
 		return executeInstanceAttributeStore(frame, instruction, owner, name, value)
 	default:
 		return raiseOutcome(newException(
@@ -458,6 +461,9 @@ func executeDynamicAttributeDelete(
 		attributes = owner.namespace
 		missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
 	case *instanceValue:
+		if owner.class.bufferViewClass {
+			return raiseOutcome(newException("AttributeError", "memoryview attributes are read-only")), nil
+		}
 		return executeInstanceAttributeDelete(frame, instruction, owner, name)
 	default:
 		return raiseOutcome(newException("AttributeError", missingMessage)), nil

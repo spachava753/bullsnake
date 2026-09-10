@@ -92,6 +92,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
+	"memory_iterator":                  builtinNativeType("memory_iterator"),
 	"bytearray":                        bytearrayNativeType,
 	"bytearray_iterator":               builtinNativeType("bytearray_iterator"),
 	"weakref.ReferenceType":            nativeType("weakref", "ReferenceType"),

@@ -720,3 +720,13 @@ that fill mutable buffers, return short counts or None, raise EINTR, and return
 invalid counts. It exports the real 128 KiB DEFAULT_BUFFER_SIZE. These are
 in-memory callback tests; no filesystem operation is enabled. Buffered streams
 and memory views remain next.
+
+
+The selected memoryview prerequisite is now tested: shared byte storage,
+readonly and strided views, metadata, byte conversion, invalid mutations,
+release, and bytearray resize restrictions. Export registries use weak pointers
+to actual view objects and are pruned synchronously; live views strongly retain
+their exporters, and child views remain valid after parent release. A Go GC
+test checks these lifetime contracts. No weak-reference callback delivery is
+introduced. Multidimensional views, casts, and arbitrary buffer exporters are
+outside this initial binary-I/O surface.

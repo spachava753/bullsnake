@@ -1143,7 +1143,7 @@ share mutable data. Bytearrays support length, truth, iteration, byte-content
 equality with bytes, integer indexing, slicing, and contiguous/extended slice
 assignment and deletion. Invalid replacements leave the original buffer intact;
 bytearrays are unhashable. Iterable/encoded-text construction, custom index
-callbacks, memory views, and broader bytearray methods remain later slices.
+callbacks and broader bytearray methods remain later slices.
 
 
 `_io._RawIOBase` now implements `read` through a Python `readinto` override and
@@ -1153,3 +1153,19 @@ Nonblocking None is preserved before progress and ends `readall` after partial
 progress. Interrupted `readall` operations retry; other callback failures
 propagate. Bare `readinto`/`write` retain CPython's abstract NotImplementedError
 defaults, which do not represent denied host access.
+
+
+`memoryview` now supports one-dimensional unsigned-byte buffers from bytes,
+bytearray, and existing views. It exposes byte indexing, strided slicing,
+same-shape writes, readonly copies, iteration, byte/list conversion, metadata,
+content comparison, and hashing for supported readonly exporters. Released
+operations raise ValueError; release is idempotent and a cached hash survives
+release. Multidimensional formats, casts, and user-defined buffer exporters
+remain unsupported.
+
+Each view retains its exporter, but the export table holds Go weak pointers to
+the actual Python view allocations. Resizing a bytearray prunes dead/released
+exports and raises BufferError while a live view remains. Same-size writes stay
+visible through every view. Explicit release drops the owner reference; child
+views retain their own exports. A focused Go GC test verifies non-retention and
+live exporter ownership. There are no finalizers or Python callbacks from GC.
