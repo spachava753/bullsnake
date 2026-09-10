@@ -40,6 +40,12 @@ instance storage. Bind native instance methods through the shared attribute,
 special-method, and super paths. Keep supplied class namespaces immutable and
 user subclasses mutable. Do not introduce a separate I/O inheritance path.
 
+I/O callbacks run through VM continuations. Keep buffer leases and reentrancy
+guards on the calling frame so Go-error unwinding releases them as well as Python
+completion. Never call Python from Go GC. Text codec selection and filesystem
+entry points must preserve explicit host permissions; a source loader is not a
+filesystem provider, and a Python opener does not grant process-file access.
+
 ## Testing
 
 Put language behavior that can be written in Python source in chunked files under

@@ -47,7 +47,7 @@ Neither is part of this milestone.
 | Python execution | Functions, all parameter kinds, decorators, closures, classes, inheritance, loops, comprehensions, generators, exceptions, and context managers have execution tests. |
 | Objects and builtins | Method binding, properties, `super`, attribute helpers, type checks, user-defined iteration and comparisons, sorting, and many string and collection methods work within the documented subset. |
 | Imports | Source modules, regular packages, relative imports, repeated and circular imports, and cleanup after a failed import are tested. |
-| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. Private per-runtime Go constructors now initialize modules through the importer; `sys` exposes isolated arguments, borrowed UTF-8 streams, and catchable exit; `time.perf_counter` uses only the supplied counter. `_io` now provides the first StringIO output slice; the rest of io and its import dependencies remain incomplete. |
+| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. Private per-runtime Go constructors now initialize modules through the importer; `sys` exposes isolated arguments, borrowed UTF-8 streams, and catchable exit; `time.perf_counter` uses only the supplied counter. `_io` provides the documented synchronous in-memory stream subset and explicit filesystem denial; unchanged io and unittest still have import dependencies. |
 | Standard-library tests | Unchanged `colorsys.py` runs with adapted versions of all eight upstream public test methods. These use plain assertions, not `TestCase` objects. |
 
 The [language tests](../internal/runtime/testdata/execution/) run Python source
@@ -642,9 +642,9 @@ After that, add permission-controlled filesystem discovery and signal handling.
 Plan mock and async testing separately. The independent ABC class-construction
 and abstract-method computation slices are tested. Virtual registration is tested
 through both native helpers and unchanged `abc.py`, which now imports. In-memory
-`_io` now has its first StringIO output slice; completing its streams and running
-unchanged `io.py` are the next independent work. No unittest test has executed
-yet; the overall milestone remains blocked.
+`_io` now has tested in-memory streams, buffering, text decoding, and explicit
+filesystem denial. Running unchanged `io.py` remains the next dependency step.
+No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
 
@@ -664,146 +664,62 @@ work without host output providers. print currently inherits the existing str
 limitations, including representations of containers holding user objects.
 
 
-### Initial in-memory I/O slice
+### Implemented in-memory `_io` scope
 
-`_io.StringIO` is usable directly as a `print` destination without configured host
-streams. Source fixtures cover initial text and constructor binding, character
-overwrite and Unicode counts (including lone surrogates), all newline modes,
-newline history, immutable `getvalue` snapshots, flushing, repeated close,
-context management, and invalid/closed operations. A Go test covers separate
-module state per runtime and imports without consulting the source loader.
-The module exports the existing shared `UnsupportedOperation` and
-`BlockingIOError` classes.
+The `_io` stream implementation now includes:
 
-A second slice implements reads, newline-aware `readline`, character seeks,
-`tell`, truncation, and readable/writable/seekable queries. Tests cover size
-conversion through Python `__index__`, callback failures and closed state,
-Unicode positions, reads beyond EOF, NUL-filled write gaps, and truncation
-without moving the cursor or extending text.
+- StringIO and BytesIO, with text/byte positions, reads, writes, lines, snapshots,
+  truncation, close, reinitialization, subclass behavior, and BytesIO exports.
+- IOBase, RawIOBase, BufferedIOBase, and TextIOBase defaults and Python callback
+  delegation, including scoped writable-buffer leases.
+- BufferedReader, BufferedWriter, BufferedRandom, and BufferedRWPair, with
+  short/nonblocking I/O, partial-write retry counts, cursor synchronization,
+  explicit lifecycle, and failure recovery.
+- IncrementalNewlineDecoder, including Python codec delegation and pending CR.
+- TextIOWrapper with UTF-8, ASCII, and Latin-1, incremental decoding, newline
+  translation, output buffering, character limits, position round trips,
+  truncation, reconfiguration, and close after flush failure.
+- text_encoding and argument-checked open/open_code/FileIO denial boundaries.
+  No path, descriptor, opener, locale request, or source loader grants ambient
+  host access.
 
-StringIO also supports iteration, `readlines` hints measured in characters,
-and incremental `writelines` from native and Python iterators. Source tests
-cover shared cursor state, exact hint boundaries, errors after partial output,
-and closing the stream from an iterator callback.
+Behavior runs through the parser, compiler, validator, and VM in Python source
+fixtures with Go as the outer runner. Integrated tests print Unicode through
+TextIOWrapper and BufferedRandom to BytesIO, then decode it, restore positions,
+and close the stack. Other tests exercise partial operations, EINTR without
+duplicate output, index callbacks, nonblocking results, exported views, readonly
+and strided buffers, and failure cleanup. Go-facing tests verify runtime
+identity, provider ownership, GC lifetime, and cleanup after loader errors.
 
-StringIO now inherits the I/O bases and supports Python subclasses, instance
-attributes, native methods through `super`, validated readline overrides during
-iteration, and reinitialization without losing subclass attributes. Public
-`__dict__` remains deferred. This is not complete io compatibility. Other `_io` classes and helpers
-are absent. The current unittest import probe stops at missing
-`_collections_abc`; supplying that source will then expose further `_io` and
-object-model gaps. No unittest test has executed.
+The initial buffer prerequisite includes bytearray and one-dimensional unsigned
+byte memoryviews. Views strongly retain exporters; weak export tables do not
+retain the views. Explicit release, frame leases, and buffered-operation guards
+provide deterministic operation cleanup. Python is never called from Go GC.
 
+The implementation remains a selected CPython subset. TextIOWrapper defaults to
+UTF-8, denies locale access, and supports strict/ignore/replace errors for the
+three implemented stateless codecs. Restore positions are local byte offsets,
+not CPython's opaque integer-cookie layout. Stateful codecs, codec registration,
+multidimensional views, arbitrary Python buffer exporters, pickle state methods,
+and comprehensive I/O introspection are not implemented. Public `__dict__`,
+general weakref callbacks, and regex compatibility remain deferred.
 
-### I/O base-class lifecycle
+### Current unchanged-source checkpoint
 
-The native `_IOBase` and `_TextIOBase` lifecycle slice is tested with Python
-subclasses. Tests cover inherited method binding through `super`, private closed
-state, flush failures during close, context-manager close overrides, text-base
-defaults, unsupported operations, immutable base classes, and mutable subclasses.
-These classes use the ordinary runtime class and descriptor paths with private
-Go storage. They do not grant host access or install GC callbacks. Base line helpers are now tested with Python read/write/peek and iteration
-overrides, exact character hints, EINTR retries, and partial iterator failures.
-StringIO inheritance and subclass overrides are now tested. Raw/buffered
-classes and remaining `_io` helpers are still ahead. The current unittest import failure is unchanged.
+After the in-memory `_io` work, this diagnostic was rerun:
 
+```sh
+go run ./tools/importprobe stdlib/3.14 abc unittest
+```
 
-The binary-I/O prerequisite now includes selected `bytearray` and `bytes`
-construction, mutable byte/slice assignment and deletion, and immutable snapshot
-conversion. Python fixtures verify the buffer-writing pattern needed by
-`readinto`, including extended slices and failed mutations. Memory views and
-raw/buffered streams remain subsequent work; no filesystem capability is added.
+It imports unchanged abc successfully and stops unchanged unittest at:
 
+```text
+stdlib/3.14/io.py:56:1: ModuleNotFoundError: No module named '_collections_abc'
+```
 
-RawIOBase's read/readinto/readall slice is now tested with Python implementations
-that fill mutable buffers, return short counts or None, raise EINTR, and return
-invalid counts. It exports the real 128 KiB DEFAULT_BUFFER_SIZE. These are
-in-memory callback tests; no filesystem operation is enabled. Buffered streams
-and memory views remain next.
-
-
-The selected memoryview prerequisite is now tested: shared byte storage,
-readonly and strided views, metadata, byte conversion, invalid mutations,
-release, and bytearray resize restrictions. Export registries use weak pointers
-to actual view objects and are pruned synchronously; live views strongly retain
-their exporters, and child views remain valid after parent release. A Go GC
-test checks these lifetime contracts. No weak-reference callback delivery is
-introduced. Multidimensional views, casts, and arbitrary buffer exporters are
-outside this initial binary-I/O surface.
-
-
-BufferedIOBase now delegates readinto/readinto1 through Python read/read1
-overrides, with explicit writable-buffer leases. Tests cover partial fills,
-readonly/strided rejection, invalid returned sizes, and resize/release denial
-during callbacks. Python exceptions and Go source-loader errors both release
-leases before control returns to the caller. BytesIO and concrete buffering
-classes remain subsequent slices.
-
-
-BytesIO's core in-memory stream behavior is now tested, including byte seeks,
-NUL-filled gaps, readinto, snapshots, native line behavior, close, exported-view
-restrictions, and reinitialization. The StringIO and BytesIO behavior tests use
-the normal source pipeline; no unittest TestCase has executed yet. Concrete
-buffering wrappers and text decoding remain ahead.
-
-IncrementalNewlineDecoder is now tested independently with Python codec objects
-and direct text. It preserves split newline sequences and decoder state across
-calls. Concrete buffered streams and TextIOWrapper remain the next `_io` work;
-this does not change the recorded `_collections_abc` import blocker.
-
-BufferedReader is now tested over BytesIO and Python RawIOBase implementations.
-Read-ahead positions, partial and nonblocking results, explicit close/detach,
-callback validation, and failure cleanup are covered. BufferedWriter,
-BufferedRandom, BufferedRWPair, and TextIOWrapper still remain.
-
-BufferedWriter callback tests exposed missing binary concatenation. That
-prerequisite is now tested separately, including bytes snapshots, bytearray
-identity, aliasing, and exported-view resize restrictions.
-
-BufferedWriter is now tested with BytesIO and Python raw writers, including
-short writes, nonblocking capacity, exact retry counts, and flush failure during
-close. BufferedRandom, BufferedRWPair, and TextIOWrapper remain ahead.
-
-BufferedRandom now executes alternating binary reads and writes with tested
-cursor synchronization and rewind failure recovery. BufferedRWPair and
-TextIOWrapper are still pending; no filesystem access has been introduced.
-
-BufferedRWPair now composes the tested reader/writer implementations, including
-constructor callback ordering, independent input/output, terminal queries, and
-closing both sides after failures. TextIOWrapper and remaining `_io` helpers are
-still pending.
-
-TextIOWrapper output now executes against BytesIO, with Unicode character counts,
-explicit codecs, newline translation, buffering controls, and close failure
-behavior tested. The initial encoding policy is deterministic UTF-8 by default,
-with explicit ASCII and Latin-1 also implemented; locale access is denied.
-Reading, text positions, reconfiguration, and the remaining `_io` helpers are
-still pending.
-
-TextIOWrapper input now runs through the normal source pipeline, including
-split UTF-8/CRLF, Unicode size limits, line iteration, decoding failures, and
-nonblocking callbacks. Text positions, reconfiguration, and remaining `_io`
-helpers remain unfinished; unchanged unittest still has its separate import
-prerequisites.
-
-TextIOWrapper position round trips now pass for UTF-8 and universal/preserved
-newlines, including cuts inside CRLF. The supported stateless codecs use local
-byte-offset restore positions, not CPython's opaque integer-cookie layout.
-Reconfiguration and the remaining permission-denied filesystem exports are next.
-
-TextIOWrapper reconfiguration is now tested, including preserving decoded input
-and pending output. The remaining `_io` export work is text_encoding and explicit
-permission-denied filesystem entry points. The broader unittest dependency chain
-remains outside this stream implementation step.
-
-The remaining `_io` exports now include tested filesystem denial boundaries and
-text_encoding. Paths, descriptors, and custom openers cannot grant access without
-a filesystem capability. All in-memory stream classes imported by unchanged
-io.py are now implemented within the documented codec/buffer subset. Its separate
-`_collections_abc` dependency is still the last recorded import blocker; this is
-not evidence that unittest test execution or reporting is complete.
-
-The composed in-memory I/O stack is now tested from Python source: print through
-TextIOWrapper and BufferedRandom to BytesIO, followed by decoded reads and seek
-round trips. Raw callback index results and interrupted writes are also covered.
-The fresh unchanged-source import probe still stops at `_collections_abc`.
+This is an execution probe, not a unittest success claim. The next operation is
+loading `_collections_abc` for unchanged io.py; subsequent object-model and import
+dependencies remain explicit. No unittest TestCase, suite, runner report,
+unchanged test_colorsys.py, or unittest.main() has executed yet. The complete
+synchronous unittest milestone remains unfinished.

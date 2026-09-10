@@ -1004,24 +1004,10 @@ synchronously and may block indefinitely. No cancellation guarantee is made.
 `sys.modules`, active exception helpers, Python traceback objects, and execution
 of unchanged `io.py` remain unimplemented.
 
-The private `_io` constructor exports `StringIO`, `BlockingIOError`, and the
-shared `UnsupportedOperation` class. `StringIO` owns an in-memory text buffer;
-its constructor accepts initial text and all five newline modes. The first
-output slice implements `write`, `getvalue`, `flush`, `close`, `isatty`, context
-management, `closed`, and `newlines`. Writes overwrite from an initial character
-position of zero and return input character counts, including surrogate code
-points. Universal newline decoding finishes on each write. Saved `getvalue`
-strings survive later writes and close. No host capability is involved. Reads, newline-aware `readline`, character seeks, `tell`, truncation, and
-readable/writable/seekable queries are also implemented. Size arguments invoke
-Python `__index__` through the VM before checking closed state. Seeking beyond
-EOF preserves the cursor on reads; later writes fill gaps with NUL characters.
-Truncation preserves the cursor and does not extend the buffer. StringIO is
-a self-iterator over lines and supports `readlines` character hints and
-incremental `writelines` from Python iterables. Iterator and write exceptions
-preserve earlier output. StringIO now inherits `_TextIOBase` and `_IOBase`,
-supports Python subclasses and instance attributes, and exposes inherited
-encoding/errors/detach/fileno behavior. Public `__dict__` remains deferred; the module exports no placeholders for
-the remaining classes and helpers expected by unchanged `io.py`.
+The private `_io` constructor supplies the synchronous in-memory stream classes,
+newline decoder, shared exceptions, and permission-denied filesystem entry
+points. See the I/O sections below for tested behavior and compatibility limits.
+No `_io` operation acquires an ambient host capability.
 
 ## Deliberate boundaries
 
@@ -1111,162 +1097,107 @@ work without host output providers. print currently inherits the existing str
 limitations, including representations of containers holding user objects.
 
 
-### I/O base-class lifecycle
+### Synchronous in-memory I/O
 
-`_io._IOBase` and `_io._TextIOBase` now use per-runtime class allocations with
-private Go instance storage. Their native instance methods bind through ordinary
-attribute lookup and `super`; subclasses retain Python initializers, attributes,
-properties, C3 inheritance, and ABC abstract-class checks. The supplied base
-classes are immutable, while user subclasses remain mutable. Public `__dict__`
-introspection and custom instance `__new__` remain outside this slice.
+The native `_io` classes use per-runtime ordinary class allocations and private
+Go instance storage. Native methods bind through normal attribute lookup,
+`super`, C3 inheritance, and ABC checks. Supplied classes are immutable; Python
+subclasses retain their own initializers, methods, properties, and attributes.
+Public `__dict__` and general custom instance `__new__` remain deferred.
 
-The initial base surface covers flush/close, context management, status checks,
-unsupported seek/truncate/fileno, and tell delegation to seek. Close invokes a
-Python flush override and marks the base closed even if it raises. Context exit
-invokes the Python close override. TextIOBase provides its unsupported-operation
-defaults and None-valued encoding/errors/newlines. Base `readline` now calls binary `read`, using optional `peek`; `readlines`
-and `writelines` dispatch Python iteration and methods. EINTR retries only the
-interrupted I/O operation. Immediate native steps loop without growing the Go
-stack, while Python callbacks resume from frames. Iteration now consumes a
-complete native special-method continuation before applying StopIteration
-semantics. StringIO now shares this hierarchy and inherits the line helpers; its native
-buffer methods remain available through unbound class calls and `super`. No GC finalizer calls Python or
-closes streams; callers must use explicit close or context management.
+| Surface | Tested behavior |
+| --- | --- |
+| `_IOBase`, `_TextIOBase` | Closed state, flush/close, context management, status and unsupported operations, and Python overrides. Base close marks the object closed even when flush raises. |
+| Base line helpers | Binary readline with optional peek; iteration, readlines hints, and incremental writelines through Python callbacks; partial failures and EINTR. |
+| `_RawIOBase` | read/readall delegation to writable readinto buffers, short counts, None before or after progress, and invalid counts. Abstract readinto/write retain CPython's abstract defaults. |
+| `_BufferedIOBase` | readinto/readinto1 delegation through Python read/read1, writable-buffer validation, result bounds, and scoped leases. |
+| `StringIO` | Character-based reads and writes, all newline modes, line iteration, seeks, tell, truncation, snapshots, NUL-filled gaps, reinitialization, close, and subclass overrides. Lone surrogate code points remain valid text. |
+| `BytesIO` | Byte-based reads/writes, relative seeks, truncation, snapshots, readinto, getbuffer, native line behavior, reinitialization, and exported-buffer restrictions. Native iteration and writelines bypass subclass readline/write overrides. |
+| `IncrementalNewlineDecoder` | Python decoder delegation or direct text, pending CR, split CRLF, final flushing, newline history, reset, and packed getstate/setstate flags. |
+| `BufferedReader` | Read-ahead, read/read1/readinto/readinto1, peek, lines, logical tell, seek, detach, close, and raw metadata. Unbounded reads prefer raw readall and otherwise use read. |
+| `BufferedWriter` | Small-write buffering, direct large writes, short writes, nonblocking capacity, exact characters_written retry counts, flush, seek, truncate, detach, and close after flush failure. |
+| `BufferedRandom` | Alternating reads and writes over a seekable raw object, logical cursor synchronization, explicit flush/rewind, and recovery after failed seeks. |
+| `BufferedRWPair` | Independent reader/writer composition, constructor conversion order, terminal status, and closing both sides after failure. |
+| `TextIOWrapper` | Encoded output, incremental input, character limits, lines, newline translation/history, buffering controls, positions, truncation, reconfigure, detach, and close. |
 
+Immediate native callback steps use trampolines; Python callbacks suspend in
+heap VM frames. Input size does not grow the Go stack. Raw buffer counts accept
+Python's index protocol. Reentrant buffered operations raise RuntimeError, and
+frame-owned guards release on Python exceptions and Go failures. Explicit close
+and context management govern stream lifetime; Go GC never invokes Python I/O
+methods or closes a supplied provider.
 
-### Mutable binary buffers
+Integrated source fixtures run print through TextIOWrapper and BufferedRandom
+to BytesIO, then decode the output, restore positions, and close the entire
+stack. Separate fixtures test native/subclass behavior, partial and nonblocking
+operations, EINTR without duplicated output, Unicode counts, close failures,
+and ownership. These are source-to-result tests, not import or fixture counts.
 
-The first `bytearray` slice supplies writable storage for upcoming binary I/O.
-`bytearray` and `bytes` constructors accept no argument, an integer zero-fill
-size, or current bytes/bytearray buffers. Copies and immutable snapshots do not
-share mutable data. Bytearrays support length, truth, iteration, byte-content
-equality with bytes, integer indexing, slicing, and contiguous/extended slice
-assignment and deletion. Invalid replacements leave the original buffer intact;
-bytearrays are unhashable. Iterable/encoded-text construction, custom index
-callbacks and broader bytearray methods remain later slices.
+### Binary buffers and ownership
 
+`bytes` and `bytearray` constructors accept no argument, an integer zero-fill
+size, or a supported binary buffer. Bytearrays provide length, truth, iteration,
+content comparison, integer/slice reads, and contiguous or extended mutation.
+Binary concatenation preserves immutable snapshots; bytearray += preserves
+identity and rejects resizing with active exports, including self-concatenation.
+Iterable and encoded-string construction and the full bytearray method set are
+not implemented.
 
-`_io._RawIOBase` now implements `read` through a Python `readinto` override and
-`readall` through repeated `read` calls using CPython's 128 KiB default buffer
-size. Returned counts use the index protocol and must fit the supplied buffer.
-Nonblocking None is preserved before progress and ends `readall` after partial
-progress. Interrupted `readall` operations retry; other callback failures
-propagate. Bare `readinto`/`write` retain CPython's abstract NotImplementedError
-defaults, which do not represent denied host access.
+`memoryview` supports one-dimensional unsigned-byte views of bytes, bytearray,
+and other views, including strided slicing, same-shape mutation, readonly views,
+metadata, iteration, conversion, content comparison, hashing where valid, and
+explicit release. Released operations raise ValueError; release is idempotent
+and an already cached hash survives release. Multidimensional formats, casts,
+and arbitrary Python buffer exporters remain unsupported.
 
+A view retains its exporter strongly. Export tables hold Go weak pointers to
+actual Python view allocations and prune dead or released entries on the VM
+goroutine. Child views retain independent exports. Resizing bytearray is denied
+while exported; BytesIO also denies writes, truncation, and close. Go GC tests
+verify non-retention by export tables and retention by live views. No finalizer
+or weak-reference callback calls Python.
 
-`memoryview` now supports one-dimensional unsigned-byte buffers from bytes,
-bytearray, and existing views. It exposes byte indexing, strided slicing,
-same-shape writes, readonly copies, iteration, byte/list conversion, metadata,
-content comparison, and hashing for supported readonly exporters. Released
-operations raise ValueError; release is idempotent and a cached hash survives
-release. Multidimensional formats, casts, and user-defined buffer exporters
-remain unsupported.
+Operations borrowing writable storage across callbacks register frame leases.
+Leases prevent exporter resizing and source-view release until completion.
+Success and Python exceptions release directly; Go-error unwinding releases
+remaining leases and guards. Source-loader failure/recovery tests exercise
+this contract without depending on GC.
 
-Each view retains its exporter, but the export table holds Go weak pointers to
-the actual Python view allocations. Resizing a bytearray prunes dead/released
-exports and raises BufferError while a live view remains. Same-size writes stay
-visible through every view. Explicit release drops the owner reference; child
-views retain their own exports. A focused Go GC test verifies non-retention and
-live exporter ownership. There are no finalizers or Python callbacks from GC.
+### Text codecs and positions
 
+TextIOWrapper defaults to deterministic UTF-8 and also supports explicit ASCII
+and Latin-1, with strict, ignore, and replace error handling. Invalid input or
+unencodable text raises structured UnicodeDecodeError or UnicodeEncodeError.
+Unknown codecs and unavailable error handlers raise LookupError. Requesting
+`locale` raises PermissionError; codec selection never reads ambient locale,
+environment variables, files, or a process-wide registry.
 
-`_io._BufferedIOBase` supplies unsupported read/read1/write/detach defaults and
-readinto/readinto1 delegation to Python read/read1 overrides. Writable bytearrays
-and contiguous writable memoryviews stay pinned across callbacks; resizing the
-exporter or releasing a pinned view raises BufferError. Returned data must be
-bytes and fit the target, and is copied only after validation. Leases release on
-success and Python errors. Frame cleanup also releases them on Go errors, with
-a checked-in source-loader failure/recovery test; cleanup does not depend on GC.
+Incremental input retains incomplete UTF-8 sequences and CRLF across binary
+reads. Each decoded character records its source-byte width. The implemented
+stateless codecs use byte offsets as restore positions; CPython's opaque cookie
+encoding is not reproduced. Tests verify seeking back across multibyte text and
+CRLF cuts and reading the same result. Iteration disables tell until flush or
+exhaustion. Nonzero relative/end text seeks are unsupported.
 
+Reconfigure flushes old encoded output before applying keyword-only options.
+Codec/newline changes are rejected while decoded read state remains; buffering
+flags can change independently. Text output is cleared before its binary write,
+matching CPython when an exception leaves the partial write count unknown.
 
-`_io.BytesIO` now owns binary storage in the buffered I/O hierarchy. It supports
-byte-position reads, read1/readline/readlines, writable-buffer readinto, writes,
-relative and absolute seeks, truncation, snapshots, getbuffer, context management,
-status queries, and close. Native iteration and writelines bypass subclass
-readline/write overrides, as CPython does; readlines stops when its positive
-hint is reached. Exported views keep the stream alive and forbid writes,
-truncation, and close until released. Tests cover native reinitialization order,
-including size reset before an export error and the distinct closed/None case.
-Pickle state methods and general serialization remain outside this slice.
+Stateful codecs, codec registration, pickle state methods, and comprehensive
+CPython I/O introspection are outside this implemented subset.
 
-`_io.IncrementalNewlineDecoder` wraps Python decoders or accepts text directly.
-It carries pending CR across chunks, records newline kinds, optionally translates
-universal newlines, and delegates reset/getstate/setstate. State flags preserve
-CPython's unsigned 64-bit packing. Source tests cover split CRLF, Unicode,
-final flushing, truth callbacks, state restoration, and decoder failures.
+### Filesystem denial boundaries
 
-`_io.BufferedReader` now buffers synchronous raw callbacks, with read/read1,
-readinto/readinto1, peek, line iteration, seeks, logical tell, detach, close, and
-raw metadata delegation. Tests cover read-ahead, short and nonblocking reads,
-readall delegation, invalid counts, temporary view release, and reentrant calls.
-A per-frame guard rejects reentrant buffer mutation and releases after Python
-exceptions and Go loader failures. There is no finalizer or automatic raw close.
+`_io.open` and builtins.open are the same immutable builtin function. It and
+FileIO validate Python modes, text/binary options, buffering, paths, descriptor
+indices, and closefd, then raise PermissionError. Python __fspath__/__index__
+conversion may run; a custom opener is never invoked. open_code requires text
+and also denies access. A FileIO subclass that skips initialization stays closed.
+No request uses the source loader as a filesystem or acquires a process file
+descriptor. Filesystem providers and Python-opened owned handles remain future
+work.
 
-Bytes and bytearray concatenate contiguous byte buffers with `+` and `+=`.
-Bytes results are immutable snapshots; bytearray in-place addition preserves
-identity and rejects growth with exported views. This supports Python raw I/O
-implementations that accumulate output. Reflected user operations still run
-when the right operand does not export a supported contiguous buffer.
-
-`_io.BufferedWriter` now buffers small writes, sends large writes through readonly
-views, retries short writes and EINTR, and retains pending output after failures.
-Nonblocking writes report accepted input in BlockingIOError.characters_written.
-Flush drains pending bytes; seek, truncate, detach, and close flush first. Close
-still attempts raw close after a flush exception. Source tests verify byte
-ordering, mutable input snapshots, partial counts, failure recovery, and close.
-
-`_io.BufferedRandom` now combines the tested reader and writer over one seekable,
-readable, writable raw object. Reads drain pending output; switching to writes
-and explicit flush rewind unread input to the logical position. Failed rewind
-preserves read-ahead for recovery. Source tests cover alternating operations,
-logical positions, capability rejection, truncation, detach, and failed seeks.
-
-`_io.BufferedRWPair` composes independent native reader and writer instances.
-Its constructor converts the buffer size once and validates both raw capabilities
-before construction. Reads and writes delegate to their respective sides;
-close attempts both even after a writer failure, and terminal status checks the
-writer first. Source tests cover independent buffering and lifecycle behavior.
-
-TextIOWrapper's output slice now buffers encoded bytes, counts original Python
-characters, applies output newline translation, and distinguishes write-through
-from line buffering. Flush/detach/close and binary metadata delegation are tested,
-including close after flush failure. UTF-8 is the deterministic default; explicit
-UTF-8, ASCII, and Latin-1 support strict/ignore/replace encoding errors. A request
-for `locale` raises PermissionError, and unavailable codecs raise LookupError.
-There is no ambient locale or codec registry. Text input and positions are next.
-
-TextIOWrapper now incrementally reads UTF-8, ASCII, and Latin-1. It carries split
-UTF-8 sequences and CRLF across binary callbacks, counts decoded characters,
-tracks universal newline kinds, and supports read/readline/iteration. Binary
-read1 is selected when available; unbounded reads use read. Tests cover partial
-code points, explicit and universal newlines, structured decoding errors,
-ignore/replace handling, nonblocking results, and flushing output before input.
-Decoded characters retain source-byte widths for the upcoming position methods.
-
-TextIOWrapper supports tell, absolute seek, zero relative/end seeks, and truncate.
-For the implemented stateless codecs, restore positions are byte offsets computed
-from decoded source widths; CPython's opaque cookie encoding is not reproduced.
-Tests save positions across multibyte characters and CRLF, seek back, and read the
-same text. Iteration disables tell until flush or exhaustion. Writes discard
-read-ahead after success; truncation flushes and delegates the byte size.
-
-TextIOWrapper reconfigure flushes the old encoding before applying keyword-only
-codec, newline, and buffering options. Codec/newline changes are rejected while
-read state is active; buffering flags remain adjustable. Tests cover error-policy
-reset when encoding changes, explicit universal newline restoration, failed
-flush recovery, integer flag conversion, and live binary capability delegation.
-
-`_io.open` (also builtins.open), open_code, and FileIO expose explicit filesystem
-permission boundaries. Argument validation includes modes, text/binary options,
-index and path conversion, descriptors, and closefd. Valid requests always raise
-PermissionError; custom openers are never invoked. FileIO subclasses that skip
-initialization remain closed. text_encoding returns deterministic UTF-8 for None
-and preserves an explicitly supplied object, with stacklevel index validation.
-These operations neither use the source loader as a filesystem nor acquire
-process descriptors. Python-opened owned handles remain future capability work.
-
-Integrated fixtures now run print, UTF-8 text, BufferedRandom, and BytesIO together,
-including saved text positions and close propagation. Raw read/write counts use
-Python's index protocol before bounds checks. EINTR tests verify that completed
-output is not duplicated through either direct text or buffered binary writes.
+text_encoding returns UTF-8 for None, preserves explicitly supplied objects,
+and validates stacklevel through the index protocol. UnsupportedOperation is
+the shared exception matching both OSError and ValueError.
