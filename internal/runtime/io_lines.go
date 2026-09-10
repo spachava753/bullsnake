@@ -18,6 +18,7 @@ type ioLinesCall struct {
 	buffer      strings.Builder
 	lines       *listValue
 	done        bool
+	blocked     bool
 }
 
 // executeIOLines binds one positional size or iterable before starting a
@@ -78,6 +79,11 @@ func (call *ioLinesCall) advance(caller *frame) (instructionOutcome, error) {
 		caller.pop()
 	}
 	switch call.name {
+	case "readall":
+		if call.blocked && call.buffer.Len() == 0 {
+			return pushOutcome(caller, call.instruction, None)
+		}
+		return pushOutcome(caller, call.instruction, &bytesValue{value: call.buffer.String()})
 	case "readlines":
 		return pushOutcome(caller, call.instruction, call.lines)
 	case "readline":
@@ -172,6 +178,19 @@ func (call *ioLinesCall) accept(result Value, exception *Exception) *Exception {
 		}
 		call.stage = "read"
 	case "read":
+		if call.name == "readall" {
+			if result == None {
+				call.blocked, call.done = true, true
+				return nil
+			}
+			text, ok := result.(*bytesValue)
+			if !ok {
+				return newException("TypeError", "read() should return bytes")
+			}
+			call.buffer.WriteString(text.value)
+			call.done = text.value == ""
+			return nil
+		}
 		text, ok := result.(*bytesValue)
 		if !ok {
 			return newException("OSError", "read() should have returned a bytes object, not '"+result.TypeName()+"'")

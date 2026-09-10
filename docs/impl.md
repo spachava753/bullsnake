@@ -1144,3 +1144,12 @@ equality with bytes, integer indexing, slicing, and contiguous/extended slice
 assignment and deletion. Invalid replacements leave the original buffer intact;
 bytearrays are unhashable. Iterable/encoded-text construction, custom index
 callbacks, memory views, and broader bytearray methods remain later slices.
+
+
+`_io._RawIOBase` now implements `read` through a Python `readinto` override and
+`readall` through repeated `read` calls using CPython's 128 KiB default buffer
+size. Returned counts use the index protocol and must fit the supplied buffer.
+Nonblocking None is preserved before progress and ends `readall` after partial
+progress. Interrupted `readall` operations retry; other callback failures
+propagate. Bare `readinto`/`write` retain CPython's abstract NotImplementedError
+defaults, which do not represent denied host access.

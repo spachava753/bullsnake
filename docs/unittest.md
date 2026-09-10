@@ -713,3 +713,10 @@ construction, mutable byte/slice assignment and deletion, and immutable snapshot
 conversion. Python fixtures verify the buffer-writing pattern needed by
 `readinto`, including extended slices and failed mutations. Memory views and
 raw/buffered streams remain subsequent work; no filesystem capability is added.
+
+
+RawIOBase's read/readinto/readall slice is now tested with Python implementations
+that fill mutable buffers, return short counts or None, raise EINTR, and return
+invalid counts. It exports the real 128 KiB DEFAULT_BUFFER_SIZE. These are
+in-memory callback tests; no filesystem operation is enabled. Buffered streams
+and memory views remain next.
