@@ -90,6 +90,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
+	"_io.StringIO":                     stringIOType,
 	"weakref.ReferenceType":            nativeType("weakref", "ReferenceType"),
 	"_abc._abc_data":                   nativeType("_abc", "_abc_data"),
 	"object":                           objectNativeType,
@@ -200,6 +201,13 @@ func executeNativeTypeCall(
 		return pushOutcome(caller, instruction, result)
 	}
 	switch class {
+	case stringIOType:
+		result, exception := newStringIO(arguments, keywords)
+		discardCallSegment(caller, base)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(caller, instruction, result)
 	case objectNativeType:
 		return executeObjectTypeCall(caller, instruction, base, arguments, keywords)
 	case boolNativeType:

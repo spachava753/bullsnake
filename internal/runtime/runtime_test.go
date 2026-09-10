@@ -699,6 +699,29 @@ func TestNativeModulePrecedesSource(t *testing.T) {
 	}
 }
 
+func TestInMemoryIOModuleIsolation(t *testing.T) {
+	data, err := os.ReadFile("testdata/host/io_isolation.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := compileSource(t, string(data))
+	var previous *bullruntime.Module
+	for range 2 {
+		runtime := bullruntime.NewWithLoader(func(bullruntime.ModuleRequest) (bullruntime.ModuleSpec, bool, error) {
+			t.Fatal("native I/O import called source loader")
+			return bullruntime.ModuleSpec{}, false, nil
+		})
+		if _, err := runtime.ExecuteModule("check", code); err != nil {
+			t.Fatal(err)
+		}
+		module, found := runtime.Module("_io")
+		if !found || module == previous {
+			t.Fatal("I/O module is absent or shared across runtimes")
+		}
+		previous = module
+	}
+}
+
 func TestSystemExitHostBoundary(t *testing.T) {
 	code := compileSource(t, "import sys\nsys.exit(7)\n")
 	runtime := bullruntime.New()

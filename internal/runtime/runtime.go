@@ -87,6 +87,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	runtime.constructors["sys"] = moduleConstructor{initialize: initializeSys}
 	runtime.constructors["time"] = moduleConstructor{initialize: initializeTime}
 	runtime.constructors["_abc"] = moduleConstructor{initialize: initializeABC}
+	runtime.constructors["_io"] = moduleConstructor{initialize: initializeIO}
 	return runtime
 }
 

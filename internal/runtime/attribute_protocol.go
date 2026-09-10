@@ -48,6 +48,8 @@ func executeDynamicAttributeLoad(
 			return pushOutcome(frame, instruction, owner.self)
 		}
 		return executeDynamicAttributeLoad(frame, instruction, owner.callable, name)
+	case *stringIOValue:
+		return executeStringIOAttributeLoad(frame, instruction, owner, name)
 	case *hostTextStream:
 		return executeHostStreamAttributeLoad(frame, instruction, owner, name)
 	case *functionValue:

@@ -940,7 +940,7 @@ Bullsnake vendors selected CPython 3.14.7 standard-library modules under
 `stdlib/3.14`. Unchanged `operator`, `keyword`, and `heapq` now run selected regression tests
 for calls, classification, and heap operations. The synchronous unittest sources
 and the initial io/abc dependency files are vendored for offline import probes;
-unittest remains blocked at missing `_io`, while abc imports and has a
+unittest now reaches missing `_collections_abc` in `io.py`, while abc imports and has a
 project-owned source regression test. The full
 transitive dependency closure is not present. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
@@ -979,7 +979,8 @@ Only output `Flusher` and either direction's `Terminal` are recognized as
 optional interfaces. No output buffer is added. Missing Flush means no work;
 missing IsTerminal means false. Seeking, telling, truncating, descriptors, and
 the wrong read/write direction raise the internal `io.UnsupportedOperation`
-class, which matches OSError and ValueError. The `io` module is still absent.
+class, which matches OSError and ValueError and is exported by `_io`.
+The vendored `io` module does not yet import successfully.
 Closing flushes output and closes the wrapper even if flushing raises. It never
 calls a borrowed provider's Close, and repeated close does nothing. Other I/O
 and status operations on a closed wrapper raise ValueError.
@@ -1000,8 +1001,20 @@ Missing counters raise PermissionError; typed nil providers fail construction.
 The provider promises nondecreasing values from a fixed arbitrary origin. There
 is no clock fallback, wall time, sleeping, or scheduling. Provider calls run
 synchronously and may block indefinitely. No cancellation guarantee is made.
-`sys.modules`, active exception helpers, Python traceback objects, `_io`, and
-unchanged `io.py` remain unimplemented.
+`sys.modules`, active exception helpers, Python traceback objects, and execution
+of unchanged `io.py` remain unimplemented.
+
+The private `_io` constructor exports `StringIO`, `BlockingIOError`, and the
+shared `UnsupportedOperation` class. `StringIO` owns an in-memory text buffer;
+its constructor accepts initial text and all five newline modes. The first
+output slice implements `write`, `getvalue`, `flush`, `close`, `isatty`, context
+management, `closed`, and `newlines`. Writes overwrite from an initial character
+position of zero and return input character counts, including surrogate code
+points. Universal newline decoding finishes on each write. Saved `getvalue`
+strings survive later writes and close. No host capability is involved. Reads,
+seeks, truncation, iteration, `writelines`, IOBase inheritance, subclassing, and
+instance attributes remain later slices; the module exports no placeholders for
+the remaining classes and helpers expected by unchanged `io.py`.
 
 ## Deliberate boundaries
 
