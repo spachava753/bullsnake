@@ -363,9 +363,7 @@ func executeInstanceAttributeLoad(
 			[]Value{owner, owner.class},
 		)
 	}
-	if function, bind := classValue.(*functionValue); bind {
-		classValue = &boundMethodValue{callable: function, self: owner}
-	}
+	classValue = bindInstanceFunction(classValue, owner)
 	return pushOutcome(frame, instruction, classValue)
 }
 
@@ -398,6 +396,9 @@ func executeDynamicAttributeStore(
 		}
 		owner.attributes.values[name] = value
 	case *typeValue:
+		if owner.immutable {
+			return raiseOutcome(newException("TypeError", "cannot modify immutable type '"+owner.name+"'")), nil
+		}
 		if name == "__abstractmethods__" {
 			return executeTruthWithCall(frame, value, &truthCall{
 				instruction: instruction,
@@ -411,6 +412,9 @@ func executeDynamicAttributeStore(
 		}
 		owner.setAttribute(name, value)
 	case *instanceValue:
+		if owner.class.bufferViewClass {
+			return raiseOutcome(newException("AttributeError", "memoryview attributes are read-only")), nil
+		}
 		return executeInstanceAttributeStore(frame, instruction, owner, name, value)
 	default:
 		return raiseOutcome(newException(
@@ -442,6 +446,9 @@ func executeDynamicAttributeDelete(
 		}
 		attributes = owner.attributes
 	case *typeValue:
+		if owner.immutable {
+			return raiseOutcome(newException("TypeError", "cannot modify immutable type '"+owner.name+"'")), nil
+		}
 		if readOnlyTypeMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
@@ -454,6 +461,9 @@ func executeDynamicAttributeDelete(
 		attributes = owner.namespace
 		missingMessage = "type object '" + owner.name + "' has no attribute '" + name + "'"
 	case *instanceValue:
+		if owner.class.bufferViewClass {
+			return raiseOutcome(newException("AttributeError", "memoryview attributes are read-only")), nil
+		}
 		return executeInstanceAttributeDelete(frame, instruction, owner, name)
 	default:
 		return raiseOutcome(newException("AttributeError", missingMessage)), nil

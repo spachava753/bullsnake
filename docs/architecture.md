@@ -792,3 +792,39 @@ through VM continuations. It resolves current sys.stdout per call, while keeping
 the selected stream across conversions and writes within that call. A None
 stdout raises PermissionError under the no-discard host policy; this intentionally
 differs from CPython's disconnected-stdout no-op.
+
+
+Native I/O bases use per-runtime ordinary class allocations with private typed
+Go storage on instances. Their method descriptors participate in normal
+instance lookup, `super`, and C3 inheritance, allowing Python subclasses to
+override operations. Runtime-supplied classes are immutable; user subclasses
+remain mutable. This avoids a separate inheritance model for Go I/O objects.
+Explicit close and context management own lifecycle transitions; garbage
+collection never invokes Python I/O methods.
+
+
+Memoryview export tables use Go weak pointers to actual Python view allocations.
+Views retain the exporter strongly; resize operations prune dead or released
+views on the VM goroutine and reject resizing while exports remain. Child views
+have independent release state. Explicit release drops the exporter reference.
+This models GC-based memory lifetime without retention by the export table or
+Python callbacks from Go GC, and does not govern host resource ownership.
+
+
+Native operations that borrow writable buffers across Python calls register
+leases on the calling frame. Normal completion and Python exceptions release
+them directly; Go-error unwinding releases remaining frame leases. A lease
+prevents exporter resizing and view release until the operation finishes.
+These synchronous cleanup rules do not rely on garbage collection.
+
+TextIOWrapper uses deterministic UTF-8 when encoding is omitted. Its initial
+codec set also includes explicit ASCII and Latin-1, with strict, ignore, and
+replace error handling. Unsupported codecs raise LookupError. Asking for the
+host locale raises PermissionError; encoding selection never consults ambient
+locale, environment variables, files, or a process-wide codec registry.
+
+File opening is a separate capability from source-module loading. The initial
+FileIO/open/open_code implementation validates Python requests then raises
+PermissionError. Neither integer process descriptors nor custom Python openers
+bypass that boundary. FileIO subclasses that skip initialization retain closed
+state; no host handle is acquired or owned by these objects.

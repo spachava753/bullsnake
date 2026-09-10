@@ -177,6 +177,8 @@ func immediateTruth(value Value) (bool, bool) {
 		return value.real != 0 || value.imaginary != 0, true
 	case *stringValue:
 		return len(value.value) != 0, true
+	case *bytearrayValue:
+		return len(value.buffer.data) != 0, true
 	case *bytesValue:
 		return len(value.value) != 0, true
 	case *tupleValue:

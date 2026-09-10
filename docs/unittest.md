@@ -47,7 +47,7 @@ Neither is part of this milestone.
 | Python execution | Functions, all parameter kinds, decorators, closures, classes, inheritance, loops, comprehensions, generators, exceptions, and context managers have execution tests. |
 | Objects and builtins | Method binding, properties, `super`, attribute helpers, type checks, user-defined iteration and comparisons, sorting, and many string and collection methods work within the documented subset. |
 | Imports | Source modules, regular packages, relative imports, repeated and circular imports, and cleanup after a failed import are tested. |
-| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. Private per-runtime Go constructors now initialize modules through the importer; `sys` exposes isolated arguments, borrowed UTF-8 streams, and catchable exit; `time.perf_counter` uses only the supplied counter. `_io` and the remaining import dependencies are still missing. |
+| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. Private per-runtime Go constructors now initialize modules through the importer; `sys` exposes isolated arguments, borrowed UTF-8 streams, and catchable exit; `time.perf_counter` uses only the supplied counter. `_io` provides the documented synchronous in-memory stream subset and explicit filesystem denial; unchanged io and unittest still have import dependencies. |
 | Standard-library tests | Unchanged `colorsys.py` runs with adapted versions of all eight upstream public test methods. These use plain assertions, not `TestCase` objects. |
 
 The [language tests](../internal/runtime/testdata/execution/) run Python source
@@ -90,8 +90,9 @@ keyword, and heapq now also have checked-in execution regression tests. The
 historical 61-module compilation sweep has not been repeated.
 
 After the weak ABC registry slices, `abc` imports and has checked-in execution
-tests. `unittest` still fails at `io.py:53:8` because `_io` is absent. Reproduce
-these current outcomes offline from the repository root:
+tests. After the first `_io.StringIO` output slice, `unittest` fails at
+`io.py:56:1` with `ModuleNotFoundError: No module named '_collections_abc'`.
+Reproduce these current outcomes offline from the repository root:
 
 ```sh
 go run ./tools/importprobe stdlib/3.14 abc unittest
@@ -382,8 +383,8 @@ close, flush failures, and SystemExit. Streams remain non-seekable. They use
 strict UTF-8 and fixed LF line boundaries without newline translation.
 
 The host wrappers currently support direct reads/writes and context management;
-iteration, writelines, io ABC inheritance, and the in-memory StringIO type remain
-future slices. `sys.modules` and active exception/traceback state are also still
+iteration, writelines, and io ABC inheritance remain future slices. In-memory
+StringIO now has the output behavior described below. `sys.modules` and active exception/traceback state are also still
 missing. None of these host tests establishes unittest compatibility.
 
 ## What to do next
@@ -641,8 +642,9 @@ After that, add permission-controlled filesystem discovery and signal handling.
 Plan mock and async testing separately. The independent ABC class-construction
 and abstract-method computation slices are tested. Virtual registration is tested
 through both native helpers and unchanged `abc.py`, which now imports. In-memory
-`_io` and unchanged `io.py` are the next independent work. No unittest test has executed
-yet; the overall milestone remains blocked.
+`_io` now has tested in-memory streams, buffering, text decoding, and explicit
+filesystem denial. Running unchanged `io.py` remains the next dependency step.
+No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
 
@@ -660,3 +662,68 @@ instead of CPython's disconnected-stdout no-op. There is no ambient output or
 silent sink. A deleted sys.stdout raises RuntimeError. Explicit Python streams
 work without host output providers. print currently inherits the existing str
 limitations, including representations of containers holding user objects.
+
+
+### Implemented in-memory `_io` scope
+
+The `_io` stream implementation now includes:
+
+- StringIO and BytesIO, with text/byte positions, reads, writes, lines, snapshots,
+  truncation, close, reinitialization, subclass behavior, and BytesIO exports.
+- IOBase, RawIOBase, BufferedIOBase, and TextIOBase defaults and Python callback
+  delegation, including scoped writable-buffer leases.
+- BufferedReader, BufferedWriter, BufferedRandom, and BufferedRWPair, with
+  short/nonblocking I/O, partial-write retry counts, cursor synchronization,
+  explicit lifecycle, and failure recovery.
+- IncrementalNewlineDecoder, including Python codec delegation and pending CR.
+- TextIOWrapper with UTF-8, ASCII, and Latin-1, incremental decoding, newline
+  translation, output buffering, character limits, position round trips,
+  truncation, reconfiguration, and close after flush failure.
+- text_encoding and argument-checked open/open_code/FileIO denial boundaries.
+  No path, descriptor, opener, locale request, or source loader grants ambient
+  host access.
+
+Behavior runs through the parser, compiler, validator, and VM in Python source
+fixtures with Go as the outer runner. Integrated tests print Unicode through
+TextIOWrapper and BufferedRandom to BytesIO, then decode it, restore positions,
+and close the stack. Other tests exercise partial operations, EINTR without
+duplicate output, index callbacks, nonblocking results, exported views, readonly
+and strided buffers, and failure cleanup. Go-facing tests verify runtime
+identity, provider ownership, GC lifetime, and cleanup after loader errors.
+Follow-up text regressions cover malformed UTF-8 prefix boundaries, recovery
+after decode failures without replaying partial output, subclass readline
+iteration, and reconfiguration after decoded buffers are cleared. Expected
+behavior is checked against the pinned CPython decoder and TextIOWrapper source.
+
+The initial buffer prerequisite includes bytearray and one-dimensional unsigned
+byte memoryviews. Views strongly retain exporters; weak export tables do not
+retain the views. Explicit release, frame leases, and buffered-operation guards
+provide deterministic operation cleanup. Python is never called from Go GC.
+
+The implementation remains a selected CPython subset. TextIOWrapper defaults to
+UTF-8, denies locale access, and supports strict/ignore/replace errors for the
+three implemented stateless codecs. Restore positions are local byte offsets,
+not CPython's opaque integer-cookie layout. Stateful codecs, codec registration,
+multidimensional views, arbitrary Python buffer exporters, pickle state methods,
+and comprehensive I/O introspection are not implemented. Public `__dict__`,
+general weakref callbacks, and regex compatibility remain deferred.
+
+### Current unchanged-source checkpoint
+
+After the in-memory `_io` work, this diagnostic was rerun:
+
+```sh
+go run ./tools/importprobe stdlib/3.14 abc unittest
+```
+
+It imports unchanged abc successfully and stops unchanged unittest at:
+
+```text
+stdlib/3.14/io.py:56:1: ModuleNotFoundError: No module named '_collections_abc'
+```
+
+This is an execution probe, not a unittest success claim. The next operation is
+loading `_collections_abc` for unchanged io.py; subsequent object-model and import
+dependencies remain explicit. No unittest TestCase, suite, runner report,
+unchanged test_colorsys.py, or unittest.main() has executed yet. The complete
+synchronous unittest milestone remains unfinished.

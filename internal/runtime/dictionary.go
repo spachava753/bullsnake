@@ -336,6 +336,12 @@ func executeStoreSubscript(frame *frame, instruction int) (instructionOutcome, e
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
+	if buffer, ok := container.(*bytearrayValue); ok {
+		if exception := buffer.assign(key, value, false); exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return instructionOutcome{kind: advance}, nil
+	}
 	if list, ok := container.(*listValue); ok {
 		if exception := list.assignIndex(key, value); exception != nil {
 			return raiseOutcome(exception), nil
@@ -377,6 +383,12 @@ func executeDeleteSubscript(frame *frame, instruction int) (instructionOutcome, 
 	container, ok := frame.pop()
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
+	}
+	if buffer, ok := container.(*bytearrayValue); ok {
+		if exception := buffer.assign(key, nil, true); exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return instructionOutcome{kind: advance}, nil
 	}
 	dictionary, ok := container.(*dictValue)
 	if !ok {

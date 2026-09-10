@@ -27,13 +27,26 @@ All live Python references must stay in typed Go pointers or interfaces so Go's
 collector can see them. Python calls switch heap-allocated frames in the one VM
 loop instead of using Go calls as the Python call stack. Runtime-owned mutable
 state belongs to one `Runtime`; only documented immutable singletons may be
-shared. Internal class registries may hold Go `weak.Pointer` references to the
-actual class allocations. Prune dead entries on the VM goroutine; never use a
+shared. Internal class registries and buffer export tables may hold Go `weak.Pointer`
+references to actual Python class and memoryview allocations. Prune dead entries on the VM goroutine; never use a
 temporary interface box as the weak target or invoke Python from a GC callback.
 
 Validation and execution must agree. When an opcode becomes supported, update
 operand checks, stack paths, dispatch, runtime values, Python errors, tests, and
 `docs/impl.md` in the same finished slice.
+
+Native I/O classes use per-runtime ordinary class allocations and private typed
+instance storage. Bind native instance methods through the shared attribute,
+special-method, and super paths. Keep supplied class namespaces immutable and
+user subclasses mutable. Do not introduce a separate I/O inheritance path.
+
+I/O callbacks run through VM continuations. Keep buffer leases and reentrancy
+guards on the calling frame so Go-error unwinding releases them as well as Python
+completion. Never call Python from Go GC. Text codec selection and filesystem
+entry points must preserve explicit host permissions; a source loader is not a
+filesystem provider, and a Python opener does not grant process-file access.
+Text decoding must publish a chunk's characters and newline state only after
+success. Test failure recovery with split input as well as complete byte strings.
 
 ## Testing
 
@@ -61,5 +74,6 @@ files and provider call counts, ownership, and isolation assertions in Go.
 Private constructor tests may use the runtime package to inspect registration,
 circular initialization, and rollback without publishing extension APIs.
 
-Private memory-ownership tests may inspect weak class storage and force Go GC.
+Private memory-ownership tests may inspect weak class or buffer-export storage
+and force Go GC.
 Keep Python-visible behavior in source fixtures; GC timing is a Go-facing contract.

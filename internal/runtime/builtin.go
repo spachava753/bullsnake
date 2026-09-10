@@ -8,6 +8,7 @@ import (
 )
 
 type builtinFunctionValue struct {
+	method    bool
 	name      string
 	call      func(arguments []Value, keywords *dictValue) (Value, *Exception)
 	frameCall func(*frame, int, int, []Value, *dictValue) (instructionOutcome, error)
@@ -66,6 +67,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "max", call: builtinMax},
 	{name: "min", call: builtinMin},
 	{name: "next", frameCall: executeBuiltinNext},
+	fileOpenFunction,
 	{name: "print", frameCall: executeBuiltinPrint},
 	{name: "repr", frameCall: executeBuiltinRepr},
 	{name: "reversed", call: builtinReversed},

@@ -87,6 +87,9 @@ type textIterator struct {
 }
 
 func (iterator *textIterator) TypeName() string {
+	if _, ok := iterator.text.(*bytearrayValue); ok {
+		return "bytearray_iterator"
+	}
 	if _, ok := iterator.text.(*stringValue); ok {
 		return "str_iterator"
 	}
@@ -97,6 +100,8 @@ func (iterator *textIterator) Repr() string {
 }
 func (*textIterator) isValue() {}
 
+// next advances by a code point for strings and by one byte for binary values,
+// consulting mutable bytearray storage on each request.
 func (iterator *textIterator) next() (Value, bool, *Exception) {
 	switch text := iterator.text.(type) {
 	case *stringValue:
@@ -107,6 +112,13 @@ func (iterator *textIterator) next() (Value, bool, *Exception) {
 		start := iterator.offset
 		iterator.offset += size
 		return &stringValue{value: text.value[start:iterator.offset]}, true, nil
+	case *bytearrayValue:
+		if iterator.offset >= len(text.buffer.data) {
+			return nil, false, nil
+		}
+		result := newByteInteger(text.buffer.data[iterator.offset])
+		iterator.offset++
+		return result, true, nil
 	case *bytesValue:
 		if iterator.offset >= len(text.value) {
 			return nil, false, nil
@@ -239,7 +251,7 @@ func newIterator(value Value) (Value, bool) {
 		return &sequenceIterator{sequence: value}, true
 	case *rangeValue:
 		return newRangeIterator(value), true
-	case *stringValue, *bytesValue:
+	case *stringValue, *bytesValue, *bytearrayValue:
 		return &textIterator{text: value}, true
 	case *templateValue:
 		return &templateIterator{template: value}, true
@@ -443,48 +455,25 @@ func executeForIter(
 	)
 }
 
-// executeIterationSpecial starts one class special-method call and records how
-// a direct return, suspended return, or StopIteration completes its requester.
-func executeIterationSpecial(
-	frame *frame,
-	method Value,
-	call *iterationCall,
-) (instructionOutcome, error) {
-	outcome, err := executeFunctionCall(
-		frame,
-		call.instruction,
-		len(frame.stack),
-		method,
-		nil,
-		nil,
-	)
-	if err != nil {
-		return instructionOutcome{}, err
-	}
-	if outcome.kind == called {
-		outcome.frame.iteration = call
-		return outcome, nil
-	}
-	if outcome.kind == raised && call.kind != iterationGetIterator &&
-		call.kind != iterationEnumerateIterator &&
-		call.kind != iterationTruthAggregateIterator &&
-		call.kind != iterationMapIterator &&
-		call.kind != iterationFilterIterator &&
-		call.kind != iterationZipIterator &&
-		isStopIteration(outcome.exception) {
-		return finishIterationStop(frame, call, outcome.exception)
-	}
-	if outcome.kind != advance {
-		return outcome, nil
-	}
-	result, ok := frame.pop()
-	if !ok {
-		return instructionOutcome{}, frame.failure(
-			call.instruction,
-			"iteration special method returned without a value",
-		)
-	}
-	return finishIterationCall(frame, call, result)
+// executeIterationSpecial consumes the completed special-method operation,
+// including any native continuations, before applying iteration semantics.
+func executeIterationSpecial(caller *frame, method Value, call *iterationCall) (instructionOutcome, error) {
+	return continueNativeOperation(caller, call.instruction, func() (instructionOutcome, error) {
+		return executeFunctionCall(caller, call.instruction, len(caller.stack), method, nil, nil)
+	}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
+		if exception != nil {
+			switch call.kind {
+			case iterationGetIterator, iterationEnumerateIterator, iterationTruthAggregateIterator,
+				iterationMapIterator, iterationFilterIterator, iterationZipIterator:
+			default:
+				if isStopIteration(exception) {
+					return finishIterationStop(current, call, exception)
+				}
+			}
+			return raiseOutcome(exception), nil
+		}
+		return finishIterationCall(current, call, result)
+	})
 }
 
 // finishIterationCall checks __iter__ results or restores the stack result for

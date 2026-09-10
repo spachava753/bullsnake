@@ -39,6 +39,7 @@ func (exceptionType *exceptionTypeValue) isSubclassOf(parent *exceptionTypeValue
 }
 
 var (
+	bufferErrorType         = &exceptionTypeValue{name: "BufferError", base: exceptionType}
 	baseExceptionType       = &exceptionTypeValue{name: "BaseException"}
 	systemExitType          = &exceptionTypeValue{name: "SystemExit", base: baseExceptionType}
 	generatorExitType       = &exceptionTypeValue{name: "GeneratorExit", base: baseExceptionType}
@@ -66,6 +67,7 @@ var (
 )
 
 var builtinExceptionTypes = []*exceptionTypeValue{
+	bufferErrorType,
 	baseExceptionType,
 	systemExitType,
 	generatorExitType,

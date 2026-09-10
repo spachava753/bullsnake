@@ -150,7 +150,7 @@ func fixedValueHash(value Value) (int64, *Exception, bool) {
 		}
 		hash, _, _ := hashTuple(parts)
 		return hash, nil, true
-	case *listValue, *dictValue, *setValue:
+	case *listValue, *dictValue, *setValue, *bytearrayValue:
 		return 0, unhashableTypeError(value.TypeName()), true
 	case *sliceValue:
 		return 0, unhashableTypeError(value.TypeName()), true
