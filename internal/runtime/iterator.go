@@ -446,48 +446,25 @@ func executeForIter(
 	)
 }
 
-// executeIterationSpecial starts one class special-method call and records how
-// a direct return, suspended return, or StopIteration completes its requester.
-func executeIterationSpecial(
-	frame *frame,
-	method Value,
-	call *iterationCall,
-) (instructionOutcome, error) {
-	outcome, err := executeFunctionCall(
-		frame,
-		call.instruction,
-		len(frame.stack),
-		method,
-		nil,
-		nil,
-	)
-	if err != nil {
-		return instructionOutcome{}, err
-	}
-	if outcome.kind == called {
-		outcome.frame.iteration = call
-		return outcome, nil
-	}
-	if outcome.kind == raised && call.kind != iterationGetIterator &&
-		call.kind != iterationEnumerateIterator &&
-		call.kind != iterationTruthAggregateIterator &&
-		call.kind != iterationMapIterator &&
-		call.kind != iterationFilterIterator &&
-		call.kind != iterationZipIterator &&
-		isStopIteration(outcome.exception) {
-		return finishIterationStop(frame, call, outcome.exception)
-	}
-	if outcome.kind != advance {
-		return outcome, nil
-	}
-	result, ok := frame.pop()
-	if !ok {
-		return instructionOutcome{}, frame.failure(
-			call.instruction,
-			"iteration special method returned without a value",
-		)
-	}
-	return finishIterationCall(frame, call, result)
+// executeIterationSpecial consumes the completed special-method operation,
+// including any native continuations, before applying iteration semantics.
+func executeIterationSpecial(caller *frame, method Value, call *iterationCall) (instructionOutcome, error) {
+	return continueNativeOperation(caller, call.instruction, func() (instructionOutcome, error) {
+		return executeFunctionCall(caller, call.instruction, len(caller.stack), method, nil, nil)
+	}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
+		if exception != nil {
+			switch call.kind {
+			case iterationGetIterator, iterationEnumerateIterator, iterationTruthAggregateIterator,
+				iterationMapIterator, iterationFilterIterator, iterationZipIterator:
+			default:
+				if isStopIteration(exception) {
+					return finishIterationStop(current, call, exception)
+				}
+			}
+			return raiseOutcome(exception), nil
+		}
+		return finishIterationCall(current, call, result)
+	})
 }
 
 // finishIterationCall checks __iter__ results or restores the stack result for

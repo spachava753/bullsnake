@@ -3,7 +3,7 @@ package runtime
 func initializeIOBases(module *Module) {
 	base := newIOClass("_IOBase", nil)
 	module.globals.values["_IOBase"] = base
-	for _, name := range []string{"__init__", "close", "flush", "__enter__", "__exit__", "__iter__", "__next__", "fileno", "seek", "tell", "truncate", "readable", "writable", "seekable", "isatty", "_checkClosed", "_checkReadable", "_checkWritable", "_checkSeekable"} {
+	for _, name := range []string{"readline", "readlines", "writelines", "__init__", "close", "flush", "__enter__", "__exit__", "__iter__", "__next__", "fileno", "seek", "tell", "truncate", "readable", "writable", "seekable", "isatty", "_checkClosed", "_checkReadable", "_checkWritable", "_checkSeekable"} {
 		base.setAttribute(name, ioMethod(base, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 			return executeIOBaseMethod(caller, instruction, self, name, arguments, keywords)
 		}))
@@ -32,6 +32,9 @@ func initializeIOBases(module *Module) {
 // executeIOBaseMethod implements base defaults and dispatches overridable
 // operations through Python. A failed flush still closes private base state.
 func executeIOBaseMethod(caller *frame, instruction int, self *instanceValue, name string, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+	if name == "readline" || name == "readlines" || name == "writelines" {
+		return executeIOLines(caller, instruction, self, name, arguments, keywords)
+	}
 	if name == "__init__" {
 		return pushOutcome(caller, instruction, None)
 	}

@@ -1123,6 +1123,10 @@ The initial base surface covers flush/close, context management, status checks,
 unsupported seek/truncate/fileno, and tell delegation to seek. Close invokes a
 Python flush override and marks the base closed even if it raises. Context exit
 invokes the Python close override. TextIOBase provides its unsupported-operation
-defaults and None-valued encoding/errors/newlines. Base line helpers and
-StringIO inheritance follow in separate slices. No GC finalizer calls Python or
+defaults and None-valued encoding/errors/newlines. Base `readline` now calls binary `read`, using optional `peek`; `readlines`
+and `writelines` dispatch Python iteration and methods. EINTR retries only the
+interrupted I/O operation. Immediate native steps loop without growing the Go
+stack, while Python callbacks resume from frames. Iteration now consumes a
+complete native special-method continuation before applying StopIteration
+semantics. StringIO inheritance follows in a separate slice. No GC finalizer calls Python or
 closes streams; callers must use explicit close or context management.
