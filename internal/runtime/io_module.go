@@ -8,6 +8,7 @@ func initializeIO(_ *Runtime, module *Module) (*Exception, error) {
 	initializeBufferedIOClass(module)
 	initializeBytesIOClass(module)
 	initializeStringIOClass(module)
+	initializeNewlineDecoder(module)
 	module.globals.values["UnsupportedOperation"] = unsupportedOperationType
 	module.globals.values["BlockingIOError"] = blockingIOErrorType
 	return nil, nil

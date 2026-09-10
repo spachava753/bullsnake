@@ -745,3 +745,8 @@ NUL-filled gaps, readinto, snapshots, native line behavior, close, exported-view
 restrictions, and reinitialization. The StringIO and BytesIO behavior tests use
 the normal source pipeline; no unittest TestCase has executed yet. Concrete
 buffering wrappers and text decoding remain ahead.
+
+IncrementalNewlineDecoder is now tested independently with Python codec objects
+and direct text. It preserves split newline sequences and decoder state across
+calls. Concrete buffered streams and TextIOWrapper remain the next `_io` work;
+this does not change the recorded `_collections_abc` import blocker.

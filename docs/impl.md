@@ -1189,3 +1189,9 @@ hint is reached. Exported views keep the stream alive and forbid writes,
 truncation, and close until released. Tests cover native reinitialization order,
 including size reset before an export error and the distinct closed/None case.
 Pickle state methods and general serialization remain outside this slice.
+
+`_io.IncrementalNewlineDecoder` wraps Python decoders or accepts text directly.
+It carries pending CR across chunks, records newline kinds, optionally translates
+universal newlines, and delegates reset/getstate/setstate. State flags preserve
+CPython's unsigned 64-bit packing. Source tests cover split CRLF, Unicode,
+final flushing, truth callbacks, state restoration, and decoder failures.
