@@ -1265,3 +1265,8 @@ initialization remain closed. text_encoding returns deterministic UTF-8 for None
 and preserves an explicitly supplied object, with stacklevel index validation.
 These operations neither use the source loader as a filesystem nor acquire
 process descriptors. Python-opened owned handles remain future capability work.
+
+Integrated fixtures now run print, UTF-8 text, BufferedRandom, and BytesIO together,
+including saved text positions and close propagation. Raw read/write counts use
+Python's index protocol before bounds checks. EINTR tests verify that completed
+output is not duplicated through either direct text or buffered binary writes.

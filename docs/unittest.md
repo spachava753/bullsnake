@@ -802,3 +802,8 @@ a filesystem capability. All in-memory stream classes imported by unchanged
 io.py are now implemented within the documented codec/buffer subset. Its separate
 `_collections_abc` dependency is still the last recorded import blocker; this is
 not evidence that unittest test execution or reporting is complete.
+
+The composed in-memory I/O stack is now tested from Python source: print through
+TextIOWrapper and BufferedRandom to BytesIO, followed by decoded reads and seek
+round trips. Raw callback index results and interrupted writes are also covered.
+The fresh unchanged-source import probe still stops at `_collections_abc`.

@@ -339,7 +339,7 @@ func (call *bufferedReadCall) operation(caller *frame) (instructionOutcome, erro
 	buffer := &bytearrayValue{buffer: &byteBuffer{data: make([]byte, size)}}
 	call.rawData = buffer.buffer.data
 	call.target = newViewInstance(caller.runtime.memoryViewClass, memoryView{buffer: buffer.buffer, owner: buffer, length: size, stride: 1})
-	return executeMethodCall(caller, call.instruction, call.stream.raw, "readinto", []Value{call.target})
+	return executeRawCount(caller, call.instruction, call.stream.raw, "readinto", []Value{call.target})
 }
 
 // accept validates raw callback results before copying, retries EINTR, and

@@ -100,7 +100,7 @@ func (call *bufferedWriteCall) advance(caller *frame) (instructionOutcome, error
 		suspended := false
 		blocked := false
 		outcome, err := continueNativeOperation(caller, call.instruction, func() (instructionOutcome, error) {
-			outcome, err := executeMethodCall(caller, call.instruction, call.stream.raw, "write", []Value{view})
+			outcome, err := executeRawCount(caller, call.instruction, call.stream.raw, "write", []Value{view})
 			suspended = outcome.kind == called
 			return outcome, err
 		}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
