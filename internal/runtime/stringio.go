@@ -85,17 +85,23 @@ func bindStringIO(arguments []Value, keywords *dictValue) ([2]Value, *Exception)
 	return values, nil
 }
 
-func executeStringIOAttributeLoad(frame *frame, instruction int, stream *stringIOValue, name string) (instructionOutcome, error) {
+// executeStringIOAttributeLoad exposes stream state and bound methods, routing
+// index conversions through frame calls and immediate operations directly.
+func executeStringIOAttributeLoad(caller *frame, instruction int, stream *stringIOValue, name string) (instructionOutcome, error) {
 	switch name {
 	case "closed":
-		return pushOutcome(frame, instruction, booleanValue(stream.closed))
+		return pushOutcome(caller, instruction, booleanValue(stream.closed))
 	case "newlines":
 		if stream.closed {
 			return raiseOutcome(newException("ValueError", "I/O operation on closed file")), nil
 		}
-		return pushOutcome(frame, instruction, stream.newlines())
-	case "write", "getvalue", "flush", "close", "isatty", "__enter__", "__exit__":
-		return pushOutcome(frame, instruction, &builtinFunctionValue{name: name, call: func(arguments []Value, keywords *dictValue) (Value, *Exception) {
+		return pushOutcome(caller, instruction, stream.newlines())
+	case "read", "readline", "seek", "truncate":
+		return pushOutcome(caller, instruction, &builtinFunctionValue{name: name, frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+			return stream.executePositionCall(caller, instruction, base, name, arguments, keywords)
+		}})
+	case "write", "getvalue", "flush", "close", "isatty", "__enter__", "__exit__", "tell", "readable", "writable", "seekable":
+		return pushOutcome(caller, instruction, &builtinFunctionValue{name: name, call: func(arguments []Value, keywords *dictValue) (Value, *Exception) {
 			return stream.call(name, arguments, keywords)
 		}})
 	default:
@@ -124,7 +130,11 @@ func (stream *stringIOValue) call(name string, arguments []Value, keywords *dict
 	}
 	switch name {
 	case "write":
-		return stream.write(arguments[0].(*stringValue).value), nil
+		return stream.write(arguments[0].(*stringValue).value)
+	case "tell":
+		return integerFromInt64(int64(stream.position)), nil
+	case "readable", "writable", "seekable":
+		return trueSingleton, nil
 	case "getvalue":
 		return &stringValue{value: stream.value}, nil
 	case "isatty":
@@ -138,21 +148,30 @@ func (stream *stringIOValue) call(name string, arguments []Value, keywords *dict
 
 // write overwrites at character boundaries without mutating previous getvalue
 // results. Its return count measures input before newline translation.
-func (stream *stringIOValue) write(text string) Value {
+func (stream *stringIOValue) write(text string) (Value, *Exception) {
 	count := len(stringCodepointOffsets(text)) - 1
 	if count == 0 {
-		return integerFromInt64(0)
+		return integerFromInt64(0), nil
 	}
 	text = stream.translateNewlines(text)
+	if stream.position > int(^uint(0)>>1)-len(text) {
+		return nil, newException("OverflowError", "new position too large")
+	}
 	offsets := stringCodepointOffsets(stream.value)
 	end := stream.position + len(stringCodepointOffsets(text)) - 1
 	suffix := ""
 	if end < len(offsets)-1 {
 		suffix = stream.value[offsets[end]:]
 	}
-	stream.value = stream.value[:offsets[stream.position]] + text + suffix
+	prefix := stream.value
+	if stream.position >= len(offsets) {
+		prefix += strings.Repeat("\x00", stream.position-len(offsets)+1)
+	} else {
+		prefix = prefix[:offsets[stream.position]]
+	}
+	stream.value = prefix + text + suffix
 	stream.position = end
-	return integerFromInt64(int64(count))
+	return integerFromInt64(int64(count)), nil
 }
 
 // translateNewlines finishes universal decoding on every write, matching

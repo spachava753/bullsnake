@@ -675,8 +675,14 @@ module state per runtime and imports without consulting the source loader.
 The module exports the existing shared `UnsupportedOperation` and
 `BlockingIOError` classes.
 
-This is an output slice, not complete StringIO or io compatibility. Read/seek/
-truncate operations, iteration, `writelines`, IOBase inheritance, subclassing,
+A second slice implements reads, newline-aware `readline`, character seeks,
+`tell`, truncation, and readable/writable/seekable queries. Tests cover size
+conversion through Python `__index__`, callback failures and closed state,
+Unicode positions, reads beyond EOF, NUL-filled write gaps, and truncation
+without moving the cursor or extending text.
+
+This is not complete StringIO or io compatibility. Iteration, `writelines`,
+IOBase inheritance, subclassing,
 and instance attributes remain unimplemented. Other `_io` classes and helpers
 are absent. The current unittest import probe stops at missing
 `_collections_abc`; supplying that source will then expose further `_io` and

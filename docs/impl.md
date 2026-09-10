@@ -1011,8 +1011,12 @@ output slice implements `write`, `getvalue`, `flush`, `close`, `isatty`, context
 management, `closed`, and `newlines`. Writes overwrite from an initial character
 position of zero and return input character counts, including surrogate code
 points. Universal newline decoding finishes on each write. Saved `getvalue`
-strings survive later writes and close. No host capability is involved. Reads,
-seeks, truncation, iteration, `writelines`, IOBase inheritance, subclassing, and
+strings survive later writes and close. No host capability is involved. Reads, newline-aware `readline`, character seeks, `tell`, truncation, and
+readable/writable/seekable queries are also implemented. Size arguments invoke
+Python `__index__` through the VM before checking closed state. Seeking beyond
+EOF preserves the cursor on reads; later writes fill gaps with NUL characters.
+Truncation preserves the cursor and does not extend the buffer. Iteration,
+`writelines`, IOBase inheritance, subclassing, and
 instance attributes remain later slices; the module exports no placeholders for
 the remaining classes and helpers expected by unchanged `io.py`.
 
