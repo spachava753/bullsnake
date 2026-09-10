@@ -14,6 +14,7 @@ func initializeIO(_ *Runtime, module *Module) (*Exception, error) {
 	initializeBufferedType(module, "BufferedRandom", []string{"read", "read1", "readinto", "readinto1", "readline", "peek", "write", "truncate"}, executeBufferedRandom)
 	initializeBufferedPair(module)
 	initializeTextWrapper(module)
+	initializeIOPermissions(module)
 	module.globals.values["UnsupportedOperation"] = unsupportedOperationType
 	module.globals.values["BlockingIOError"] = blockingIOErrorType
 	return nil, nil

@@ -67,6 +67,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "max", call: builtinMax},
 	{name: "min", call: builtinMin},
 	{name: "next", frameCall: executeBuiltinNext},
+	fileOpenFunction,
 	{name: "print", frameCall: executeBuiltinPrint},
 	{name: "repr", frameCall: executeBuiltinRepr},
 	{name: "reversed", call: builtinReversed},

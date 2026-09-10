@@ -1256,3 +1256,12 @@ codec, newline, and buffering options. Codec/newline changes are rejected while
 read state is active; buffering flags remain adjustable. Tests cover error-policy
 reset when encoding changes, explicit universal newline restoration, failed
 flush recovery, integer flag conversion, and live binary capability delegation.
+
+`_io.open` (also builtins.open), open_code, and FileIO expose explicit filesystem
+permission boundaries. Argument validation includes modes, text/binary options,
+index and path conversion, descriptors, and closefd. Valid requests always raise
+PermissionError; custom openers are never invoked. FileIO subclasses that skip
+initialization remain closed. text_encoding returns deterministic UTF-8 for None
+and preserves an explicitly supplied object, with stacklevel index validation.
+These operations neither use the source loader as a filesystem nor acquire
+process descriptors. Python-opened owned handles remain future capability work.

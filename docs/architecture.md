@@ -822,3 +822,9 @@ codec set also includes explicit ASCII and Latin-1, with strict, ignore, and
 replace error handling. Unsupported codecs raise LookupError. Asking for the
 host locale raises PermissionError; encoding selection never consults ambient
 locale, environment variables, files, or a process-wide codec registry.
+
+File opening is a separate capability from source-module loading. The initial
+FileIO/open/open_code implementation validates Python requests then raises
+PermissionError. Neither integer process descriptors nor custom Python openers
+bypass that boundary. FileIO subclasses that skip initialization retain closed
+state; no host handle is acquired or owned by these objects.

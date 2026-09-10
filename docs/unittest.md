@@ -795,3 +795,10 @@ TextIOWrapper reconfiguration is now tested, including preserving decoded input
 and pending output. The remaining `_io` export work is text_encoding and explicit
 permission-denied filesystem entry points. The broader unittest dependency chain
 remains outside this stream implementation step.
+
+The remaining `_io` exports now include tested filesystem denial boundaries and
+text_encoding. Paths, descriptors, and custom openers cannot grant access without
+a filesystem capability. All in-memory stream classes imported by unchanged
+io.py are now implemented within the documented codec/buffer subset. Its separate
+`_collections_abc` dependency is still the last recorded import blocker; this is
+not evidence that unittest test execution or reporting is complete.
