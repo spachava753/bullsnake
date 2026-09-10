@@ -3,20 +3,21 @@ package runtime
 import "bytes"
 
 type bufferedStream struct {
-	raw  Value
-	size int
-	read []byte
-	busy bool
+	write []byte
+	raw   Value
+	size  int
+	read  []byte
+	busy  bool
 }
 
-// initializeBufferedReader installs native methods and delegates raw metadata
-// through descriptors, while allowing raw to be inspected after detachment.
-func initializeBufferedReader(module *Module) {
-	class := newIOClass("BufferedReader", module.globals.values["_BufferedIOBase"].(*typeValue))
+// initializeBufferedType installs common lifecycle methods and raw metadata
+// descriptors with the concrete class's read/write method dispatcher.
+func initializeBufferedType(module *Module, className string, methods []string, dispatch func(*frame, int, *instanceValue, string, []Value, *dictValue) (instructionOutcome, error)) {
+	class := newIOClass(className, module.globals.values["_BufferedIOBase"].(*typeValue))
 	module.globals.values[class.name] = class
-	for _, name := range []string{"__init__", "read", "read1", "readinto", "readinto1", "readline", "peek", "seek", "tell", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty"} {
+	for _, name := range append(methods, "__init__", "seek", "tell", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty") {
 		class.setAttribute(name, ioMethod(class, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-			return executeBufferedReader(caller, instruction, self, name, arguments, keywords)
+			return dispatch(caller, instruction, self, name, arguments, keywords)
 		}))
 	}
 	for _, name := range []string{"raw", "closed", "name", "mode"} {
@@ -46,10 +47,10 @@ func checkBufferedAttached(stream *bufferedStream) *Exception {
 	return nil
 }
 
-// initializeReader validates index conversion and the raw readable contract
+// initializeBuffered validates index conversion and the raw capability contract
 // before installing an empty read-ahead buffer. It does not acquire host access.
-func initializeReader(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-	values, exception := bindIOArguments("BufferedReader", arguments, keywords, []string{"raw", "buffer_size"}, []Value{nil, integerFromInt64(ioDefaultBufferSize)})
+func initializeBuffered(caller *frame, instruction int, self *instanceValue, className, capability string, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+	values, exception := bindIOArguments(className, arguments, keywords, []string{"raw", "buffer_size"}, []Value{nil, integerFromInt64(ioDefaultBufferSize)})
 	if exception != nil {
 		return raiseOutcome(exception), nil
 	}
@@ -61,13 +62,13 @@ func initializeReader(caller *frame, instruction int, self *instanceValue, argum
 		}
 		size := int(count.(*intValue).value.Int64())
 		return continueNativeOperation(current, instruction, func() (instructionOutcome, error) {
-			return executeMethodCall(current, instruction, values[0], "readable", nil)
+			return executeMethodCall(current, instruction, values[0], capability, nil)
 		}, func(resumed *frame, result Value, exception *Exception) (instructionOutcome, error) {
 			if exception != nil {
 				return raiseOutcome(exception), nil
 			}
 			if result != trueSingleton {
-				return raiseOutcome(unsupportedStreamOperation("File or stream is not readable.")), nil
+				return raiseOutcome(unsupportedStreamOperation("File or stream is not " + capability + ".")), nil
 			}
 			if size <= 0 {
 				return raiseOutcome(newException("ValueError", "buffer size must be strictly positive")), nil
@@ -85,7 +86,7 @@ func initializeReader(caller *frame, instruction int, self *instanceValue, argum
 // guard across raw callbacks. Lifecycle operations retain normal override lookup.
 func executeBufferedReader(caller *frame, instruction int, self *instanceValue, name string, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 	if name == "__init__" {
-		return initializeReader(caller, instruction, self, arguments, keywords)
+		return initializeBuffered(caller, instruction, self, "BufferedReader", "readable", arguments, keywords)
 	}
 	if name == "readinto" || name == "readinto1" {
 		return executeConcreteReadInto(caller, instruction, self, name, arguments, keywords)

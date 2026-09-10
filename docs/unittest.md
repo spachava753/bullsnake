@@ -759,3 +759,7 @@ BufferedRandom, BufferedRWPair, and TextIOWrapper still remain.
 BufferedWriter callback tests exposed missing binary concatenation. That
 prerequisite is now tested separately, including bytes snapshots, bytearray
 identity, aliasing, and exported-view resize restrictions.
+
+BufferedWriter is now tested with BytesIO and Python raw writers, including
+short writes, nonblocking capacity, exact retry counts, and flush failure during
+close. BufferedRandom, BufferedRWPair, and TextIOWrapper remain ahead.

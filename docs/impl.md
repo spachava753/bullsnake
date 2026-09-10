@@ -1208,3 +1208,10 @@ Bytes results are immutable snapshots; bytearray in-place addition preserves
 identity and rejects growth with exported views. This supports Python raw I/O
 implementations that accumulate output. Reflected user operations still run
 when the right operand does not export a supported contiguous buffer.
+
+`_io.BufferedWriter` now buffers small writes, sends large writes through readonly
+views, retries short writes and EINTR, and retains pending output after failures.
+Nonblocking writes report accepted input in BlockingIOError.characters_written.
+Flush drains pending bytes; seek, truncate, detach, and close flush first. Close
+still attempts raw close after a flush exception. Source tests verify byte
+ordering, mutable input snapshots, partial counts, failure recovery, and close.
