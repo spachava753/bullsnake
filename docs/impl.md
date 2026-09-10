@@ -788,8 +788,8 @@ Unchanged `abc.py` now imports through the native helpers. The project-owned
 standard-library regression test executes ABC/ABCMeta construction, modern and
 legacy abstract decorators, concrete overrides, virtual and transitive
 registration, structural hooks, instance checks, and cache resets. It is not
-CPython's full test_abc suite. Execution probes still find `update_abstractmethods`
-blocked at class `__dict__` access (abc.py:177), which remains deferred.
+CPython's full test_abc suite. `update_abstractmethods` now runs unchanged after
+method replacement and deletion, including explicit subclass recomputation.
 `_dump_registry` now executes unchanged with explicit or redirected streams;
 its complete report is checked against the runtime's weak-reference repr.
 
@@ -818,6 +818,18 @@ type match bypasses `__instancecheck__`; `__subclasscheck__` can override an
 identical candidate and receives even a non-class first argument. Native type
 check descriptors support `super` without redispatching to the override.
 Non-type checker objects and custom descriptor-valued hooks remain unsupported.
+
+### Class namespace views
+
+Ordinary classes, including runtime-owned I/O classes, expose live read-only
+`__dict__` mapping proxies. Lookup returns raw descriptors without binding and
+excludes inherited attributes. Proxies support length, truth, membership,
+subscription, iteration, get/copy, and live keys/items/values views. Class writes
+and deletions update retained proxies; reinsertion moves a name to the end.
+Iterators reuse dictionary key-change checks. Annotation evaluation publishes
+its cached `__annotations__` dictionary through the same mutation path.
+Native type and exception namespaces, proxy construction, comparison, reverse
+iteration, and union operations remain separate slices.
 
 ### Class subscription
 
@@ -1119,7 +1131,8 @@ The native `_io` classes use per-runtime ordinary class allocations and private
 Go instance storage. Native methods bind through normal attribute lookup,
 `super`, C3 inheritance, and ABC checks. Supplied classes are immutable; Python
 subclasses retain their own initializers, methods, properties, and attributes.
-Public `__dict__` and general custom instance `__new__` remain deferred.
+Instance `__dict__` and general custom instance `__new__` remain deferred;
+class namespace proxies are available.
 
 | Surface | Tested behavior |
 | --- | --- |

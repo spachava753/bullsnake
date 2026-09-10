@@ -1482,6 +1482,8 @@ func executeInstruction(
 			return executeCmpKeyAttributeLoad(frame, index, owner, name)
 		case *stringValue:
 			return executeStringAttributeLoad(frame, index, owner, name)
+		case *mappingProxyValue:
+			return executeMappingProxyAttributeLoad(frame, index, owner, name)
 		case *dictValue:
 			return executeDictionaryAttributeLoad(frame, index, owner, name)
 		case *listValue:

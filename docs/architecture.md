@@ -438,6 +438,12 @@ separate from evaluated interpolation values and their source metadata; creating
 one does not format those values. More of Python's data model will be added when
 language features or packages require it.
 
+Class namespace proxies retain a class-owned dictionary distinct from the
+prepared class-body namespace. Central class mutation updates both attribute
+lookup and proxy storage, so saved views remain live without exposing a mutable
+class dictionary. Proxies retain typed references and reuse dictionary iterator
+mutation checks. Namespace lookup returns descriptors without invoking Python.
+
 Abstract allocation state belongs to each user class. Assigning
 `__abstractmethods__` resolves truth through the VM before storing the value and
 flag together. Allocation diagnostics reuse resumable collection and sorting

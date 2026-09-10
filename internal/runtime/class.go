@@ -11,24 +11,25 @@ func (*buildClassValue) isValue()         {}
 var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
-	genericAliasClass bool
-	bytesIOClass      bool
-	bufferViewClass   bool
-	ioClass           bool
-	immutable         bool
-	name              string
-	qualifiedName     string
-	module            string
-	namespace         *Namespace
-	bases             []*typeValue
-	subclasses        weakClassSet
-	mro               []*typeValue
-	objectBase        bool
-	abstract          bool
-	metaclass         *typeValue
-	namespaceOrder    []string
-	nativeBase        *nativeTypeValue
-	exceptionBase     *exceptionTypeValue
+	namespaceDictionary *dictValue
+	genericAliasClass   bool
+	bytesIOClass        bool
+	bufferViewClass     bool
+	ioClass             bool
+	immutable           bool
+	name                string
+	qualifiedName       string
+	module              string
+	namespace           *Namespace
+	bases               []*typeValue
+	subclasses          weakClassSet
+	mro                 []*typeValue
+	objectBase          bool
+	abstract            bool
+	metaclass           *typeValue
+	namespaceOrder      []string
+	nativeBase          *nativeTypeValue
+	exceptionBase       *exceptionTypeValue
 }
 
 func (class *typeValue) TypeName() string {
@@ -54,7 +55,7 @@ func typeTuple(classes []*typeValue) *tupleValue {
 }
 
 func readOnlyTypeMetadata(name string) bool {
-	return name == "__mro__" || name == "__base__" || name == "__bases__"
+	return name == "__dict__" || name == "__mro__" || name == "__base__" || name == "__bases__"
 }
 
 func (class *typeValue) lookup(name string) (Value, bool) {
@@ -214,7 +215,11 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	for _, base := range class.bases {
 		base.subclasses.entries = append(base.subclasses.entries, makeWeakClass(class))
 	}
-	class.namespaceOrder = append([]string(nil), build.namespaceOrder...)
+	for index, name := range build.namespaceOrder {
+		if position, found := build.namespacePosition[name]; found && position == index {
+			class.namespaceOrder = append(class.namespaceOrder, name)
+		}
+	}
 	if function, ok := class.namespace.values["__new__"].(*functionValue); ok {
 		class.namespace.values["__new__"] = &staticMethodValue{callable: function}
 	}
@@ -535,4 +540,7 @@ func (class *typeValue) setAttribute(name string, value Value) {
 		class.namespaceOrder = append(class.namespaceOrder, name)
 	}
 	class.namespace.values[name] = value
+	if class.namespaceDictionary != nil {
+		class.namespaceDictionary.set(&stringValue{value: name}, value)
+	}
 }

@@ -105,3 +105,27 @@ assert not issubclass(int, Numbers)
 # Abstract allocation never requires registry membership.
 assert not isinstance(Virtual(), Concrete)
 assert ABCMeta.__module__ == 'abc'
+
+# Recompute abstract state after live class mutation without changing children.
+class Updated(Abstract):
+    pass
+class UpdatedChild(Updated):
+    pass
+namespace = Updated.__dict__
+Updated.run = lambda self: 'updated'
+assert update_abstractmethods(Updated) is Updated
+assert not Updated.__abstractmethods__
+assert namespace['__abstractmethods__'] is Updated.__abstractmethods__
+assert Updated().run() == 'updated'
+assert UpdatedChild.__abstractmethods__ == frozenset({'run'})
+update_abstractmethods(UpdatedChild)
+assert UpdatedChild().run() == 'updated'
+del Updated.run
+update_abstractmethods(Updated)
+assert Updated.__abstractmethods__ == frozenset({'run'})
+try:
+    Updated()
+    assert False
+except TypeError:
+    pass
+assert update_abstractmethods(Virtual) is Virtual

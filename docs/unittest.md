@@ -527,8 +527,8 @@ Unchanged `abc.py` now imports through the native helpers. The project-owned
 standard-library regression test executes ABC/ABCMeta construction, modern and
 legacy abstract decorators, concrete overrides, virtual and transitive
 registration, structural hooks, instance checks, and cache resets. It is not
-CPython's full test_abc suite. Execution probes still find `update_abstractmethods`
-blocked at class `__dict__` access (abc.py:177), which remains deferred.
+CPython's full test_abc suite. `update_abstractmethods` now runs unchanged after
+method replacement and deletion, including explicit subclass recomputation.
 `_dump_registry` now executes unchanged with explicit or redirected streams;
 its complete report is checked against the runtime's weak-reference repr.
 
@@ -705,7 +705,7 @@ UTF-8, denies locale access, and supports strict/ignore/replace errors for the
 three implemented stateless codecs. Restore positions are local byte offsets,
 not CPython's opaque integer-cookie layout. Stateful codecs, codec registration,
 multidimensional views, arbitrary Python buffer exporters, pickle state methods,
-and comprehensive I/O introspection are not implemented. Public `__dict__`,
+and comprehensive I/O introspection are not implemented. Instance `__dict__`,
 general weakref callbacks, and regex compatibility remain deferred.
 
 ### Current unchanged-source checkpoint

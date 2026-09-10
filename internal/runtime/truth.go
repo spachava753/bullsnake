@@ -187,6 +187,8 @@ func immediateTruth(value Value) (bool, bool) {
 		return len(value.elements) != 0, true
 	case *dictValue:
 		return len(value.entries) != 0, true
+	case *mappingProxyValue:
+		return len(value.dictionary.entries) != 0, true
 	case *dictionaryKeysView:
 		return len(value.dictionary.entries) != 0, true
 	case *dictionaryItemsView:

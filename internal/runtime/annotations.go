@@ -95,9 +95,6 @@ func executeClassAnnotationsLoad(
 	if annotations, found := class.namespace.get("__annotations__"); found {
 		return pushOutcome(frame, instruction, annotations)
 	}
-	if annotations, found := class.namespace.get("__annotations_cache__"); found {
-		return pushOutcome(frame, instruction, annotations)
-	}
 
 	annotate, found := class.namespace.get("__annotate__")
 	if !found {
@@ -106,7 +103,7 @@ func executeClassAnnotationsLoad(
 	function, callable := annotate.(*functionValue)
 	if !found || !callable {
 		annotations := &dictValue{}
-		class.namespace.values["__annotations_cache__"] = annotations
+		class.setAttribute("__annotations__", annotations)
 		return pushOutcome(frame, instruction, annotations)
 	}
 	if function.code.code.Flags()&bytecode.Generator != 0 {
@@ -150,7 +147,7 @@ func finishClassAnnotationsLoad(
 			"__annotate__ returned non-dict of type '"+value.TypeName()+"'",
 		)
 	}
-	load.class.namespace.values["__annotations_cache__"] = annotations
+	load.class.setAttribute("__annotations__", annotations)
 	return annotations, nil
 }
 

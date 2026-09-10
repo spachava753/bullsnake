@@ -41,6 +41,10 @@ live in native_class.go. Bind native instance methods through the shared attribu
 special-method, and super paths. Keep supplied class namespaces immutable and
 user subclasses mutable. Do not introduce a separate I/O inheritance path.
 
+Class namespace proxies use a separate class-owned dictionary, not the prepared
+class-body Namespace.dictionary. Keep class stores, deletes, and annotation-cache
+publication synchronized with retained views through the central mutation methods.
+
 I/O callbacks run through VM continuations. Keep buffer leases and reentrancy
 guards on the calling frame so Go-error unwinding releases them as well as Python
 completion. Never call Python from Go GC. Text codec selection and filesystem

@@ -258,6 +258,9 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 		}
 		return pushOutcome(frame, instruction, value)
 	}
+	if proxy, ok := container.(*mappingProxyValue); ok {
+		container = proxy.dictionary
+	}
 	if dictionary, ok := container.(*dictValue); ok {
 		value, found, exception := dictionary.get(indexValue)
 		if exception != nil {

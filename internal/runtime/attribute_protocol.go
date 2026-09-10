@@ -78,6 +78,8 @@ func executeDynamicAttributeLoad(
 		return executeCmpKeyAttributeLoad(frame, instruction, owner, name)
 	case *stringValue:
 		return executeStringAttributeLoad(frame, instruction, owner, name)
+	case *mappingProxyValue:
+		return executeMappingProxyAttributeLoad(frame, instruction, owner, name)
 	case *dictValue:
 		return executeDictionaryAttributeLoad(frame, instruction, owner, name)
 	case *listValue:
@@ -211,6 +213,8 @@ func executeTypeAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "__dict__":
+		return pushOutcome(frame, instruction, owner.namespaceProxy())
 	case "__abstractmethods__":
 		if value, found := owner.namespace.get(name); found {
 			return pushOutcome(frame, instruction, value)
@@ -474,7 +478,11 @@ func executeDynamicAttributeDelete(
 	if _, found := attributes.values[name]; !found {
 		return raiseOutcome(newException("AttributeError", missingMessage)), nil
 	}
-	delete(attributes.values, name)
+	if class, ok := owner.(*typeValue); ok {
+		class.deleteAttribute(name)
+	} else {
+		delete(attributes.values, name)
+	}
 	return instructionOutcome{kind: advance}, nil
 }
 

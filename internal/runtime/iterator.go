@@ -229,6 +229,8 @@ func newIterator(value Value) (Value, bool) {
 			return value, true
 		}
 		return nil, false
+	case *mappingProxyValue:
+		return &collectionIterator{collection: value.dictionary, length: len(value.dictionary.entries), version: value.dictionary.version}, true
 	case *dictionaryKeysView:
 		return &collectionIterator{
 			collection: value.dictionary,

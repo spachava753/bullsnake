@@ -154,6 +154,8 @@ func immediateLength(value Value) (int, bool) {
 		return len(value.elements), true
 	case *dictValue:
 		return len(value.entries), true
+	case *mappingProxyValue:
+		return len(value.dictionary.entries), true
 	case *dictionaryKeysView:
 		return len(value.dictionary.entries), true
 	case *dictionaryItemsView:
