@@ -784,3 +784,11 @@ CPython feature in advance.
 - [Python 3.14 import system](https://docs.python.org/3.14/reference/import.html)
 - [Go garbage collector guide](https://go.dev/doc/gc-guide)
 - [Go memory model](https://go.dev/ref/mem)
+
+### Print stream dispatch
+
+The print builtin calls the selected Python stream's write and flush methods
+through VM continuations. It resolves current sys.stdout per call, while keeping
+the selected stream across conversions and writes within that call. A None
+stdout raises PermissionError under the no-discard host policy; this intentionally
+differs from CPython's disconnected-stdout no-op.

@@ -527,8 +527,9 @@ standard-library regression test executes ABC/ABCMeta construction, modern and
 legacy abstract decorators, concrete overrides, virtual and transitive
 registration, structural hooks, instance checks, and cache resets. It is not
 CPython's full test_abc suite. Execution probes still find `update_abstractmethods`
-blocked at class `__dict__` access (abc.py:177), and `_dump_registry` blocked at
-missing `print` (abc.py:127). Native `_get_dump` itself is tested independently.
+blocked at class `__dict__` access (abc.py:177), which remains deferred.
+`_dump_registry` now executes unchanged with explicit or redirected streams;
+its complete report is checked against the runtime's weak-reference repr.
 
 ### Metaclass construction checkpoint
 
@@ -642,3 +643,20 @@ and abstract-method computation slices are tested. Virtual registration is teste
 through both native helpers and unchanged `abc.py`, which now imports. In-memory
 `_io` and unchanged `io.py` are the next independent work. No unittest test has executed
 yet; the overall milestone remains blocked.
+
+### Printing to Python streams
+
+`print` accepts arbitrary positional values and keyword-only `sep`, `end`,
+`file`, and `flush`. It converts flush truth first, resolves the current
+`sys.stdout` when file is omitted or None, and retains that stream for the call.
+Each write method is resolved before converting its value through Python str.
+Separators, values, and the ending are written separately; earlier output is
+preserved if conversion, writing, or flushing fails. Return values from stream
+methods are ignored. Python callbacks use VM continuations, and host wrappers
+retain their existing Unicode, error, and borrowed-ownership contracts.
+
+Under Bullsnake's explicit host policy, a None stdout raises PermissionError
+instead of CPython's disconnected-stdout no-op. There is no ambient output or
+silent sink. A deleted sys.stdout raises RuntimeError. Explicit Python streams
+work without host output providers. print currently inherits the existing str
+limitations, including representations of containers holding user objects.

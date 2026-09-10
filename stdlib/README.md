@@ -32,7 +32,8 @@ go run ./tools/importprobe stdlib/3.14 abc unittest
 `abc` now imports through native `_abc` helpers backed by Go weak pointers.
 Project-owned `tests/test_abc.py` exercises abstract construction, descriptors,
 virtual registration, hooks, and checks against unchanged abc.py. It is not the
-upstream test_abc suite. `update_abstractmethods` and the printing debug helper
-still need class dictionary access and `print`, respectively. `unittest` stops
+upstream test_abc suite. A separate test checks the full unchanged
+`_dump_registry` report through print, using explicit and redirected Python
+streams. `update_abstractmethods` still needs class dictionary access. `unittest` stops
 at `io.py:53:8` because `_io` is absent. The adapted colorsys tests remain
 in place until unchanged unittest execution can replace them.

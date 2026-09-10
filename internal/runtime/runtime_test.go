@@ -933,3 +933,27 @@ func TestHostTextStreams(t *testing.T) {
 		})
 	}
 }
+
+func TestPrintHost(t *testing.T) {
+	t.Run("borrowed output", func(t *testing.T) {
+		writer := &borrowedWriter{}
+		runHostFixture(t, bullruntime.Config{Stdout: writer}, "print_output")
+		if writer.String() != "hé🙂|7!" || writer.flushes != 2 || writer.closes != 0 {
+			t.Fatalf("output=%q flushes=%d closes=%d", writer.String(), writer.flushes, writer.closes)
+		}
+	})
+	t.Run("short write stops output", func(t *testing.T) {
+		writer := &resultWriter{count: 1}
+		runHostFixture(t, bullruntime.Config{Stdout: writer}, "print_failure")
+		if writer.calls != 1 {
+			t.Fatalf("write calls=%d, want 1", writer.calls)
+		}
+	})
+	t.Run("flush failure", func(t *testing.T) {
+		writer := &borrowedWriter{flushError: io.ErrClosedPipe}
+		runHostFixture(t, bullruntime.Config{Stdout: writer}, "print_failure")
+		if writer.String() != "abc later\n" || writer.flushes != 1 || writer.closes != 0 {
+			t.Fatalf("output=%q flushes=%d closes=%d", writer.String(), writer.flushes, writer.closes)
+		}
+	})
+}

@@ -45,18 +45,6 @@ func withABCData(caller *frame, instruction int, class Value, resume func(*frame
 	})
 }
 
-// abcMethod resolves and calls a method through ordinary descriptor continuations.
-func abcMethod(caller *frame, instruction int, receiver Value, name string, arguments []Value) (instructionOutcome, error) {
-	return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
-		return executeDynamicAttributeLoad(caller, instruction, receiver, name)
-	}, func(current *frame, method Value, exception *Exception) (instructionOutcome, error) {
-		if exception != nil {
-			return raiseOutcome(exception), nil
-		}
-		return executeFunctionCall(current, instruction, len(current.stack), method, arguments, nil)
-	})
-}
-
 func abcIsSubclass(caller *frame, instruction int, child, parent Value) (instructionOutcome, error) {
 	return executeClassCheck(caller, instruction, len(caller.stack), []Value{child, parent}, nil, true)
 }
@@ -114,7 +102,7 @@ func checkABCSubclass(caller *frame, instruction int, arguments []Value) (instru
 		}
 		call := &abcSubclassCall{instruction: instruction, class: class, candidate: candidate, data: data}
 		return continueNativeOperation(current, instruction, func() (instructionOutcome, error) {
-			return abcMethod(current, instruction, class, "__subclasshook__", []Value{candidate})
+			return executeMethodCall(current, instruction, class, "__subclasshook__", []Value{candidate})
 		}, call.afterHook)
 	})
 }
@@ -187,7 +175,7 @@ func (call *abcSubclassCall) nextRegistered(caller *frame) (instructionOutcome, 
 		})
 	}
 	return continueNativeOperation(caller, call.instruction, func() (instructionOutcome, error) {
-		return abcMethod(caller, call.instruction, call.class, "__subclasses__", nil)
+		return executeMethodCall(caller, call.instruction, call.class, "__subclasses__", nil)
 	}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
 		if exception != nil {
 			return raiseOutcome(exception), nil
@@ -243,10 +231,10 @@ func checkABCInstance(caller *frame, instruction int, arguments []Value) (instru
 				if data.version == resumed.runtime.abcToken && data.negative.contains(reported) {
 					return pushOutcome(resumed, instruction, falseSingleton)
 				}
-				return abcMethod(resumed, instruction, class, "__subclasscheck__", []Value{reported})
+				return executeMethodCall(resumed, instruction, class, "__subclasscheck__", []Value{reported})
 			}
 			return continueNativeOperation(resumed, instruction, func() (instructionOutcome, error) {
-				return abcMethod(resumed, instruction, class, "__subclasscheck__", []Value{reported})
+				return executeMethodCall(resumed, instruction, class, "__subclasscheck__", []Value{reported})
 			}, func(checked *frame, result Value, exception *Exception) (instructionOutcome, error) {
 				if exception != nil {
 					return raiseOutcome(exception), nil
@@ -260,7 +248,7 @@ func checkABCInstance(caller *frame, instruction int, arguments []Value) (instru
 					if truth == trueSingleton {
 						return pushOutcome(ready, instruction, result)
 					}
-					return abcMethod(ready, instruction, class, "__subclasscheck__", []Value{actual})
+					return executeMethodCall(ready, instruction, class, "__subclasscheck__", []Value{actual})
 				})
 			})
 		})

@@ -46,3 +46,15 @@ func continueNativeOperation(caller *frame, instruction int,
 	}
 	return outcome, nil
 }
+
+// executeMethodCall resolves and calls a method through ordinary descriptor continuations.
+func executeMethodCall(caller *frame, instruction int, receiver Value, name string, arguments []Value) (instructionOutcome, error) {
+	return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
+		return executeDynamicAttributeLoad(caller, instruction, receiver, name)
+	}, func(current *frame, method Value, exception *Exception) (instructionOutcome, error) {
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return executeFunctionCall(current, instruction, len(current.stack), method, arguments, nil)
+	})
+}
