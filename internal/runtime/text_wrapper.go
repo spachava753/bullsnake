@@ -21,7 +21,7 @@ type textWrapper struct {
 func initializeTextWrapper(module *Module) {
 	class := newIOClass("TextIOWrapper", module.globals.values["_TextIOBase"].(*typeValue))
 	module.globals.values[class.name] = class
-	for _, name := range []string{"__init__", "read", "readline", "__next__", "write", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty"} {
+	for _, name := range []string{"__init__", "read", "readline", "__next__", "seek", "tell", "truncate", "write", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty"} {
 		class.setAttribute(name, ioMethod(class, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 			return executeTextWrapper(caller, instruction, self, name, arguments, keywords)
 		}))
@@ -90,6 +90,9 @@ func executeTextWrapper(caller *frame, instruction int, self *instanceValue, nam
 	}
 	if stream.buffer == nil {
 		return raiseOutcome(newException("ValueError", "underlying buffer has been detached")), nil
+	}
+	if name == "seek" || name == "tell" || name == "truncate" {
+		return executeTextPosition(caller, instruction, self, name, arguments)
 	}
 	if name == "close" {
 		return closeBuffered(caller, instruction, self, &bufferedStream{raw: stream.buffer})
@@ -162,6 +165,7 @@ func writeTextWrapper(caller *frame, instruction int, stream *textWrapper, text 
 			if exception != nil {
 				return raiseOutcome(exception), nil
 			}
+			stream.resetInput()
 			return pushOutcome(resumed, instruction, integerFromInt64(int64(count)))
 		})
 	})

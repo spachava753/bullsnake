@@ -1243,3 +1243,10 @@ read1 is selected when available; unbounded reads use read. Tests cover partial
 code points, explicit and universal newlines, structured decoding errors,
 ignore/replace handling, nonblocking results, and flushing output before input.
 Decoded characters retain source-byte widths for the upcoming position methods.
+
+TextIOWrapper supports tell, absolute seek, zero relative/end seeks, and truncate.
+For the implemented stateless codecs, restore positions are byte offsets computed
+from decoded source widths; CPython's opaque cookie encoding is not reproduced.
+Tests save positions across multibyte characters and CRLF, seek back, and read the
+same text. Iteration disables tell until flush or exhaustion. Writes discard
+read-ahead after success; truncation flushes and delegates the byte size.

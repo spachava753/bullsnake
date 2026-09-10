@@ -785,3 +785,8 @@ split UTF-8/CRLF, Unicode size limits, line iteration, decoding failures, and
 nonblocking callbacks. Text positions, reconfiguration, and remaining `_io`
 helpers remain unfinished; unchanged unittest still has its separate import
 prerequisites.
+
+TextIOWrapper position round trips now pass for UTF-8 and universal/preserved
+newlines, including cuts inside CRLF. The supported stateless codecs use local
+byte-offset restore positions, not CPython's opaque integer-cookie layout.
+Reconfiguration and the remaining permission-denied filesystem exports are next.
