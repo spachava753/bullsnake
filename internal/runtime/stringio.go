@@ -2,8 +2,6 @@ package runtime
 
 import "strings"
 
-var stringIOType = nativeType("_io", "StringIO")
-
 // stringIOValue owns its text independently of host streams. Positions count
 // Python code points, including surrogate code points encoded internally as WTF-8.
 type stringIOValue struct {
@@ -16,13 +14,9 @@ type stringIOValue struct {
 	seen      uint8
 }
 
-func (*stringIOValue) TypeName() string { return "_io.StringIO" }
-func (*stringIOValue) Repr() string     { return "<_io.StringIO object>" }
-func (*stringIOValue) isValue()         {}
-
 // newStringIO validates newline before initial_value, then applies the write
 // translation rules to initial text and resets the cursor to zero.
-func newStringIO(arguments []Value, keywords *dictValue) (Value, *Exception) {
+func newStringIO(arguments []Value, keywords *dictValue) (*stringIOValue, *Exception) {
 	values, exception := bindStringIO(arguments, keywords)
 	if exception != nil {
 		return nil, exception
@@ -85,32 +79,6 @@ func bindStringIO(arguments []Value, keywords *dictValue) ([2]Value, *Exception)
 	return values, nil
 }
 
-// executeStringIOAttributeLoad exposes stream state and bound methods, routing
-// index conversions through frame calls and immediate operations directly.
-func executeStringIOAttributeLoad(caller *frame, instruction int, stream *stringIOValue, name string) (instructionOutcome, error) {
-	switch name {
-	case "closed":
-		return pushOutcome(caller, instruction, booleanValue(stream.closed))
-	case "newlines":
-		if stream.closed {
-			return raiseOutcome(newException("ValueError", "I/O operation on closed file")), nil
-		}
-		return pushOutcome(caller, instruction, stream.newlines())
-	case "writelines":
-		return pushOutcome(caller, instruction, &builtinFunctionValue{name: name, frameCall: stream.executeWriteLines})
-	case "read", "readline", "readlines", "seek", "truncate":
-		return pushOutcome(caller, instruction, &builtinFunctionValue{name: name, frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-			return stream.executePositionCall(caller, instruction, base, name, arguments, keywords)
-		}})
-	case "write", "getvalue", "flush", "close", "isatty", "__enter__", "__exit__", "tell", "readable", "writable", "seekable", "__iter__", "__next__":
-		return pushOutcome(caller, instruction, &builtinFunctionValue{name: name, call: func(arguments []Value, keywords *dictValue) (Value, *Exception) {
-			return stream.call(name, arguments, keywords)
-		}})
-	default:
-		return raiseOutcome(newException("AttributeError", "'_io.StringIO' object has no attribute '"+name+"'")), nil
-	}
-}
-
 // call checks method arguments before closed state. Close releases only this
 // buffer, while all other operations require an open stream.
 func (stream *stringIOValue) call(name string, arguments []Value, keywords *dictValue) (Value, *Exception) {
@@ -141,17 +109,6 @@ func (stream *stringIOValue) call(name string, arguments []Value, keywords *dict
 		return &stringValue{value: stream.value}, nil
 	case "isatty":
 		return falseSingleton, nil
-	case "__next__":
-		value, found, exception := stream.next()
-		if exception != nil {
-			return nil, exception
-		}
-		if !found {
-			return nil, newException("StopIteration", "")
-		}
-		return value, nil
-	case "__enter__", "__iter__":
-		return stream, nil
 	default:
 		return None, nil
 	}

@@ -686,8 +686,10 @@ and incremental `writelines` from native and Python iterators. Source tests
 cover shared cursor state, exact hint boundaries, errors after partial output,
 and closing the stream from an iterator callback.
 
-This is not complete StringIO or io compatibility. IOBase inheritance, subclassing,
-and instance attributes remain unimplemented. Other `_io` classes and helpers
+StringIO now inherits the I/O bases and supports Python subclasses, instance
+attributes, native methods through `super`, validated readline overrides during
+iteration, and reinitialization without losing subclass attributes. Public
+`__dict__` remains deferred. This is not complete io compatibility. Other `_io` classes and helpers
 are absent. The current unittest import probe stops at missing
 `_collections_abc`; supplying that source will then expose further `_io` and
 object-model gaps. No unittest test has executed.
@@ -702,5 +704,5 @@ defaults, unsupported operations, immutable base classes, and mutable subclasses
 These classes use the ordinary runtime class and descriptor paths with private
 Go storage. They do not grant host access or install GC callbacks. Base line helpers are now tested with Python read/write/peek and iteration
 overrides, exact character hints, EINTR retries, and partial iterator failures.
-StringIO inheritance, raw/buffered classes, and remaining `_io` helpers are
-still ahead. The current unittest import failure is unchanged.
+StringIO inheritance and subclass overrides are now tested. Raw/buffered
+classes and remaining `_io` helpers are still ahead. The current unittest import failure is unchanged.

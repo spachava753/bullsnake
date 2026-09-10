@@ -35,5 +35,7 @@ virtual registration, hooks, and checks against unchanged abc.py. It is not the
 upstream test_abc suite. A separate test checks the full unchanged
 `_dump_registry` report through print, using explicit and redirected Python
 streams. `update_abstractmethods` still needs class dictionary access. `unittest` stops
-at `io.py:53:8` because `_io` is absent. The adapted colorsys tests remain
+at `io.py:56:1` because `_collections_abc` is absent. Native `_io` now has
+StringIO and the initial I/O base classes; the rest of its surface is incomplete.
+The adapted colorsys tests remain
 in place until unchanged unittest execution can replace them.

@@ -4,7 +4,7 @@ package runtime
 // used by host adapters. It does not acquire any host capability.
 func initializeIO(_ *Runtime, module *Module) (*Exception, error) {
 	initializeIOBases(module)
-	module.globals.values["StringIO"] = stringIOType
+	initializeStringIOClass(module)
 	module.globals.values["UnsupportedOperation"] = unsupportedOperationType
 	module.globals.values["BlockingIOError"] = blockingIOErrorType
 	return nil, nil

@@ -1545,8 +1545,6 @@ func executeInstruction(
 					),
 				}, nil
 			}
-		case *stringIOValue:
-			return executeStringIOAttributeLoad(frame, index, owner, name)
 		case *hostTextStream:
 			return executeHostStreamAttributeLoad(frame, index, owner, name)
 		case *Exception:

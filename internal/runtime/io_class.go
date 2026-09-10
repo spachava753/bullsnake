@@ -4,6 +4,7 @@ package runtime
 // attributes, C3 lookup, and descriptors use the ordinary Python object model.
 type ioState struct {
 	closed bool
+	text   *stringIOValue
 }
 
 func newIOClass(name string, base *typeValue) *typeValue {

@@ -308,9 +308,6 @@ func executeIteratorLookup(
 	index int,
 	iterable Value,
 ) (instructionOutcome, error) {
-	if stream, ok := iterable.(*stringIOValue); ok && stream.closed {
-		return raiseOutcome(newException("ValueError", "I/O operation on closed file")), nil
-	}
 	if iterator, builtin := newIterator(iterable); builtin {
 		return pushOutcome(frame, index, iterator)
 	}

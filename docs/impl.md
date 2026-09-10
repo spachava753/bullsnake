@@ -1018,8 +1018,9 @@ EOF preserves the cursor on reads; later writes fill gaps with NUL characters.
 Truncation preserves the cursor and does not extend the buffer. StringIO is
 a self-iterator over lines and supports `readlines` character hints and
 incremental `writelines` from Python iterables. Iterator and write exceptions
-preserve earlier output. IOBase inheritance, subclassing, and
-instance attributes remain later slices; the module exports no placeholders for
+preserve earlier output. StringIO now inherits `_TextIOBase` and `_IOBase`,
+supports Python subclasses and instance attributes, and exposes inherited
+encoding/errors/detach/fileno behavior. Public `__dict__` remains deferred; the module exports no placeholders for
 the remaining classes and helpers expected by unchanged `io.py`.
 
 ## Deliberate boundaries
@@ -1128,5 +1129,6 @@ and `writelines` dispatch Python iteration and methods. EINTR retries only the
 interrupted I/O operation. Immediate native steps loop without growing the Go
 stack, while Python callbacks resume from frames. Iteration now consumes a
 complete native special-method continuation before applying StopIteration
-semantics. StringIO inheritance follows in a separate slice. No GC finalizer calls Python or
+semantics. StringIO now shares this hierarchy and inherits the line helpers; its native
+buffer methods remain available through unbound class calls and `super`. No GC finalizer calls Python or
 closes streams; callers must use explicit close or context management.
