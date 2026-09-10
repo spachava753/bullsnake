@@ -21,7 +21,7 @@ type textWrapper struct {
 func initializeTextWrapper(module *Module) {
 	class := newIOClass("TextIOWrapper", module.globals.values["_TextIOBase"].(*typeValue))
 	module.globals.values[class.name] = class
-	for _, name := range []string{"__init__", "read", "readline", "__next__", "seek", "tell", "truncate", "write", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty"} {
+	for _, name := range []string{"__init__", "reconfigure", "read", "readline", "__next__", "seek", "tell", "truncate", "write", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty"} {
 		class.setAttribute(name, ioMethod(class, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 			return executeTextWrapper(caller, instruction, self, name, arguments, keywords)
 		}))
@@ -75,6 +75,9 @@ func executeTextWrapper(caller *frame, instruction int, self *instanceValue, nam
 	if name == "read" || name == "readline" || name == "__next__" {
 		return executeTextRead(caller, instruction, self, name, arguments, keywords)
 	}
+	if name == "reconfigure" {
+		return reconfigureTextWrapper(caller, instruction, self, arguments, keywords)
+	}
 	minimum, maximum := streamMethodArity(name)
 	if exception := checkNativeArguments(name, arguments, keywords, minimum, maximum); exception != nil {
 		return raiseOutcome(exception), nil
@@ -93,6 +96,9 @@ func executeTextWrapper(caller *frame, instruction int, self *instanceValue, nam
 	}
 	if name == "seek" || name == "tell" || name == "truncate" {
 		return executeTextPosition(caller, instruction, self, name, arguments)
+	}
+	if name == "readable" || name == "writable" || name == "seekable" || name == "isatty" || name == "fileno" {
+		return executeMethodCall(caller, instruction, stream.buffer, name, nil)
 	}
 	if name == "close" {
 		return closeBuffered(caller, instruction, self, &bufferedStream{raw: stream.buffer})
@@ -119,12 +125,6 @@ func executeTextWrapper(caller *frame, instruction int, self *instanceValue, nam
 				}
 				return executeMethodCall(resumed, instruction, stream.buffer, "flush", nil)
 			})
-		case "readable":
-			return pushOutcome(current, instruction, booleanValue(stream.readable))
-		case "writable":
-			return pushOutcome(current, instruction, booleanValue(stream.writable))
-		case "seekable":
-			return pushOutcome(current, instruction, booleanValue(stream.seekable))
 		default:
 			return executeMethodCall(current, instruction, stream.buffer, name, arguments)
 		}

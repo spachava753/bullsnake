@@ -790,3 +790,8 @@ TextIOWrapper position round trips now pass for UTF-8 and universal/preserved
 newlines, including cuts inside CRLF. The supported stateless codecs use local
 byte-offset restore positions, not CPython's opaque integer-cookie layout.
 Reconfiguration and the remaining permission-denied filesystem exports are next.
+
+TextIOWrapper reconfiguration is now tested, including preserving decoded input
+and pending output. The remaining `_io` export work is text_encoding and explicit
+permission-denied filesystem entry points. The broader unittest dependency chain
+remains outside this stream implementation step.

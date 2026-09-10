@@ -1250,3 +1250,9 @@ from decoded source widths; CPython's opaque cookie encoding is not reproduced.
 Tests save positions across multibyte characters and CRLF, seek back, and read the
 same text. Iteration disables tell until flush or exhaustion. Writes discard
 read-ahead after success; truncation flushes and delegates the byte size.
+
+TextIOWrapper reconfigure flushes the old encoding before applying keyword-only
+codec, newline, and buffering options. Codec/newline changes are rejected while
+read state is active; buffering flags remain adjustable. Tests cover error-policy
+reset when encoding changes, explicit universal newline restoration, failed
+flush recovery, integer flag conversion, and live binary capability delegation.
