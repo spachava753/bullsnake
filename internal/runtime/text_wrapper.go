@@ -23,6 +23,9 @@ func initializeTextWrapper(module *Module) {
 	module.globals.values[class.name] = class
 	for _, name := range []string{"__init__", "reconfigure", "read", "readline", "__next__", "seek", "tell", "truncate", "write", "flush", "close", "detach", "readable", "writable", "seekable", "fileno", "isatty"} {
 		class.setAttribute(name, ioMethod(class, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+			if name == "__next__" {
+				return executeTextNext(caller, instruction, self, class, arguments, keywords)
+			}
 			return executeTextWrapper(caller, instruction, self, name, arguments, keywords)
 		}))
 	}
@@ -72,7 +75,7 @@ func executeTextWrapper(caller *frame, instruction int, self *instanceValue, nam
 	if name == "__init__" {
 		return initializeTextStream(caller, instruction, self, arguments, keywords)
 	}
-	if name == "read" || name == "readline" || name == "__next__" {
+	if name == "read" || name == "readline" {
 		return executeTextRead(caller, instruction, self, name, arguments, keywords)
 	}
 	if name == "reconfigure" {

@@ -1184,7 +1184,9 @@ reads. Each decoded character records its source-byte width. The implemented
 stateless codecs use byte offsets as restore positions; CPython's opaque cookie
 encoding is not reproduced. Tests verify seeking back across multibyte text and
 CRLF cuts and reading the same result. Iteration disables tell until flush or
-exhaustion. Nonzero relative/end text seeks are unsupported.
+exhaustion. Inherited TextIOWrapper iteration calls a subclass's readline through
+VM continuations and validates text results. Exact native instances bypass an
+instance-level readline replacement. Nonzero relative/end text seeks are unsupported.
 
 Reconfigure flushes old encoded output before applying keyword-only options.
 Codec/newline changes are rejected while decoded read state remains; buffering

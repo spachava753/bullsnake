@@ -5,11 +5,7 @@ import "strings"
 // executeTextRead converts character limits before stream checks, flushes pending
 // encoded output, and starts incremental decoding through binary callbacks.
 func executeTextRead(caller *frame, instruction int, self *instanceValue, name string, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-	maximum := 1
-	if name == "__next__" {
-		maximum = 0
-	}
-	if exception := checkNativeArguments(name, arguments, keywords, 0, maximum); exception != nil {
+	if exception := checkNativeArguments(name, arguments, keywords, 0, 1); exception != nil {
 		return raiseOutcome(exception), nil
 	}
 	var size Value = integerFromInt64(-1)
@@ -34,24 +30,12 @@ func executeTextRead(caller *frame, instruction int, self *instanceValue, name s
 			if !stream.readable {
 				return raiseOutcome(unsupportedStreamOperation("not readable")), nil
 			}
-			if name == "__next__" {
-				stream.telling = false
-			}
 			return continueNativeOperation(opened, instruction, func() (instructionOutcome, error) { return flushTextBytes(opened, instruction, stream) }, func(resumed *frame, _ Value, exception *Exception) (instructionOutcome, error) {
 				if exception != nil {
 					return raiseOutcome(exception), nil
 				}
 				call := &textReadCall{stream: stream, instruction: instruction, limit: int(size.(*intValue).value.Int64()), line: name != "read"}
-				return continueNativeOperation(resumed, instruction, func() (instructionOutcome, error) { return call.advance(resumed) }, func(finished *frame, result Value, exception *Exception) (instructionOutcome, error) {
-					if exception != nil {
-						return raiseOutcome(exception), nil
-					}
-					if name == "__next__" && result.(*stringValue).value == "" {
-						stream.telling = stream.seekable
-						return raiseOutcome(newException("StopIteration", "")), nil
-					}
-					return pushOutcome(finished, instruction, result)
-				})
+				return call.advance(resumed)
 			})
 		})
 	})
