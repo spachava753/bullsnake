@@ -645,7 +645,10 @@ through both native helpers and unchanged `abc.py`, which now imports. In-memory
 `_io` now has tested in-memory streams, buffering, text decoding, and explicit
 filesystem denial. Unchanged `io.py` now imports and has public stream ABC,
 Reader/Writer protocol, subclass, and integrated stream regression tests.
-Collection ABC behavior tests remain in progress.
+Collection ABC behavior tests now exercise native and user structural checks for
+Iterable, Iterator, Sized, Container, and Collection, including disabled slots
+and concrete ABC defaults. Collection mixin and other protocol coverage remain
+in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams

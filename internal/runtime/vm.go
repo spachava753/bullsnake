@@ -1387,6 +1387,9 @@ func executeInstruction(
 		if name == "__class__" {
 			return executeDynamicAttributeLoad(frame, index, owner, name)
 		}
+		if method, found := frame.runtime.boundNativeCollectionMethod(owner, name); found {
+			return pushOutcome(frame, index, method)
+		}
 		switch owner := owner.(type) {
 		case *typeVarValue:
 			switch name {

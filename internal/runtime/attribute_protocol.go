@@ -31,6 +31,9 @@ func executeDynamicAttributeLoad(
 			return pushOutcome(frame, instruction, class)
 		}
 	}
+	if method, found := frame.runtime.boundNativeCollectionMethod(owner, name); found {
+		return pushOutcome(frame, instruction, method)
+	}
 	if outcome, found, err := executeDescriptorSubclassAttribute(frame, instruction, owner, name); found || err != nil {
 		return outcome, err
 	}

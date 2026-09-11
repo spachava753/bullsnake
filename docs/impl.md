@@ -847,9 +847,14 @@ and deletions update retained proxies; reinsertion moves a name to the end.
 Iterators reuse dictionary key-change checks. Annotation evaluation publishes
 its cached `__annotations__` dictionary through the same mutation path.
 Native types expose per-runtime dictionaries for their currently published
-metaclass methods, set containment, class subscription, and object subclass hook.
-Reads retain descriptor identity, and dictionary reads return unbound methods.
-Native protocol descriptors not yet published, exception namespaces, proxy
+metaclass methods, collection protocols, class subscription, and object subclass
+hook. Reads retain descriptor identity, and dictionary reads return unbound
+methods. Implemented native collection length, iteration, iterator-next, and
+containment operations are exposed as receiver-checked descriptors and bound
+methods. These run through the existing operations and enable unchanged
+Iterable/Iterator/Sized/Container/Collection structural hooks. Methods not backed
+by an implemented operation remain absent.
+Other native protocol descriptors, exception namespaces, proxy
 construction, comparison, reverse iteration, and union operations remain later
 slices.
 
