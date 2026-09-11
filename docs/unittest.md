@@ -654,7 +654,9 @@ live KeysView/ItemsView/ValuesView objects, view set operations and membership,
 lookup/defaults, updates from mappings and iterable pairs, removal/clearing, and
 equality including Python value callbacks. View representation now executes the
 unchanged numbered-field format string through real attribute and repr callbacks.
-Remaining protocol/mixin coverage is still in progress.
+Sequence/MutableSequence tests exercise iteration, containment/index callbacks,
+reverse iteration, append/extend/pop/remove/clear/reverse, and in-place extension.
+Sequence.count and remaining protocol/mixin coverage are still in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams

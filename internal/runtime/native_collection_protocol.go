@@ -5,12 +5,13 @@ const (
 	protocolIter
 	protocolNext
 	protocolContains
+	protocolReversed
 )
 
 // nativeCollectionProtocols lists only protocols backed by executable native
 // operations. It is immutable; each runtime allocates its own descriptors.
 var nativeCollectionProtocols = map[string]uint8{
-	"list":                 protocolLength | protocolIter | protocolContains,
+	"list":                 protocolLength | protocolIter | protocolContains | protocolReversed,
 	"tuple":                protocolLength | protocolIter | protocolContains,
 	"dict":                 protocolLength | protocolIter | protocolContains,
 	"str":                  protocolLength | protocolIter | protocolContains,
@@ -18,7 +19,7 @@ var nativeCollectionProtocols = map[string]uint8{
 	"set":                  protocolLength | protocolIter | protocolContains,
 	"frozenset":            protocolLength | protocolIter | protocolContains,
 	"bytearray":            protocolLength | protocolIter,
-	"range":                protocolLength | protocolIter,
+	"range":                protocolLength | protocolIter | protocolReversed,
 	"dict_keys":            protocolLength | protocolIter,
 	"dict_items":           protocolLength | protocolIter,
 	"dict_values":          protocolLength | protocolIter,
@@ -44,6 +45,8 @@ var nativeCollectionProtocols = map[string]uint8{
 	"memory_iterator":      protocolIter | protocolNext,
 }
 
+// nativeProtocolFlag maps each published collection slot to its availability
+// bit; unrelated attributes never enter native protocol binding.
 func nativeProtocolFlag(name string) uint8 {
 	switch name {
 	case "__len__":
@@ -54,12 +57,14 @@ func nativeProtocolFlag(name string) uint8 {
 		return protocolNext
 	case "__contains__":
 		return protocolContains
+	case "__reversed__":
+		return protocolReversed
 	}
 	return 0
 }
 
 func addNativeCollectionDescriptors(class *nativeTypeValue, dictionary *dictValue) {
-	for _, name := range []string{"__len__", "__iter__", "__next__", "__contains__"} {
+	for _, name := range []string{"__len__", "__iter__", "__next__", "__contains__", "__reversed__"} {
 		if nativeCollectionProtocols[class.name]&nativeProtocolFlag(name) == 0 {
 			continue
 		}
@@ -93,6 +98,8 @@ func nativeCollectionDescriptor(class *nativeTypeValue, name string) Value {
 			return executeBuiltinLen(caller, instruction, len(caller.stack), arguments, nil)
 		case "__iter__":
 			return executeIteratorLookup(caller, instruction, arguments[0])
+		case "__reversed__":
+			return executeBuiltinReversed(caller, instruction, len(caller.stack), arguments, nil)
 		case "__next__":
 			return executeBuiltinNext(caller, instruction, len(caller.stack), arguments, nil)
 		default:

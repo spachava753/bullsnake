@@ -1397,14 +1397,16 @@ reversed(sequence=[])
 # message: "'int' object is not reversible"
 reversed(1)
 # ---
-# case: reversed user protocol boundary
+# case: reversed user sequence fallback boundary
 # error: NotImplementedError
 # message: "user reversed protocols are not supported"
-class UserReversed:
-    def __reversed__(self):
-        return iter(())
+class UserSequence:
+    def __len__(self):
+        return 0
+    def __getitem__(self, index):
+        raise IndexError
 
-reversed(UserReversed())
+reversed(UserSequence())
 # ---
 # case: zip non-iterable source
 # error: TypeError

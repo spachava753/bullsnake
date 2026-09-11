@@ -488,7 +488,8 @@ Iteration calls class `__iter__`, validates its result, and resumes class
 `__next__` from `for` or `next()`. The `reversed` builtin creates lazy reverse
 iterators for native lists, tuples, strings, bytes, and ranges. A list reverse
 iterator retains its original index and exhausts if a shrink invalidates that
-index. User `__reversed__` and sequence-fallback dispatch remain later work.
+index. User class `__reversed__` runs through the VM and returns its result unchanged.
+The length/getitem sequence fallback remains later work.
 Containment calls class `__contains__` and sends its result through the same
 truth path. Item access calls class `__getitem__`, `__setitem__`, or
 `__delitem__` as appropriate. Rich comparisons may try both operands after

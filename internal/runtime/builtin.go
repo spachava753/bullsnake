@@ -70,7 +70,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	fileOpenFunction,
 	{name: "print", frameCall: executeBuiltinPrint},
 	{name: "repr", frameCall: executeBuiltinRepr},
-	{name: "reversed", call: builtinReversed},
+	{name: "reversed", frameCall: executeBuiltinReversed},
 	{name: "round", frameCall: executeBuiltinRound},
 	{name: "setattr", frameCall: executeBuiltinSetattr},
 	{name: "sorted", frameCall: executeBuiltinSorted},

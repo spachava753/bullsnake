@@ -56,6 +56,28 @@ func (iterator *reverseIterator) next() (Value, bool, *Exception) {
 	}
 }
 
+// executeBuiltinReversed invokes the class reverse slot through the VM and
+// otherwise retains the existing native sequence implementation.
+func executeBuiltinReversed(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+	if len(arguments) == 1 && (keywords == nil || len(keywords.entries) == 0) {
+		if instance, ok := arguments[0].(*instanceValue); ok {
+			if method, found := lookupInstanceSpecial(instance, "__reversed__"); found {
+				discardCallSegment(caller, base)
+				if method == None {
+					return raiseOutcome(newException("TypeError", "'"+instance.TypeName()+"' object is not reversible")), nil
+				}
+				return executeFunctionCall(caller, instruction, len(caller.stack), method, nil, nil)
+			}
+		}
+	}
+	result, exception := builtinReversed(arguments, keywords)
+	discardCallSegment(caller, base)
+	if exception != nil {
+		return raiseOutcome(exception), nil
+	}
+	return pushOutcome(caller, instruction, result)
+}
+
 // builtinReversed creates a lazy native reverse iterator while preserving each
 // sequence kind's indexing behavior.
 func builtinReversed(arguments []Value, keywords *dictValue) (Value, *Exception) {

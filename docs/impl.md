@@ -613,8 +613,10 @@ to have class `__next__`. The one-argument `iter` builtin and loop iteration use
 the same path. The `reversed` builtin lazily traverses native lists, tuples,
 strings, bytes, and ranges. List reverse iterators retain their initial index,
 ignore later appends, and exhaust if a shrink makes the current index invalid.
-User `__reversed__` and the `__len__` plus `__getitem__` sequence fallback remain
-unsupported. Each loop step or user-iterator `next()` call may run a Python
+User `__reversed__` methods now run through the VM, returning their result
+unchanged and ignoring instance-level replacements. Lists and ranges expose
+matching native reverse descriptors. The `__len__` plus `__getitem__` sequence
+fallback remains unsupported. Each loop step or user-iterator `next()` call may run a Python
 frame. `enumerate` retains that iterator and applies its index only after an item
 is produced, so failed pulls do not advance the count. `map` retains its source
 iterator and calls its function only after a source item is available. `filter`
