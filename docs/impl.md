@@ -1074,7 +1074,10 @@ and the initial io/abc dependency files are vendored for offline import probes;
 unittest now reaches missing `traceback` after unchanged io and _collections_abc
 import successfully,
 while abc imports and has a project-owned source regression test. The full
-transitive dependency closure is not present. The original first executable
+transitive dependency closure is not present. The next unchanged source batch
+adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
+probes. Their initial blockers are function __code__, missing _ast, and missing
+_contextvars; vendoring does not establish module usability. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
 module executes all eight upstream public test methods through the filesystem
 loader and complete interpreter pipeline. The

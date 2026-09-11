@@ -53,7 +53,7 @@ when a tested slice changes what can execute.
 | Runtime and host groundwork | Source execution tests; per-runtime modules and arguments; supplied streams and performance counter; explicit host denial. | Broader object protocols, collection keys, introspection, and system-module APIs as dependencies require them. |
 | Unchanged `abc` and `io` | Both import; ABC construction/registration and public io stream tests pass. In-memory streams, buffering, text decoding, and close/error paths are tested. | Full upstream conformance is not claimed; host-stream ABC integration and documented codec/buffer gaps remain. |
 | Unchanged `_collections_abc` | Imports; structural protocols and Set/Mapping/Sequence families have behavior tests. Callable aliases support construction, call, equality/hash, TypeVar/ParamSpec specialization, defaults, and class bases. | Concrete Callable representation, ByteString warning behavior, forward references, Concatenate, TypeVarTuple unpacking/substitution, and broader alias forwarding. Import success is not completion. |
-| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11. | Vendor and execute `annotationlib`, `warnings`/`_py_warnings`, and their prerequisites; implement real runtime operations rather than replacement Python APIs. |
+| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; `annotationlib`, `ast`, `enum`, `types`, `warnings`, and `_py_warnings` are vendored at the pin for offline probes. | Current entry blockers: function `__code__` in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
 | Unchanged `unittest` import | Currently stops at `unittest/result.py:5:8`, missing `traceback`. | Finish the active collections dependency work, then continue through traceback and the remaining synchronous import closure. |
 | `TestCase` / `TestResult` | Not executed. | Passing tests, assertion failures, errors, setup/teardown, cleanups, skips, expected failures, and subtests. |
 | Suites, loader, text runner | Not executed. | In-memory suite/name loading, traceback reports, warnings, and complete output checked through `StringIO`. |
@@ -812,3 +812,25 @@ specialization, and class bases now have the behavior tests described above.
 This is still not the full collections or alias surface. No unittest TestCase, suite, runner report,
 unchanged test_colorsys.py, or unittest.main() has executed yet. The complete
 synchronous unittest milestone remains unfinished.
+
+#### Annotation and warning dependency probes
+
+The first dependency batch was copied unchanged from the same CPython pin:
+`annotationlib.py`, `ast.py`, `enum.py`, `types.py`, `warnings.py`, and
+`_py_warnings.py`. Reproduce their current import failures offline:
+
+```sh
+go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings
+```
+
+| Probe | First observed failure |
+| --- | --- |
+| `types`, `enum` | `types.py:18:21`: function has no `__code__` attribute. |
+| `ast`, `annotationlib` | `ast.py:23:1`: missing `_ast`. |
+| `warnings` | `_py_warnings.py:4:8`: missing `_contextvars`. |
+
+These are first failures, not complete missing-feature lists. Next, expose real
+function/code metadata needed by unchanged types, then reprobe. AST services,
+context-variable state, enum construction, annotation descriptors, and subsequent
+imports still need their own tested slices. Vendoring source alone is not a
+passing behavior test.
