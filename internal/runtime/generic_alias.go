@@ -12,6 +12,20 @@ type genericAliasState struct {
 func initializeGenericAliasClass() *typeValue {
 	class := newBuiltinClass("types", "GenericAlias", nil)
 	class.genericAliasClass = true
+	class.setAttribute("__new__", &builtinFunctionValue{name: "GenericAlias.__new__", frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+		if exception := checkNativeArguments("GenericAlias.__new__", arguments, keywords, 3, 3); exception != nil {
+			discardCallSegment(caller, base)
+			return raiseOutcome(exception), nil
+		}
+		subclass, ok := arguments[0].(*typeValue)
+		if !ok || !subclass.isSubclassOf(class) {
+			discardCallSegment(caller, base)
+			return raiseOutcome(newException("TypeError", "GenericAlias.__new__ requires a GenericAlias subtype")), nil
+		}
+		value := newGenericAlias(subclass, arguments[1], arguments[2])
+		discardCallSegment(caller, base)
+		return pushOutcome(caller, instruction, value)
+	}})
 	for _, name := range []string{"__origin__", "__args__"} {
 		class.setAttribute(name, &propertyValue{doc: None, getter: nativeInstanceMethod(class, name, func(caller *frame, instruction int, self *instanceValue, _ []Value, _ *dictValue) (instructionOutcome, error) {
 			if self.alias == nil {
@@ -53,6 +67,9 @@ func newGenericAlias(class *typeValue, origin, arguments Value) *instanceValue {
 }
 
 func executeGenericAliasConstructor(caller *frame, instruction, base int, class *typeValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+	if !class.genericAliasClass {
+		return executeGenericAliasSubclass(caller, instruction, base, class, arguments, keywords)
+	}
 	if exception := checkNativeArguments("GenericAlias", arguments, keywords, 2, 2); exception != nil {
 		discardCallSegment(caller, base)
 		return raiseOutcome(exception), nil

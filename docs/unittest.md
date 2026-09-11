@@ -663,8 +663,10 @@ execution tests for delegation, throw/close completion and errors, structural
 hooks, abstract enforcement, and native registrations. They use the existing
 coroutine/await VM path, not an event loop. Buffer structural tests now use native
 bytes/bytearray/memoryview descriptors with real exports, flags, ownership, and
-release semantics. ByteString warnings and generic-alias coverage remain in
-progress.
+release semantics. GenericAlias subclasses now run __new__/__init__ and native
+state construction; unchanged Callable aliases flatten argument lists, preserve
+origins, and round-trip reduction tuples. ByteString warnings and remaining
+generic-alias operations are still in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams

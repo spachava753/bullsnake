@@ -70,6 +70,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	viewClass := initializeMemoryViewClass(builtins)
 	builtins.values["IOError"] = osErrorType
 	builtins.values["EnvironmentError"] = osErrorType
+	builtins.values["Ellipsis"] = ellipsisSingleton
 	builtins.values["NotImplemented"] = notImplementedSingleton
 	builtins.values["__name__"] = &stringValue{value: "builtins"}
 	builtins.values["__package__"] = &stringValue{value: ""}

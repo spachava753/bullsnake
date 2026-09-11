@@ -905,8 +905,13 @@ TypeError.
 runtime-owned GenericAlias instances. They retain the origin and one stable
 argument tuple, expose read-only `__origin__` and `__args__`, render nested
 concrete aliases, and provide `__mro_entries__`. Calling the alias type directly
-accepts two positional arguments. Alias calling, comparison, type-parameter
-substitution, subclass construction, and base rewriting remain later slices.
+accepts two positional arguments. Alias subclasses run their Python `__new__`
+and may delegate to GenericAlias.__new__ for typed native state. Compatible
+results run the actual instance class's initializer, which must return None;
+foreign __new__ results bypass initialization. Unchanged Callable aliases now
+construct flattened argument metadata and round-trip their reduction tuples.
+Alias calling, comparison, type-parameter substitution, and base rewriting
+remain later slices.
 
 ## Exceptions
 

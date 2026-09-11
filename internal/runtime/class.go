@@ -419,8 +419,10 @@ func executeTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
-	if class.genericAliasClass {
-		return executeGenericAliasConstructor(caller, instruction, base, class, arguments, keywords)
+	for _, parent := range class.mro {
+		if parent.genericAliasClass {
+			return executeGenericAliasConstructor(caller, instruction, base, class, arguments, keywords)
+		}
 	}
 	if class.bufferViewClass {
 		return executeMemoryViewTypeCall(caller, instruction, base, class, arguments, keywords)
