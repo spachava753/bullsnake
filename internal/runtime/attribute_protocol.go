@@ -31,6 +31,9 @@ func executeDynamicAttributeLoad(
 			return pushOutcome(frame, instruction, class)
 		}
 	}
+	if method, found := frame.runtime.boundNativeHashCall(owner, name); found {
+		return pushOutcome(frame, instruction, method)
+	}
 	if method, found := frame.runtime.boundNativeCollectionMethod(owner, name); found {
 		return pushOutcome(frame, instruction, method)
 	}
@@ -274,6 +277,9 @@ func executeTypeAttributeLoad(
 		return pushOutcome(frame, instruction, result)
 	}
 	value, found := owner.lookup(name)
+	if !found && name == "__hash__" {
+		value, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
+	}
 	if !found && owner.isSubclassOfNative(typeNativeType) {
 		value, found = nativeMetaclassMethod(name)
 	}
@@ -354,6 +360,10 @@ func executeInstanceAttributeLoad(
 		return pushOutcome(frame, instruction, value)
 	}
 	if !classFound {
+		if name == "__hash__" {
+			method, _ := frame.runtime.nativeClassAttribute(objectNativeType, name)
+			return pushOutcome(frame, instruction, bindInstanceFunction(method, owner))
+		}
 		if name == "__class__" {
 			return pushOutcome(frame, instruction, owner.class)
 		}

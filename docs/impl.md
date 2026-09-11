@@ -883,6 +883,11 @@ containment operations are exposed as receiver-checked descriptors and bound
 methods. These run through the existing operations and enable unchanged
 Iterable/Iterator/Sized/Container/Collection structural hooks. Methods not backed
 by an implemented operation remain absent.
+Hash and call slots are also published for the supported native values. Disabled
+hashes remain actual None entries, and dict views/frame-local proxies reject
+hashing. Object hash descriptors are inheritable and bypass Python overrides
+when called explicitly; native call descriptors preserve ordinary argument and
+keyword binding. These enable Hashable/Callable checks without placeholder slots.
 Other native protocol descriptors, exception namespaces, proxy
 construction, comparison, reverse iteration, and union operations remain later
 slices.

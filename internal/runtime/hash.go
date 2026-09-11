@@ -153,6 +153,10 @@ func fixedValueHash(value Value) (int64, *Exception, bool) {
 		}
 		hash, _, _ := hashTuple(parts)
 		return hash, nil, true
+	case *mappingProxyValue:
+		return fixedValueHash(value.dictionary)
+	case *dictionaryKeysView, *dictionaryItemsView, *dictionaryValuesView, *frameLocalsProxy:
+		return 0, unhashableTypeError(value.TypeName()), true
 	case *listValue, *dictValue, *setValue, *bytearrayValue:
 		return 0, unhashableTypeError(value.TypeName()), true
 	case *sliceValue:
