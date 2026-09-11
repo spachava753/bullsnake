@@ -32,22 +32,20 @@ func nativeReceiverMatches(receiver Value, class *nativeTypeValue) bool {
 }
 
 func nativeHashDescriptor(class *nativeTypeValue) Value {
-	return &builtinFunctionValue{name: "__hash__", method: true, call: func(arguments []Value, keywords *dictValue) (Value, *Exception) {
+	return &builtinFunctionValue{name: "__hash__", method: true, frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 		if exception := checkNativeArguments("__hash__", arguments, keywords, 1, 1); exception != nil {
-			return nil, exception
+			discardCallSegment(caller, base)
+			return raiseOutcome(exception), nil
 		}
 		self := arguments[0]
+		discardCallSegment(caller, base)
 		if !nativeReceiverMatches(self, class) {
-			return nil, newException("TypeError", "descriptor '__hash__' requires a '"+class.name+"' object")
+			return raiseOutcome(newException("TypeError", "descriptor '__hash__' requires a '"+class.name+"' object")), nil
 		}
 		if class == objectNativeType {
-			return hashIntegerValue(stableTextHash(self.TypeName(), self.Repr())), nil
+			return pushOutcome(caller, instruction, hashIntegerValue(stableTextHash(self.TypeName(), self.Repr())))
 		}
-		hash, exception, _ := fixedValueHash(self)
-		if exception != nil {
-			return nil, exception
-		}
-		return hashIntegerValue(hash), nil
+		return executeBuiltinHash(caller, instruction, len(caller.stack), []Value{self}, nil)
 	}}
 }
 

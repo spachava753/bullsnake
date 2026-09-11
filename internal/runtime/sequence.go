@@ -6,6 +6,7 @@ import (
 )
 
 type tupleValue struct {
+	hash     *intValue
 	elements []Value
 }
 

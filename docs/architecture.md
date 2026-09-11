@@ -530,8 +530,10 @@ native values would create two subtly different languages.
 Python containers cannot be represented as plain Go maps or slices forever.
 Hashing, equality, attribute access, and descriptors may call Python code or
 raise exceptions. The `hash` builtin already calls class `__hash__` for a direct
-user instance, but tuple and frozen-set hashing does not yet recurse into user
-values, and dictionary or set key handling still uses fixed runtime rules.
+user instance and recursively inside immutable containers through an explicit
+native worklist. Tuples cache successful hashes on their runtime-owned values;
+failed computations retry. Dictionary and set key handling still uses fixed
+runtime rules.
 Current list, set, and frozen-set equality recurses through values with fixed
 runtime equality; user-defined element equality still needs a suspended
 comparison path. Dictionary equality now resumes direct Python value equality

@@ -42,6 +42,9 @@ func executeBuiltinHash(
 	if instance, ok := value.(*instanceValue); ok {
 		return executeUserHash(caller, instruction, instance)
 	}
+	if state, collection := newHashCollectionState(value); collection {
+		return (&hashCollectionCall{instruction: instruction, stack: []hashCollectionState{state}}).advance(caller)
+	}
 	hash, exception, supported := fixedValueHash(value)
 	if exception != nil {
 		return raiseOutcome(exception), nil
@@ -169,8 +172,7 @@ func fixedValueHash(value Value) (int64, *Exception, bool) {
 }
 
 func hashTuple(elements []Value) (int64, *Exception, bool) {
-	accumulator := big.NewInt(0x345678)
-	multiplier := big.NewInt(1000003)
+	accumulator := tupleHashPrime5
 	for _, element := range elements {
 		hash, exception, supported := fixedValueHash(element)
 		if exception != nil {
@@ -182,11 +184,9 @@ func hashTuple(elements []Value) (int64, *Exception, bool) {
 				"hashing tuples containing user values is not supported",
 			), true
 		}
-		accumulator.Mul(accumulator, multiplier)
-		accumulator.Add(accumulator, big.NewInt(hash))
+		accumulator = mixTupleHash(accumulator, hash)
 	}
-	accumulator.Add(accumulator, big.NewInt(97531))
-	return hashBigInteger(accumulator), nil, true
+	return finishTupleHash(accumulator, len(elements)), nil, true
 }
 
 // hashFrozenSet uses the same order-independent 64-bit mixing as Set._hash in

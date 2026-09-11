@@ -580,9 +580,12 @@ silently change the hash slot. This keeps mutable Set/Mapping ABC subclasses
 unhashable unless they explicitly supply a hash.
 Frozen-set mixing matches the unchanged Set._hash algorithm, including negative
 and large element hashes. `sys.maxsize` exposes the runtime's native index limit
-without reading host configuration. Tuple and
-frozen-set hashing does not yet invoke user methods recursively, and dictionary
-or set keys still use fixed hashability and equality checks.
+without reading host configuration. Tuple and frozen-set hashing now use an
+explicit native worklist and resume Python element hashes through the VM. Tuple
+mixing and successful-result caching follow the pinned CPython 3.14 behavior;
+failed hashes retry. The shared empty frozenset remains immutable. Dictionary
+and set key admission still uses fixed hashability and equality checks, so this
+does not yet enable arbitrary Python keys.
 
 The `repr` builtin calls class `__repr__` for a direct user instance and requires
 a string result. The object form of `str` returns strings unchanged, uses an
