@@ -1,13 +1,14 @@
 # First major milestone: run Python's unittest
 
-Status: language groundwork is in place; importing and running `unittest` is
-still blocked.
+Status: host configuration, synchronous in-memory I/O, ABCs, and substantial
+collection behavior are implemented and tested. Importing and running `unittest`
+is still blocked; no unittest test has executed.
 
 The goal is to run CPython's unchanged synchronous `unittest` package, then use
-it to run unchanged standard-library tests. Much of the Python language support
-needed for this work already exists. The next phase needs Go-backed system
-modules and more runtime behavior, especially in-memory I/O, general weak references,
-and tracebacks that Python code can inspect.
+it to run unchanged standard-library tests. The current work expands its
+unchanged source dependencies and implements the runtime operations they need.
+General weak references, Python-visible tracebacks, warning handling, and broader
+introspection remain important gaps.
 
 This document tracks that milestone. The [architecture](architecture.md)
 explains the interpreter's design, and the [implementation guide](impl.md)
@@ -40,6 +41,59 @@ Neither is part of this milestone.
 
 ## Where we are now
 
+### Current progress and remaining work
+
+This table is the current milestone tracker. Historical probe failures below
+are retained as context, not as the current blocker. Update this table and the
+[current unchanged-source checkpoint](#current-unchanged-source-checkpoint)
+when a tested slice changes what can execute.
+
+| Milestone | Current evidence | Remaining work |
+| --- | --- | --- |
+| Runtime and host groundwork | Source execution tests; per-runtime modules and arguments; supplied streams and performance counter; explicit host denial. | Broader object protocols, collection keys, introspection, and system-module APIs as dependencies require them. |
+| Unchanged `abc` and `io` | Both import; ABC construction/registration and public io stream tests pass. In-memory streams, buffering, text decoding, and close/error paths are tested. | Full upstream conformance is not claimed; host-stream ABC integration and documented codec/buffer gaps remain. |
+| Unchanged `_collections_abc` | Imports; structural protocols and Set/Mapping/Sequence families have behavior tests. Callable aliases support construction, call, equality/hash, TypeVar/ParamSpec specialization, defaults, and class bases. | Concrete Callable representation, ByteString warning behavior, forward references, Concatenate, TypeVarTuple unpacking/substitution, and broader alias forwarding. Import success is not completion. |
+| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11. | Vendor and execute `annotationlib`, `warnings`/`_py_warnings`, and their prerequisites; implement real runtime operations rather than replacement Python APIs. |
+| Unchanged `unittest` import | Currently stops at `unittest/result.py:5:8`, missing `traceback`. | Finish the active collections dependency work, then continue through traceback and the remaining synchronous import closure. |
+| `TestCase` / `TestResult` | Not executed. | Passing tests, assertion failures, errors, setup/teardown, cleanups, skips, expected failures, and subtests. |
+| Suites, loader, text runner | Not executed. | In-memory suite/name loading, traceback reports, warnings, and complete output checked through `StringIO`. |
+| Unchanged colorsys tests and `unittest.main()` | Colorsys still uses adapted assertions. | Run the unchanged upstream test through unittest, then argument-driven entry with supplied streams and catchable exit. |
+
+### Dependency strategy: unchanged Python sources
+
+On 2026-09-11, we chose to expand the unchanged CPython dependency tree instead
+of publishing limited native `annotationlib` or `warnings` replacements. This
+applies to the remaining collections work as well as the unittest import path.
+Keep every vendored module byte-for-byte at the pinned revision.
+
+The immediate paths are:
+
+- Concrete `Callable.__repr__` imports `annotationlib.type_repr`.
+  `annotationlib` imports `ast`, `enum`, and `types`, among other modules, and
+  performs real class/descriptor work while importing. Do not copy just
+  `type_repr` into a substitute module or skip those imports.
+- ByteString subclass construction and instance checks call
+  `warnings._deprecated`. Python 3.14's `warnings` imports `_py_warnings` before
+  optionally using `_warnings`. Test warning filtering, recording, emission,
+  and error propagation rather than making `_deprecated` a no-op.
+- Forward references and the remaining typing operations may share annotation
+  dependencies. Follow the actual pinned source paths; do not assume that
+  importing annotationlib finishes typing support.
+
+Implement native machinery where Python genuinely depends on interpreter
+services, such as `_ast`, frame/code metadata, descriptors, or synchronization.
+Optional native accelerators may remain absent when the unchanged Python
+fallback works. Neither a native helper nor an import-time declaration may
+pretend to implement behavior it cannot execute. Warning output and any future
+filesystem, clock, thread, or process interaction must preserve explicit host
+capabilities; dependency expansion does not authorize ambient host access.
+
+For each slice: add a source behavior test first, implement the missing operation,
+record supported behavior and the next observed blocker here, run all repository
+checks, and commit the finished slice. Record source provenance when vendoring.
+Separate import evidence from exercised public behavior and from full upstream
+conformance. Do not replace the adapted colorsys tests until unittest executes.
+
 ### Implemented and tested in this repository
 
 | Area | Progress relevant to unittest |
@@ -68,7 +122,7 @@ pinned CPython process imported synchronous `unittest`. The parser, name
 resolver, and compiler handled those files. This does not show that every
 function in them can execute.
 
-The last recorded attempt to execute the unchanged package stopped at:
+The earlier attempt, before `_io` was implemented, stopped at:
 
 ```text
 Lib/io.py:53:8: ModuleNotFoundError: No module named '_io'
@@ -89,19 +143,14 @@ and again after the host slices, with the same import outcomes. Operator,
 keyword, and heapq now also have checked-in execution regression tests. The
 historical 61-module compilation sweep has not been repeated.
 
-After the weak ABC registry slices, `abc` imports and has checked-in execution
-tests. After the first `_io.StringIO` output slice, `unittest` fails at
-`io.py:56:1` with `ModuleNotFoundError: No module named '_collections_abc'`.
-Reproduce these current outcomes offline from the repository root:
-
-```sh
-go run ./tools/importprobe stdlib/3.14 abc unittest
-```
-
-The probe reports abc success and the current unittest failure, then exits
-unsuccessfully. It is a checkpoint diagnostic, not a passing unittest test. No TestCase/TestResult,
-suite/loader, text runner, or unittest.main execution has succeeded yet. An import success alone does
-not establish that a module's public functions work.
+After the weak ABC registry slices, `abc` imported with checked-in execution
+tests. After the first `_io.StringIO` output slice, `unittest` reached
+`io.py:56:1` and failed because `_collections_abc` was missing. Both import
+blockers are now resolved. The latest exact failure and reproduction command
+are in the [current checkpoint](#current-unchanged-source-checkpoint).
+No TestCase/TestResult, suite/loader, text runner, or unittest.main execution has
+succeeded yet. An import success alone does not establish that a module's public
+functions work.
 
 An execution smoke test after the host slices exposed missing list item
 assignment inside `heapq.heapify`. Native integer/boolean list assignment now has
@@ -120,8 +169,9 @@ can supply any implementation that satisfies its interface.
 The private constructor registry and initial `runtime.Config` argument/loader
 configuration are implemented and tested. The performance counter is implemented with fake-provider and denial tests.
 Borrowed UTF-8 stream adapters now have source fixtures and Go provider tests.
-The broader io/ABC surface below remains planned. The Go names below are illustrative; the public API
-will follow tested internal implementations.
+The initial in-memory io/ABC implementation is described in the progress sections.
+The Go names below illustrate the host design; the public API will follow tested
+internal implementations.
 
 ### Small interfaces, supplied explicitly
 
@@ -389,25 +439,26 @@ missing. None of these host tests establishes unittest compatibility.
 
 ## What to do next
 
-### 1. Implement the module and capability design
+### 1. Finish collection behavior through unchanged dependencies
 
-Begin with the internal module constructors and typed configuration described
-above. Implement each adapter's exception prerequisites before exposing its
-operations. Prove isolation, defaults, denied access, and caller-supplied output
-with focused tests before adding more system operations. Keep exact public Go
-names open until those internal contracts work.
+The initial module/capability, ABC, and in-memory I/O slices are implemented.
+Continue with the [unchanged-source dependency strategy](#dependency-strategy-unchanged-python-sources):
+vendor annotation and warning dependencies at the pin, reproduce their earliest
+failure offline, and implement the required runtime primitives in tested slices.
+Exercise concrete Callable representation and ByteString's actual warning hooks
+through `_collections_abc`, not just standalone helper tests. Keep the remaining
+alias and collection gaps in the progress table visible until tested.
 
-### 2. Make the unchanged package import
+### 2. Complete the synchronous unittest import closure
 
-Start with `abc` and the class behavior it needs, then in-memory `_io` and
-unchanged `io.py`. Continue through the other dependencies as each import
-reveals the next missing operation. Adding `_io` alone will not make
-`import unittest` succeed.
+Once the active collections work is usable, continue from the current missing
+`traceback` import through the remaining dependencies. Add only the sources and
+runtime behavior reached by the selected synchronous path; mock, async runners,
+filesystem discovery, and signal delivery remain outside this milestone.
 
-For `StringIO`, cover `write`, `writelines`, `flush`, `seek`, `tell`, `truncate`,
-`getvalue`, `close`, `closed`, and use in a `with` statement. Provide the stream
-information used by `_colorize`, including a defined `isatty` result. Test that
-Python code can replace `sys.stdout` and `sys.stderr`.
+Retain the existing StringIO and public io regression tests. Additional
+`_colorize`, stream, exception-state, and warning requirements must use actual
+runtime state and caller-supplied capabilities, not fabricated results.
 
 The checkpoint is an exact `import unittest` through the normal loader, with
 its dependencies present and no edits that bypass import-time work.
