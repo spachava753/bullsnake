@@ -96,6 +96,9 @@ func (call *aliasSubstitutionCall) prepareOne(caller *frame, index int) (instruc
 			return pushOutcome(current, call.instruction, &tupleValue{elements: append(append([]Value(nil), call.items...), result)})
 		})
 	}
+	if parameter, ok := parameter.(*paramSpecValue); ok {
+		return call.prepareParamSpec(caller, index, parameter)
+	}
 	if isTypeParameter(parameter) {
 		return raiseOutcome(newException("NotImplementedError", "variadic type parameter substitution is not supported")), nil
 	}

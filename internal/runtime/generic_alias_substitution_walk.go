@@ -76,6 +76,14 @@ func (walk *aliasSubstitutionWalk) append(value Value) {
 // substitute replaces direct native parameters, invokes custom typing methods,
 // and delegates nested parameterized objects to their ordinary item protocol.
 func (call *aliasSubstitutionCall) substitute(caller *frame, item Value) (instructionOutcome, error) {
+	if _, parameter := item.(*paramSpecValue); parameter {
+		value, _ := call.replacement(item)
+		value, exception := checkedParamSpecArgument(value)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(caller, call.instruction, value)
+	}
 	if _, ordinary := item.(*typeVarValue); ordinary {
 		value, _ := call.replacement(item)
 		value, exception := checkedTypeArgument(value)

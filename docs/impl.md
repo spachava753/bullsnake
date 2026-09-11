@@ -932,9 +932,11 @@ traversal uses a typed worklist with a local recursion guard. Subscription
 substitutes ordinary TypeVars, lazily evaluates omitted defaults, and recursively
 reconstructs sequence and nested alias arguments. Custom typing preparation,
 substitution, and nested item callbacks run through the VM. Unchanged Callable
-rewraps specialized arguments in its own subclass. None becomes NoneType;
-string forward references and variadic parameter substitution remain explicitly
-unsupported. Base rewriting remains a later slice.
+rewraps specialized arguments in its own subclass. ParamSpec substitution also
+handles parameter-list/ellipsis/ParamSpec replacements, PEP 612 single-parameter
+shorthand, list-to-tuple conversion, and lazy defaults. None becomes NoneType;
+string forward references, Concatenate, and TypeVarTuple unpacking/substitution
+remain explicitly unsupported. Base rewriting remains a later slice.
 
 ## Exceptions
 
