@@ -9,6 +9,7 @@ func initializeSys(runtime *Runtime, module *Module) (*Exception, error) {
 	for index, arg := range runtime.args {
 		args[index] = &stringValue{value: arg}
 	}
+	module.globals.values["maxsize"] = integerFromInt64(int64(^uint(0) >> 1))
 	module.globals.values["argv"] = &listValue{elements: args}
 	stdin := Value(None)
 	if runtime.stdin != nil {

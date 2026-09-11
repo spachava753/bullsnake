@@ -111,6 +111,9 @@ func finishHashCall(
 			"__hash__ method should return an integer",
 		)), nil
 	}
+	if integer.IsInt64() {
+		return pushOutcome(frame, call.instruction, hashIntegerValue(normalizeHashInt64(integer.Int64())))
+	}
 	return pushOutcome(frame, call.instruction, hashIntegerValue(hashBigInteger(&integer)))
 }
 
@@ -182,8 +185,10 @@ func hashTuple(elements []Value) (int64, *Exception, bool) {
 	return hashBigInteger(accumulator), nil, true
 }
 
+// hashFrozenSet uses the same order-independent 64-bit mixing as Set._hash in
+// the vendored ABC module. Element hashing retains the fixed-value boundary.
 func hashFrozenSet(elements []Value) (int64, *Exception, bool) {
-	accumulator := big.NewInt(1927868237)
+	accumulator := uint64(len(elements)+1) * 1927868237
 	for _, element := range elements {
 		hash, exception, supported := fixedValueHash(element)
 		if exception != nil {
@@ -195,9 +200,15 @@ func hashFrozenSet(elements []Value) (int64, *Exception, bool) {
 				"hashing frozen sets containing user values is not supported",
 			), true
 		}
-		accumulator.Add(accumulator, big.NewInt(hash))
+		bits := uint64(hash)
+		accumulator ^= (bits ^ (bits << 16) ^ 89869747) * 3644798167
 	}
-	return hashBigInteger(accumulator), nil, true
+	accumulator ^= (accumulator >> 11) ^ (accumulator >> 25)
+	accumulator = accumulator*69069 + 907133923
+	if accumulator == ^uint64(0) {
+		accumulator = 590923713
+	}
+	return int64(accumulator), nil, true
 }
 
 func hashFloat(value float64) int64 {

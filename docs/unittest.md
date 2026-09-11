@@ -647,8 +647,10 @@ filesystem denial. Unchanged `io.py` now imports and has public stream ABC,
 Reader/Writer protocol, subclass, and integrated stream regression tests.
 Collection ABC behavior tests now exercise native and user structural checks for
 Iterable, Iterator, Sized, Container, and Collection, including disabled slots
-and concrete ABC defaults. Collection mixin and other protocol coverage remain
-in progress.
+and concrete ABC defaults. Collection mixin tests also cover Set/MutableSet comparison, forward/reflected
+operators, in-place mutation, remove/pop/clear, and matching hashes between
+custom immutable sets and native frozensets. Other protocol and mixin coverage
+remain in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams

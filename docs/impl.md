@@ -563,7 +563,11 @@ nonnegative integer that fits the host index size. The special-method call can
 suspend in another Python frame before the requesting operation continues.
 Dictionaries and sets currently use ordered linear storage. The `hash` builtin
 uses fixed hashes for current immutable native values and calls class `__hash__`
-for a direct user instance. User methods must return an integer. Tuple and
+for a direct user instance. User methods must return an integer. Signed 64-bit
+results are preserved except for reserved -1; larger results use integer hashing.
+Frozen-set mixing matches the unchanged Set._hash algorithm, including negative
+and large element hashes. `sys.maxsize` exposes the runtime's native index limit
+without reading host configuration. Tuple and
 frozen-set hashing does not yet invoke user methods recursively, and dictionary
 or set keys still use fixed hashability and equality checks.
 
