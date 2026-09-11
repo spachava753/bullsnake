@@ -534,12 +534,12 @@ user instance and recursively inside immutable containers through an explicit
 native worklist. Tuples cache successful hashes on their runtime-owned values;
 failed computations retry. Dictionary and set key handling still uses fixed
 runtime rules.
-Current list, set, and frozen-set equality recurses through values with fixed
-runtime equality; user-defined element equality still needs a suspended
-comparison path. Dictionary equality now resumes direct Python value equality
-and truth callbacks through the VM, with identity preference and recursive-pair
-checks. Native dictionary nesting has a local 1000-comparison bound to protect
-the Go stack; a runtime-wide recursion budget remains separate work. Container
+List, tuple, and dictionary equality resumes Python element equality and truth
+callbacks through the VM, with identity preference and recursive-pair checks
+shared across these container kinds. Native container nesting has a local
+1000-comparison bound to protect the Go stack; a runtime-wide recursion budget
+remains separate work. Set/frozen-set equality and native membership still use
+fixed runtime element comparisons. Container
 and object implementations must support those calls
 when the protocols are added.
 

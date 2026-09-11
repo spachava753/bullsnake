@@ -553,14 +553,17 @@ implemented.
 Dictionary equality ignores insertion order, compares corresponding values with
 identity preference, and resumes direct Python value equality and truth callbacks.
 Inequality negates that equality result rather than calling each value's `__ne__`.
-Nested dictionaries use the same path. Recursive dictionary pairs and nesting
-beyond 1000 comparisons raise RecursionError; this local bound is not a global
-Python recursion-limit API. Key lookup retains fixed hashability/equality rules,
-and values nested inside native sequences retain those sequences' current limits.
+Nested dictionaries, lists, and tuples use the same resumable equality path.
+Recursive container pairs and nesting beyond 1000 comparisons raise RecursionError;
+this local bound is not a global Python recursion-limit API. Key lookup retains
+fixed hashability/equality rules.
 
-List, set, and frozen-set equality use the runtime's fixed recursive rules for
-scalars, tuples, lists, sets, frozen sets, and identical values. They do not yet
-suspend for user `__eq__`, unlike `list.remove`.
+List and tuple equality also resumes element equality and truth callbacks,
+prefers identical elements, and negates equality for inequality rather than
+calling element `__ne__`. Lists reject unequal lengths before element comparison
+and reread live storage after callbacks; tuples compare their shared prefix first.
+Set and frozen-set equality and native membership retain fixed recursive rules
+and do not yet suspend for user `__eq__`.
 Built-in values use fixed truth and length rules. `len` supports strings, bytes,
 ranges, tuples, lists, dictionaries, and sets; string lengths count decoded code
 points, including preserved lone surrogates. A user instance looks up `__bool__`

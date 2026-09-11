@@ -593,8 +593,9 @@ Known gaps to check as execution advances are:
   needed by code such as `namedtuple`. Initial descriptor subclasses now work.
 - Dictionary and set keys whose hashing or equality calls Python methods.
   Direct `hash(obj)` supports a user method today, but container keys do not.
-- List, set, and frozen-set equality involving user-defined element equality.
-  These containers currently use fixed runtime comparisons.
+- Set and frozen-set equality involving user-defined element equality.
+  These containers still use fixed runtime comparisons; list, tuple, and
+  dictionary equality now resume Python equality and truth callbacks.
 - Additional collection, string, bytes, and bytearray methods, and builtin call
   forms such as `max(iterable)` and `min(iterable)`.
 

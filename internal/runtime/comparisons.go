@@ -36,6 +36,9 @@ func executeComparison(
 		}
 	}
 	if operand == bytecode.CompareEqual || operand == bytecode.CompareNotEqual {
+		if _, _, sequences := nativeSequencePair(left, right); sequences {
+			return executeSequenceEquality(frame, index, left, right, operand == bytecode.CompareNotEqual, nil)
+		}
 		leftDictionary, leftMapping := left.(*dictValue)
 		rightDictionary, rightMapping := right.(*dictValue)
 		if leftMapping && rightMapping {
