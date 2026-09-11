@@ -35,10 +35,13 @@ Project-owned `tests/test_abc.py` exercises abstract construction, descriptors,
 virtual registration, hooks, and checks against unchanged abc.py. It is not the
 upstream test_abc suite. A separate test checks the full unchanged
 `_dump_registry` report through print, using explicit and redirected Python
-streams. `update_abstractmethods` still needs class dictionary access. `unittest`
-now executes `_collections_abc.py` and stops at line 87 because `type.__dict__`
-is not implemented. Generic alias construction has passed its first import-time
-use, `type(list[int])`. Native `_io` supplies
+streams. `update_abstractmethods` now runs through live class dictionaries.
+Unchanged `_collections_abc` and `io` also import, and `tests/test_io.py` checks
+public stream ABC registration, Reader/Writer structural checks and abstract
+construction, subclassing, aliases, and integrated streams. Collection mixin and
+generic alias operations beyond import-time use remain in progress. `unittest`
+now stops at `unittest/result.py:5:8` because `traceback` is not yet vendored.
+Native `_io` supplies
 the documented synchronous in-memory streams, buffering and text wrappers, plus
 explicit filesystem denial. See `docs/impl.md` for its codec and buffer limits.
 The adapted colorsys tests remain in place until unchanged unittest execution

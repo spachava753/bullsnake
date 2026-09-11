@@ -1037,8 +1037,10 @@ optional interfaces. No output buffer is added. Missing Flush means no work;
 missing IsTerminal means false. Seeking, telling, truncating, descriptors, and
 the wrong read/write direction raise the internal `io.UnsupportedOperation`
 class, which matches OSError and ValueError and is exported by `_io`.
-The vendored `io` module now imports successfully; broader public ABC behavior
-still needs execution coverage.
+The vendored `io` module now imports successfully. Its project-owned regression
+test exercises public stream ABC registration, Reader/Writer structural checks,
+abstract construction and aliases, a RawIOBase subclass, and text/binary stream
+round trips through the unchanged public module.
 Closing flushes output and closes the wrapper even if flushing raises. It never
 calls a borrowed provider's Close, and repeated close does nothing. Other I/O
 and status operations on a closed wrapper raise ValueError.

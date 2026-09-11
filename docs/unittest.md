@@ -643,8 +643,9 @@ Plan mock and async testing separately. The independent ABC class-construction
 and abstract-method computation slices are tested. Virtual registration is tested
 through both native helpers and unchanged `abc.py`, which now imports. In-memory
 `_io` now has tested in-memory streams, buffering, text decoding, and explicit
-filesystem denial. Unchanged `io.py` now imports; collection and public io ABC
-behavior tests remain in progress.
+filesystem denial. Unchanged `io.py` now imports and has public stream ABC,
+Reader/Writer protocol, subclass, and integrated stream regression tests.
+Collection ABC behavior tests remain in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
@@ -724,8 +725,10 @@ The first three modules import. Unittest advances to:
 stdlib/3.14/unittest/result.py:5:8: ModuleNotFoundError: No module named 'traceback'
 ```
 
-This is an execution probe, not a unittest success claim. Generic alias runtime
-operations, collection mixin families, and the public io ABCs still need behavior
-tests beyond import-time use. No unittest TestCase, suite, runner report,
+This is an execution probe, not a unittest success claim. The public io ABCs now
+have regression tests for registration, Reader/Writer structural checks and
+abstract enforcement, subclassing, and integrated streams. Generic alias runtime
+operations and collection mixin families still need behavior tests beyond
+import-time use. No unittest TestCase, suite, runner report,
 unchanged test_colorsys.py, or unittest.main() has executed yet. The complete
 synchronous unittest milestone remains unfinished.
