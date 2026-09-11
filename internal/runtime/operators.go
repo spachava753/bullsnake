@@ -110,6 +110,12 @@ func executeBinary(
 	if !ok {
 		return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 	}
+	return executeBinaryValues(frame, index, operand, inPlace, left, right)
+}
+
+// executeBinaryValues shares arithmetic and user-method dispatch between
+// bytecode operations and native folds without borrowing operand-stack slots.
+func executeBinaryValues(frame *frame, index int, operand uint32, inPlace bool, left, right Value) (instructionOutcome, error) {
 	if operand == bytecode.BinaryAdd {
 		if result, exception, handled := binaryBufferAdd(left, right, inPlace); handled {
 			if exception != nil {

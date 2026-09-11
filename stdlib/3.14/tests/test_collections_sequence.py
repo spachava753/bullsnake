@@ -17,6 +17,9 @@ assert value.index(1) == 0
 assert value.index(1, 1) == 2
 assert value.index(1, -2) == 2
 assert value.index(2, 0, -1) == 1
+assert value.count(1) == 2
+assert value.count(9) == 0
+assert ReadOnly([]).count(1) == 0
 for args in [(8,), (1, 1, 2)]:
     try:
         value.index(*args)
@@ -75,3 +78,4 @@ class Equal:
 shared = Equal()
 assert shared in ReadOnly([shared])
 assert ReadOnly([Equal()]).index(Equal()) == 0
+assert ReadOnly([Equal(), Equal()]).count(Equal()) == 2

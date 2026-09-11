@@ -74,6 +74,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "round", frameCall: executeBuiltinRound},
 	{name: "setattr", frameCall: executeBuiltinSetattr},
 	{name: "sorted", frameCall: executeBuiltinSorted},
+	{name: "sum", frameCall: executeBuiltinSum},
 	{name: "super", frameCall: executeBuiltinSuper},
 }
 

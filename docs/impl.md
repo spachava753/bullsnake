@@ -706,12 +706,22 @@ The builtin namespace contains the current exception classes; native `bool`,
 `staticmethod` objects; `abs`; `all`; `any`; `callable`; `delattr`; `dir`;
 `getattr`; `hasattr`; `hash`; `isinstance`; `issubclass`; one-argument `iter`;
 `len`; positional `max` and `min` calls with two or more arguments; `next`;
-`repr`; native-sequence `reversed`; `round`; `setattr`; and `sorted`. The `next`
+`repr`; native-sequence `reversed`; `round`; `setattr`; `sorted`; and `sum`. The `next`
 builtin accepts one optional default for generators, internal iterators, and
 user iterators.
 String and base forms of `int`, the iterable and keyword forms of `max` and
 `min`, the encoding form of `str`, and callable-sentinel `iter` remain
 unsupported.
+
+The `sum` builtin consumes current native/user iterators and generators, accepts
+an optional positional or keyword start, and performs ordinary addition through
+VM callbacks without invoking in-place addition. Integer prefixes remain exact;
+native float accumulation uses compensated summation after the supported integer
+to float transition. String, bytes, and bytearray starts are rejected after
+iterator setup. Empty input preserves the supplied start object. Complex sums
+and native addition forms not yet implemented by the arithmetic layer remain
+unsupported. Unchanged Sequence.count now runs through this fold, including
+Python value equality in its generator.
 
 The current function binder supports positional-only, positional, keyword-only,
 `*args`, and `**kwargs` parameters, positional and keyword-only defaults, and

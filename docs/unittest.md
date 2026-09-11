@@ -656,7 +656,8 @@ equality including Python value callbacks. View representation now executes the
 unchanged numbered-field format string through real attribute and repr callbacks.
 Sequence/MutableSequence tests exercise iteration, containment/index callbacks,
 reverse iteration, append/extend/pop/remove/clear/reverse, and in-place extension.
-Sequence.count and remaining protocol/mixin coverage are still in progress.
+Sequence.count now uses sum with integer accumulation and Python comparison
+callbacks. Remaining protocol and generic-alias coverage is still in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
