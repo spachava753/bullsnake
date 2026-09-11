@@ -26,6 +26,7 @@ func initializeGenericAliasClass() *typeValue {
 		discardCallSegment(caller, base)
 		return pushOutcome(caller, instruction, value)
 	}})
+	class.setAttribute("__call__", nativeInstanceMethod(class, "__call__", executeGenericAliasCall))
 	for _, name := range []string{"__origin__", "__args__"} {
 		class.setAttribute(name, &propertyValue{doc: None, getter: nativeInstanceMethod(class, name, func(caller *frame, instruction int, self *instanceValue, _ []Value, _ *dictValue) (instructionOutcome, error) {
 			if self.alias == nil {

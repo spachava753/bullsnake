@@ -20,18 +20,12 @@ func executeGenericAliasSubclass(caller *frame, instruction, base int, class *ty
 		if !ok || !instance.class.isSubclassOf(class) {
 			return pushOutcome(current, instruction, result)
 		}
-		if _, hasInitializer := instance.class.lookup("__init__"); !hasInitializer {
+		initializer, hasInitializer := lookupInstanceSpecial(instance, "__init__")
+		if !hasInitializer {
 			return pushOutcome(current, instruction, result)
 		}
 		return continueNativeOperation(current, instruction, func() (instructionOutcome, error) {
-			return continueNativeOperation(current, instruction, func() (instructionOutcome, error) {
-				return executeDynamicAttributeLoad(current, instruction, instance, "__init__")
-			}, func(ready *frame, initializer Value, exception *Exception) (instructionOutcome, error) {
-				if exception != nil {
-					return raiseOutcome(exception), nil
-				}
-				return executeFunctionCall(ready, instruction, len(ready.stack), initializer, arguments, keywords)
-			})
+			return executeFunctionCall(current, instruction, len(current.stack), initializer, arguments, keywords)
 		}, func(ready *frame, initialized Value, exception *Exception) (instructionOutcome, error) {
 			if exception != nil {
 				return raiseOutcome(exception), nil

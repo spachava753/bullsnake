@@ -910,8 +910,11 @@ and may delegate to GenericAlias.__new__ for typed native state. Compatible
 results run the actual instance class's initializer, which must return None;
 foreign __new__ results bypass initialization. Unchanged Callable aliases now
 construct flattened argument metadata and round-trip their reduction tuples.
-Alias calling, comparison, type-parameter substitution, and base rewriting
-remain later slices.
+Alias calling forwards arguments to the origin and stores `__orig_class__` on
+writable results. Only AttributeError/TypeError from that storage are suppressed;
+origin and other descriptor failures propagate. Subclass initialization uses the
+class slot, ignoring same-named instance attributes. Comparison, type-parameter
+substitution, and base rewriting remain later slices.
 
 ## Exceptions
 
