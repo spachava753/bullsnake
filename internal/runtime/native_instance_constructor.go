@@ -1,8 +1,8 @@
 package runtime
 
-// executeGenericAliasSubclass lets Python __new__ initialize native alias state
-// through the base constructor, then initializes only a compatible result.
-func executeGenericAliasSubclass(caller *frame, instruction, base int, class *typeValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+// executeNativeInstanceConstructor runs a native-backed class's __new__ through
+// the VM, then initializes only a compatible result using its actual class slot.
+func executeNativeInstanceConstructor(caller *frame, instruction, base int, class *typeValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 	arguments = append([]Value(nil), arguments...)
 	discardCallSegment(caller, base)
 	constructor, _ := class.lookup("__new__")

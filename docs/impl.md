@@ -1093,7 +1093,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing sys.implementation, missing _ast,
+probes. Their current blockers are missing function __closure__, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
@@ -1111,6 +1111,17 @@ construction error. There is no ambient host access. The private per-runtime
 constructor registry sits between the cache and source loader. Constructors
 populate a cached module without dummy code; failure removes that module while
 completed dependencies remain cached. Duplicate registrations are rejected.
+
+`sys.implementation` is a runtime-owned SimpleNamespace with truthful
+`name='bullsnake'` and `cache_tag=None` because no bytecode cache format exists.
+Implementation version/hexversion, platform identifiers, and broader sys version
+metadata are not supplied yet; the runtime does not claim a CPython identity.
+The SimpleNamespace type supports keyword or current dict/iterable-pair
+initialization, reinitialization, string-key validation, native/Python subclass
+construction, and a live writable `__dict__` whose replacement is read-only.
+Attribute and dictionary mutations remain synchronized. Custom mapping
+construction, namespace equality/representation, reduce, and replace methods
+remain later slices; this is not the complete SimpleNamespace API.
 
 `sys` provides `argv`, `exit`, and ordinary/original standard-stream attributes.
 Unconfigured streams initialize to `None`. Configured streams receive fresh

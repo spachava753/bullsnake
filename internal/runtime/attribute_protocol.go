@@ -552,7 +552,7 @@ func executeInstanceAttributeStore(
 			)
 		}
 	}
-	owner.attributes.values[name] = value
+	owner.attributes.store(name, value)
 	return instructionOutcome{kind: advance}, nil
 }
 
@@ -600,7 +600,7 @@ func executeInstanceAttributeDelete(
 			),
 		}, nil
 	}
-	delete(owner.attributes.values, name)
+	owner.attributes.delete(name)
 	return instructionOutcome{kind: advance}, nil
 }
 

@@ -9,6 +9,10 @@ func initializeSys(runtime *Runtime, module *Module) (*Exception, error) {
 	for index, arg := range runtime.args {
 		args[index] = &stringValue{value: arg}
 	}
+	implementation := &instanceValue{class: initializeSimpleNamespaceClass(), attributes: newNamespace()}
+	implementation.attributes.store("name", &stringValue{value: "bullsnake"})
+	implementation.attributes.store("cache_tag", None)
+	module.globals.values["implementation"] = implementation
 	module.globals.values["maxsize"] = integerFromInt64(int64(^uint(0) >> 1))
 	module.globals.values["argv"] = &listValue{elements: args}
 	stdin := Value(None)

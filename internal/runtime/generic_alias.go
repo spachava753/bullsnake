@@ -81,7 +81,7 @@ func newGenericAlias(class *typeValue, origin, arguments Value) *instanceValue {
 
 func executeGenericAliasConstructor(caller *frame, instruction, base int, class *typeValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 	if !class.genericAliasClass {
-		return executeGenericAliasSubclass(caller, instruction, base, class, arguments, keywords)
+		return executeNativeInstanceConstructor(caller, instruction, base, class, arguments, keywords)
 	}
 	if exception := checkNativeArguments("GenericAlias", arguments, keywords, 2, 2); exception != nil {
 		discardCallSegment(caller, base)

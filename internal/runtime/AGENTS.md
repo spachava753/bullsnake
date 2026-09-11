@@ -35,9 +35,10 @@ Validation and execution must agree. When an opcode becomes supported, update
 operand checks, stack paths, dispatch, runtime values, Python errors, tests, and
 `docs/impl.md` in the same finished slice.
 
-Native I/O and generic-alias classes use per-runtime ordinary class allocations
-and private typed instance storage. Shared constructors and method descriptors
-live in native_class.go. Bind native instance methods through the shared attribute,
+Native I/O, generic-alias, and SimpleNamespace classes use per-runtime ordinary
+class allocations and private typed instance storage where needed. Shared
+constructors and method descriptors live in native_class.go and
+native_instance_constructor.go. Bind native instance methods through the shared attribute,
 special-method, and super paths. Keep supplied class namespaces immutable and
 user subclasses mutable. Do not introduce a separate I/O inheritance path.
 
@@ -46,8 +47,8 @@ class-body Namespace.dictionary. Keep class stores, deletes, and annotation-cach
 publication synchronized with retained views through the central mutation methods.
 Native namespace descriptors are cached per runtime; publish only implemented
 operations, never marker entries that pretend an unsupported protocol exists.
-Module/global writes and deletes must use Namespace.store/delete after dictionary
-publication. Python dictionary mutation also updates the namespace's name map;
+Module/global writes and deletes, and instance attribute mutation after dictionary
+publication, must use Namespace.store/delete. Python dictionary mutation also updates the namespace's name map;
 Go lifecycle tests must use the same mutation methods rather than deleting only
 from that map.
 Explicit memoryview buffer exports own their source view. Preserve that ownership

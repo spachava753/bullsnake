@@ -53,7 +53,7 @@ when a tested slice changes what can execute.
 | Runtime and host groundwork | Source execution tests; per-runtime modules and arguments; supplied streams and performance counter; explicit host denial. | Broader object protocols, collection keys, introspection, and system-module APIs as dependencies require them. |
 | Unchanged `abc` and `io` | Both import; ABC construction/registration and public io stream tests pass. In-memory streams, buffering, text decoding, and close/error paths are tested. | Full upstream conformance is not claimed; host-stream ABC integration and documented codec/buffer gaps remain. |
 | Unchanged `_collections_abc` | Imports; structural protocols and Set/Mapping/Sequence families have behavior tests. Callable aliases support construction, call, equality/hash, TypeVar/ParamSpec specialization, defaults, and class bases. | Concrete Callable representation, ByteString warning behavior, forward references, Concatenate, TypeVarTuple unpacking/substitution, and broader alias forwarding. Import success is not completion. |
-| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; `annotationlib`, `ast`, `enum`, `types`, `warnings`, and `_py_warnings` are vendored at the pin for offline probes. Function `__code__` and frame `f_code` now expose tested runtime-owned code metadata. | Current entry blockers: `sys.implementation` in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
+| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; `annotationlib`, `ast`, `enum`, `types`, `warnings`, and `_py_warnings` are vendored at the pin for offline probes. Code inspection and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: function `__closure__` in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
 | Unchanged `unittest` import | Currently stops at `unittest/result.py:5:8`, missing `traceback`. | Finish the active collections dependency work, then continue through traceback and the remaining synchronous import closure. |
 | `TestCase` / `TestResult` | Not executed. | Passing tests, assertion failures, errors, setup/teardown, cleanups, skips, expected failures, and subtests. |
 | Suites, loader, text runner | Not executed. | In-memory suite/name loading, traceback reports, warnings, and complete output checked through `StringIO`. |
@@ -825,7 +825,7 @@ go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings
 
 | Probe | First observed failure |
 | --- | --- |
-| `types`, `enum` | `types.py:20:28`: sys has no `implementation` attribute. |
+| `types`, `enum` | `types.py:26:16`: function has no `__closure__` attribute. |
 | `ast`, `annotationlib` | `ast.py:23:1`: missing `_ast`. |
 | `warnings` | `_py_warnings.py:4:8`: missing `_contextvars`. |
 
@@ -837,8 +837,16 @@ function kinds; Go tests cover wrapper identity across runtimes. Code mutation,
 construction, CPython instruction bytes, and complete code/line metadata remain
 unsupported.
 
+The next types blocker, `sys.implementation`, is also resolved for the initial
+metadata subset: `name='bullsnake'` and `cache_tag=None`. Its runtime-owned
+SimpleNamespace type supports real construction/reinitialization, keyword and
+current dict/iterable-pair input, native/Python subclass initialization, and a live
+writable attribute dictionary. Implementation version/platform fields are not
+invented. Namespace comparison, representation, reduce/replace, and custom
+mapping construction still need later slices.
+
 The table lists first failures, not complete missing-feature lists. Next,
-implement truthful `sys.implementation` and its SimpleNamespace behavior, then
-reprobe types. AST services, context-variable state, enum construction,
-annotation descriptors, and subsequent imports still need their own tested
-slices. Vendoring source alone is not a passing behavior test.
+expose actual closure cells through function `__closure__`, then reprobe types.
+AST services, context-variable state, enum construction, annotation descriptors,
+and subsequent imports still need their own tested slices. Vendoring source
+alone is not a passing behavior test.

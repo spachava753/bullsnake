@@ -840,6 +840,10 @@ override operations. Runtime-supplied classes are immutable; user subclasses
 remain mutable. This avoids a separate inheritance model for Go I/O objects.
 GenericAlias uses the same runtime-owned class and native method descriptors,
 with its origin and arguments stored as typed references on ordinary instances.
+SimpleNamespace uses the same constructor continuation for __new__/__init__ and
+an ordinary instance namespace exposed as a synchronized writable dictionary.
+Its initial sys.implementation fields identify Bullsnake without inventing a
+release version, platform identity, or bytecode cache format.
 Explicit close and context management own lifecycle transitions; garbage
 collection never invokes Python I/O methods.
 
