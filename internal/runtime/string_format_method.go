@@ -15,6 +15,7 @@ type stringFormatCall struct {
 	arguments   []Value
 	cursor      int
 	next        int
+	numbering   uint8
 	conversion  byte
 	builder     strings.Builder
 }
@@ -48,23 +49,24 @@ func continueStringFormat(
 				)), nil
 			}
 			end += call.cursor + 1
-			field := call.format[call.cursor+1 : end]
-			conversion, exception := parseAutomaticFormatField(field)
+			field, exception := parsePositionalFormatField(call.format[call.cursor+1 : end])
 			if exception != nil {
 				return raiseOutcome(exception), nil
 			}
-			if call.next >= len(call.arguments) {
+			if exception := call.selectField(&field); exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			if field.index >= len(call.arguments) {
 				return raiseOutcome(newException(
 					"IndexError",
-					"Replacement index "+strconv.Itoa(call.next)+
+					"Replacement index "+strconv.Itoa(field.index)+
 						" out of range for positional args tuple",
 				)), nil
 			}
-			value := call.arguments[call.next]
-			call.next++
+			value := call.arguments[field.index]
 			call.cursor = end + 1
-			call.conversion = conversion
-			return startStringFormatValue(frame, call, value)
+			call.conversion = field.conversion
+			return continueStringFormatAttributes(frame, call, value, field.attributes)
 		case '}':
 			if call.cursor+1 < len(call.format) && call.format[call.cursor+1] == '}' {
 				call.builder.WriteByte('}')
@@ -83,38 +85,93 @@ func continueStringFormat(
 	return pushOutcome(frame, call.instruction, &stringValue{value: call.builder.String()})
 }
 
-// parseAutomaticFormatField accepts the empty automatic field and three
-// conversion markers, then reports each deferred field family explicitly.
-func parseAutomaticFormatField(field string) (byte, *Exception) {
-	if strings.Contains(field, ":") {
-		return 0, newException(
-			"NotImplementedError",
-			"str.format specifications are not supported",
-		)
+type positionalFormatField struct {
+	index      int
+	attributes []string
+	conversion byte
+}
+
+// parsePositionalFormatField accepts automatic or decimal positions followed by
+// attribute paths and optional conversion. Other field families remain explicit.
+func parsePositionalFormatField(text string) (positionalFormatField, *Exception) {
+	field := positionalFormatField{index: -1}
+	if strings.Contains(text, ":") {
+		return field, newException("NotImplementedError", "str.format specifications are not supported")
 	}
-	if field == "" {
-		return 0, nil
-	}
-	if field[0] == '!' {
-		if len(field) == 2 && strings.ContainsRune("sra", rune(field[1])) {
-			return field[1], nil
+	if before, conversion, found := strings.Cut(text, "!"); found {
+		if len(conversion) != 1 || !strings.ContainsRune("sra", rune(conversion[0])) {
+			return field, newException("ValueError", "Unknown conversion specifier "+conversion)
 		}
-		conversion := field[1:]
-		return 0, newException(
-			"ValueError",
-			"Unknown conversion specifier "+conversion,
-		)
+		text, field.conversion = before, conversion[0]
 	}
-	if field[0] >= '0' && field[0] <= '9' {
-		return 0, newException(
-			"NotImplementedError",
-			"numbered str.format fields are not supported",
-		)
+	if strings.Contains(text, "[") {
+		return field, newException("NotImplementedError", "indexed str.format fields are not supported")
 	}
-	return 0, newException(
-		"NotImplementedError",
-		"named str.format fields are not supported",
-	)
+	parts := strings.Split(text, ".")
+	if parts[0] != "" {
+		for _, char := range parts[0] {
+			if char < '0' || char > '9' {
+				return field, newException("NotImplementedError", "named str.format fields are not supported")
+			}
+		}
+		index, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return field, newException("ValueError", "Too many decimal digits in format string")
+		}
+		field.index = index
+	}
+	field.attributes = parts[1:]
+	for _, name := range field.attributes {
+		if name == "" {
+			return field, newException("ValueError", "Empty attribute in format string")
+		}
+	}
+	return field, nil
+}
+
+func (call *stringFormatCall) selectField(field *positionalFormatField) *Exception {
+	if field.index < 0 {
+		if call.numbering == 2 {
+			return newException("ValueError", "cannot switch from manual field specification to automatic field numbering")
+		}
+		call.numbering = 1
+		field.index = call.next
+		call.next++
+	} else {
+		if call.numbering == 1 {
+			return newException("ValueError", "cannot switch from automatic field numbering to manual field specification")
+		}
+		call.numbering = 2
+	}
+	return nil
+}
+
+// continueStringFormatAttributes resolves each real attribute through the VM,
+// then converts the resulting value. Immediate reads stay in a Go loop.
+func continueStringFormatAttributes(caller *frame, call *stringFormatCall, value Value, attributes []string) (instructionOutcome, error) {
+	for len(attributes) != 0 {
+		name, remaining := attributes[0], attributes[1:]
+		suspended := false
+		outcome, err := continueNativeOperation(caller, call.instruction, func() (instructionOutcome, error) {
+			outcome, err := executeDynamicAttributeLoad(caller, call.instruction, value, name)
+			suspended = outcome.kind == called
+			return outcome, err
+		}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
+			if exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			if suspended {
+				return continueStringFormatAttributes(current, call, result, remaining)
+			}
+			return pushOutcome(current, call.instruction, result)
+		})
+		if err != nil || outcome.kind != advance {
+			return outcome, err
+		}
+		value, _ = caller.pop()
+		attributes = remaining
+	}
+	return startStringFormatValue(caller, call, value)
 }
 
 // startStringFormatValue selects string or representation conversion, rejects

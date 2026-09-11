@@ -393,10 +393,10 @@ tuples until the shortest source is exhausted. Strict zip mode remains later
 work. String instances expose bound `capitalize`, `count`,
 `endswith`, `format`, `join`, `lower`, `removeprefix`, `replace`, `split`,
 `splitlines`, `startswith`, and `strip`. Join collects through that iterator path
-before validating and concatenating its items. Format handles automatic fields,
-escaped braces, and `!s`, `!r`, or `!a` conversion. User string and
-representation methods run through frame continuations. Numbered, named, nested,
-specified, and custom `__format__` fields remain later work. Count uses
+before validating and concatenating its items. Format handles automatic and numbered positional fields, attribute paths,
+escaped braces, and `!s`, `!r`, or `!a` conversion. Attribute descriptors and user
+string and representation methods run through frame continuations. Named,
+indexed, nested, specified, and custom `__format__` fields remain later work. Count uses
 non-overlapping matches inside integer-or-boolean code-point slice bounds.
 Replace applies an integer-or-boolean positional or keyword count and inserts
 empty-pattern replacements at code-point boundaries. Removeprefix removes one

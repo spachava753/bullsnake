@@ -491,9 +491,10 @@ slice subscription, and dictionary item mutation. String instances expose bound
 `capitalize`, `count`, `endswith`, `format`, `join`, `lower`, `removeprefix`,
 `replace`, `split`, `splitlines`, `startswith`, and `strip`.
 Join collects through the resumable iterator path before validating all items.
-Format supports automatic
-fields, escaped braces, and `!s`, `!r`, or `!a` conversion. User string and
-representation methods resume through the frame loop. Numbered, named, nested,
+Format supports automatic and numbered positional fields, attribute paths,
+escaped braces, and `!s`, `!r`, or `!a` conversion. It rejects mixing automatic and
+manual numbering. User attribute, string, and representation methods resume
+through the frame loop. Named, indexed, nested,
 specified, and custom `__format__` fields remain unsupported. Count uses
 non-overlapping matches inside integer-or-boolean code-point slice bounds.
 Replace accepts an integer-or-boolean positional or keyword count, handles empty

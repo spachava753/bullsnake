@@ -90,3 +90,11 @@ shared = Equal()
 assert Data([('a', shared)]) == {'a': Equal()}
 assert shared in Data([('a', shared)]).values()
 assert ('a', shared) in Data([('a', shared)]).items()
+
+assert repr(KeysView({'a': 1})) == "KeysView({'a': 1})"
+assert repr(ItemsView({'a': 1})) == "ItemsView({'a': 1})"
+assert repr(ValuesView({'a': 1})) == "ValuesView({'a': 1})"
+class NamedData(Data):
+    def __repr__(self):
+        return '<data>'
+assert repr(NamedData().keys()) == 'KeysView(<data>)'

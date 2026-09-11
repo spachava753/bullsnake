@@ -1139,10 +1139,10 @@ class InvalidKeepLineEnds:
 # message: "Unknown conversion specifier x"
 '{!x}'.format(1)
 # ---
-# case: string format numbered field boundary
-# error: NotImplementedError
-# message: "numbered str.format fields are not supported"
-'{0}'.format('value')
+# case: string format numbered field out of range
+# error: IndexError
+# message: "Replacement index 1 out of range for positional args tuple"
+'{1}'.format('value')
 # ---
 # case: string format named field boundary
 # error: NotImplementedError

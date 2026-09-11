@@ -652,8 +652,9 @@ operators, in-place mutation, remove/pop/clear, and matching hashes between
 custom immutable sets and native frozensets. Mapping/MutableMapping tests cover
 live KeysView/ItemsView/ValuesView objects, view set operations and membership,
 lookup/defaults, updates from mappings and iterable pairs, removal/clearing, and
-equality including Python value callbacks. View representation and remaining
-protocol/mixin coverage are still in progress.
+equality including Python value callbacks. View representation now executes the
+unchanged numbered-field format string through real attribute and repr callbacks.
+Remaining protocol/mixin coverage is still in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
