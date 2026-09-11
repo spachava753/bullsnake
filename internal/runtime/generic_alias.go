@@ -26,6 +26,15 @@ func initializeGenericAliasClass() *typeValue {
 		discardCallSegment(caller, base)
 		return pushOutcome(caller, instruction, value)
 	}})
+	class.setAttribute("__hash__", nativeInstanceMethod(class, "__hash__", executeGenericAliasHash))
+	for _, name := range []string{"__eq__", "__ne__"} {
+		class.setAttribute(name, nativeInstanceMethod(class, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+			if exception := checkNativeArguments(name, arguments, keywords, 1, 1); exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			return executeGenericAliasEquality(caller, instruction, self, arguments[0], name == "__ne__")
+		}))
+	}
 	class.setAttribute("__call__", nativeInstanceMethod(class, "__call__", executeGenericAliasCall))
 	for _, name := range []string{"__origin__", "__args__"} {
 		class.setAttribute(name, &propertyValue{doc: None, getter: nativeInstanceMethod(class, name, func(caller *frame, instruction int, self *instanceValue, _ []Value, _ *dictValue) (instructionOutcome, error) {

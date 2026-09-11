@@ -10,6 +10,8 @@ for arguments in [[int, str], (int, str)]:
     restored = constructor(*args)
     assert restored.__origin__ is Callable
     assert restored.__args__ == alias.__args__
+    assert restored == alias
+    assert hash(restored) == hash(alias)
 assert Callable[[], int].__args__ == (int,)
 assert Callable[..., str].__args__ == (..., str)
 assert repr(Callable[..., str]) == 'collections.abc.Callable[..., str]'

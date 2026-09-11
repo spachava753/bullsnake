@@ -919,8 +919,13 @@ construct flattened argument metadata and round-trip their reduction tuples.
 Alias calling forwards arguments to the origin and stores `__orig_class__` on
 writable results. Only AttributeError/TypeError from that storage are suppressed;
 origin and other descriptor failures propagate. Subclass initialization uses the
-class slot, ignoring same-named instance attributes. Comparison, type-parameter
-substitution, and base rewriting remain later slices.
+class slot, ignoring same-named instance attributes. Alias equality truth-tests
+origin equality then compares the argument tuple through resumable element
+callbacks; inequality negates that result and unrelated operands are declined.
+Hashing combines origin and argument hashes with XOR, preserving callback errors
+and the argument tuple's successful-hash cache. Alias subclasses, including
+unchanged Callable aliases, inherit these operations. Type-parameter substitution
+and base rewriting remain later slices.
 
 ## Exceptions
 
