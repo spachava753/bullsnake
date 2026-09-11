@@ -658,9 +658,11 @@ Sequence/MutableSequence tests exercise iteration, containment/index callbacks,
 reverse iteration, append/extend/pop/remove/clear/reverse, and in-place extension.
 Sequence.count now uses sum with integer accumulation and Python comparison
 callbacks. Hashable and Callable checks now cover native scalars, containers, functions,
-methods, and classes as well as user slots and explicit None overrides. Remaining
-async/buffer protocols, ByteString warnings, and generic-alias coverage are still
-in progress.
+methods, and classes as well as user slots and explicit None overrides. The coroutine/generator and async-generator ABC defaults now have unchanged-source
+execution tests for delegation, throw/close completion and errors, structural
+hooks, abstract enforcement, and native registrations. They use the existing
+coroutine/await VM path, not an event loop. Buffer protocols, ByteString warnings,
+and generic-alias coverage remain in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
