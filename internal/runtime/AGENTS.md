@@ -46,6 +46,10 @@ class-body Namespace.dictionary. Keep class stores, deletes, and annotation-cach
 publication synchronized with retained views through the central mutation methods.
 Native namespace descriptors are cached per runtime; publish only implemented
 operations, never marker entries that pretend an unsupported protocol exists.
+Module/global writes and deletes must use Namespace.store/delete after dictionary
+publication. Python dictionary mutation also updates the namespace's name map;
+Go lifecycle tests must use the same mutation methods rather than deleting only
+from that map.
 
 I/O callbacks run through VM continuations. Keep buffer leases and reentrancy
 guards on the calling frame so Go-error unwinding releases them as well as Python

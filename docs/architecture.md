@@ -443,6 +443,13 @@ prepared class-body namespace. Central class mutation updates both attribute
 lookup and proxy storage, so saved views remain live without exposing a mutable
 class dictionary. Proxies retain typed references and reuse dictionary iterator
 mutation checks. Namespace lookup returns descriptors without invoking Python.
+Module dictionaries are live writable namespace storage, not snapshots. Their
+optional namespace back-reference keeps internal string-name consumers in sync
+with Python dictionary mutation, including clear and delete. Module/global writes
+use central namespace mutation methods; prepared class-body dictionaries retain
+their existing identity and ordinary classes keep their separate read-only proxy
+storage.
+
 Native descriptor dictionaries belong to each runtime even though immutable
 native type identities are shared. Only implemented methods are published;
 protocol availability must never be simulated with placeholder entries.

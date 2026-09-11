@@ -1602,7 +1602,7 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		name := frame.code.names[instruction.Operand]
-		frame.locals.values[name] = value
+		frame.locals.store(name, value)
 		if frame.classBuild != nil {
 			frame.classBuild.recordStore(name)
 		}
@@ -1615,7 +1615,7 @@ func executeInstruction(
 				exception: newException("NameError", "name '"+name+"' is not defined"),
 			}, nil
 		}
-		delete(frame.locals.values, name)
+		frame.locals.delete(name)
 		if frame.classBuild != nil {
 			delete(frame.classBuild.namespacePosition, name)
 			if frame.classBuild.dictionary != nil {
@@ -1668,7 +1668,7 @@ func executeInstruction(
 		if !ok {
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
-		frame.globals.values[frame.code.names[instruction.Operand]] = value
+		frame.globals.store(frame.code.names[instruction.Operand], value)
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.DeleteGlobal:
 		name := frame.code.names[instruction.Operand]
@@ -1678,7 +1678,7 @@ func executeInstruction(
 				exception: newException("NameError", "name '"+name+"' is not defined"),
 			}, nil
 		}
-		delete(frame.globals.values, name)
+		frame.globals.delete(name)
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.Copy:
 		depth := int(instruction.Operand)

@@ -172,6 +172,9 @@ func executeModuleAttributeLoad(
 	owner *Module,
 	name string,
 ) (instructionOutcome, error) {
+	if name == "__dict__" {
+		return pushOutcome(frame, instruction, owner.globals.asDictionary())
+	}
 	value, found := owner.globals.get(name)
 	if !found {
 		return raiseOutcome(newException(
@@ -389,7 +392,10 @@ func executeDynamicAttributeStore(
 	}
 	switch owner := owner.(type) {
 	case *Module:
-		owner.globals.values[name] = value
+		if name == "__dict__" {
+			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
+		owner.globals.store(name, value)
 	case *functionValue:
 		if name == "__type_params__" || name == "__annotate__" ||
 			name == "__annotations__" {
@@ -441,6 +447,9 @@ func executeDynamicAttributeDelete(
 	missingMessage := "'" + owner.TypeName() + "' object has no attribute '" + name + "'"
 	switch owner := owner.(type) {
 	case *Module:
+		if name == "__dict__" {
+			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
+		}
 		attributes = owner.globals
 		missingMessage = "module '" + owner.name + "' has no attribute '" + name + "'"
 	case *functionValue:
@@ -481,7 +490,7 @@ func executeDynamicAttributeDelete(
 	if class, ok := owner.(*typeValue); ok {
 		class.deleteAttribute(name)
 	} else {
-		delete(attributes.values, name)
+		attributes.delete(name)
 	}
 	return instructionOutcome{kind: advance}, nil
 }

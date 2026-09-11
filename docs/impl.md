@@ -908,6 +908,12 @@ its body starts. `Runtime.Module`, `Module.Get`, module attribute access, and
 imports all observe the same object and namespace, including names assigned
 during partial initialization.
 
+`__dict__` exposes the module's actual writable dictionary. Attribute writes,
+source-level global stores/deletes, imports, dictionary methods, and name lookup
+stay synchronized. Python stores retain dictionary insertion order; initial
+Go-supplied namespace entries are sorted when their dictionary is first exposed.
+Dictionary copies are independent. The `__dict__` attribute itself is read-only.
+
 `NewWithLoader` accepts a `ModuleLoader` callback. A `ModuleRequest` carries the
 absolute name and, for a child, a copy of its parent package's search locations.
 Each result is a `ModuleSpec` with immutable code, a package flag, an optional

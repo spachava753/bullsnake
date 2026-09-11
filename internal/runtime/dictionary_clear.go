@@ -41,6 +41,9 @@ func executeDictionaryClearCall(
 		for index := range method.dictionary.entries {
 			method.dictionary.entries[index] = dictEntry{}
 		}
+		if method.dictionary.namespace != nil {
+			clear(method.dictionary.namespace.values)
+		}
 		method.dictionary.entries = nil
 		method.dictionary.version++
 	}

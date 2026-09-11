@@ -8,8 +8,9 @@ type dictEntry struct {
 }
 
 type dictValue struct {
-	entries []dictEntry
-	version uint64
+	namespace *Namespace
+	entries   []dictEntry
+	version   uint64
 }
 
 func (*dictValue) TypeName() string { return "dict" }
@@ -29,9 +30,16 @@ func (dictionary *dictValue) Repr() string {
 }
 func (*dictValue) isValue() {}
 
+// set preserves existing key positions and synchronizes string names when the
+// dictionary is a published module namespace.
 func (dictionary *dictValue) set(key, value Value) *Exception {
 	if exception := validateDictKey(key); exception != nil {
 		return exception
+	}
+	if dictionary.namespace != nil {
+		if name, ok := key.(*stringValue); ok {
+			dictionary.namespace.values[name.value] = value
+		}
 	}
 	for index := range dictionary.entries {
 		entry := &dictionary.entries[index]
@@ -57,6 +65,8 @@ func (dictionary *dictValue) get(key Value) (Value, bool, *Exception) {
 	return nil, false, nil
 }
 
+// delete removes one equal key from ordered storage and any linked namespace,
+// recording a key-set mutation only after a matching entry is found.
 func (dictionary *dictValue) delete(key Value) (bool, *Exception) {
 	if exception := validateDictKey(key); exception != nil {
 		return false, exception
@@ -64,6 +74,11 @@ func (dictionary *dictValue) delete(key Value) (bool, *Exception) {
 	for index, entry := range dictionary.entries {
 		if entry.key != key && !valuesEqual(entry.key, key) {
 			continue
+		}
+		if dictionary.namespace != nil {
+			if name, ok := entry.key.(*stringValue); ok {
+				delete(dictionary.namespace.values, name.value)
+			}
 		}
 		copy(dictionary.entries[index:], dictionary.entries[index+1:])
 		last := len(dictionary.entries) - 1

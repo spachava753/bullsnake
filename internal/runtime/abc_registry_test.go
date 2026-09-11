@@ -44,7 +44,7 @@ func testABCRegistryOwnership(t *testing.T) {
 	var references []weakClass
 	for _, name := range []string{"Registered", "Positive", "Negative"} {
 		references = append(references, makeWeakClass(module.globals.values[name]))
-		delete(module.globals.values, name)
+		module.globals.delete(name)
 	}
 	for range 10 {
 		goruntime.GC()

@@ -140,7 +140,7 @@ func advanceImport(
 			if module, found := frame.runtime.modules[name]; found {
 				if parent != nil {
 					child := name[strings.LastIndexByte(name, '.')+1:]
-					parent.globals.values[child] = module
+					parent.globals.store(child, module)
 				}
 				request.next++
 				continue
@@ -356,7 +356,7 @@ func executeImportStar(frame *frame, index int) (instructionOutcome, error) {
 				),
 			}, nil
 		}
-		frame.locals.values[name] = imported
+		frame.locals.store(name, imported)
 	}
 	return instructionOutcome{kind: advance}, nil
 }
