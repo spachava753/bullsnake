@@ -666,8 +666,14 @@ coroutine/await VM path, not an event loop. Buffer structural tests now use nati
 bytes/bytearray/memoryview descriptors with real exports, flags, ownership, and
 release semantics. GenericAlias subclasses now run __new__/__init__ and native
 state construction; unchanged Callable aliases flatten argument lists, preserve
-origins, and round-trip reduction tuples. ByteString warnings and remaining
-generic-alias operations are still in progress.
+origins, and round-trip reduction tuples. Alias comparison and hashing resume
+Python callbacks; parameter discovery caches identity-ordered metadata. Ordinary
+TypeVar and ParamSpec specialization, lazy defaults, nested substitutions, and
+class-statement base rewriting now have execution tests, including unchanged
+Callable specialization and Sequence/Mapping/Callable alias bases. ByteString
+warnings and concrete Callable representation still require their warning and
+annotation dependencies. String forward references, Concatenate, TypeVarTuple
+unpacking/substitution, and broader alias forwarding remain unfinished.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
@@ -749,8 +755,9 @@ stdlib/3.14/unittest/result.py:5:8: ModuleNotFoundError: No module named 'traceb
 
 This is an execution probe, not a unittest success claim. The public io ABCs now
 have regression tests for registration, Reader/Writer structural checks and
-abstract enforcement, subclassing, and integrated streams. Generic alias runtime
-operations and collection mixin families still need behavior tests beyond
-import-time use. No unittest TestCase, suite, runner report,
+abstract enforcement, subclassing, and integrated streams. Collection mixin
+families and generic-alias construction, equality/hash, TypeVar/ParamSpec
+specialization, and class bases now have the behavior tests described above.
+This is still not the full collections or alias surface. No unittest TestCase, suite, runner report,
 unchanged test_colorsys.py, or unittest.main() has executed yet. The complete
 synchronous unittest milestone remains unfinished.
