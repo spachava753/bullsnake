@@ -924,8 +924,12 @@ origin equality then compares the argument tuple through resumable element
 callbacks; inequality negates that result and unrelated operands are declined.
 Hashing combines origin and argument hashes with XOR, preserving callback errors
 and the argument tuple's successful-hash cache. Alias subclasses, including
-unchanged Callable aliases, inherit these operations. Type-parameter substitution
-and base rewriting remain later slices.
+unchanged Callable aliases, inherit these operations. `__parameters__` discovers
+PEP 695 parameters and nested alias/list/tuple parameters in first-occurrence
+identity order, ignores bare classes, and honors Python typing metadata
+descriptors. Successful discovery caches one tuple; errors retry. Sequence
+traversal uses a typed worklist with a local recursion guard. Type-parameter
+substitution and base rewriting remain later slices.
 
 ## Exceptions
 

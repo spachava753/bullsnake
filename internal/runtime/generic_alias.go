@@ -3,8 +3,9 @@ package runtime
 import "strings"
 
 type genericAliasState struct {
-	origin Value
-	args   *tupleValue
+	origin     Value
+	args       *tupleValue
+	parameters *tupleValue
 }
 
 // initializeGenericAliasClass installs read-only metadata and representation on
@@ -26,6 +27,7 @@ func initializeGenericAliasClass() *typeValue {
 		discardCallSegment(caller, base)
 		return pushOutcome(caller, instruction, value)
 	}})
+	class.setAttribute("__parameters__", &propertyValue{doc: None, getter: nativeInstanceMethod(class, "__parameters__", executeGenericAliasParameters)})
 	class.setAttribute("__hash__", nativeInstanceMethod(class, "__hash__", executeGenericAliasHash))
 	for _, name := range []string{"__eq__", "__ne__"} {
 		class.setAttribute(name, nativeInstanceMethod(class, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
