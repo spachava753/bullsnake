@@ -44,6 +44,8 @@ user subclasses mutable. Do not introduce a separate I/O inheritance path.
 Class namespace proxies use a separate class-owned dictionary, not the prepared
 class-body Namespace.dictionary. Keep class stores, deletes, and annotation-cache
 publication synchronized with retained views through the central mutation methods.
+Native namespace descriptors are cached per runtime; publish only implemented
+operations, never marker entries that pretend an unsupported protocol exists.
 
 I/O callbacks run through VM continuations. Keep buffer leases and reentrancy
 guards on the calling frame so Go-error unwinding releases them as well as Python

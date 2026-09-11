@@ -108,11 +108,15 @@ func hasNativeClassGetitem(class *nativeTypeValue) bool {
 
 func nativeClassGetitem(class *nativeTypeValue) Value {
 	return &builtinFunctionValue{name: "__class_getitem__", frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-		if exception := checkNativeArguments("__class_getitem__", arguments, keywords, 1, 1); exception != nil {
+		if exception := checkNativeArguments("__class_getitem__", arguments, keywords, 2, 2); exception != nil {
 			discardCallSegment(caller, base)
 			return raiseOutcome(exception), nil
 		}
-		alias := newGenericAlias(caller.runtime.genericAliasClass, class, arguments[0])
+		if arguments[0] != class {
+			discardCallSegment(caller, base)
+			return raiseOutcome(newException("TypeError", "descriptor '__class_getitem__' requires a '"+class.name+"' type")), nil
+		}
+		alias := newGenericAlias(caller.runtime.genericAliasClass, arguments[0], arguments[1])
 		discardCallSegment(caller, base)
 		return pushOutcome(caller, instruction, alias)
 	}}

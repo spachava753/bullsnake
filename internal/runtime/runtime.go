@@ -29,6 +29,7 @@ type ModuleLoader func(request ModuleRequest) (spec ModuleSpec, found bool, err 
 // Runtime owns mutable interpreter state shared by executions in one isolated
 // Python runtime instance.
 type Runtime struct {
+	nativeNamespaces  map[*nativeTypeValue]*dictValue
 	genericAliasClass *typeValue
 	memoryViewClass   *typeValue
 	builtins          *Namespace
@@ -80,6 +81,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	modules[stringPackage.name] = stringPackage
 	modules[templateLibrary.name] = templateLibrary
 	runtime := &Runtime{
+		nativeNamespaces:  make(map[*nativeTypeValue]*dictValue),
 		genericAliasClass: initializeGenericAliasClass(),
 		memoryViewClass:   viewClass,
 		builtins:          builtins,

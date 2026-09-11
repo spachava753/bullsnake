@@ -443,6 +443,9 @@ prepared class-body namespace. Central class mutation updates both attribute
 lookup and proxy storage, so saved views remain live without exposing a mutable
 class dictionary. Proxies retain typed references and reuse dictionary iterator
 mutation checks. Namespace lookup returns descriptors without invoking Python.
+Native descriptor dictionaries belong to each runtime even though immutable
+native type identities are shared. Only implemented methods are published;
+protocol availability must never be simulated with placeholder entries.
 
 Abstract allocation state belongs to each user class. Assigning
 `__abstractmethods__` resolves truth through the VM before storing the value and

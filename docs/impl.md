@@ -828,8 +828,12 @@ subscription, iteration, get/copy, and live keys/items/values views. Class write
 and deletions update retained proxies; reinsertion moves a name to the end.
 Iterators reuse dictionary key-change checks. Annotation evaluation publishes
 its cached `__annotations__` dictionary through the same mutation path.
-Native type and exception namespaces, proxy construction, comparison, reverse
-iteration, and union operations remain separate slices.
+Native types expose per-runtime dictionaries for their currently published
+metaclass methods, set containment, class subscription, and object subclass hook.
+Reads retain descriptor identity, and dictionary reads return unbound methods.
+Native protocol descriptors not yet published, exception namespaces, proxy
+construction, comparison, reverse iteration, and union operations remain later
+slices.
 
 ### Class subscription
 
@@ -968,7 +972,7 @@ Bullsnake vendors selected CPython 3.14.7 standard-library modules under
 `stdlib/3.14`. Unchanged `operator`, `keyword`, and `heapq` now run selected regression tests
 for calls, classification, and heap operations. The synchronous unittest sources
 and the initial io/abc dependency files are vendored for offline import probes;
-unittest now reaches missing `type.__dict__` in unchanged `_collections_abc.py`,
+unittest now reaches missing `sys._getframe` in unchanged `_collections_abc.py`,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

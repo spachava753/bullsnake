@@ -1013,6 +1013,29 @@ func TestGenericAliasRuntimeIdentity(t *testing.T) {
 	}
 }
 
+func TestNamespaceDescriptorRuntimeIdentity(t *testing.T) {
+	code := compileSource(t, "descriptor = type.__dict__['__new__']\n")
+	firstRuntime, secondRuntime := bullruntime.New(), bullruntime.New()
+	first, err := firstRuntime.ExecuteModule("first", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repeated, err := firstRuntime.ExecuteModule("repeated", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := secondRuntime.ExecuteModule("second", code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstDescriptor, _ := first.Get("descriptor")
+	repeatedDescriptor, _ := repeated.Get("descriptor")
+	secondDescriptor, _ := second.Get("descriptor")
+	if firstDescriptor != repeatedDescriptor || firstDescriptor == secondDescriptor {
+		t.Fatal("native namespace descriptor identity is not runtime-owned")
+	}
+}
+
 func TestPrintHost(t *testing.T) {
 	t.Run("borrowed output", func(t *testing.T) {
 		writer := &borrowedWriter{}

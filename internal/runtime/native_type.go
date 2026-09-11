@@ -485,32 +485,11 @@ func executeNativeTypeAttributeLoad(
 	class *nativeTypeValue,
 	name string,
 ) (instructionOutcome, error) {
-	if name == "__class_getitem__" && hasNativeClassGetitem(class) {
-		return pushOutcome(frame, instruction, nativeClassGetitem(class))
+	if name == "__dict__" {
+		return pushOutcome(frame, instruction, &mappingProxyValue{dictionary: frame.runtime.nativeNamespace(class)})
 	}
-	if name == "__subclasshook__" {
-		return pushOutcome(frame, instruction, defaultSubclassHook())
-	}
-	if class == typeNativeType {
-		if method, found := nativeMetaclassMethod(name); found {
-			return pushOutcome(frame, instruction, method)
-		}
-	}
-	if name == "__contains__" {
-		switch class {
-		case setNativeType:
-			return pushOutcome(
-				frame,
-				instruction,
-				&setContainsDescriptor{},
-			)
-		case frozenSetNativeType:
-			return pushOutcome(
-				frame,
-				instruction,
-				&setContainsDescriptor{frozen: true},
-			)
-		}
+	if value, found := frame.runtime.nativeClassAttribute(class, name); found {
+		return pushOutcome(frame, instruction, value)
 	}
 	var value Value
 	switch name {

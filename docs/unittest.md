@@ -721,11 +721,12 @@ go run ./tools/importprobe stdlib/3.14 abc _collections_abc io unittest
 It imports unchanged abc successfully and stops the remaining modules at:
 
 ```text
-stdlib/3.14/_collections_abc.py:87:21: AttributeError: type object 'type' has no attribute '__dict__'
+stdlib/3.14/_collections_abc.py:89:17: AttributeError: module 'sys' has no attribute '_getframe'
 ```
 
-This is an execution probe, not a unittest success claim. Class namespace views,
-frame locals, and coroutine closing are the next import-time requirements.
+This is an execution probe, not a unittest success claim. Class namespace views
+and the currently published native descriptors now work. Frame locals and
+coroutine closing are the next import-time requirements.
 Generic alias runtime operations and the collection mixin families also need
 behavior tests beyond their import-time use. No unittest TestCase, suite, runner
 report, unchanged test_colorsys.py, or unittest.main() has executed yet. The
