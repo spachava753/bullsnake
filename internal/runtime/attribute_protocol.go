@@ -31,7 +31,7 @@ func executeDynamicAttributeLoad(
 			return pushOutcome(frame, instruction, class)
 		}
 	}
-	if method, found := frame.runtime.boundNativeHashCall(owner, name); found {
+	if method, found := frame.runtime.boundNativeObjectMethod(owner, name); found {
 		return pushOutcome(frame, instruction, method)
 	}
 	if method, found := frame.runtime.boundNativeCollectionMethod(owner, name); found {

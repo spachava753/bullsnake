@@ -66,10 +66,10 @@ func nativeCallDescriptor(class *nativeTypeValue) Value {
 	}}
 }
 
-// boundNativeHashCall resolves inherited native slots without intercepting
+// boundNativeObjectMethod resolves inherited native slots without intercepting
 // class attribute lookup or user-instance special-method precedence.
-func (runtime *Runtime) boundNativeHashCall(owner Value, name string) (Value, bool) {
-	if (name != "__hash__" && name != "__call__") || isClassValue(owner) {
+func (runtime *Runtime) boundNativeObjectMethod(owner Value, name string) (Value, bool) {
+	if (name != "__hash__" && name != "__call__" && name != "__buffer__" && name != "__release_buffer__") || isClassValue(owner) {
 		return nil, false
 	}
 	actual, exception := typeOf(owner)

@@ -1250,6 +1250,16 @@ explicit release. Released operations raise ValueError; release is idempotent
 and an already cached hash survives release. Multidimensional formats, casts,
 and arbitrary Python buffer exporters remain unsupported.
 
+`bytes`, `bytearray`, and `memoryview` expose real `__buffer__` descriptors.
+Bytearray and memoryview also expose `__release_buffer__`. Flags use the index
+protocol and enforce writable and contiguous requests for the implemented byte
+layout. Explicit memoryview exports retain their source view as `obj`, unlike
+ordinary view copies, and prevent releasing that source until every live child
+export releases. Weak export records are pruned on access, so unreachable exports
+do not pin the source and no Python runs during Go GC. Release checks ownership.
+These descriptors enable unchanged Buffer ABC structural checks. General Python
+exporter dispatch through memoryview() remains unimplemented.
+
 A view retains its exporter strongly. Export tables hold Go weak pointers to
 actual Python view allocations and prune dead or released entries on the VM
 goroutine. Child views retain independent exports. Resizing bytearray is denied

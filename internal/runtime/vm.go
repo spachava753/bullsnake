@@ -1387,7 +1387,7 @@ func executeInstruction(
 		if name == "__class__" {
 			return executeDynamicAttributeLoad(frame, index, owner, name)
 		}
-		if method, found := frame.runtime.boundNativeHashCall(owner, name); found {
+		if method, found := frame.runtime.boundNativeObjectMethod(owner, name); found {
 			return pushOutcome(frame, index, method)
 		}
 		if method, found := frame.runtime.boundNativeCollectionMethod(owner, name); found {

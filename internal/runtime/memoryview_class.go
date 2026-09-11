@@ -11,6 +11,11 @@ func initializeMemoryViewClass(namespace *Namespace) *typeValue {
 			return executeViewMethod(caller, instruction, self, name, arguments, keywords)
 		}))
 	}
+	for _, name := range []string{"__buffer__", "__release_buffer__"} {
+		class.setAttribute(name, ioMethod(class, name, func(caller *frame, instruction int, self *instanceValue, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+			return executeBufferMethod(caller, instruction, self, name, arguments, keywords)
+		}))
+	}
 	for _, name := range []string{"obj", "nbytes", "readonly", "format", "itemsize", "ndim", "shape", "strides", "suboffsets", "c_contiguous", "f_contiguous", "contiguous"} {
 		class.setAttribute(name, &propertyValue{doc: None, getter: ioMethod(class, name, func(caller *frame, instruction int, self *instanceValue, _ []Value, _ *dictValue) (instructionOutcome, error) {
 			view := self.io.view
@@ -70,7 +75,7 @@ func executeViewMethod(caller *frame, instruction int, self *instanceValue, name
 	}
 	view := self.io.view
 	if name == "release" || name == "__exit__" {
-		if view.pins != 0 {
+		if view.pins != 0 || self.hasProtocolExports() {
 			return raiseOutcome(newException("BufferError", "memoryview has exported buffers")), nil
 		}
 		view.released, view.buffer, view.owner = true, nil, nil

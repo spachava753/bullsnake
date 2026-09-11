@@ -841,6 +841,11 @@ This models GC-based memory lifetime without retention by the export table or
 Python callbacks from Go GC, and does not govern host resource ownership.
 
 
+Explicit memoryview `__buffer__` exports keep the source view as their owner and
+reuse weak export records to block source release. Ordinary descendants share
+that export ownership. Scanning the weak records removes dead exports without
+requiring a finalizer to decrement a Python-facing pin count.
+
 Native operations that borrow writable buffers across Python calls register
 leases on the calling frame. Normal completion and Python exceptions release
 them directly; Go-error unwinding releases remaining frame leases. A lease

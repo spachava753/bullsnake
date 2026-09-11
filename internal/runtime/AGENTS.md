@@ -50,6 +50,9 @@ Module/global writes and deletes must use Namespace.store/delete after dictionar
 publication. Python dictionary mutation also updates the namespace's name map;
 Go lifecycle tests must use the same mutation methods rather than deleting only
 from that map.
+Explicit memoryview buffer exports own their source view. Preserve that ownership
+when copying/slicing exported views; source release checks weak export records
+as well as frame leases, without Go-GC callbacks.
 
 I/O callbacks run through VM continuations. Keep buffer leases and reentrancy
 guards on the calling frame so Go-error unwinding releases them as well as Python

@@ -661,8 +661,10 @@ callbacks. Hashable and Callable checks now cover native scalars, containers, fu
 methods, and classes as well as user slots and explicit None overrides. The coroutine/generator and async-generator ABC defaults now have unchanged-source
 execution tests for delegation, throw/close completion and errors, structural
 hooks, abstract enforcement, and native registrations. They use the existing
-coroutine/await VM path, not an event loop. Buffer protocols, ByteString warnings,
-and generic-alias coverage remain in progress.
+coroutine/await VM path, not an event loop. Buffer structural tests now use native
+bytes/bytearray/memoryview descriptors with real exports, flags, ownership, and
+release semantics. ByteString warnings and generic-alias coverage remain in
+progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
