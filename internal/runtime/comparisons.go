@@ -36,6 +36,11 @@ func executeComparison(
 		}
 	}
 	if operand == bytecode.CompareEqual || operand == bytecode.CompareNotEqual {
+		leftDictionary, leftMapping := left.(*dictValue)
+		rightDictionary, rightMapping := right.(*dictValue)
+		if leftMapping && rightMapping {
+			return executeDictionaryEquality(frame, index, leftDictionary, rightDictionary, operand == bytecode.CompareNotEqual, nil)
+		}
 		_, leftUser := left.(*instanceValue)
 		_, rightUser := right.(*instanceValue)
 		if leftUser || rightUser {

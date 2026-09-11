@@ -549,6 +549,14 @@ The containment methods are enough for CPython's generated `keyword` module to
 bind its `iskeyword` and `issoftkeyword` helpers directly from frozen sets.
 Set-like view operations and other native collection or text methods are not
 implemented.
+Dictionary equality ignores insertion order, compares corresponding values with
+identity preference, and resumes direct Python value equality and truth callbacks.
+Inequality negates that equality result rather than calling each value's `__ne__`.
+Nested dictionaries use the same path. Recursive dictionary pairs and nesting
+beyond 1000 comparisons raise RecursionError; this local bound is not a global
+Python recursion-limit API. Key lookup retains fixed hashability/equality rules,
+and values nested inside native sequences retain those sequences' current limits.
+
 List, set, and frozen-set equality use the runtime's fixed recursive rules for
 scalars, tuples, lists, sets, frozen sets, and identical values. They do not yet
 suspend for user `__eq__`, unlike `list.remove`.

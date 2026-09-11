@@ -56,6 +56,7 @@ var (
 	keyErrorType            = &exceptionTypeValue{name: "KeyError", base: lookupErrorType}
 	nameErrorType           = &exceptionTypeValue{name: "NameError", base: exceptionType}
 	unboundLocalErrorType   = &exceptionTypeValue{name: "UnboundLocalError", base: nameErrorType}
+	recursionErrorType      = &exceptionTypeValue{name: "RecursionError", base: runtimeErrorType}
 	runtimeErrorType        = &exceptionTypeValue{name: "RuntimeError", base: exceptionType}
 	notImplementedErrorType = &exceptionTypeValue{name: "NotImplementedError", base: runtimeErrorType}
 	stopIterationType       = &exceptionTypeValue{name: "StopIteration", base: exceptionType}
@@ -85,6 +86,7 @@ var builtinExceptionTypes = []*exceptionTypeValue{
 	nameErrorType,
 	unboundLocalErrorType,
 	runtimeErrorType,
+	recursionErrorType,
 	notImplementedErrorType,
 	stopIterationType,
 	stopAsyncIterationType,

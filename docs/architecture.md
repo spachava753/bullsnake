@@ -533,7 +533,11 @@ user instance, but tuple and frozen-set hashing does not yet recurse into user
 values, and dictionary or set key handling still uses fixed runtime rules.
 Current list, set, and frozen-set equality recurses through values with fixed
 runtime equality; user-defined element equality still needs a suspended
-comparison path. Container and object implementations must support those calls
+comparison path. Dictionary equality now resumes direct Python value equality
+and truth callbacks through the VM, with identity preference and recursive-pair
+checks. Native dictionary nesting has a local 1000-comparison bound to protect
+the Go stack; a runtime-wide recursion budget remains separate work. Container
+and object implementations must support those calls
 when the protocols are added.
 
 

@@ -649,8 +649,11 @@ Collection ABC behavior tests now exercise native and user structural checks for
 Iterable, Iterator, Sized, Container, and Collection, including disabled slots
 and concrete ABC defaults. Collection mixin tests also cover Set/MutableSet comparison, forward/reflected
 operators, in-place mutation, remove/pop/clear, and matching hashes between
-custom immutable sets and native frozensets. Other protocol and mixin coverage
-remain in progress.
+custom immutable sets and native frozensets. Mapping/MutableMapping tests cover
+live KeysView/ItemsView/ValuesView objects, view set operations and membership,
+lookup/defaults, updates from mappings and iterable pairs, removal/clearing, and
+equality including Python value callbacks. View representation and remaining
+protocol/mixin coverage are still in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
