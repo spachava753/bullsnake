@@ -53,7 +53,7 @@ when a tested slice changes what can execute.
 | Runtime and host groundwork | Source execution tests; per-runtime modules and arguments; supplied streams and performance counter; explicit host denial. | Broader object protocols, collection keys, introspection, and system-module APIs as dependencies require them. |
 | Unchanged `abc` and `io` | Both import; ABC construction/registration and public io stream tests pass. In-memory streams, buffering, text decoding, and close/error paths are tested. | Full upstream conformance is not claimed; host-stream ABC integration and documented codec/buffer gaps remain. |
 | Unchanged `_collections_abc` | Imports; structural protocols and Set/Mapping/Sequence families have behavior tests. Callable aliases support construction, call, equality/hash, TypeVar/ParamSpec specialization, defaults, and class bases. | Concrete Callable representation, ByteString warning behavior, forward references, Concatenate, TypeVarTuple unpacking/substitution, and broader alias forwarding. Import success is not completion. |
-| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; `annotationlib`, `ast`, `enum`, `types`, `warnings`, and `_py_warnings` are vendored at the pin for offline probes. Code inspection and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: function `__closure__` in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
+| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; six initial dependencies are vendored at the pin. Code inspection, function globals/live closure cells, and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: `object.__init__` in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
 | Unchanged `unittest` import | Currently stops at `unittest/result.py:5:8`, missing `traceback`. | Finish the active collections dependency work, then continue through traceback and the remaining synchronous import closure. |
 | `TestCase` / `TestResult` | Not executed. | Passing tests, assertion failures, errors, setup/teardown, cleanups, skips, expected failures, and subtests. |
 | Suites, loader, text runner | Not executed. | In-memory suite/name loading, traceback reports, warnings, and complete output checked through `StringIO`. |
@@ -825,7 +825,7 @@ go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings
 
 | Probe | First observed failure |
 | --- | --- |
-| `types`, `enum` | `types.py:26:16`: function has no `__closure__` attribute. |
+| `types`, `enum` | `types.py:50:34`: object has no `__init__` attribute. |
 | `ast`, `annotationlib` | `ast.py:23:1`: missing `_ast`. |
 | `warnings` | `_py_warnings.py:4:8`: missing `_contextvars`. |
 
@@ -845,8 +845,17 @@ writable attribute dictionary. Implementation version/platform fields are not
 invented. Namespace comparison, representation, reduce/replace, and custom
 mapping construction still need later slices.
 
+Function `__closure__` now exposes the actual captured cells, and `__globals__`
+returns the live module dictionary. Cell contents support reading, writing,
+deletion, and empty-cell errors through the same lexical storage used by nonlocal
+variables and frame-locals proxies. Tests retain closures after return and check
+that every mutation path observes the same binding. Cell constructors/comparison
+and function construction remain unfinished.
+
 The table lists first failures, not complete missing-feature lists. Next,
-expose actual closure cells through function `__closure__`, then reprobe types.
-AST services, context-variable state, enum construction, annotation descriptors,
-and subsequent imports still need their own tested slices. Vendoring source
-alone is not a passing behavior test.
+implement the actual native object initialization/string descriptors needed by
+types, rather than publishing marker descriptors for type discovery. Subsequent
+types import work includes native method/attribute descriptor identities,
+traceback/frame objects, and union types. AST services, context-variable state,
+enum construction, annotation descriptors, and subsequent imports need their own
+tested slices. Vendoring source alone is not a passing behavior test.

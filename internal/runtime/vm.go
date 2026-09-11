@@ -1488,6 +1488,8 @@ func executeInstruction(
 			return executeCmpKeyAttributeLoad(frame, index, owner, name)
 		case *stringValue:
 			return executeStringAttributeLoad(frame, index, owner, name)
+		case *cellValue:
+			return executeCellAttributeLoad(frame, index, owner, name)
 		case *codeValue:
 			return executeCodeAttributeLoad(frame, index, owner, name)
 		case *frameValue:

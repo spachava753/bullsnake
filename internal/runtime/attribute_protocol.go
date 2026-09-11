@@ -84,6 +84,8 @@ func executeDynamicAttributeLoad(
 		return executeCmpKeyAttributeLoad(frame, instruction, owner, name)
 	case *stringValue:
 		return executeStringAttributeLoad(frame, instruction, owner, name)
+	case *cellValue:
+		return executeCellAttributeLoad(frame, instruction, owner, name)
 	case *codeValue:
 		return executeCodeAttributeLoad(frame, instruction, owner, name)
 	case *frameValue:
@@ -133,6 +135,10 @@ func executeFunctionAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "__globals__":
+		return pushOutcome(frame, instruction, owner.globals.asDictionary())
+	case "__closure__":
+		return pushOutcome(frame, instruction, owner.pythonClosure())
 	case "__code__":
 		return pushOutcome(frame, instruction, owner.code.pythonCode())
 	case "__type_params__":
@@ -412,14 +418,15 @@ func executeDynamicAttributeStore(
 		return instructionOutcome{kind: advance}, nil
 	}
 	switch owner := owner.(type) {
+	case *cellValue:
+		return executeCellAttributeStore(owner, name, value)
 	case *Module:
 		if name == "__dict__" {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
 		owner.globals.store(name, value)
 	case *functionValue:
-		if name == "__type_params__" || name == "__annotate__" ||
-			name == "__annotations__" || name == "__code__" {
+		if readOnlyFunctionMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
 		if owner.attributes == nil {
@@ -467,6 +474,8 @@ func executeDynamicAttributeDelete(
 	var attributes *Namespace
 	missingMessage := "'" + owner.TypeName() + "' object has no attribute '" + name + "'"
 	switch owner := owner.(type) {
+	case *cellValue:
+		return executeCellAttributeStore(owner, name, nil)
 	case *Module:
 		if name == "__dict__" {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
@@ -474,8 +483,7 @@ func executeDynamicAttributeDelete(
 		attributes = owner.globals
 		missingMessage = "module '" + owner.name + "' has no attribute '" + name + "'"
 	case *functionValue:
-		if name == "__type_params__" || name == "__annotate__" ||
-			name == "__annotations__" || name == "__code__" {
+		if readOnlyFunctionMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
 		attributes = owner.attributes

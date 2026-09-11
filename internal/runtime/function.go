@@ -13,6 +13,7 @@ type functionValue struct {
 	defaults        []Value
 	keywordDefaults map[string]Value
 	closure         []*cellValue
+	closureTuple    *tupleValue
 	annotate        *functionValue
 	annotations     *dictValue
 	typeParams      *tupleValue

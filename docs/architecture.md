@@ -600,6 +600,10 @@ belong to the frame but cannot create lexical slots. Module and class frames
 return real namespace dictionaries. Retention after return does not require a
 second stack or garbage-collector callbacks.
 
+Function closures also expose those actual cells, not snapshots, and function
+globals share the module's dictionary. Cell mutation therefore changes lexical
+execution without a second environment or synchronization pass.
+
 Python traceback objects and broad frame inspection remain separate features. The
 runtime currently keeps only the information needed for host-facing tracebacks
 and future expansion. `BaseException.with_traceback(None)` clears that retained

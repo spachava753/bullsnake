@@ -420,6 +420,17 @@ references after return. General mapping updates, proxy comparison/union,
 frame/code constructors, clearing, traceback links, tracing, and debugger
 mutation remain later work.
 
+### Function namespaces and closure cells
+
+Function `__globals__` returns its actual module namespace dictionary, sharing
+identity and mutations with module/global operations. `__closure__` returns None
+or one stable tuple of the actual captured cells, in `co_freevars` order. Shared
+closures, nonlocal stores, and retained frame-locals proxies see the same cells.
+Reading an empty `cell_contents` raises ValueError; assignment and deletion
+change the real captured binding, including after the defining frame returns.
+The function's `__globals__` and `__closure__` attributes cannot be replaced.
+Cell construction/comparison and function construction remain later work.
+
 ### Python code metadata
 
 Function `__code__` and frame `f_code` return the same stable wrapper for a
@@ -1093,7 +1104,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing function __closure__, missing _ast,
+probes. Their current blockers are missing object.__init__, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
