@@ -1482,6 +1482,10 @@ func executeInstruction(
 			return executeCmpKeyAttributeLoad(frame, index, owner, name)
 		case *stringValue:
 			return executeStringAttributeLoad(frame, index, owner, name)
+		case *frameValue:
+			return executeFrameAttributeLoad(frame, index, owner, name)
+		case *frameLocalsProxy:
+			return executeFrameLocalsAttributeLoad(frame, index, owner, name)
 		case *mappingProxyValue:
 			return executeMappingProxyAttributeLoad(frame, index, owner, name)
 		case *dictValue:
@@ -1609,7 +1613,7 @@ func executeInstruction(
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.DeleteName:
 		name := frame.code.names[instruction.Operand]
-		if _, found := frame.locals.values[name]; !found {
+		if _, found := frame.locals.get(name); !found {
 			return instructionOutcome{
 				kind:      raised,
 				exception: newException("NameError", "name '"+name+"' is not defined"),

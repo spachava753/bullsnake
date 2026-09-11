@@ -32,6 +32,9 @@ type delegationState struct {
 }
 
 type frame struct {
+	pythonValue         *frameValue
+	extraLocals         *dictValue
+	localsRepr          bool
 	ioGuards            []*ioGuard
 	bufferLeases        []*bufferLease
 	runtime             *Runtime

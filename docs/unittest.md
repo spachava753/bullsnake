@@ -47,7 +47,7 @@ Neither is part of this milestone.
 | Python execution | Functions, all parameter kinds, decorators, closures, classes, inheritance, loops, comprehensions, generators, exceptions, and context managers have execution tests. |
 | Objects and builtins | Method binding, properties, `super`, attribute helpers, type checks, user-defined iteration and comparisons, sorting, and many string and collection methods work within the documented subset. |
 | Imports | Source modules, regular packages, relative imports, repeated and circular imports, and cleanup after a failed import are tested. |
-| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. Private per-runtime Go constructors now initialize modules through the importer; `sys` exposes isolated arguments, borrowed UTF-8 streams, and catchable exit; `time.perf_counter` uses only the supplied counter. `_io` provides the documented synchronous in-memory stream subset and explicit filesystem denial; unchanged io and unittest still have import dependencies. |
+| Go-backed modules | Each runtime starts with `builtins`, `__future__`, `_functools.cmp_to_key`, and `string.templatelib`, plus its `string` parent package. Private per-runtime Go constructors now initialize modules through the importer; `sys` exposes isolated arguments, borrowed UTF-8 streams, and catchable exit; `time.perf_counter` uses only the supplied counter. `_io` provides the documented synchronous in-memory stream subset and explicit filesystem denial; unchanged io imports, while unittest still has import dependencies. |
 | Standard-library tests | Unchanged `colorsys.py` runs with adapted versions of all eight upstream public test methods. These use plain assertions, not `TestCase` objects. |
 
 The [language tests](../internal/runtime/testdata/execution/) run Python source
@@ -643,7 +643,8 @@ Plan mock and async testing separately. The independent ABC class-construction
 and abstract-method computation slices are tested. Virtual registration is tested
 through both native helpers and unchanged `abc.py`, which now imports. In-memory
 `_io` now has tested in-memory streams, buffering, text decoding, and explicit
-filesystem denial. Running unchanged `io.py` remains the next dependency step.
+filesystem denial. Unchanged `io.py` now imports; collection and public io ABC
+behavior tests remain in progress.
 No unittest test has executed yet; the overall milestone remains blocked.
 
 ### Printing to Python streams
@@ -710,24 +711,21 @@ general weakref callbacks, and regex compatibility remain deferred.
 
 ### Current unchanged-source checkpoint
 
-After class subscription and generic alias construction, `_collections_abc.py`
-is vendored unchanged from the pinned revision. This diagnostic now reaches its
-class namespace introspection:
+With class namespace views and real frame-local mappings implemented,
+unchanged `_collections_abc.py` and `io.py` now import successfully. Reproduce:
 
 ```sh
 go run ./tools/importprobe stdlib/3.14 abc _collections_abc io unittest
 ```
 
-It imports unchanged abc successfully and stops the remaining modules at:
+The first three modules import. Unittest advances to:
 
 ```text
-stdlib/3.14/_collections_abc.py:89:17: AttributeError: module 'sys' has no attribute '_getframe'
+stdlib/3.14/unittest/result.py:5:8: ModuleNotFoundError: No module named 'traceback'
 ```
 
-This is an execution probe, not a unittest success claim. Class namespace views
-and the currently published native descriptors now work. Frame locals and
-coroutine closing are the next import-time requirements.
-Generic alias runtime operations and the collection mixin families also need
-behavior tests beyond their import-time use. No unittest TestCase, suite, runner
-report, unchanged test_colorsys.py, or unittest.main() has executed yet. The
-complete synchronous unittest milestone remains unfinished.
+This is an execution probe, not a unittest success claim. Generic alias runtime
+operations, collection mixin families, and the public io ABCs still need behavior
+tests beyond import-time use. No unittest TestCase, suite, runner report,
+unchanged test_colorsys.py, or unittest.main() has executed yet. The complete
+synchronous unittest milestone remains unfinished.

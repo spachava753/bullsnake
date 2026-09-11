@@ -107,6 +107,9 @@ func containsValue(container, needle Value) (bool, *Exception) {
 		return containsElement(container.elements, needle), nil
 	case *listValue:
 		return containsElement(container.elements, needle), nil
+	case *frameLocalsProxy:
+		_, found, exception := container.get(needle)
+		return found, exception
 	case *mappingProxyValue:
 		_, found, exception := container.dictionary.get(needle)
 		return found, exception

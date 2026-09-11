@@ -24,6 +24,7 @@ func initializeSys(runtime *Runtime, module *Module) (*Exception, error) {
 		module.globals.values[name] = stream
 		module.globals.values["__"+name+"__"] = stream
 	}
+	module.globals.values["_getframe"] = &builtinFunctionValue{name: "_getframe", frameCall: executeGetFrame}
 	module.globals.values["exit"] = &builtinFunctionValue{name: "exit", call: sysExit}
 	return nil, nil
 }

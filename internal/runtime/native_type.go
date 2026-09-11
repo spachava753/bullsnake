@@ -113,6 +113,8 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"zip":                              zipNativeType,
 	"tuple":                            tupleNativeType,
 	"list":                             listNativeType,
+	"frame":                            builtinNativeType("frame"),
+	"FrameLocalsProxy":                 builtinNativeType("FrameLocalsProxy"),
 	"mappingproxy":                     builtinNativeType("mappingproxy"),
 	"dict":                             dictNativeType,
 	"dict_keys":                        builtinNativeType("dict_keys"),

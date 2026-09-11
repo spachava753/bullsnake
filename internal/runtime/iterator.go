@@ -229,6 +229,9 @@ func newIterator(value Value) (Value, bool) {
 			return value, true
 		}
 		return nil, false
+	case *frameLocalsProxy:
+		snapshot := value.snapshot()
+		return &collectionIterator{collection: snapshot, length: len(snapshot.entries), version: snapshot.version}, true
 	case *mappingProxyValue:
 		return &collectionIterator{collection: value.dictionary, length: len(value.dictionary.entries), version: value.dictionary.version}, true
 	case *dictionaryKeysView:

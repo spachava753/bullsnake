@@ -577,7 +577,14 @@ Exceptions now preserve structured constructor arguments and the initial
 SystemExit/OSError fields. OSError errno selection uses a documented fixed
 POSIX/Linux vocabulary rather than ambient platform state.
 
-Python traceback objects and broad frame inspection are separate features. The
+Python frame objects wrap the actual heap-allocated VM frames, with stable
+identity and typed references. Function locals proxies resolve fast locals and
+closure cells directly instead of synchronizing a writable snapshot. Extra keys
+belong to the frame but cannot create lexical slots. Module and class frames
+return real namespace dictionaries. Retention after return does not require a
+second stack or garbage-collector callbacks.
+
+Python traceback objects and broad frame inspection remain separate features. The
 runtime currently keeps only the information needed for host-facing tracebacks
 and future expansion. `BaseException.with_traceback(None)` clears that retained
 frame chain and returns the same exception. Other traceback values remain
@@ -785,7 +792,7 @@ The project still needs concrete decisions about:
 - namespace-package and extended import-hook behavior
 - async scheduling, Python threads, and the execution-token policy
 - general weakref eligibility, compatibility, and safe Python callback delivery
-- Python-visible frame and traceback objects
+- Python-visible traceback objects and broader frame inspection
 
 The [unittest compatibility roadmap](unittest.md) explains why several of these
 decisions now block the next standard-library milestone. Other decisions should

@@ -78,6 +78,10 @@ func executeDynamicAttributeLoad(
 		return executeCmpKeyAttributeLoad(frame, instruction, owner, name)
 	case *stringValue:
 		return executeStringAttributeLoad(frame, instruction, owner, name)
+	case *frameValue:
+		return executeFrameAttributeLoad(frame, instruction, owner, name)
+	case *frameLocalsProxy:
+		return executeFrameLocalsAttributeLoad(frame, instruction, owner, name)
 	case *mappingProxyValue:
 		return executeMappingProxyAttributeLoad(frame, instruction, owner, name)
 	case *dictValue:

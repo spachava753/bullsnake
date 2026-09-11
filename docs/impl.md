@@ -402,6 +402,24 @@ Frames also track exceptions active inside handlers and final suites. This makes
 bare `raise`, implicit context, explicit causes, and replacement by a newer
 return, loop transfer, or exception work across nested calls and cleanup.
 
+### Python frame inspection
+
+`sys._getframe` returns stable Python identities for actual VM frames and walks
+the Python caller chain for an optional integer/index-protocol depth. Frames
+expose read-only `f_back`, `f_lineno`, `f_globals`, `f_builtins`, and `f_locals`.
+Module and class locals return the actual namespace dictionary; retained class
+frames keep the prepared dictionary, not the finished class's copied namespace.
+
+Optimized functions return fresh FrameLocalsProxy wrappers over their live fast
+locals and closure cells. Writes change lexical slots, including unbound slots;
+extra keys are shared across proxies without becoming lexical variables. Deleting
+lexical slots through the proxy raises ValueError. Ordinary lexical deletion
+remains visible. Iteration and keys/items/values return snapshots; copy, get, pop,
+setdefault, and dict/proxy update forms work. Frames and proxies retain typed Go
+references after return. General mapping updates, proxy comparison/union,
+frame/code constructors, `f_code`, clearing, traceback links, tracing, and debugger
+mutation remain later work.
+
 ## Runtime values
 
 Runtime values implement a sealed `Value` interface. Current concrete values
@@ -895,8 +913,8 @@ exception group's `derive` override.
 The host can inspect an uncaught exception's copied traceback and formatted
 backtrace. `BaseException.with_traceback(None)` clears retained entries and
 returns the same exception; non-`None` values are rejected. Python
-`__traceback__` objects, frame objects, and broad introspection are not
-implemented.
+`__traceback__` objects and broad introspection are not implemented. The initial
+Python frame and writable-locals subset is described above.
 
 ## Modules and imports
 
@@ -978,7 +996,8 @@ Bullsnake vendors selected CPython 3.14.7 standard-library modules under
 `stdlib/3.14`. Unchanged `operator`, `keyword`, and `heapq` now run selected regression tests
 for calls, classification, and heap operations. The synchronous unittest sources
 and the initial io/abc dependency files are vendored for offline import probes;
-unittest now reaches missing `sys._getframe` in unchanged `_collections_abc.py`,
+unittest now reaches missing `traceback` after unchanged io and _collections_abc
+import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
@@ -1018,7 +1037,8 @@ optional interfaces. No output buffer is added. Missing Flush means no work;
 missing IsTerminal means false. Seeking, telling, truncating, descriptors, and
 the wrong read/write direction raise the internal `io.UnsupportedOperation`
 class, which matches OSError and ValueError and is exported by `_io`.
-The vendored `io` module does not yet import successfully.
+The vendored `io` module now imports successfully; broader public ABC behavior
+still needs execution coverage.
 Closing flushes output and closes the wrapper even if flushing raises. It never
 calls a borrowed provider's Close, and repeated close does nothing. Other I/O
 and status operations on a closed wrapper raise ValueError.
@@ -1039,8 +1059,8 @@ Missing counters raise PermissionError; typed nil providers fail construction.
 The provider promises nondecreasing values from a fixed arbitrary origin. There
 is no clock fallback, wall time, sleeping, or scheduling. Provider calls run
 synchronously and may block indefinitely. No cancellation guarantee is made.
-`sys.modules`, active exception helpers, Python traceback objects, and execution
-of unchanged `io.py` remain unimplemented.
+`sys.modules`, active exception helpers, and Python traceback objects remain
+unimplemented. Unchanged `io.py` now imports through the supplied `_io` classes.
 
 The private `_io` constructor supplies the synchronous in-memory stream classes,
 newline decoder, shared exceptions, and permission-denied filesystem entry
@@ -1058,7 +1078,7 @@ The largest current gaps are:
   automatic async-generator finalization, or Python threads
 - no complete Python object protocol or custom attribute interception; collection
   hashing and equality cannot yet invoke arbitrary user methods
-- no Python frame and traceback objects, tracing, profiling, debugger hooks, or
+- no Python traceback objects, broad frame inspection, tracing, profiling, debugger hooks, or
   execution budgets
 - no REPL or eval-specific entry point
 
