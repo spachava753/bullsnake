@@ -17,6 +17,12 @@ class Values(MutableSet):
 
 left = Values([1, 2, 3])
 right = Values([3, 4])
+assert Set.__dict__['__hash__'] is None
+try:
+    hash(left)
+    assert False
+except TypeError:
+    pass
 assert left == {1, 2, 3}
 assert left != {1}
 assert left > Values([1, 2])

@@ -220,6 +220,11 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 			class.namespaceOrder = append(class.namespaceOrder, name)
 		}
 	}
+	if _, equality := class.namespace.get("__eq__"); equality {
+		if _, explicitHash := class.namespace.get("__hash__"); !explicitHash {
+			class.setAttribute("__hash__", None)
+		}
+	}
 	if function, ok := class.namespace.values["__new__"].(*functionValue); ok {
 		class.namespace.values["__new__"] = &staticMethodValue{callable: function}
 	}

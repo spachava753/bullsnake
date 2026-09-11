@@ -565,6 +565,10 @@ Dictionaries and sets currently use ordered linear storage. The `hash` builtin
 uses fixed hashes for current immutable native values and calls class `__hash__`
 for a direct user instance. User methods must return an integer. Signed 64-bit
 results are preserved except for reserved -1; larger results use integer hashing.
+Defining `__eq__` without an explicit `__hash__` inserts `__hash__ = None` during
+statement or dynamic class construction; later attribute assignment does not
+silently change the hash slot. This keeps mutable Set/Mapping ABC subclasses
+unhashable unless they explicitly supply a hash.
 Frozen-set mixing matches the unchanged Set._hash algorithm, including negative
 and large element hashes. `sys.maxsize` exposes the runtime's native index limit
 without reading host configuration. Tuple and
