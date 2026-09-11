@@ -180,6 +180,7 @@ type classBuild struct {
 	metaclass         Value
 	keywords          *dictValue
 	baseValues        []Value
+	originalBases     *tupleValue
 	dictionary        *dictValue
 }
 
@@ -344,16 +345,6 @@ func executeBuildClassCall(
 		}
 	}
 	baseValues := append([]Value(nil), arguments[2:]...)
-	bases, exceptionBase, nativeBase, objectBase, baseException := resolveClassBases(
-		baseValues,
-	)
-	if baseException != nil {
-		return instructionOutcome{kind: raised, exception: baseException}, nil
-	}
-	metaclass, metaException := selectMetaclass(explicit, baseValues)
-	if metaException != nil {
-		return raiseOutcome(metaException), nil
-	}
 	locals, exception := bindFunctionArguments(body, nil, nil)
 	if exception != nil {
 		return instructionOutcome{kind: raised, exception: exception}, nil
@@ -387,20 +378,16 @@ func executeBuildClassCall(
 		builtins:   caller.builtins,
 		previous:   caller,
 		classBuild: &classBuild{
-			metaclass: metaclass, keywords: classKeywords, baseValues: baseValues,
+			metaclass: explicit, keywords: classKeywords, baseValues: baseValues,
 			name:              name.value,
 			qualifiedName:     body.code.code.QualifiedName(),
 			module:            module,
 			instruction:       instruction,
 			namespace:         namespace,
-			bases:             bases,
-			objectBase:        objectBase,
-			nativeBase:        nativeBase,
-			exceptionBase:     exceptionBase,
 			namespacePosition: make(map[string]int),
 		},
 	}
-	return prepareClassBody(caller, child)
+	return (&classBasesCall{child: child, original: &tupleValue{elements: baseValues}}).advance(caller)
 }
 
 type instanceInit struct {

@@ -479,7 +479,9 @@ from later entries. `bool` is a native subclass of `int`. Type unions remain uns
 uses the same class builder as a class statement. It accepts a string name, a
 tuple of currently supported bases, and a dictionary with string keys. It
 supplies default module and qualified-name metadata, honors explicit values,
-and supports methods, C3 inheritance, and user exception classes. `__mro_entries__` and non-string namespace keys remain unsupported.
+and supports methods, C3 inheritance, and user exception classes. Unlike class
+statements, dynamic `type` construction does not resolve `__mro_entries__`.
+Non-string namespace keys remain unsupported.
 The `dir` builtin returns sorted bound names from the current frame or from a
 module, user class MRO, or instance namespace. It includes computed class
 metadata and does not yet invoke custom `__dir__`. The remaining built-in type
@@ -936,7 +938,11 @@ rewraps specialized arguments in its own subclass. ParamSpec substitution also
 handles parameter-list/ellipsis/ParamSpec replacements, PEP 612 single-parameter
 shorthand, list-to-tuple conversion, and lazy defaults. None becomes NoneType;
 string forward references, Concatenate, and TypeVarTuple unpacking/substitution
-remain explicitly unsupported. Base rewriting remains a later slice.
+remain explicitly unsupported. Class statements now resolve non-class
+`__mro_entries__` hooks before metaclass selection and preparation, preserve
+hook ordering and the original-base tuple identity, and publish `__orig_bases__`
+after the class body. Unchanged Sequence/Mapping/Callable aliases can be used as
+bases. This does not enable currently unsupported native container subclasses.
 
 ## Exceptions
 

@@ -42,6 +42,9 @@ func finishClassBody(caller *frame, build *classBuild, cell Value) (instructionO
 	if dictionary == nil {
 		dictionary = &dictValue{}
 	}
+	if build.originalBases != nil {
+		dictionary.set(&stringValue{value: "__orig_bases__"}, build.originalBases)
+	}
 	if _, ok := cell.(*cellValue); ok {
 		dictionary.set(&stringValue{value: "__classcell__"}, cell)
 	}

@@ -552,7 +552,13 @@ exact dictionary to `__new__` and `__init__`. Python factory functions are also
 accepted as metaclasses. Dictionary namespaces retain body writes and deletions;
 custom mapping namespaces remain unsupported. `type.__new__`, metaclass `super`,
 class-cell propagation, inherited metaclass identity, and dynamic `type`
-construction share the same class builder. Construction exceptions propagate
+construction share the same class builder. Class statements first rewrite
+non-class bases through ordinary `__mro_entries__` lookup and VM calls, passing
+one retained original-base tuple to every hook. Returned bases are not recursively
+rewritten. Rewritten bases control metaclass selection and `__prepare__`;
+`__orig_bases__` is published after the body and before metaclass construction.
+Dynamic `type` construction deliberately does not rewrite bases. Construction
+exceptions propagate
 through the existing VM and are catchable at the class statement.
 
 Native operations can retain ordered result continuations on their Python caller
