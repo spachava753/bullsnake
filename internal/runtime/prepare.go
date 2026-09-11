@@ -11,6 +11,7 @@ import (
 )
 
 type preparedCode struct {
+	pythonValue       *codeValue
 	code              *bytecode.Code
 	instructions      []bytecode.Instruction
 	constants         []Value

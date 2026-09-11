@@ -591,7 +591,10 @@ SystemExit/OSError fields. OSError errno selection uses a documented fixed
 POSIX/Linux vocabulary rather than ambient platform state.
 
 Python frame objects wrap the actual heap-allocated VM frames, with stable
-identity and typed references. Function locals proxies resolve fast locals and
+identity and typed references. Function and frame code inspection shares one
+wrapper per runtime-prepared code object, never a mutable wrapper on shared
+compiler code. Python metadata projects supported flags and local names without
+exposing Bullsnake instructions as CPython bytecode. Function locals proxies resolve fast locals and
 closure cells directly instead of synchronizing a writable snapshot. Extra keys
 belong to the frame but cannot create lexical slots. Module and class frames
 return real namespace dictionaries. Retention after return does not require a

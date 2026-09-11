@@ -406,7 +406,7 @@ return, loop transfer, or exception work across nested calls and cleanup.
 
 `sys._getframe` returns stable Python identities for actual VM frames and walks
 the Python caller chain for an optional integer/index-protocol depth. Frames
-expose read-only `f_back`, `f_lineno`, `f_globals`, `f_builtins`, and `f_locals`.
+expose read-only `f_back`, `f_code`, `f_lineno`, `f_globals`, `f_builtins`, and `f_locals`.
 Module and class locals return the actual namespace dictionary; retained class
 frames keep the prepared dictionary, not the finished class's copied namespace.
 
@@ -417,8 +417,25 @@ lexical slots through the proxy raises ValueError. Ordinary lexical deletion
 remains visible. Iteration and keys/items/values return snapshots; copy, get, pop,
 setdefault, and dict/proxy update forms work. Frames and proxies retain typed Go
 references after return. General mapping updates, proxy comparison/union,
-frame/code constructors, `f_code`, clearing, traceback links, tracing, and debugger
+frame/code constructors, clearing, traceback links, tracing, and debugger
 mutation remain later work.
+
+### Python code metadata
+
+Function `__code__` and frame `f_code` return the same stable wrapper for a
+runtime-prepared code object. Repeated closures share that identity; separate
+runtimes wrapping shared compiler code do not share Python wrappers. Code values
+expose read-only name, qualified name, filename, first line, argument counts,
+local count, names, local/cell/free-variable tuples, and supported execution flags.
+The local-name projection puts keyword-only parameters before varargs and excludes
+non-parameter cell-only names; it does not change the VM's internal slot layout.
+Coroutine/async-generator flags are mapped to Python's bit positions.
+
+This is an inspection subset, not CPython bytecode compatibility. Instruction
+bytes, constant/code tables, line-table/position APIs, complete compiler/future
+flag metadata, code construction/replacement, and function `__code__` assignment
+remain unsupported. Function code metadata is read-only until replacement can
+preserve validated execution and closure contracts.
 
 ## Runtime values
 
@@ -1076,8 +1093,9 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their initial blockers are function __code__, missing _ast, and missing
-_contextvars; vendoring does not establish module usability. The original first executable
+probes. Their current blockers are missing sys.implementation, missing _ast,
+and missing _contextvars; vendoring does not establish module usability. Function
+__code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
 module executes all eight upstream public test methods through the filesystem
 loader and complete interpreter pipeline. The

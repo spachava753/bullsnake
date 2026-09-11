@@ -57,6 +57,8 @@ func executeGetFrame(caller *frame, instruction, base int, arguments []Value, ke
 func executeFrameAttributeLoad(caller *frame, instruction int, value *frameValue, name string) (instructionOutcome, error) {
 	target := value.frame
 	switch name {
+	case "f_code":
+		return pushOutcome(caller, instruction, target.code.pythonCode())
 	case "f_back":
 		if target.previous == nil {
 			return pushOutcome(caller, instruction, None)

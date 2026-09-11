@@ -84,6 +84,8 @@ func executeDynamicAttributeLoad(
 		return executeCmpKeyAttributeLoad(frame, instruction, owner, name)
 	case *stringValue:
 		return executeStringAttributeLoad(frame, instruction, owner, name)
+	case *codeValue:
+		return executeCodeAttributeLoad(frame, instruction, owner, name)
 	case *frameValue:
 		return executeFrameAttributeLoad(frame, instruction, owner, name)
 	case *frameLocalsProxy:
@@ -131,6 +133,8 @@ func executeFunctionAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "__code__":
+		return pushOutcome(frame, instruction, owner.code.pythonCode())
 	case "__type_params__":
 		return pushOutcome(frame, instruction, owner.typeParams)
 	case "__annotate__":
@@ -415,7 +419,7 @@ func executeDynamicAttributeStore(
 		owner.globals.store(name, value)
 	case *functionValue:
 		if name == "__type_params__" || name == "__annotate__" ||
-			name == "__annotations__" {
+			name == "__annotations__" || name == "__code__" {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
 		if owner.attributes == nil {
@@ -471,7 +475,7 @@ func executeDynamicAttributeDelete(
 		missingMessage = "module '" + owner.name + "' has no attribute '" + name + "'"
 	case *functionValue:
 		if name == "__type_params__" || name == "__annotate__" ||
-			name == "__annotations__" {
+			name == "__annotations__" || name == "__code__" {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
 		attributes = owner.attributes
