@@ -928,8 +928,13 @@ unchanged Callable aliases, inherit these operations. `__parameters__` discovers
 PEP 695 parameters and nested alias/list/tuple parameters in first-occurrence
 identity order, ignores bare classes, and honors Python typing metadata
 descriptors. Successful discovery caches one tuple; errors retry. Sequence
-traversal uses a typed worklist with a local recursion guard. Type-parameter
-substitution and base rewriting remain later slices.
+traversal uses a typed worklist with a local recursion guard. Subscription
+substitutes ordinary TypeVars, lazily evaluates omitted defaults, and recursively
+reconstructs sequence and nested alias arguments. Custom typing preparation,
+substitution, and nested item callbacks run through the VM. Unchanged Callable
+rewraps specialized arguments in its own subclass. None becomes NoneType;
+string forward references and variadic parameter substitution remain explicitly
+unsupported. Base rewriting remains a later slice.
 
 ## Exceptions
 

@@ -27,6 +27,7 @@ func initializeGenericAliasClass() *typeValue {
 		discardCallSegment(caller, base)
 		return pushOutcome(caller, instruction, value)
 	}})
+	class.setAttribute("__getitem__", nativeInstanceMethod(class, "__getitem__", executeGenericAliasSubscription))
 	class.setAttribute("__parameters__", &propertyValue{doc: None, getter: nativeInstanceMethod(class, "__parameters__", executeGenericAliasParameters)})
 	class.setAttribute("__hash__", nativeInstanceMethod(class, "__hash__", executeGenericAliasHash))
 	for _, name := range []string{"__eq__", "__ne__"} {
