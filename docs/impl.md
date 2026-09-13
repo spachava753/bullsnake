@@ -593,8 +593,10 @@ real mappings, iterable pairs, and keyword entries, preserving existing key
 positions. Dictionary subtypes use the native-copy fast path only while their
 iteration slot is inherited unchanged; otherwise keys and subscription overrides
 execute. Native dict initialization and construction share this path.
-Set instances expose bound `add`, `difference`, and
-`discard` methods; frozen sets expose `difference`. Difference returns a new
+Set instances expose bound `add`, `difference`, `discard`, and `pop` methods;
+frozen sets expose `difference`. Pop has a real native method descriptor,
+removes an arbitrary member while preserving its identity, raises KeyError for an
+empty set, and participates in iterator size-change detection. Difference returns a new
 collection after draining each argument through the resumable iterator path.
 Set and frozen-set instances expose bound `__contains__`; their native type
 objects expose matching method descriptors. These methods use the same fixed
@@ -1299,7 +1301,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are native set.pop in enum, missing _ast,
+blockers are native string inheritance in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

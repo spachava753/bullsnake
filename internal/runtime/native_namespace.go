@@ -32,6 +32,9 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 			return executeStringJoinCall(caller, instruction, len(caller.stack), &stringJoinMethod{separator: self.(*stringValue)}, arguments, keywords)
 		}})
 	}
+	if class == setNativeType {
+		dictionary.set(&stringValue{value: "pop"}, &nativeDescriptorValue{kind: nativeMethodDescriptor, class: class, name: "pop", call: executeSetPop})
+	}
 	if class == setNativeType || class == frozenSetNativeType {
 		dictionary.set(&stringValue{value: "__contains__"}, &setContainsDescriptor{frozen: class == frozenSetNativeType})
 	}
