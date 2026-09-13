@@ -92,7 +92,8 @@ func executeString(
 				"__str__",
 			)
 		}
-		return executeRepresentation(frame, instruction, value)
+		method, _ = frame.runtime.nativeClassAttribute(objectNativeType, "__str__")
+		return executeRepresentationMethod(frame, instruction, bindInstanceFunction(method, value), "__str__")
 	default:
 		return pushOutcome(frame, instruction, &stringValue{value: value.Repr()})
 	}

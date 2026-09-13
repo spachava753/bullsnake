@@ -297,7 +297,7 @@ func executeTypeAttributeLoad(
 	if !found && owner.isSubclassOfNative(typeNativeType) {
 		value, found = nativeMetaclassMethod(name)
 	}
-	if !found && name == "__init__" && owner.nativeClassBase() == nil {
+	if !found && isObjectMethodName(name) && owner.nativeClassBase() == nil {
 		value, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
 	}
 	if !found && owner.metaclass != nil {
@@ -377,7 +377,7 @@ func executeInstanceAttributeLoad(
 		return pushOutcome(frame, instruction, value)
 	}
 	if !classFound {
-		if name == "__hash__" || (name == "__init__" && owner.class.nativeClassBase() == nil) {
+		if name == "__hash__" || (isObjectMethodName(name) && owner.class.nativeClassBase() == nil) {
 			method, _ := frame.runtime.nativeClassAttribute(objectNativeType, name)
 			return pushOutcome(frame, instruction, bindInstanceFunction(method, owner))
 		}

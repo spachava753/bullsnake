@@ -15,6 +15,8 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 		}
 	}
 	if class == objectNativeType {
+		dictionary.set(&stringValue{value: "__str__"}, &wrapperDescriptorValue{class: objectNativeType, name: "__str__", call: executeObjectString})
+		dictionary.set(&stringValue{value: "__repr__"}, &wrapperDescriptorValue{class: objectNativeType, name: "__repr__", call: executeObjectRepresentation})
 		dictionary.set(&stringValue{value: "__init__"}, &wrapperDescriptorValue{class: objectNativeType, name: "__init__", call: executeObjectInit})
 		dictionary.set(&stringValue{value: "__subclasshook__"}, defaultSubclassHook())
 	}
@@ -44,6 +46,9 @@ func (runtime *Runtime) nativeClassAttribute(class *nativeTypeValue, name string
 		if current.base != nil {
 			current = current.base
 		} else if current != objectNativeType {
+			if name == "__repr__" || name == "__str__" {
+				return nil, false
+			}
 			if name == "__init__" && nativeHasOwnInitializer(class) {
 				return nil, false
 			}

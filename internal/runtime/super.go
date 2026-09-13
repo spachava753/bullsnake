@@ -172,7 +172,7 @@ func executeSuperAttributeLoad(
 		return missingSuperAttribute(name), nil
 	}
 	classValue, found := lookupAfterClass(value.receiverType, value.start, name)
-	if !found && name == "__init__" {
+	if !found && isObjectMethodName(name) {
 		classValue, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
 	}
 	if !found {

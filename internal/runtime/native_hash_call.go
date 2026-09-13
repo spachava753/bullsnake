@@ -67,7 +67,7 @@ func nativeCallDescriptor(class *nativeTypeValue) Value {
 // boundNativeObjectMethod resolves inherited native slots without intercepting
 // class attribute lookup or user-instance special-method precedence.
 func (runtime *Runtime) boundNativeObjectMethod(owner Value, name string) (Value, bool) {
-	if (name != "__hash__" && name != "__call__" && name != "__buffer__" && name != "__release_buffer__" && name != "__init__") || isClassValue(owner) {
+	if (name != "__hash__" && name != "__call__" && name != "__buffer__" && name != "__release_buffer__" && !isObjectMethodName(name)) || isClassValue(owner) {
 		return nil, false
 	}
 	actual, exception := typeOf(owner)

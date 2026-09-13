@@ -937,7 +937,12 @@ and assigning the wrapper as a Python class initializer share receiver and
 argument checks. Extra arguments are accepted only when allocation is customized
 and initialization still uses object.__init__. Native classes with their own
 unsupported initializer do not falsely expose object.__init__ as that slot.
-Other slot descriptors, object string/representation methods, and full wrapper
+`object.__repr__` and `object.__str__` use the same wrappers. Root repr bypasses
+Python overrides and retains Bullsnake's address-free object spelling. Root str
+invokes the actual repr slot, ignoring instance attributes and __str__ overrides;
+a direct call may return a non-string, while `str()` validates its final result.
+User repr failures propagate through VM continuations. Other native repr/str
+slots are not represented by inherited markers when unimplemented. Full wrapper
 comparison/pickling remain later work. Existing native methods have not all been
 converted to wrapper descriptors.
 
@@ -1117,7 +1122,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing object.__str__, missing _ast,
+probes. Their current blockers are missing str.join class access, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
