@@ -687,7 +687,15 @@ __next__ slots. Shared iteration lookup binds descriptors through the VM and
 ignores same-named attributes on the class object. Loops, iter/next, collection
 constructors, map/filter/zip/enumerate, and all/any use the same path, with ordinary
 iterator validation, exhaustion, defaults, and exception propagation. Metaclass
-length/containment and general iterator unpacking remain separate gaps.
+length and containment remain separate gaps.
+
+Fixed and starred assignments now unpack arbitrary supported iterables through
+VM continuations. Fixed unpacking consumes at most the required count plus one
+item, preserving the rest after an excess-value error. Starred unpacking consumes
+the leading values then uses ordinary list iteration for the remainder, including
+the iterator's second __iter__ call. Both paths retain target bindings until
+consumption and arity validation succeed. Tuple/list fast paths share the same
+error and stack-publication logic; custom iterator failures are not rewritten.
 
 A user iterable resolves `__iter__` on its class and requires the returned value
 to have class `__next__`. The one-argument `iter` builtin and loop iteration use
@@ -1332,7 +1340,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are general iterable unpacking in enum, missing _ast,
+blockers are function descriptor discovery in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

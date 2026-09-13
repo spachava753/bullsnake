@@ -112,8 +112,8 @@ func executeGetLen(frame *frame, index int) (instructionOutcome, error) {
 	return pushOutcome(frame, index, integerFromInt64(int64(length)))
 }
 
-// executeUnpackSequence accepts the fixed sequence types, checks exact arity,
-// and pushes elements in reverse so target stores consume them left to right.
+// executeUnpackSequence checks tuple/list arity directly and delegates other
+// iterables to bounded VM consumption before pushing targets in reverse order.
 func executeUnpackSequence(
 	frame *frame,
 	index int,
@@ -130,13 +130,7 @@ func executeUnpackSequence(
 	case *listValue:
 		elements = sequence.elements
 	default:
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				"cannot unpack non-iterable "+sequence.TypeName()+" object",
-			),
-		}, nil
+		return (&unpackCall{instruction: index, before: count}).start(frame, sequence)
 	}
 	if len(elements) < count {
 		return instructionOutcome{
@@ -388,8 +382,8 @@ func executeSubscriptValue(frame *frame, instruction int, container, indexValue 
 	return pushOutcome(frame, instruction, elements[normalized])
 }
 
-// executeUnpackEx splits a tuple/list around one starred target and pushes
-// trailing, middle, and leading values so stores consume targets left to right.
+// executeUnpackEx splits tuple/list inputs directly or collects other iterables,
+// then pushes trailing, starred, and leading values for left-to-right stores.
 func executeUnpackEx(
 	frame *frame,
 	index int,
@@ -407,13 +401,7 @@ func executeUnpackEx(
 	case *listValue:
 		elements = sequence.elements
 	default:
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				"cannot unpack non-iterable "+sequence.TypeName()+" object",
-			),
-		}, nil
+		return (&unpackCall{instruction: index, before: before, after: after, starred: true}).start(frame, sequence)
 	}
 	minimum := before + after
 	if len(elements) < minimum {
