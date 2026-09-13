@@ -95,12 +95,8 @@ func concreteUnionKeyError(left, right Value) *Exception {
 			items = union.args.elements
 		}
 		for _, item := range items {
-			if class, ok := item.(*typeValue); ok && class.metaclass != nil {
-				for _, name := range []string{"__eq__", "__hash__"} {
-					if _, found := class.metaclass.lookup(name); found {
-						return newException("NotImplementedError", "unions with metaclass equality or hashing overrides are not supported")
-					}
-				}
+			if class, ok := item.(*typeValue); ok && classHasCustomKeySlots(class) {
+				return newException("NotImplementedError", "unions with metaclass equality or hashing overrides are not supported")
 			}
 		}
 	}

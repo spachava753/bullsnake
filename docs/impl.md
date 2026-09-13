@@ -784,6 +784,12 @@ String and base forms of `int`, the iterable and keyword forms of `max` and
 `min`, the encoding form of `str`, and callable-sentinel `iter` remain
 unsupported.
 
+Dictionary and set key admission accepts native/user classes and plain Python or
+native functions by identity, including nested tuples/frozen sets. Distinct
+classes or closures with the same name remain distinct keys. Classes with
+metaclass equality/hash overrides still fail the existing unsupported-key guard;
+this does not enable arbitrary Python keys or bound-method equality.
+
 The `sum` builtin consumes current native/user iterators and generators, accepts
 an optional positional or keyword start, and performs ordinary addition through
 VM callbacks without invoking in-place addition. Integer prefixes remain exact;
@@ -1209,7 +1215,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are class values as set keys in enum, missing _ast,
+class helpers. Current blockers are singleton/root allocation descriptors in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
