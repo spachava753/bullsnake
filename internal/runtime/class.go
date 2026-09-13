@@ -12,6 +12,7 @@ var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
 	namespaceDictionary  *dictValue
+	nativeSlots          *dictValue
 	simpleNamespaceClass bool
 	genericAliasClass    bool
 	bytesIOClass         bool
@@ -63,6 +64,20 @@ func (class *typeValue) lookup(name string) (Value, bool) {
 	for _, current := range class.mro {
 		if value, found := current.namespace.get(name); found {
 			return value, true
+		}
+	}
+	return class.lookupNativeSlot(name)
+}
+
+// lookupNativeSlot reads cached native-base descriptors only after Python MRO
+// entries have been searched, preserving ordinary override precedence.
+func (class *typeValue) lookupNativeSlot(name string) (Value, bool) {
+	for _, current := range class.mro {
+		if current.nativeSlots != nil {
+			value, found, _ := current.nativeSlots.get(&stringValue{value: name})
+			if found {
+				return value, true
+			}
 		}
 	}
 	return nil, false
@@ -123,6 +138,7 @@ func (class *typeValue) isSubclassOfNative(parent *nativeTypeValue) bool {
 }
 
 type instanceValue struct {
+	dictionary *dictValue
 	alias      *genericAliasState
 	io         *ioState
 	class      *typeValue
@@ -287,7 +303,7 @@ func resolveClassBases(
 			switch classBase {
 			case objectNativeType:
 				objectBase = true
-			case typeNativeType, classMethodNativeType, staticMethodNativeType, propertyNativeType:
+			case typeNativeType, classMethodNativeType, staticMethodNativeType, propertyNativeType, dictNativeType:
 				nativeBase = classBase
 			default:
 				return nil, nil, nil, false, newException(
@@ -432,6 +448,9 @@ func executeTypeCall(
 			arguments,
 			keywords,
 		)
+	}
+	if class.nativeClassBase() == dictNativeType {
+		return executeNativeInstanceConstructor(caller, instruction, base, class, arguments, keywords)
 	}
 	if class.nativeClassBase() != nil {
 		return executeDescriptorSubclassCall(caller, instruction, base, class, arguments, keywords)

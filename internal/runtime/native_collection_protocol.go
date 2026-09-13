@@ -78,7 +78,7 @@ func addNativeCollectionDescriptors(class *nativeTypeValue, dictionary *dictValu
 // nativeCollectionDescriptor validates an explicit native receiver before
 // delegating to the same length, iteration, next, or containment operation.
 func nativeCollectionDescriptor(class *nativeTypeValue, name string) Value {
-	return &builtinFunctionValue{name: name, frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+	return &builtinFunctionValue{name: name, method: true, frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 		count := 1
 		if name == "__contains__" {
 			count++
@@ -89,6 +89,11 @@ func nativeCollectionDescriptor(class *nativeTypeValue, name string) Value {
 		}
 		arguments = append([]Value(nil), arguments...)
 		discardCallSegment(caller, base)
+		if class == dictNativeType {
+			if storage, ok := dictionaryStorage(arguments[0]); ok {
+				arguments[0] = storage
+			}
+		}
 		actual, exception := typeOf(arguments[0])
 		if exception != nil || actual != class {
 			return raiseOutcome(newException("TypeError", "descriptor '"+name+"' requires a '"+class.name+"' object")), nil

@@ -244,6 +244,9 @@ func lookupAfterClass(receiverType, start *typeValue, name string) (Value, bool)
 			return value, true
 		}
 	}
+	if value, found := receiverType.lookupNativeSlot(name); found {
+		return value, true
+	}
 	if name == "__subclasshook__" {
 		return defaultSubclassHook(), true
 	}

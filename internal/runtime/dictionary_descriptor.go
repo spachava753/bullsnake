@@ -7,10 +7,16 @@ func addDictionaryDescriptors(class *nativeTypeValue, namespace *dictValue) {
 		return
 	}
 	namespace.set(&stringValue{value: "__new__"}, &builtinFunctionValue{name: "dict.__new__", call: func(arguments []Value, _ *dictValue) (Value, *Exception) {
-		if len(arguments) == 0 || arguments[0] != dictNativeType {
-			return nil, newException("TypeError", "dict.__new__ requires the dict type")
+		if len(arguments) == 0 {
+			return nil, newException("TypeError", "dict.__new__ requires a dict subtype")
 		}
-		return &dictValue{}, nil
+		if arguments[0] == dictNativeType {
+			return &dictValue{}, nil
+		}
+		if subclass, ok := arguments[0].(*typeValue); ok && subclass.isSubclassOfNative(dictNativeType) {
+			return &instanceValue{class: subclass, attributes: newNamespace(), dictionary: &dictValue{}}, nil
+		}
+		return nil, newException("TypeError", "dict.__new__ requires a dict subtype")
 	}})
 	for _, name := range []string{"__init__", "__getitem__", "__setitem__", "__delitem__", "__repr__", "__eq__", "__ne__", "setdefault", "clear", "copy", "get", "pop", "items", "keys", "values", "update"} {
 		kind := nativeMethodDescriptor
@@ -18,7 +24,14 @@ func addDictionaryDescriptors(class *nativeTypeValue, namespace *dictValue) {
 			kind = nativeWrapperDescriptor
 		}
 		namespace.set(&stringValue{value: name}, &nativeDescriptorValue{class: class, kind: kind, name: name, call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-			return executeDictionaryDescriptor(caller, instruction, self.(*dictValue), name, arguments, keywords)
+			storage, ok := dictionaryStorage(self)
+			if !ok {
+				return raiseOutcome(newException("TypeError", "uninitialized dict subtype")), nil
+			}
+			if name == "__getitem__" {
+				return executeDictionaryGetitem(caller, instruction, self, storage, arguments, keywords)
+			}
+			return executeDictionaryDescriptor(caller, instruction, storage, name, arguments, keywords)
 		}})
 	}
 }
@@ -38,7 +51,7 @@ func executeDictionaryDescriptor(caller *frame, instruction int, dictionary *dic
 		if exception := checkNativeArguments(name, arguments, keywords, 1, 1); exception != nil {
 			return raiseOutcome(exception), nil
 		}
-		other, ok := arguments[0].(*dictValue)
+		other, ok := dictionaryStorage(arguments[0])
 		if !ok {
 			return pushOutcome(caller, instruction, notImplementedSingleton)
 		}

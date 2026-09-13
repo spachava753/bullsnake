@@ -419,6 +419,9 @@ func executeDynamicTypeCall(
 	result, exception := build.finish(cell)
 	if class, ok := result.(*typeValue); ok {
 		class.metaclass = metaclass
+		if class.nativeBase == dictNativeType {
+			class.nativeSlots = caller.runtime.nativeNamespace(dictNativeType)
+		}
 	}
 	discardCallSegment(caller, base)
 	if exception != nil {

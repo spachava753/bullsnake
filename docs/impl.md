@@ -469,7 +469,7 @@ returns a distinct root instance and accepts no arguments. Native values,
 built-in exception classes, and ordinary user classes are instances or
 subclasses of `object`. A user class with no named base, or with `object` as its
 sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
-A user class may instead use `classmethod`, `staticmethod`, or `property` as its
+A user class may instead use `dict`, `classmethod`, `staticmethod`, or `property` as its
 sole native base. That native ancestry appears in class metadata and
 `issubclass`. Descriptor subclass construction and Python initialization now
 work for the documented wrapper subset. Other native bases and mixed native/user direct bases remain
@@ -975,10 +975,16 @@ These are executable descriptors, not type-discovery markers.
 Dictionary slots now expose receiver-checked allocation, reinitialization,
 subscription/mutation, repr, equality/inequality, and existing mapping methods.
 Setdefault preserves existing entries and shares the supplied default value.
-Explicit equality descriptors resume Python value callbacks. Reinitialization
-currently accepts native dictionaries and keywords through the existing update
-path; iterable/mapping inputs to init/update and native dict subclasses remain
-later slices.
+Explicit equality descriptors resume Python value callbacks. Native dict
+subclasses now retain real dictionary storage separately from Python attributes;
+allocation and initialization use normal __new__/__init__ continuations. Native
+slots are cached per runtime and inherited after Python MRO entries. Subclass
+item/length/iteration/containment overrides work, explicit native slots bypass
+them, and subscription alone calls __missing__. Views retain live native storage.
+Reinitialization accepts native dictionaries and keywords through the existing
+update path. Iterable/mapping inputs to init/update, dictionary-subclass source
+conversion, subclass fromkeys/specialization, and general mixed native bases
+remain later slices.
 
 ### Class subscription
 
@@ -1168,7 +1174,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are dict subclassing in enum, missing _ast,
+class helpers. Current blockers are function docstrings in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
