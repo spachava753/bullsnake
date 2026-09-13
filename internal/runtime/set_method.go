@@ -64,6 +64,8 @@ func (descriptor *setContainsDescriptor) typeName() string {
 	return "set"
 }
 
+// executeSetAttributeLoad preserves existing bound collection methods and binds
+// inherited native operator descriptors when the name selects an implemented slot.
 func executeSetAttributeLoad(
 	frame *frame,
 	instruction int,
@@ -80,6 +82,9 @@ func executeSetAttributeLoad(
 	case "discard":
 		return pushOutcome(frame, instruction, &setDiscardMethod{set: set})
 	default:
+		if method, found := frame.runtime.nativeClassAttribute(setNativeType, name); found {
+			return pushOutcome(frame, instruction, bindInstanceFunction(method, set))
+		}
 		return raiseOutcome(newException(
 			"AttributeError",
 			"'set' object has no attribute '"+name+"'",
@@ -99,6 +104,9 @@ func executeFrozenSetAttributeLoad(
 	case "difference":
 		return pushOutcome(frame, instruction, &setDifferenceMethod{target: set})
 	default:
+		if method, found := frame.runtime.nativeClassAttribute(frozenSetNativeType, name); found {
+			return pushOutcome(frame, instruction, bindInstanceFunction(method, set))
+		}
 		return raiseOutcome(newException(
 			"AttributeError",
 			"'frozenset' object has no attribute '"+name+"'",

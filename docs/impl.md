@@ -596,6 +596,13 @@ objects expose matching method descriptors. These methods use the same fixed
 hashability and equality rules as displays and membership expressions.
 The containment methods are enough for CPython's generated `keyword` module to
 bind its `iskeyword` and `issoftkeyword` helpers directly from frozen sets.
+Set and frozen-set binary union, intersection, difference, and symmetric
+difference now execute through native operators and descriptors. Mixed native
+operands preserve the left result kind; mutable in-place operators retain aliases.
+Intersection retains representatives from the smaller operand, using the right
+operand for equal sizes. Unsupported operands decline to Python reflected methods.
+These operations retain the existing fixed set-key equality/hash boundary.
+
 Set-like view operations and other native collection or text methods are not
 implemented.
 Dictionary equality ignores insertion order, compares corresponding values with
@@ -1199,7 +1206,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are native set intersection in enum, missing _ast,
+class helpers. Current blockers are dict.update mapping inputs in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
