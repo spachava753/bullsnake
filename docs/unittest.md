@@ -826,14 +826,14 @@ The first dependency batch was copied unchanged from the same CPython pin:
 `_py_warnings.py`. Reproduce their current import failures offline:
 
 ```sh
-go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings
+go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings copyreg
 ```
 
 | Probe | First observed failure |
 | --- | --- |
 | `types` | Imports; project-owned tests exercise type discovery, new_class, and prepare_class. |
 | `enum` | `enum.py:590:33`: missing executable object.__reduce_ex__ method. |
-| `copyreg` | `copyreg.py:56:18`: missing int.__new__ allocator. |
+| `copyreg` | Imports; source tests exercise complex reduction, allocation helpers, and registries. |
 | `ast`, `annotationlib` | `ast.py:23:1`: missing `_ast`. |
 | `warnings` | `_py_warnings.py:4:8`: missing `_contextvars`. |
 
@@ -974,13 +974,16 @@ object.__reduce_ex__ inspection.
 
 Unchanged copyreg.py is now vendored at the same pin for object reduction's
 reconstruction helpers. Complex numeric construction and __complex__ callbacks
-now execute, with component descriptors, shape checks, and overflow tests. Its
-probe now reaches missing int.__new__. Do not substitute a private reconstruction
+now execute, with component descriptors, shape checks, and overflow tests.
+Int.__new__ now executes the numeric integer constructor; native allocators expose
+real defining-class __self__ metadata. Copyreg imports and its project-owned tests
+execute complex reduction, object reconstruction, registration, and extension
+registries. Do not substitute a private reconstruction
 function for those Python helpers.
 
 The table lists first failures, not complete missing-feature lists. Next,
-add the numeric constructor/allocator prerequisites for unchanged copyreg, then
-implement actual object reduction behavior rather than a comparison-only marker.
+implement object reduction through unchanged copyreg's reconstruction helpers,
+not a comparison-only marker.
 Further dependencies remain. AST
 services, context-variable state, enum construction, annotation descriptors, and
 subsequent imports need their own tested slices. Vendoring source alone is not a

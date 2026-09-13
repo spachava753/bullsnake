@@ -8,6 +8,7 @@ import (
 )
 
 type builtinFunctionValue struct {
+	self      Value
 	method    bool
 	name      string
 	call      func(arguments []Value, keywords *dictValue) (Value, *Exception)
@@ -101,6 +102,9 @@ func builtinCallable(arguments []Value, keywords *dictValue) (Value, *Exception)
 func builtinInt(arguments []Value, keywords *dictValue) (Value, *Exception) {
 	if keywords != nil && len(keywords.entries) != 0 {
 		return nil, newException("TypeError", "int() keyword arguments are unsupported")
+	}
+	if len(arguments) == 0 {
+		return integerFromInt64(0), nil
 	}
 	if len(arguments) != 1 {
 		return nil, newException("TypeError", "int() requires exactly one argument")

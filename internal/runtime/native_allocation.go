@@ -29,10 +29,10 @@ func allocationClassName(class Value) string {
 // addNativeAllocators publishes actual static __new__ functions for object and
 // singleton types. Each runtime retains one callable identity per native class.
 func addNativeAllocators(class *nativeTypeValue, dictionary *dictValue) {
-	if class != objectNativeType && singletonForClass(class) == nil {
+	if class != objectNativeType && class != intNativeType && singletonForClass(class) == nil {
 		return
 	}
-	dictionary.set(&stringValue{value: "__new__"}, &builtinFunctionValue{name: class.name + ".__new__", frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+	dictionary.set(&stringValue{value: "__new__"}, &builtinFunctionValue{self: class, name: class.name + ".__new__", frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 		arguments = append([]Value(nil), arguments...)
 		discardCallSegment(caller, base)
 		if len(arguments) == 0 {
@@ -45,9 +45,19 @@ func addNativeAllocators(class *nativeTypeValue, dictionary *dictValue) {
 		if class == objectNativeType {
 			return executeObjectAllocation(caller, instruction, target, arguments[1:], keywords)
 		}
+		if class == intNativeType && target == boolNativeType {
+			return raiseOutcome(newException("TypeError", "int.__new__(bool) is not safe, use bool.__new__()")), nil
+		}
 		if target != class {
 			name := allocationClassName(target)
 			return raiseOutcome(newException("TypeError", class.name+".__new__("+name+"): "+name+" is not a subtype of "+class.name)), nil
+		}
+		if class == intNativeType {
+			value, exception := builtinInt(arguments[1:], keywords)
+			if exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			return pushOutcome(caller, instruction, value)
 		}
 		return executeSingletonTypeCall(caller, instruction, len(caller.stack), class, arguments[1:], keywords)
 	}})

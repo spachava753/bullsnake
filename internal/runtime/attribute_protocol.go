@@ -41,6 +41,11 @@ func executeDynamicAttributeLoad(
 		return outcome, err
 	}
 	switch owner := owner.(type) {
+	case *builtinFunctionValue:
+		if name == "__self__" && owner.self != nil {
+			return pushOutcome(frame, instruction, owner.self)
+		}
+		return raiseOutcome(newException("AttributeError", "native function has no attribute '"+name+"'")), nil
 	case *complexValue:
 		return executeComplexAttribute(frame, instruction, owner, name)
 	case *unionValue:

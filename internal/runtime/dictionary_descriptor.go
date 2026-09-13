@@ -6,7 +6,7 @@ func addDictionaryDescriptors(class *nativeTypeValue, namespace *dictValue) {
 	if class != dictNativeType {
 		return
 	}
-	namespace.set(&stringValue{value: "__new__"}, &builtinFunctionValue{name: "dict.__new__", call: func(arguments []Value, _ *dictValue) (Value, *Exception) {
+	namespace.set(&stringValue{value: "__new__"}, &builtinFunctionValue{self: class, name: "dict.__new__", call: func(arguments []Value, _ *dictValue) (Value, *Exception) {
 		if len(arguments) == 0 {
 			return nil, newException("TypeError", "dict.__new__ requires a dict subtype")
 		}

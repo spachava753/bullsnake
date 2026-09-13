@@ -995,7 +995,9 @@ argument rules, and shares abstract-allocation diagnostics. Ordinary classes and
 instances inherit this allocator; native types do not inherit a false allocator
 when their own allocation is unsupported. NoneType, EllipsisType, and
 NotImplementedType expose actual singleton constructors and static __new__ calls.
-General ordinary-class __new__ dispatch remains a separate constructor gap.
+Int.__new__ shares the current numeric integer constructor, including zero-argument
+zero construction, and rejects unsafe receiver classes. Implemented native
+allocators expose their actual defining class through __self__. General ordinary-class __new__ dispatch remains a separate constructor gap.
 
 `object.__init__` is an executable, runtime-cached `wrapper_descriptor`; binding
 produces a distinct `method-wrapper` type with receiver and defining-class
@@ -1239,7 +1241,8 @@ transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
-it currently stops at the missing int.__new__ allocator. Current annotation/warning
+it now imports with tests for complex reduction, reconstruction helpers,
+registration, and extension registries. Current annotation/warning
 blockers are object reduction slots in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable

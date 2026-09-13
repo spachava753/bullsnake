@@ -23,8 +23,8 @@ The next unchanged-source dependency batch contains `annotationlib.py`, `ast.py`
 `enum.py`, `types.py`, `warnings.py`, and `_py_warnings.py`. Types now imports
 and has project-owned behavior tests; the other modules remain dependency probes.
 `copyreg.py` is also vendored unchanged for object reduction through its real
-reconstruction helpers. The complex builtin prerequisite is implemented; the
-current probe reaches missing int.__new__.
+reconstruction helpers. It now imports and has project-owned tests for complex
+reduction, reconstruction helpers, and registration/extension registries.
 These files come from `Lib/` at the revision above and have no modifications.
 The complete transitive dependency closure is not vendored yet. Mock and async
 unittest source/support are outside this checkpoint.
