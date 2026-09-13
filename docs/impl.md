@@ -949,7 +949,12 @@ regular native methods: `str.join` exposes a real `method_descriptor`, whose
 bound form is a `builtin_function_or_method` retaining its receiver. Class,
 instance, and explicit __get__ calls share the existing resumable join operation,
 including receiver/argument errors and generator input. Other native methods
-still need their own class-level descriptor exposure.
+still need their own class-level descriptor exposure. `dict.fromkeys` adds a
+real `classmethod_descriptor`, binding the dictionary class through class,
+instance, and explicit __get__ access. It consumes native/user iterators through
+the VM, inserts keys before advancing, preserves first-key order and shared value
+identity, and propagates iterator/key errors. Native dictionary subclasses and
+arbitrary Python keys remain outside the current dict construction/key contract.
 
 ### Class subscription
 
@@ -1127,7 +1132,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing dict.fromkeys, missing _ast,
+probes. Their current blockers are missing exception.__traceback__, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

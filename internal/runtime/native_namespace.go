@@ -20,6 +20,9 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 		dictionary.set(&stringValue{value: "__init__"}, &nativeDescriptorValue{class: objectNativeType, name: "__init__", call: executeObjectInit})
 		dictionary.set(&stringValue{value: "__subclasshook__"}, defaultSubclassHook())
 	}
+	if class == dictNativeType {
+		dictionary.set(&stringValue{value: "fromkeys"}, &nativeDescriptorValue{kind: nativeClassMethodDescriptor, class: class, name: "fromkeys", call: executeDictionaryFromkeys})
+	}
 	if class == stringNativeType {
 		dictionary.set(&stringValue{value: "join"}, &nativeDescriptorValue{kind: nativeMethodDescriptor, class: class, name: "join", call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 			return executeStringJoinCall(caller, instruction, len(caller.stack), &stringJoinMethod{separator: self.(*stringValue)}, arguments, keywords)
@@ -43,6 +46,9 @@ func (runtime *Runtime) nativeClassAttribute(class *nativeTypeValue, name string
 	for current := class; current != nil; {
 		value, found, _ := runtime.nativeNamespace(current).get(&stringValue{value: name})
 		if found {
+			if descriptor, ok := value.(*nativeDescriptorValue); ok && descriptor.kind == nativeClassMethodDescriptor {
+				return &boundNativeDescriptorValue{descriptor: descriptor, self: class}, true
+			}
 			if name == "__class_getitem__" || name == "__subclasshook__" {
 				return &boundMethodValue{callable: value, self: class}, true
 			}

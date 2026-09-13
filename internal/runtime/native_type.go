@@ -131,6 +131,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"function":                         functionNativeType,
 	"builtin_function_or_method":       builtinFunctionNativeType,
 	"method-wrapper":                   builtinNativeType("method-wrapper"),
+	"classmethod_descriptor":           builtinNativeType("classmethod_descriptor"),
 	"wrapper_descriptor":               builtinNativeType("wrapper_descriptor"),
 	"method_descriptor":                builtinNativeType("method_descriptor"),
 	"method":                           methodNativeType,

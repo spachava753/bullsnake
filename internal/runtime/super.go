@@ -183,6 +183,13 @@ func executeSuperAttributeLoad(
 	}
 	receiverClass, classMode := value.receiver.(*typeValue)
 	classMode = classMode && receiverClass == value.receiverType
+	if descriptor, ok := classValue.(*nativeDescriptorValue); ok {
+		receiver := value.receiver
+		if classMode {
+			receiver = None
+		}
+		return executeNativeDescriptorBinding(frame, instruction, descriptor, receiver, value.receiverType)
+	}
 	if property, ok := classValue.(*propertyValue); ok {
 		if classMode {
 			return pushOutcome(frame, instruction, property)

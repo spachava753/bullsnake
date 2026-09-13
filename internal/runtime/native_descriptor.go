@@ -5,6 +5,7 @@ type nativeDescriptorKind uint8
 const (
 	nativeWrapperDescriptor nativeDescriptorKind = iota
 	nativeMethodDescriptor
+	nativeClassMethodDescriptor
 )
 
 // nativeDescriptorValue exposes an implemented native slot or regular method.
@@ -17,13 +18,16 @@ type nativeDescriptorValue struct {
 }
 
 func (value *nativeDescriptorValue) TypeName() string {
+	if value.kind == nativeClassMethodDescriptor {
+		return "classmethod_descriptor"
+	}
 	if value.kind == nativeMethodDescriptor {
 		return "method_descriptor"
 	}
 	return "wrapper_descriptor"
 }
 func (value *nativeDescriptorValue) Repr() string {
-	if value.kind == nativeMethodDescriptor {
+	if value.kind != nativeWrapperDescriptor {
 		return "<method '" + value.name + "' of '" + value.class.name + "' objects>"
 	}
 	return "<slot wrapper '" + value.name + "' of '" + value.class.name + "' objects>"
@@ -36,13 +40,13 @@ type boundNativeDescriptorValue struct {
 }
 
 func (value *boundNativeDescriptorValue) TypeName() string {
-	if value.descriptor.kind == nativeMethodDescriptor {
+	if value.descriptor.kind != nativeWrapperDescriptor {
 		return "builtin_function_or_method"
 	}
 	return "method-wrapper"
 }
 func (value *boundNativeDescriptorValue) Repr() string {
-	if value.descriptor.kind == nativeMethodDescriptor {
+	if value.descriptor.kind != nativeWrapperDescriptor {
 		return "<built-in method " + value.descriptor.name + " of " + value.self.TypeName() + " object>"
 	}
 	return "<method-wrapper '" + value.descriptor.name + "' of " + value.self.TypeName() + " object>"
@@ -55,10 +59,53 @@ func executeNativeDescriptorCall(caller *frame, instruction, base int, descripto
 	if len(arguments) == 0 {
 		return raiseOutcome(newException("TypeError", "descriptor '"+descriptor.name+"' of '"+descriptor.class.name+"' object needs an argument")), nil
 	}
-	if !nativeReceiverMatches(arguments[0], descriptor.class) {
+	if !descriptor.receiverMatches(arguments[0]) {
 		return raiseOutcome(newException("TypeError", "descriptor '"+descriptor.name+"' requires a '"+descriptor.class.name+"' object")), nil
 	}
 	return descriptor.call(caller, instruction, arguments[0], arguments[1:], keywords)
+}
+
+func (descriptor *nativeDescriptorValue) receiverMatches(receiver Value) bool {
+	if descriptor.kind == nativeClassMethodDescriptor {
+		if !isClassValue(receiver) {
+			return false
+		}
+		matched, _ := subclassMatchesClass(receiver, descriptor.class)
+		return matched
+	}
+	return nativeReceiverMatches(receiver, descriptor.class)
+}
+
+// bind applies instance or classmethod binding without invoking Python type
+// check hooks; explicit owners control classmethod binding when supplied.
+func (descriptor *nativeDescriptorValue) bind(receiver, owner Value) (Value, *Exception) {
+	if receiver == None && owner == None {
+		return nil, newException("TypeError", "__get__(None, None) is invalid")
+	}
+	if descriptor.kind == nativeClassMethodDescriptor {
+		if owner == None {
+			var exception *Exception
+			owner, exception = typeOf(receiver)
+			if exception != nil {
+				return nil, exception
+			}
+		}
+		receiver = owner
+	} else if receiver == None {
+		return descriptor, nil
+	}
+	if !descriptor.receiverMatches(receiver) {
+		return nil, newException("TypeError", "descriptor requires a '"+descriptor.class.name+"' receiver")
+	}
+	return &boundNativeDescriptorValue{descriptor: descriptor, self: receiver}, nil
+}
+
+func executeNativeDescriptorBinding(caller *frame, instruction int, descriptor *nativeDescriptorValue, receiver, owner Value) (instructionOutcome, error) {
+	value, exception := descriptor.bind(receiver, owner)
+	if exception != nil {
+		return raiseOutcome(exception), nil
+	}
+	return pushOutcome(caller, instruction, value)
 }
 
 // executeNativeDescriptorAttributeLoad exposes slot metadata and real descriptor binding.
@@ -83,13 +130,11 @@ func executeNativeDescriptorAttributeLoad(caller *frame, instruction int, descri
 				if exception := checkNativeArguments("__get__", arguments, keywords, 1, 2); exception != nil {
 					return nil, exception
 				}
-				if arguments[0] == None {
-					return descriptor, nil
+				owner := Value(None)
+				if len(arguments) == 2 {
+					owner = arguments[1]
 				}
-				if !nativeReceiverMatches(arguments[0], descriptor.class) {
-					return nil, newException("TypeError", "descriptor requires a '"+descriptor.class.name+"' object")
-				}
-				return &boundNativeDescriptorValue{descriptor: descriptor, self: arguments[0]}, nil
+				return descriptor.bind(arguments[0], owner)
 			}})
 		}
 	}

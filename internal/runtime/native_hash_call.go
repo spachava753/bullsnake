@@ -10,7 +10,7 @@ func addNativeHashCallDescriptors(class *nativeTypeValue, dictionary *dictValue)
 		dictionary.set(&stringValue{value: "__hash__"}, nativeHashDescriptor(class))
 	}
 	switch class.name {
-	case "function", "builtin_function_or_method", "method", "method_descriptor", "wrapper_descriptor", "method-wrapper", "type":
+	case "function", "builtin_function_or_method", "method", "method_descriptor", "classmethod_descriptor", "wrapper_descriptor", "method-wrapper", "type":
 		dictionary.set(&stringValue{value: "__call__"}, nativeCallDescriptor(class))
 	}
 }

@@ -327,6 +327,9 @@ func executeTypeAttributeLoad(
 			),
 		}, nil
 	}
+	if descriptor, ok := value.(*nativeDescriptorValue); ok {
+		return executeNativeDescriptorBinding(frame, instruction, descriptor, None, owner)
+	}
 	if bound, descriptor := bindMethodDescriptor(value, owner); descriptor {
 		return pushOutcome(frame, instruction, bound)
 	}
@@ -391,6 +394,9 @@ func executeInstanceAttributeLoad(
 				"'"+owner.class.name+"' object has no attribute '"+name+"'",
 			),
 		}, nil
+	}
+	if descriptor, ok := classValue.(*nativeDescriptorValue); ok {
+		return executeNativeDescriptorBinding(frame, instruction, descriptor, owner, owner.class)
 	}
 	if bound, methodDescriptor := bindMethodDescriptor(classValue, owner.class); methodDescriptor {
 		return pushOutcome(frame, instruction, bound)
