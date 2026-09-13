@@ -1022,6 +1022,7 @@ route:
 			exception = delegatedException
 			thread.current = current
 		}
+		exception.hasBeenRaised = true
 		if exception.originFrame == nil {
 			exception.chainContext(activeHandledException(current, currentInstruction))
 			exception.originFrame = current
@@ -2015,7 +2016,7 @@ func executeInstruction(
 		return instructionOutcome{
 			kind:      raised,
 			exception: exception,
-			reraise:   exception.originFrame != nil,
+			reraise:   exception.hasBeenRaised,
 		}, nil
 	case bytecode.RaiseVarargs:
 		if instruction.Operand == 0 {

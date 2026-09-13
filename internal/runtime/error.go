@@ -250,6 +250,7 @@ type Exception struct {
 	context            *Exception
 	suppressContext    bool
 	originFrame        *frame
+	hasBeenRaised      bool
 	originInstruction  int
 	traceback          *tracebackValue
 }

@@ -149,6 +149,7 @@ func transformGeneratorStopIteration(
 	transformed.cause = exception
 	transformed.context = exception
 	transformed.suppressContext = true
+	transformed.hasBeenRaised = true
 	transformed.originFrame = generatorFrame
 	transformed.originInstruction = instruction
 	transformed.traceback = &tracebackValue{

@@ -1030,8 +1030,10 @@ Ordinary `try` statements support ordered typed or bare handlers, `as` bindings,
 context-manager exits run for normal completion, propagation, return, break,
 and continue. A transfer started in a final suite or exit method replaces the
 pending transfer. An exceptional `__exit__` call receives the exception class
-and instance, but the compiler still supplies `None` for its traceback argument.
-Passing the new traceback objects through exceptional exits is the next slice.
+and instance plus the exception's current traceback. The compiler emits that
+lookup for both synchronous and asynchronous exits. Nested exits see traceback
+changes made by inner exits, including clearing; internal reraises preserve that
+cleared state. Normal completion continues to pass three None values.
 
 Fresh exceptions record an active handled exception as `__context__`.
 `raise ... from ...` records `__cause__` and suppression state. Reraising
@@ -1054,8 +1056,8 @@ frames expose their actual code and writable locals after return.
 The host's copied Traceback and formatted Backtrace use that same chain; its
 short Error keeps the existing explicit-raise source-location contract. Traceback
 construction, complete code/line metadata, clearing frames, active-exception sys
-helpers, and traceback forwarding through context exits and legacy generator
-throw remain later work.
+helpers, and traceback forwarding through legacy generator throw remain later
+work. Synchronous/asynchronous context exits now receive actual tracebacks.
 
 ## Modules and imports
 

@@ -629,7 +629,9 @@ cause/context support were already implemented.
 
 The remaining work includes `sys.exc_info()` and `sys.exception()`, traceback
 constructors, frame clearing, complete code/line metadata, and forwarding
-tracebacks through context exits and the legacy generator throw API. `tb_lasti`
+tracebacks through the legacy generator throw API. Synchronous and asynchronous
+context exits now receive real traceback objects, including changes made by an
+inner exit. `tb_lasti`
 currently denotes a Bullsnake instruction, not a CPython byte offset; traceback
 formatting must use the supported source-position data rather than assuming
 CPython bytecode layout.
@@ -881,9 +883,14 @@ explicit and bare reraises, shared subgroup metadata, and acyclic link mutation.
 The Go host keeps its copied traceback contract. Unchanged types now gets past
 TracebackType and FrameType discovery.
 
+The compiler now supplies actual exception traceback values to synchronous and
+asynchronous context exits. Full compiler dumps and execution tests cover the
+changed call arguments, nested exits, and clearing traceback state during cleanup.
+Internal reraising no longer uses retained origin-frame presence as its raised
+state, so clearing a traceback does not create a spurious cleanup frame.
+
 The table lists first failures, not complete missing-feature lists. Next,
-finish the separate compiler slice that passes real tracebacks to context exits,
-then expose native function attribute descriptors for types' next import step.
+expose native function attribute descriptors for types' next import step.
 Subsequent types import work includes union types and further dependencies. AST
 services, context-variable state, enum construction, annotation descriptors, and
 subsequent imports need their own tested slices. Vendoring source alone is not a

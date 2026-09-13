@@ -97,7 +97,8 @@ else:
     assert False
 assert suppressor.kind is ValueError
 assert suppressor.value is problem
-assert suppressor.traceback is None
+assert suppressor.traceback is problem.__traceback__
+assert suppressor.traceback.tb_frame.f_code is use_suppressor.__code__
 
 # ---
 # case: async context cleanup runs during return and loop transfer

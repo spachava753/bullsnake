@@ -72,7 +72,8 @@ assert entered is manager
 assert continued
 assert manager.kind is ValueError
 assert manager.value is problem
-assert manager.traceback is None
+assert manager.traceback is problem.__traceback__
+assert manager.traceback.tb_frame.f_code.co_name == '<module>'
 # ---
 # case: context manager handles assignment failure
 class AssignmentManager:

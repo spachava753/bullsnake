@@ -166,6 +166,7 @@ func copyExceptionMetadata(target, source *Exception) {
 	target.cause = source.cause
 	target.context = source.context
 	target.suppressContext = source.suppressContext
+	target.hasBeenRaised = source.hasBeenRaised
 	target.originFrame = source.originFrame
 	target.originInstruction = source.originInstruction
 	target.traceback = source.traceback

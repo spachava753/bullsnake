@@ -256,9 +256,10 @@ that run before a return, loop transfer, or propagated exception completes.
 A synchronous `with` keeps each bound `__exit__` method on the operand stack.
 The compiler protects target assignment and the body, and calls exits from inner
 to outer for normal flow, exceptions, returns, and loop transfers. Special
-method lookup reads the class rather than an instance attribute. Traceback
-objects now exist; the compiler's exceptional-exit argument still needs a
-separate slice to replace its previous None-only behavior.
+method lookup reads the class rather than an instance attribute. Exceptional
+synchronous and asynchronous exits receive the exception's current traceback.
+Nested exits observe any traceback clearing or replacement by an inner exit;
+normal exits still receive three None values.
 
 Code objects stay in memory today. A bytecode cache, if one is ever needed,
 will require an explicit format version and must reject stale or foreign data.
@@ -621,8 +622,10 @@ subgroups and explicit traceback assignment share node identity. Writable
 chain or None and returns the same exception. Clearing a chain also clears its
 private origin reference. Host backtraces are copied from this same chain;
 the short host error preserves the existing explicit-raise location contract.
-Traceback construction, complete frame/code inspection, and traceback integration
-with context exits and legacy generator throw remain separate slices.
+Traceback construction, complete frame/code inspection, and traceback forwarding
+through legacy generator throw remain separate slices. Internal reraising tracks
+whether an exception has been raised separately from its retained origin frame,
+so clearing a traceback does not fabricate a new traceback during cleanup.
 
 ## Runtime instances and imports
 

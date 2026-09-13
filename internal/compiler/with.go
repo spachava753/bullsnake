@@ -180,7 +180,7 @@ func (compiler *compilerState) emitContextExitArguments(span lexer.Span) error {
 }
 
 // compileExceptionalContextExit activates the pending exception, calls
-// __exit__(type, value, None), and either suppresses or reraises it.
+// __exit__(type, value, value.__traceback__), and either suppresses or reraises it.
 func (compiler *compilerState) compileExceptionalContextExit(
 	handler *jumpLabel,
 	end *jumpLabel,
@@ -212,11 +212,10 @@ func (compiler *compilerState) compileExceptionalContextExit(
 	if err := compiler.emit(bytecode.Copy, 3, span); err != nil {
 		return err
 	}
-	if err := compiler.emit(
-		bytecode.LoadConst,
-		compiler.constantIndex(bytecode.None()),
-		span,
-	); err != nil {
+	if err := compiler.emit(bytecode.Copy, 1, span); err != nil {
+		return err
+	}
+	if err := compiler.emit(bytecode.LoadAttr, compiler.nameIndex("__traceback__"), span); err != nil {
 		return err
 	}
 	if err := compiler.emit(bytecode.Call, 3, span); err != nil {
