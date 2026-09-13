@@ -581,7 +581,7 @@ Native operations can retain ordered result continuations on their Python caller
 while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
-calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+calls. Generic instance `__new__`, custom metaclass `__call__`,
 and general metaclass descriptor precedence remain separate gaps. Abstract-method
 computation scans direct attributes and inherited names through these
 continuations. Weak registry/cache helpers use the same path. Unchanged abc now

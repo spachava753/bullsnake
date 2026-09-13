@@ -138,10 +138,7 @@ func executeTypeNew(caller *frame, instruction int, base int, arguments []Value,
 			return raiseOutcome(newException("TypeError", "type.__new__() argument 1 must be a subtype of type")), nil
 		}
 	}
-	if keywords != nil && len(keywords.entries) != 0 {
-		return raiseOutcome(newException("TypeError", "class keyword arguments are not supported")), nil
-	}
-	return executeDynamicTypeCall(caller, instruction, len(caller.stack), arguments[1:], metaclass)
+	return executeDynamicTypeCall(caller, instruction, len(caller.stack), arguments[1:], metaclass, keywords)
 }
 
 func typeInitialize(arguments []Value, keywords *dictValue) (Value, *Exception) {

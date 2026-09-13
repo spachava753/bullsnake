@@ -186,7 +186,7 @@ func executeNativeTypeCall(
 	keywords *dictValue,
 ) (instructionOutcome, error) {
 	if class == typeNativeType {
-		if keywords != nil && len(keywords.entries) != 0 {
+		if keywords != nil && len(keywords.entries) != 0 && len(arguments) != 3 {
 			discardCallSegment(caller, base)
 			return raiseOutcome(newException(
 				"TypeError",
@@ -200,6 +200,7 @@ func executeNativeTypeCall(
 				base,
 				arguments,
 				nil,
+				keywords,
 			)
 		}
 		if len(arguments) != 1 {
@@ -308,6 +309,7 @@ func executeDynamicTypeCall(
 	base int,
 	arguments []Value,
 	metaclass *typeValue,
+	keywords *dictValue,
 ) (instructionOutcome, error) {
 	name, ok := arguments[0].(*stringValue)
 	if !ok {
@@ -348,7 +350,7 @@ func executeDynamicTypeCall(
 	if selected != explicit {
 		arguments = append([]Value(nil), arguments...)
 		discardCallSegment(caller, base)
-		return executeMetaclassCall(caller, instruction, selected.(*typeValue), arguments, nil)
+		return executeMetaclassCall(caller, instruction, selected.(*typeValue), arguments, keywords)
 	}
 	bases, exceptionBase, nativeBase, objectBase, exception := resolveClassBases(
 		baseTuple.elements,
@@ -443,7 +445,7 @@ func executeDynamicTypeCall(
 	}
 	class := result.(*typeValue)
 	entries := append([]dictEntry(nil), class.namespaceProxy().dictionary.entries...)
-	return (&classNamesCall{class: class, entries: entries}).advance(caller, instruction)
+	return (&classNamesCall{class: class, entries: entries, keywords: keywords}).advance(caller, instruction)
 }
 
 // typeOf returns an existing user or exception class before consulting the

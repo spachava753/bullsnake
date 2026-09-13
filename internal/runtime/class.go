@@ -274,8 +274,10 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	if function, ok := class.namespace.values["__new__"].(*functionValue); ok {
 		class.namespace.values["__new__"] = &staticMethodValue{callable: function}
 	}
-	if function, ok := class.namespace.values["__class_getitem__"].(*functionValue); ok {
-		class.namespace.values["__class_getitem__"] = &classMethodValue{callable: function}
+	for _, name := range []string{"__class_getitem__", "__init_subclass__"} {
+		if function, ok := class.namespace.values[name].(*functionValue); ok {
+			class.namespace.values[name] = &classMethodValue{callable: function}
+		}
 	}
 	if classCell, ok := bodyResult.(*cellValue); ok {
 		classCell.value = class

@@ -1,9 +1,10 @@
 package runtime
 
 type classNamesCall struct {
-	class   *typeValue
-	entries []dictEntry
-	next    int
+	keywords *dictValue
+	class    *typeValue
+	entries  []dictEntry
+	next     int
 }
 
 // advance walks a snapshot of the completed namespace. Native completions loop
@@ -43,7 +44,21 @@ func (call *classNamesCall) advance(caller *frame, instruction int) (instruction
 		}
 		caller.pop()
 	}
-	return pushOutcome(caller, instruction, call.class)
+	return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
+		return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
+			return executeSuperAttributeLoad(caller, instruction, &superValue{start: call.class, receiver: call.class, receiverType: call.class}, "__init_subclass__")
+		}, func(current *frame, method Value, exception *Exception) (instructionOutcome, error) {
+			if exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			return executeFunctionCall(current, instruction, len(current.stack), method, nil, call.keywords)
+		})
+	}, func(current *frame, _ Value, exception *Exception) (instructionOutcome, error) {
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(current, instruction, call.class)
+	})
 }
 
 // invoke binds the class-special hook, ignores its return value, and annotates

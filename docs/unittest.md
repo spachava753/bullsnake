@@ -53,7 +53,7 @@ when a tested slice changes what can execute.
 | Runtime and host groundwork | Source execution tests; per-runtime modules and arguments; supplied streams and performance counter; explicit host denial. | Broader object protocols, collection keys, introspection, and system-module APIs as dependencies require them. |
 | Unchanged `abc` and `io` | Both import; ABC construction/registration and public io stream tests pass. In-memory streams, buffering, text decoding, and close/error paths are tested. | Full upstream conformance is not claimed; host-stream ABC integration and documented codec/buffer gaps remain. |
 | Unchanged `_collections_abc` | Imports; structural protocols and Set/Mapping/Sequence families have behavior tests. Callable aliases support construction, call, equality/hash, TypeVar/ParamSpec specialization, defaults, and class bases. | Concrete Callable representation, ByteString warning behavior, forward references, Concatenate, TypeVarTuple unpacking/substitution, and broader alias forwarding. Import success is not completion. |
-| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; six initial dependencies are vendored at the pin. Code inspection, function globals/live closure cells, and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: dynamic type keyword forwarding in enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
+| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; six initial dependencies are vendored at the pin. Code inspection, function globals/live closure cells, and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: `_ast` in ast/annotationlib and `_contextvars` in warnings. Enum now imports with member-construction tests; broader metaclass and enum operations remain. Implement real runtime operations rather than replacement Python APIs. |
 | Unchanged `unittest` import | Currently stops at `unittest/result.py:5:8`, missing `traceback`. | Finish the active collections dependency work, then continue through traceback and the remaining synchronous import closure. |
 | `TestCase` / `TestResult` | Not executed. | Passing tests, assertion failures, errors, setup/teardown, cleanups, skips, expected failures, and subtests. |
 | Suites, loader, text runner | Not executed. | In-memory suite/name loading, traceback reports, warnings, and complete output checked through `StringIO`. |
@@ -598,7 +598,7 @@ Native operations can retain ordered result continuations on their Python caller
 while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
-calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+calls. Generic instance `__new__`, custom metaclass `__call__`,
 and general metaclass descriptor precedence remain separate gaps. The tested ABC
 subset and remaining API gaps are described above.
 
@@ -832,7 +832,7 @@ go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings cop
 | Probe | First observed failure |
 | --- | --- |
 | `types` | Imports; project-owned tests exercise type discovery, new_class, and prepare_class. |
-| `enum` | `enum.py:1793:22`: _simple_enum needs three-argument type() to forward class keywords. |
+| `enum` | Imports; source tests cover Enum/IntEnum/StrEnum member construction, aliases, iteration, names/values, and repr/str. |
 | `copyreg` | Imports; source tests exercise complex reduction, allocation helpers, and registries. |
 | `ast`, `annotationlib` | `ast.py:23:1`: missing `_ast`. |
 | `warnings` | `_py_warnings.py:4:8`: missing `_contextvars`. |
@@ -1073,10 +1073,18 @@ check that function attribute overrides do not replace special descriptor bindin
 Enum now recognizes ordinary methods as descriptors instead of members, reaches
 IntFlag creation, and stops in _simple_enum at keyword arguments to type().
 
+Three-argument type now forwards keywords through its selected metaclass, and
+native class construction calls cooperative __init_subclass__ after descriptor
+naming. Hook functions become classmethods; static/class method overrides,
+C3 super delegation, ignored return values, leftover-keyword rejection, class-cell
+availability, and callback errors have source tests. Unchanged enum now imports.
+Its new regression test constructs Enum, IntEnum, and StrEnum members and aliases,
+checks native scalar values, names, repr/str, and iteration. Value-based enum
+construction through metaclass __call__, broader metaclass properties/operators,
+and full enum conformance are not yet claimed.
+
 The table lists first failures, not complete missing-feature lists. Next,
-implement class keyword forwarding with actual __init_subclass__ semantics, then
-follow later Enum
-requirements as execution reaches them. AST
-services, context-variable state, enum construction, annotation descriptors, and
-subsequent imports need their own tested slices. Vendoring source alone is not a
-passing behavior test.
+continue the unchanged annotation path at the missing _ast service and the warning
+path at _contextvars. AST services, context-variable state, further enum behavior,
+annotation descriptors, and subsequent imports need their own tested slices.
+Vendoring source alone is not a passing behavior test.

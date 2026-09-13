@@ -318,6 +318,9 @@ func executeTypeAttributeLoad(
 		return pushOutcome(frame, instruction, &tupleValue{elements: classMROValues(owner)})
 	}
 	value, found := owner.lookup(name)
+	if !found && name == "__init_subclass__" {
+		value, found, _ = frame.runtime.nativeNamespace(objectNativeType).get(&stringValue{value: name})
+	}
 	if !found && name == "__new__" && rootAllocatableClass(owner) {
 		value, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
 	}
@@ -413,6 +416,10 @@ func executeInstanceAttributeLoad(
 		return pushOutcome(frame, instruction, value)
 	}
 	if !classFound {
+		if name == "__init_subclass__" {
+			method, _, _ := frame.runtime.nativeNamespace(objectNativeType).get(&stringValue{value: name})
+			return executeNativeDescriptorBinding(frame, instruction, method.(*nativeDescriptorValue), owner, owner.class)
+		}
 		if name == "__new__" && rootAllocatableClass(owner.class) {
 			method, _ := frame.runtime.nativeClassAttribute(objectNativeType, name)
 			return pushOutcome(frame, instruction, method)

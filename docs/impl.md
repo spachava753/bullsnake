@@ -756,7 +756,15 @@ later-assigned descriptors are not renamed. Binding and callbacks resume through
 the VM, and callback failures preserve the original exception with CPython's
 naming note. Lookup failures do not acquire that note. Native property naming
 uses the same path, supports subclass hooks, and retains its actual name value.
-General exception add_note/notes mutation and __init_subclass__ remain later work.
+General exception add_note/notes mutation remains later work.
+
+After naming, type construction calls the inherited __init_subclass__ through
+super and ignores its return value. Plain hook functions become classmethods at
+class creation; explicit static/class methods retain their binding. Class
+statements and three-argument type forward keywords through the selected
+metaclass, then to cooperative subclass hooks. The executable root classmethod
+rejects leftover arguments. Tests cover naming/metaclass order, C3 cooperation,
+class-cell availability, dynamic keywords, direct binding, and callback failures.
 
 User descriptor instances support class `__get__`, `__set__`, and `__delete__`.
 Reads apply data-descriptor, instance-attribute, non-data-descriptor, then class
@@ -1028,7 +1036,7 @@ Native operations can retain ordered result continuations on their Python caller
 while a child frame executes. They resume after the child's existing protocols
 complete; error continuations run before the caller's Python exception handlers.
 This supports metaclass call sequences without using the Go stack for Python
-calls. Generic instance `__new__`, custom metaclass `__call__`, `__init_subclass__`,
+calls. Generic instance `__new__`, custom metaclass `__call__`,
 and general metaclass descriptor precedence remain separate gaps. The tested ABC
 subset and remaining API gaps are described above.
 
@@ -1346,8 +1354,8 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are dynamic type keyword forwarding in enum, missing _ast,
-and missing _contextvars; vendoring does not establish module usability. Function
+blockers are missing _ast and missing _contextvars; enum now imports and has
+selected member-construction tests. Vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
 module executes all eight upstream public test methods through the filesystem

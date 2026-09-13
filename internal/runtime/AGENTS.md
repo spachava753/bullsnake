@@ -55,7 +55,10 @@ those contracts are implemented.
 Type construction snapshots its completed namespace and runs class-special
 __set_name__ hooks through VM continuations before returning to the metaclass.
 Do not rename inherited or later-assigned descriptors. Property names use the
-same native hook, not a separate eager assignment in classBuild.finish.
+same native hook, not a separate eager assignment in classBuild.finish. After
+naming, call inherited __init_subclass__ through super with remaining class
+keywords. Plain hook functions become classmethods during class creation; never
+silently drop keywords instead of passing them to the cooperative root endpoint.
 
 Class-body preparation retains the exact dictionary or native dictionary subtype.
 Subtype mapping operations run through VM callbacks, including compiler-added

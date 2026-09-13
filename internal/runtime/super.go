@@ -172,6 +172,9 @@ func executeSuperAttributeLoad(
 		return missingSuperAttribute(name), nil
 	}
 	classValue, found := lookupAfterClass(value.receiverType, value.start, name)
+	if !found && name == "__init_subclass__" {
+		classValue, found, _ = frame.runtime.nativeNamespace(objectNativeType).get(&stringValue{value: name})
+	}
 	if !found && name == "__new__" && rootAllocatableClass(value.receiverType) {
 		classValue, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
 	}

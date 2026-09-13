@@ -92,7 +92,7 @@ func (runtime *Runtime) boundNativeObjectMethod(owner Value, name string) (Value
 			return runtime.nativeClassAttribute(class, name)
 		}
 	}
-	if (name != "__hash__" && name != "__call__" && name != "__buffer__" && name != "__release_buffer__" && !isObjectMethodName(name)) || isClassValue(owner) {
+	if (name != "__hash__" && name != "__call__" && name != "__buffer__" && name != "__release_buffer__" && name != "__init_subclass__" && !isObjectMethodName(name)) || isClassValue(owner) {
 		return nil, false
 	}
 	actual, exception := typeOf(owner)
@@ -103,6 +103,9 @@ func (runtime *Runtime) boundNativeObjectMethod(owner Value, name string) (Value
 	method, found := runtime.nativeClassAttribute(class, name)
 	if !found || method == None {
 		return method, found
+	}
+	if bound, ok := method.(*boundNativeDescriptorValue); ok && bound.descriptor.kind == nativeClassMethodDescriptor {
+		return bound, true
 	}
 	if descriptor, ok := method.(*nativeDescriptorValue); ok {
 		return &boundNativeDescriptorValue{descriptor: descriptor, self: owner}, true
