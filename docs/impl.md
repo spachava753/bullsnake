@@ -480,8 +480,9 @@ sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
 A user class may instead use `int`, `dict`, `classmethod`, `staticmethod`, or `property` as its
 sole native base. That native ancestry appears in class metadata and
 `issubclass`. Descriptor subclass construction and Python initialization now
-work for the documented wrapper subset. Other native bases and mixed native/user direct bases remain
-unsupported. The `bool`, `int`, `str`, and `range` bindings are native type
+work for the documented wrapper subset. Compatible integer layouts can also mix
+with ordinary Python bases, with native classes kept at their actual C3 positions.
+Other native bases and mixed native layouts remain unsupported. The `bool`, `int`, `str`, and `range` bindings are native type
 objects and retain their implemented constructor behavior. `range` accepts one
 to three integer or boolean arguments,
 rejects a zero step, and retains arbitrary-precision `start`, `stop`, `step`, and
@@ -789,8 +790,17 @@ Native int/float operands participate in the same normal/reflected candidate
 order, including strict-subclass priority and NotImplemented fallback. Rounding
 uses an actual int.__round__ descriptor. Non-exact int/index callback results
 remain rejected until real deprecation warnings can run. String/base integer
-parsing, integer-subtype container keys, mixed native/user bases, and native
+parsing, integer-subtype container keys, other native mixes, and native
 scalar default reduction remain separate work.
+
+Compatible integer/ordinary-class mixes now share the C3 merge used for Python
+classes. Their retained full order places native descriptors between Python
+namespaces where required; the Python-class projection still owns subclass and
+native-layout ancestry. __bases__, __base__, __mro__, constructors, metaclass
+selection, inherited lookup, and super use that real order. Tests cover both base
+orders, inherited/diamond integer layouts, dynamic classes, and inconsistent
+linearizations. Other native payload combinations and bases declaring slots are
+still rejected. Explicit super with a native starting class remains unsupported.
 
 The complex builtin now constructs zero, one native numeric value, or real/imag
 components, with positional/keyword validation and integer overflow checks. A
@@ -1289,7 +1299,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are mixed native/user inheritance in enum, missing _ast,
+blockers are native set.pop in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

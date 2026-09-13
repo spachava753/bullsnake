@@ -11,6 +11,9 @@ func (*buildClassValue) isValue()         {}
 var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
+	mixedMRO             []Value
+	mixedBases           []Value
+	mixedNativeSlots     map[*nativeTypeValue]*dictValue
 	namespaceDictionary  *dictValue
 	nativeSlots          []*dictValue
 	simpleNamespaceClass bool
@@ -61,6 +64,9 @@ func readOnlyTypeMetadata(name string) bool {
 }
 
 func (class *typeValue) lookup(name string) (Value, bool) {
+	if class.mixedMRO != nil {
+		return class.lookupMixedMRO(0, name)
+	}
 	for _, current := range class.mro {
 		if value, found := current.namespace.get(name); found {
 			return value, true
@@ -230,11 +236,24 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 		nativeBase:    build.nativeBase,
 		exceptionBase: build.exceptionBase,
 	}
-	mro, exception := calculateMRO(class, build.bases)
+	mro, exception := calculateMRO(class, build.bases, func(base *typeValue) []*typeValue { return base.mro })
 	if exception != nil {
 		return nil, exception
 	}
 	class.mro = mro
+	if needsMixedMRO(build.baseValues) {
+		class.mixedMRO, exception = calculateMRO(Value(class), build.baseValues, classMROValues)
+		if exception != nil {
+			return nil, exception
+		}
+		class.mixedBases = append([]Value(nil), build.baseValues...)
+		class.mro = nil
+		for _, entry := range class.mixedMRO {
+			if user, ok := entry.(*typeValue); ok {
+				class.mro = append(class.mro, user)
+			}
+		}
+	}
 	for _, base := range class.bases {
 		base.subclasses.entries = append(base.subclasses.entries, makeWeakClass(class))
 	}
@@ -268,11 +287,12 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	return class, nil
 }
 
-// resolveClassBases separates user, exception, object, and the supported sole
-// native descriptor bases while retaining the mixed-native rejection boundary.
+// resolveClassBases separates Python and native bases, allowing the implemented
+// integer layout to mix with ordinary classes while rejecting other native mixes.
 func resolveClassBases(
 	baseValues []Value,
 ) ([]*typeValue, *exceptionTypeValue, *nativeTypeValue, bool, *Exception) {
+	integerMix := len(baseValues) > 1 && compatibleIntegerBases(baseValues)
 	var bases []*typeValue
 	var exceptionBase *exceptionTypeValue
 	var nativeBase *nativeTypeValue
@@ -283,7 +303,7 @@ func resolveClassBases(
 			if classBase.bufferViewClass {
 				return nil, nil, nil, false, newException("TypeError", "type 'memoryview' is not an acceptable base type")
 			}
-			if native := classBase.nativeClassBase(); native != nil && native != typeNativeType && len(baseValues) != 1 {
+			if native := classBase.nativeClassBase(); native != nil && native != typeNativeType && len(baseValues) != 1 && !integerMix {
 				return nil, nil, nil, false, newException(
 					"TypeError",
 					"multiple inheritance with native bases is not supported",
@@ -299,7 +319,7 @@ func resolveClassBases(
 			}
 			exceptionBase = classBase
 		case *nativeTypeValue:
-			if len(baseValues) != 1 {
+			if len(baseValues) != 1 && !integerMix {
 				return nil, nil, nil, false, newException(
 					"TypeError",
 					"multiple inheritance with native bases is not supported",

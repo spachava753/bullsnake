@@ -360,6 +360,7 @@ func executeDynamicTypeCall(
 
 	namespace := newNamespace()
 	build := &classBuild{
+		baseValues:        append([]Value(nil), baseTuple.elements...),
 		name:              name.value,
 		qualifiedName:     name.value,
 		namespace:         namespace,
@@ -421,6 +422,14 @@ func executeDynamicTypeCall(
 	result, exception := build.finish(cell)
 	if class, ok := result.(*typeValue); ok {
 		class.metaclass = metaclass
+		if class.mixedMRO != nil {
+			class.mixedNativeSlots = make(map[*nativeTypeValue]*dictValue)
+			for _, entry := range class.mixedMRO {
+				if native, ok := entry.(*nativeTypeValue); ok {
+					class.mixedNativeSlots[native] = caller.runtime.nativeNamespace(native)
+				}
+			}
+		}
 		if class.nativeBase == dictNativeType || class.nativeBase == intNativeType {
 			class.nativeSlots = []*dictValue{caller.runtime.nativeNamespace(class.nativeBase), caller.runtime.nativeNamespace(objectNativeType)}
 		}

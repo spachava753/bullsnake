@@ -280,6 +280,9 @@ func executeTypeAttributeLoad(
 		}
 		return pushOutcome(frame, instruction, &stringValue{value: owner.module})
 	case "__bases__":
+		if owner.mixedMRO != nil {
+			return pushOutcome(frame, instruction, &tupleValue{elements: owner.mixedBases})
+		}
 		if owner.nativeBase != nil {
 			return pushOutcome(frame, instruction, &tupleValue{
 				elements: []Value{owner.nativeBase},
@@ -294,6 +297,9 @@ func executeTypeAttributeLoad(
 		}
 		return pushOutcome(frame, instruction, typeTuple(owner.bases))
 	case "__base__":
+		if owner.mixedMRO != nil {
+			return pushOutcome(frame, instruction, owner.mixedLayoutBase())
+		}
 		if len(owner.bases) == 0 {
 			if owner.nativeBase != nil {
 				return pushOutcome(frame, instruction, owner.nativeBase)
@@ -305,13 +311,7 @@ func executeTypeAttributeLoad(
 		}
 		return pushOutcome(frame, instruction, owner.bases[0])
 	case "__mro__":
-		result := typeTuple(owner.mro)
-		if nativeBase := owner.nativeClassBase(); nativeBase != nil {
-			result.elements = append(result.elements, nativeBase, objectNativeType)
-		} else if owner.exceptionBase == nil {
-			result.elements = append(result.elements, objectNativeType)
-		}
-		return pushOutcome(frame, instruction, result)
+		return pushOutcome(frame, instruction, &tupleValue{elements: classMROValues(owner)})
 	}
 	value, found := owner.lookup(name)
 	if !found && name == "__new__" && rootAllocatableClass(owner) {

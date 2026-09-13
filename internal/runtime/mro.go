@@ -4,28 +4,32 @@ import "strings"
 
 // calculateMRO merges each direct base's linearization with the declared base
 // order, preserving local precedence and monotonicity.
-func calculateMRO(class *typeValue, bases []*typeValue) ([]*typeValue, *Exception) {
-	seen := make(map[*typeValue]struct{}, len(bases))
+func calculateMRO[T interface {
+	Value
+	comparable
+}](class T, bases []T, baseOrder func(T) []T) ([]T, *Exception) {
+	seen := make(map[T]struct{}, len(bases))
 	for _, base := range bases {
 		if _, duplicate := seen[base]; duplicate {
-			return nil, newException("TypeError", "duplicate base class "+base.name)
+			return nil, newException("TypeError", "duplicate base class "+allocationClassName(base))
 		}
 		seen[base] = struct{}{}
 	}
 
-	sequences := make([][]*typeValue, 0, len(bases)+1)
+	sequences := make([][]T, 0, len(bases)+1)
 	for _, base := range bases {
-		sequences = append(sequences, base.mro)
+		sequences = append(sequences, baseOrder(base))
 	}
 	sequences = append(sequences, bases)
 	positions := make([]int, len(sequences))
-	result := []*typeValue{class}
+	result := []T{class}
+	var zero T
 	for {
 		candidate, complete := nextMROCandidate(sequences, positions)
 		if complete {
 			return result, nil
 		}
-		if candidate == nil {
+		if candidate == zero {
 			return nil, inconsistentMROError(sequences, positions)
 		}
 		result = append(result, candidate)
@@ -37,7 +41,7 @@ func calculateMRO(class *typeValue, bases []*typeValue) ([]*typeValue, *Exceptio
 	}
 }
 
-func nextMROCandidate(sequences [][]*typeValue, positions []int) (*typeValue, bool) {
+func nextMROCandidate[T comparable](sequences [][]T, positions []int) (T, bool) {
 	complete := true
 	for index, sequence := range sequences {
 		position := positions[index]
@@ -50,13 +54,14 @@ func nextMROCandidate(sequences [][]*typeValue, positions []int) (*typeValue, bo
 			return candidate, false
 		}
 	}
-	return nil, complete
+	var zero T
+	return zero, complete
 }
 
-func mroTailContains(
-	sequences [][]*typeValue,
+func mroTailContains[T comparable](
+	sequences [][]T,
 	positions []int,
-	candidate *typeValue,
+	candidate T,
 ) bool {
 	for index, sequence := range sequences {
 		for position := positions[index] + 1; position < len(sequence); position++ {
@@ -68,9 +73,12 @@ func mroTailContains(
 	return false
 }
 
-func inconsistentMROError(sequences [][]*typeValue, positions []int) *Exception {
+func inconsistentMROError[T interface {
+	Value
+	comparable
+}](sequences [][]T, positions []int) *Exception {
 	names := make([]string, 0, len(sequences))
-	seen := make(map[*typeValue]struct{}, len(sequences))
+	seen := make(map[T]struct{}, len(sequences))
 	for index, sequence := range sequences {
 		if positions[index] >= len(sequence) {
 			continue
@@ -80,7 +88,7 @@ func inconsistentMROError(sequences [][]*typeValue, positions []int) *Exception 
 			continue
 		}
 		seen[head] = struct{}{}
-		names = append(names, head.name)
+		names = append(names, allocationClassName(head))
 	}
 	return newException(
 		"TypeError",

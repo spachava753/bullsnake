@@ -232,6 +232,14 @@ func executeSuperAttributeLoad(
 // lookupAfterClass finds the start in the receiver's C3 order, then searches
 // only class namespaces that follow it.
 func lookupAfterClass(receiverType, start *typeValue, name string) (Value, bool) {
+	if receiverType.mixedMRO != nil {
+		for index, entry := range receiverType.mixedMRO {
+			if entry == start {
+				return receiverType.lookupMixedMRO(index+1, name)
+			}
+		}
+		return nil, false
+	}
 	startIndex := -1
 	for index, class := range receiverType.mro {
 		if class == start {

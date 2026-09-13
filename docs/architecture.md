@@ -435,7 +435,13 @@ Set-like operations on dictionary views and other native collection or text
 methods remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
-descriptor behavior. MRO-entry rewriting and type unions remain later work. A template keeps literal strings
+descriptor behavior. Class statements resolve __mro_entries__ before metaclass
+selection; dynamic type construction requires class bases. Compatible integer
+mixes retain native classes at their actual C3 positions rather than searching
+all Python namespaces before native descriptors. Keep layout compatibility
+separate from order: an MRO cannot make two incompatible native payloads safe.
+The Python-class projection still serves ancestry and weak subclass ownership.
+A template keeps literal strings
 separate from evaluated interpolation values and their source metadata; creating
 one does not format those values. More of Python's data model will be added when
 language features or packages require it.

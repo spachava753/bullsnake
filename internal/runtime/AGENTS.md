@@ -44,10 +44,13 @@ user subclasses mutable. Do not introduce a separate I/O inheritance path.
 
 Native integer and dictionary subclasses retain typed native payloads separately
 from their Python attributes. Their cached native namespace chain follows Python
-MRO lookup; explicit native descriptors bypass overrides. Integer conversion and
-subtype construction use VM continuations, and native numeric operands join the
-same reflected-operation order as Python instances. Keep mixed native inheritance
-and scalar subtype key-admission guards until those contracts are implemented.
+MRO lookup; explicit native descriptors bypass overrides. Compatible integer
+mixes retain a full native/Python C3 order for lookup, super, and base metadata;
+the user-class projection remains available for ancestry and weak ownership.
+Integer conversion and subtype construction use VM continuations, and native
+numeric operands join the same reflected-operation order as Python instances.
+Keep other native/slot layout mixes and scalar subtype key-admission guards until
+those contracts are implemented.
 
 Class-body preparation retains the exact dictionary or native dictionary subtype.
 Subtype mapping operations run through VM callbacks, including compiler-added
