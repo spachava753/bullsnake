@@ -423,8 +423,10 @@ mutation remain later work.
 
 ### Function namespaces and closure cells
 
-Function `__globals__` returns its actual module namespace dictionary, sharing
-identity and mutations with module/global operations. `__closure__` returns None
+Function `__globals__` and the zero-argument `globals()` builtin return the actual
+module namespace dictionary, sharing identity and mutations with module/global
+operations. Functions, class bodies, comprehensions, and suspended generators use
+their defining module rather than their locals or caller's module. `__closure__` returns None
 or one stable tuple of the actual captured cells, in `co_freevars` order. Shared
 closures, nonlocal stores, and retained frame-locals proxies see the same cells.
 Reading an empty `cell_contents` raises ValueError; assignment and deletion
@@ -747,7 +749,7 @@ The builtin namespace contains the current exception classes; native `bool`,
 `int`, `str`, `range`, `enumerate`, `map`, `filter`, `zip`, `list`, `tuple`,
 `set`, `frozenset`, `dict`, `object`, `type`, `classmethod`, `property`, and
 `staticmethod` objects; `abs`; `all`; `any`; `callable`; `delattr`; `dir`;
-`getattr`; `hasattr`; `hash`; `isinstance`; `issubclass`; one-argument `iter`;
+`getattr`; `globals`; `hasattr`; `hash`; `isinstance`; `issubclass`; one-argument `iter`;
 `len`; positional `max` and `min` calls with two or more arguments; `next`;
 `repr`; native-sequence `reversed`; `round`; `setattr`; `sorted`; and `sum`. The `next`
 builtin accepts one optional default for generators, internal iterators, and
@@ -1157,7 +1159,8 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing globals(), missing _ast,
+probes. Types now imports and has source tests for type discovery and dynamic
+class helpers. Current blockers are dict subclassing in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

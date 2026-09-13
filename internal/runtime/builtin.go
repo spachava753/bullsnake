@@ -54,6 +54,7 @@ var builtinFunctions = []*builtinFunctionValue{
 	{name: "delattr", frameCall: executeBuiltinDelattr},
 	{name: "dir", frameCall: executeBuiltinDir},
 	{name: "getattr", frameCall: executeBuiltinGetattr},
+	{name: "globals", frameCall: executeBuiltinGlobals},
 	{name: "hasattr", frameCall: executeBuiltinHasattr},
 	{name: "hash", frameCall: executeBuiltinHash},
 	{name: "isinstance", frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
