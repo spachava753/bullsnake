@@ -183,6 +183,10 @@ func executeFunctionAttributeLoad(
 				return pushOutcome(frame, instruction, value)
 			}
 		}
+		if name == "__get__" {
+			method, _ := frame.runtime.nativeClassAttribute(functionNativeType, name)
+			return pushOutcome(frame, instruction, bindInstanceFunction(method, owner))
+		}
 		return raiseOutcome(newException(
 			"AttributeError",
 			"'function' object has no attribute '"+name+"'",

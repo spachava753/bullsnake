@@ -229,6 +229,12 @@ are not docstrings. Runtime preparation validates its string encoding, and new
 functions share the runtime-prepared text until their writable __doc__ is replaced.
 Deletion sets None; a real member descriptor exposes the same field operations.
 
+Python functions now expose an executable __get__ wrapper descriptor. Explicit
+binding creates real methods with the original function and arbitrary receiver;
+class access returns the function, and an empty None/None pair is rejected.
+Function-level __get__ attribute replacements affect ordinary lookup but do not
+change automatic descriptor binding through the function's type.
+
 Functions, generator functions, coroutine functions, async generator functions,
 class bodies, and comprehensions are child code objects. Closures contain
 explicit cell references instead of Go closures. Calling a generator, coroutine,
@@ -1340,7 +1346,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are function descriptor discovery in enum, missing _ast,
+blockers are dynamic type keyword forwarding in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
