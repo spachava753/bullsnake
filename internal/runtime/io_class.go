@@ -59,6 +59,9 @@ func ioMethod(class *typeValue, name string, call func(*frame, int, *instanceVal
 }
 
 func bindInstanceFunction(value, receiver Value) Value {
+	if descriptor, ok := value.(*wrapperDescriptorValue); ok {
+		return &methodWrapperValue{descriptor: descriptor, self: receiver}
+	}
 	if native, ok := value.(*builtinFunctionValue); ok && native.method {
 		return &boundMethodValue{callable: value, self: receiver}
 	}

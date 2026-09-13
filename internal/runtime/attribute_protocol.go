@@ -41,6 +41,10 @@ func executeDynamicAttributeLoad(
 		return outcome, err
 	}
 	switch owner := owner.(type) {
+	case *wrapperDescriptorValue:
+		return executeWrapperAttributeLoad(frame, instruction, owner, nil, name)
+	case *methodWrapperValue:
+		return executeWrapperAttributeLoad(frame, instruction, owner.descriptor, owner.self, name)
 	case *classWeakReference:
 		if name == "__callback__" {
 			return pushOutcome(frame, instruction, None)
@@ -293,6 +297,9 @@ func executeTypeAttributeLoad(
 	if !found && owner.isSubclassOfNative(typeNativeType) {
 		value, found = nativeMetaclassMethod(name)
 	}
+	if !found && name == "__init__" && owner.nativeClassBase() == nil {
+		value, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
+	}
 	if !found && owner.metaclass != nil {
 		if method, exists := owner.metaclass.lookup(name); exists {
 			if function, ok := method.(*functionValue); ok {
@@ -370,7 +377,7 @@ func executeInstanceAttributeLoad(
 		return pushOutcome(frame, instruction, value)
 	}
 	if !classFound {
-		if name == "__hash__" {
+		if name == "__hash__" || (name == "__init__" && owner.class.nativeClassBase() == nil) {
 			method, _ := frame.runtime.nativeClassAttribute(objectNativeType, name)
 			return pushOutcome(frame, instruction, bindInstanceFunction(method, owner))
 		}

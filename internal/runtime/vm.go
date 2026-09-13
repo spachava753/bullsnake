@@ -1478,7 +1478,7 @@ func executeInstruction(
 			}
 		case *functionValue:
 			return executeFunctionAttributeLoad(frame, index, owner, name)
-		case *classMethodValue, *staticMethodValue, *propertyValue, *boundMethodValue, *classWeakReference:
+		case *classMethodValue, *staticMethodValue, *propertyValue, *boundMethodValue, *classWeakReference, *wrapperDescriptorValue, *methodWrapperValue:
 			return executeDynamicAttributeLoad(frame, index, owner, name)
 		case *templateValue:
 			return executeTemplateAttributeLoad(frame, index, owner, name)

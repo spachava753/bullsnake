@@ -928,6 +928,19 @@ Other native protocol descriptors, exception namespaces, proxy
 construction, comparison, reverse iteration, and union operations remain later
 slices.
 
+### Native object slots
+
+`object.__init__` is an executable, runtime-cached `wrapper_descriptor`; binding
+produces a distinct `method-wrapper` type with receiver and defining-class
+metadata. Direct calls, explicit `__get__`, inherited attribute lookup, `super`,
+and assigning the wrapper as a Python class initializer share receiver and
+argument checks. Extra arguments are accepted only when allocation is customized
+and initialization still uses object.__init__. Native classes with their own
+unsupported initializer do not falsely expose object.__init__ as that slot.
+Other slot descriptors, object string/representation methods, and full wrapper
+comparison/pickling remain later work. Existing native methods have not all been
+converted to wrapper descriptors.
+
 ### Class subscription
 
 Class item access first calls the metaclass `__getitem__` slot when present, then
@@ -1104,7 +1117,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing object.__init__, missing _ast,
+probes. Their current blockers are missing object.__str__, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
