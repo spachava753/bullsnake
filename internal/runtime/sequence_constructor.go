@@ -91,6 +91,8 @@ func executeCollectionTypeCall(
 	return startCollectionConstructor(caller, call)
 }
 
+// startCollectionConstructor resolves native iterators or class-special slots,
+// preserving the join-specific error before starting collection consumption.
 func startCollectionConstructor(
 	frame *frame,
 	call *collectionConstructorCall,
@@ -100,13 +102,13 @@ func startCollectionConstructor(
 		call.iterable = nil
 		return continueCollectionConstructor(frame, call)
 	}
-	instance, ok := call.iterable.(*instanceValue)
-	if !ok {
-		return raiseOutcome(collectionIterableException(call)), nil
-	}
-	method, found := lookupInstanceSpecial(instance, "__iter__")
+	method, found := lookupIterationSpecial(call.iterable, "__iter__")
 	if !found || method == None {
-		return raiseOutcome(collectionIterableException(call)), nil
+		message := "'" + call.iterable.TypeName() + "' object is not iterable"
+		if call.kind == collectionStringJoin {
+			message = "can only join an iterable"
+		}
+		return raiseOutcome(newException("TypeError", message)), nil
 	}
 	call.iterable = nil
 	return executeIterationSpecial(frame, method, &iterationCall{
@@ -114,16 +116,6 @@ func startCollectionConstructor(
 		instruction: call.instruction,
 		collection:  call,
 	})
-}
-
-func collectionIterableException(call *collectionConstructorCall) *Exception {
-	if call.kind == collectionStringJoin {
-		return newException("TypeError", "can only join an iterable")
-	}
-	return newException(
-		"TypeError",
-		"'"+call.iterable.TypeName()+"' object is not iterable",
-	)
 }
 
 func appendCollectionElement(call *collectionConstructorCall, value Value) {
@@ -213,8 +205,8 @@ func continueCollectionConstructor(
 				collection:  call,
 			},
 		)
-	case *instanceValue:
-		method, found := lookupInstanceSpecial(iterator, "__next__")
+	case *instanceValue, *typeValue:
+		method, found := lookupIterationSpecial(iterator, "__next__")
 		if !found || method == None {
 			return raiseOutcome(newException(
 				"TypeError",

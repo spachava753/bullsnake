@@ -49,14 +49,7 @@ func executeEnumerateTypeCall(
 		enumeration.iterator = iterator
 		return pushOutcome(caller, instruction, enumeration)
 	}
-	instance, ok := iterable.(*instanceValue)
-	if !ok {
-		return raiseOutcome(newException(
-			"TypeError",
-			"'"+iterable.TypeName()+"' object is not iterable",
-		)), nil
-	}
-	method, found := lookupInstanceSpecial(instance, "__iter__")
+	method, found := lookupIterationSpecial(iterable, "__iter__")
 	if !found || method == None {
 		return raiseOutcome(newException(
 			"TypeError",
@@ -228,8 +221,8 @@ func executeEnumerateNext(
 				enumeration: call,
 			},
 		)
-	case *instanceValue:
-		method, found := lookupInstanceSpecial(iterator, "__next__")
+	case *instanceValue, *typeValue:
+		method, found := lookupIterationSpecial(iterator, "__next__")
 		if !found || method == None {
 			return raiseOutcome(newException(
 				"TypeError",

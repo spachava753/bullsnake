@@ -290,8 +290,8 @@ func executeBuiltinNext(
 			kind:      raised,
 			exception: newStopIteration(None),
 		}, nil
-	case *instanceValue:
-		method, found := lookupInstanceSpecial(iterator, "__next__")
+	case *instanceValue, *typeValue:
+		method, found := lookupIterationSpecial(iterator, "__next__")
 		discardCallSegment(caller, base)
 		if !found || method == None {
 			return instructionOutcome{

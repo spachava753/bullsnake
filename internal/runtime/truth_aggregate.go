@@ -96,14 +96,7 @@ func startTruthAggregate(
 		call.iterable = nil
 		return continueTruthAggregate(frame, call)
 	}
-	instance, ok := call.iterable.(*instanceValue)
-	if !ok {
-		return raiseOutcome(newException(
-			"TypeError",
-			"'"+call.iterable.TypeName()+"' object is not iterable",
-		)), nil
-	}
-	method, found := lookupInstanceSpecial(instance, "__iter__")
+	method, found := lookupIterationSpecial(call.iterable, "__iter__")
 	if !found || method == None {
 		return raiseOutcome(newException(
 			"TypeError",
@@ -226,8 +219,8 @@ func continueTruthAggregate(
 				aggregate:   call,
 			},
 		)
-	case *instanceValue:
-		method, found := lookupInstanceSpecial(iterator, "__next__")
+	case *instanceValue, *typeValue:
+		method, found := lookupIterationSpecial(iterator, "__next__")
 		if !found || method == None {
 			return raiseOutcome(newException(
 				"TypeError",

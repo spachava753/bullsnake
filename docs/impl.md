@@ -682,6 +682,13 @@ Dictionary iteration detects key-set changes; replacing an existing value is
 allowed. Set display and iteration order is stable for Bullsnake tests but is not
 a Python compatibility promise.
 
+Classes can now be iterables or iterators through their metaclass __iter__ and
+__next__ slots. Shared iteration lookup binds descriptors through the VM and
+ignores same-named attributes on the class object. Loops, iter/next, collection
+constructors, map/filter/zip/enumerate, and all/any use the same path, with ordinary
+iterator validation, exhaustion, defaults, and exception propagation. Metaclass
+length/containment and general iterator unpacking remain separate gaps.
+
 A user iterable resolves `__iter__` on its class and requires the returned value
 to have class `__next__`. The one-argument `iter` builtin and loop iteration use
 the same path. The `reversed` builtin lazily traverses native lists, tuples,
@@ -1325,7 +1332,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are metaclass iteration in enum, missing _ast,
+blockers are general iterable unpacking in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

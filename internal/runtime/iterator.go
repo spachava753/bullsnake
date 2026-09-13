@@ -328,14 +328,7 @@ func executeIteratorLookup(
 	if iterator, builtin := newIterator(iterable); builtin {
 		return pushOutcome(frame, index, iterator)
 	}
-	instance, ok := iterable.(*instanceValue)
-	if !ok {
-		return raiseOutcome(newException(
-			"TypeError",
-			"'"+iterable.TypeName()+"' object is not iterable",
-		)), nil
-	}
-	method, found := lookupInstanceSpecial(instance, "__iter__")
+	method, found := lookupIterationSpecial(iterable, "__iter__")
 	if !found || method == None {
 		return raiseOutcome(newException(
 			"TypeError",
@@ -427,18 +420,8 @@ func executeForIter(
 		}
 		return pushOutcome(frame, index, next)
 	}
-	instance, ok := value.(*instanceValue)
-	if !ok {
-		return instructionOutcome{
-			kind: raised,
-			exception: newException(
-				"TypeError",
-				"'"+value.TypeName()+"' object is not an iterator",
-			),
-		}, nil
-	}
 	frame.pop()
-	method, found := lookupInstanceSpecial(instance, "__next__")
+	method, found := lookupIterationSpecial(value, "__next__")
 	if !found || method == None {
 		return instructionOutcome{
 			kind: raised,
@@ -618,8 +601,8 @@ func isIteratorValue(value Value) bool {
 		return true
 	case *generatorValue:
 		return value.kind == generatorObject
-	case *instanceValue:
-		next, found := value.class.lookup("__next__")
+	case *instanceValue, *typeValue:
+		next, found := lookupIterationSpecial(value, "__next__")
 		return found && next != None
 	default:
 		return false
