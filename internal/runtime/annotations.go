@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/spachava753/bullsnake/internal/compiler/bytecode"
@@ -160,20 +159,9 @@ func executeLoadFromDictOrGlobals(
 	if err != nil {
 		return instructionOutcome{}, err
 	}
-	value, found := namespace.get(name)
-	if !found {
-		value, found = frame.globals.get(name)
-	}
-	if !found {
-		value, found = frame.builtins.get(name)
-	}
-	if !found {
-		return instructionOutcome{
-			kind:      raised,
-			exception: newException("NameError", fmt.Sprintf("name '%s' is not defined", name)),
-		}, nil
-	}
-	return pushOutcome(frame, instruction, value)
+	return executeNamespaceLookup(frame, instruction, namespace, name, func() (instructionOutcome, error) {
+		return executeGlobalName(frame, instruction, name)
+	})
 }
 
 func executeLoadFromDictOrDeref(
@@ -186,17 +174,13 @@ func executeLoadFromDictOrDeref(
 		return instructionOutcome{}, err
 	}
 	name := derefName(frame.code, derefIndex)
-	value, found := namespace.get(name)
-	if !found {
-		value = frame.deref[derefIndex].value
+	return executeNamespaceLookup(frame, instruction, namespace, name, func() (instructionOutcome, error) {
+		value := frame.deref[derefIndex].value
 		if value == nil {
-			return instructionOutcome{
-				kind:      raised,
-				exception: unboundDerefException(frame.code, derefIndex),
-			}, nil
+			return raiseOutcome(unboundDerefException(frame.code, derefIndex)), nil
 		}
-	}
-	return pushOutcome(frame, instruction, value)
+		return pushOutcome(frame, instruction, value)
+	})
 }
 
 func popAnnotationNamespace(

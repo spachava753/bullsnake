@@ -325,7 +325,7 @@ func executeDynamicTypeCall(
 			"type.__new__() argument 2 must be tuple, not "+invalidType,
 		)), nil
 	}
-	dictionary, ok := arguments[2].(*dictValue)
+	dictionary, ok := dictionaryStorage(arguments[2])
 	if !ok {
 		invalidType := arguments[2].TypeName()
 		discardCallSegment(caller, base)

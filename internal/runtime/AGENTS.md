@@ -42,6 +42,13 @@ native_instance_constructor.go. Bind native instance methods through the shared 
 special-method, and super paths. Keep supplied class namespaces immutable and
 user subclasses mutable. Do not introduce a separate I/O inheritance path.
 
+Class-body preparation retains the exact dictionary or native dictionary subtype.
+Subtype mapping operations run through VM callbacks, including compiler-added
+class-cell/original-base bindings; never copy away the subtype before executing
+the body. The native type constructor copies actual storage afterward. Retained
+class frames keep the prepared namespace, while deferred class annotation lookup
+switches to the finished class's namespace after successful construction.
+
 Class namespace proxies use a separate class-owned dictionary, not the prepared
 class-body Namespace.dictionary. Keep class stores, deletes, and annotation-cache
 publication synchronized with retained views through the central mutation methods.

@@ -524,7 +524,8 @@ and general typing.Union construction remain unsupported. Metaclass `__instancec
 uses the same class builder as a class statement. It accepts a string name, a
 tuple of currently supported bases, and a dictionary with string keys. It
 supplies default module and qualified-name metadata, honors explicit values,
-and supports methods, C3 inheritance, and user exception classes. Unlike class
+and supports methods, C3 inheritance, and user exception classes. Native
+dictionary-subclass namespaces are copied from their real storage. Unlike class
 statements, dynamic `type` construction does not resolve `__mro_entries__`.
 Non-string namespace keys remain unsupported.
 The `dir` builtin returns sorted bound names from the current frame or from a
@@ -902,7 +903,12 @@ its complete report is checked against the runtime's weak-reference repr.
 
 User classes may now inherit `type`. Class statements select the most-derived
 compatible metaclass before executing the body, call `__prepare__`, and pass its
-exact dictionary to `__new__` and `__init__`. Python factory functions are also
+exact dictionary or dictionary-subclass namespace to `__new__` and `__init__`.
+Subclass name reads, writes, deletes, closure fallbacks, and compiler-added
+class-cell/original-base bindings run through actual mapping slots. Only KeyError
+permits lookup fallback; mutations discard callback results. Retained class
+frames expose the same prepared namespace, while type construction copies its
+storage. Python factory functions are also
 accepted as metaclasses. Dictionary namespaces retain body writes and deletions;
 custom mapping namespaces remain unsupported. `type.__new__`, metaclass `super`,
 class-cell propagation, inherited metaclass identity, and dynamic `type`
@@ -1187,7 +1193,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are prepared dict-subclass namespaces in enum, missing _ast,
+class helpers. Current blockers are string percent formatting in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

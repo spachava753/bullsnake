@@ -1318,14 +1318,9 @@ func executeInstruction(
 		return pushOutcome(frame, index, buildClassSingleton)
 	case bytecode.LoadName:
 		name := frame.code.names[instruction.Operand]
-		value, ok := frame.lookupName(name)
-		if !ok {
-			return instructionOutcome{
-				kind:      raised,
-				exception: newException("NameError", fmt.Sprintf("name '%s' is not defined", name)),
-			}, nil
-		}
-		return pushOutcome(frame, index, value)
+		return executeNamespaceLookup(frame, index, frame.locals, name, func() (instructionOutcome, error) {
+			return executeGlobalName(frame, index, name)
+		})
 	case bytecode.LoadFast:
 		localIndex := int(instruction.Operand)
 		value := frame.fastLocals[localIndex]
@@ -1622,6 +1617,9 @@ func executeInstruction(
 			return instructionOutcome{}, frame.failure(index, "operand stack underflow")
 		}
 		name := frame.code.names[instruction.Operand]
+		if frame.locals.prepared != nil {
+			return executePreparedMutation(frame, index, name, value, false)
+		}
 		frame.locals.store(name, value)
 		if frame.classBuild != nil {
 			frame.classBuild.recordStore(name)
@@ -1629,6 +1627,9 @@ func executeInstruction(
 		return instructionOutcome{kind: advance}, nil
 	case bytecode.DeleteName:
 		name := frame.code.names[instruction.Operand]
+		if frame.locals.prepared != nil {
+			return executePreparedMutation(frame, index, name, nil, true)
+		}
 		if _, found := frame.locals.get(name); !found {
 			return instructionOutcome{
 				kind:      raised,

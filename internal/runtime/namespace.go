@@ -5,6 +5,7 @@ import "sort"
 // Namespace stores string-keyed bindings. Its optional dictionary is the live
 // Python mapping once exposed or supplied by a class namespace preparer.
 type Namespace struct {
+	prepared   *instanceValue
 	values     map[string]Value
 	dictionary *dictValue
 }

@@ -125,18 +125,6 @@ func activeHandledException(current *frame, instruction int) *Exception {
 	return nil
 }
 
-func (frame *frame) lookupName(name string) (Value, bool) {
-	if value, ok := frame.locals.get(name); ok {
-		return value, true
-	}
-	if frame.globals != frame.locals {
-		if value, ok := frame.globals.get(name); ok {
-			return value, true
-		}
-	}
-	return frame.builtins.get(name)
-}
-
 func (frame *frame) position(index int) lexer.Span {
 	position, _ := frame.code.code.Position(index)
 	return position

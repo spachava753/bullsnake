@@ -183,6 +183,7 @@ func lookupInstanceSpecial(instance *instanceValue, name string) (Value, bool) {
 }
 
 type classBuild struct {
+	prepared          Value
 	name              string
 	qualifiedName     string
 	module            string

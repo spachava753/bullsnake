@@ -35,20 +35,10 @@ func selectMetaclass(explicit Value, bases []Value) (Value, *Exception) {
 	return winner, nil
 }
 
-// finishClassBody passes the completed namespace to its selected factory and
-// verifies that a compiler-created class cell refers to the returned class.
-func finishClassBody(caller *frame, build *classBuild, cell Value) (instructionOutcome, error) {
-	dictionary := build.dictionary
-	if dictionary == nil {
-		dictionary = &dictValue{}
-	}
-	if build.originalBases != nil {
-		dictionary.set(&stringValue{value: "__orig_bases__"}, build.originalBases)
-	}
-	if _, ok := cell.(*cellValue); ok {
-		dictionary.set(&stringValue{value: "__classcell__"}, cell)
-	}
-	arguments := []Value{&stringValue{value: build.name}, &tupleValue{elements: build.baseValues}, dictionary}
+// callPreparedClass passes the exact completed namespace to its selected factory
+// and verifies that a compiler-created class cell refers to the returned class.
+func callPreparedClass(caller *frame, build *classBuild, cell Value) (instructionOutcome, error) {
+	arguments := []Value{&stringValue{value: build.name}, &tupleValue{elements: build.baseValues}, build.prepared}
 	return continueNativeOperation(caller, build.instruction, func() (instructionOutcome, error) {
 		return executeFunctionCall(caller, build.instruction, len(caller.stack), build.metaclass, arguments, build.keywords)
 	}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
@@ -56,6 +46,7 @@ func finishClassBody(caller *frame, build *classBuild, cell Value) (instructionO
 			return raiseOutcome(exception), nil
 		}
 		if class, ok := result.(*typeValue); ok {
+			build.namespace.prepared = nil
 			build.namespace.dictionary = nil
 			build.namespace.values = class.namespace.values
 		}
@@ -174,7 +165,8 @@ func prepareClassBody(caller, child *frame) (instructionOutcome, error) {
 			if !isAttributeError(exception) {
 				return raiseOutcome(exception), nil
 			}
-			return startPreparedClass(child, &dictValue{})
+			dictionary := &dictValue{}
+			return startPreparedClass(child, dictionary, dictionary)
 		}
 		return continueNativeOperation(current, build.instruction, func() (instructionOutcome, error) {
 			return executeFunctionCall(current, build.instruction, len(current.stack), method,
@@ -183,17 +175,19 @@ func prepareClassBody(caller, child *frame) (instructionOutcome, error) {
 			if exception != nil {
 				return raiseOutcome(exception), nil
 			}
-			dictionary, ok := namespace.(*dictValue)
+			dictionary, ok := dictionaryStorage(namespace)
 			if !ok {
 				return raiseOutcome(newException("TypeError", "__prepare__() must return a dict in this runtime")), nil
 			}
-			return startPreparedClass(child, dictionary)
+			return startPreparedClass(child, namespace, dictionary)
 		})
 	})
 }
 
-func startPreparedClass(child *frame, dictionary *dictValue) (instructionOutcome, error) {
+func startPreparedClass(child *frame, prepared Value, dictionary *dictValue) (instructionOutcome, error) {
 	build := child.classBuild
+	build.prepared = prepared
+	child.locals.prepared, _ = prepared.(*instanceValue)
 	build.dictionary = dictionary
 	child.locals.dictionary = dictionary
 	for _, entry := range dictionary.entries {

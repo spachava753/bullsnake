@@ -69,8 +69,8 @@ func executeFrameAttributeLoad(caller *frame, instruction int, value *frameValue
 	case "f_builtins":
 		return pushOutcome(caller, instruction, target.builtins.asDictionary())
 	case "f_locals":
-		if target.classBuild != nil && target.classBuild.dictionary != nil {
-			return pushOutcome(caller, instruction, target.classBuild.dictionary)
+		if target.classBuild != nil && target.classBuild.prepared != nil {
+			return pushOutcome(caller, instruction, target.classBuild.prepared)
 		}
 		if target.code.code.Flags()&bytecode.Optimized == 0 {
 			return pushOutcome(caller, instruction, target.locals.asDictionary())
