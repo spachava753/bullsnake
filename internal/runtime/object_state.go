@@ -10,9 +10,14 @@ func executeObjectGetState(caller *frame, instruction int, self Value, arguments
 	if exception != nil {
 		return raiseOutcome(exception), nil
 	}
-	instance, heap := self.(*instanceValue)
-	if !heap {
-		return pushOutcome(caller, instruction, state)
+	class, _ := typeOf(self)
+	var slots Value
+	var cached bool
+	switch class := class.(type) {
+	case *typeValue:
+		slots, cached = class.namespace.get("__slotnames__")
+	case *nativeTypeValue:
+		slots, cached, _ = caller.runtime.nativeNamespace(class).get(&stringValue{value: "__slotnames__"})
 	}
 	finish := func(current *frame, slots Value, exception *Exception) (instructionOutcome, error) {
 		if exception != nil {
@@ -21,7 +26,11 @@ func executeObjectGetState(caller *frame, instruction int, self Value, arguments
 		if slots != None {
 			names, ok := slots.(*listValue)
 			if !ok {
-				return raiseOutcome(newException("TypeError", "__slotnames__ should be a list or None")), nil
+				message := "copyreg._slotnames didn't return a list or None"
+				if cached {
+					message = allocationClassName(class) + ".__slotnames__ should be a list or None, not " + slots.TypeName()
+				}
+				return raiseOutcome(newException("TypeError", message)), nil
 			}
 			if len(names.elements) != 0 {
 				return raiseOutcome(newException("TypeError", "object state for nonempty slots is not implemented")), nil
@@ -29,7 +38,7 @@ func executeObjectGetState(caller *frame, instruction int, self Value, arguments
 		}
 		return pushOutcome(current, instruction, state)
 	}
-	if slots, found := instance.class.namespace.get("__slotnames__"); found {
+	if cached {
 		return finish(caller, slots, nil)
 	}
 	return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
@@ -39,7 +48,7 @@ func executeObjectGetState(caller *frame, instruction int, self Value, arguments
 			if exception != nil {
 				return raiseOutcome(exception), nil
 			}
-			return executeMethodCall(current, instruction, module, "_slotnames", []Value{instance.class})
+			return executeMethodCall(current, instruction, module, "_slotnames", []Value{class})
 		})
 	}, finish)
 }

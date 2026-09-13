@@ -1,7 +1,9 @@
 package runtime
 
+// isObjectMethodName identifies implemented root methods shared by inherited
+// lookup paths; native types with their own slots retain separate guards.
 func isObjectMethodName(name string) bool {
-	return name == "__init__" || name == "__repr__" || name == "__str__" || name == "__format__" || name == "__getstate__"
+	return name == "__init__" || name == "__repr__" || name == "__str__" || name == "__format__" || name == "__getstate__" || name == "__reduce__" || name == "__reduce_ex__"
 }
 
 // executeObjectString calls the actual repr slot, not __str__ or an instance

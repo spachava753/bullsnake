@@ -1047,6 +1047,17 @@ separate from attribute state and inherit root descriptors without copying them
 into dict.__dict__. Nonempty slot state and unknown native state layouts remain
 explicitly unsupported; this method alone does not make native storage picklable.
 
+`object.__reduce__` and `object.__reduce_ex__` now execute genuine reductions
+for ordinary object and dictionary layouts. Protocols below two call unchanged
+copyreg._reduce_ex; newer protocols retain copyreg.__newobj__/__newobj_ex__,
+validated class-special new-argument tuples, actual state, and lazy dictionary
+item iterators. Override detection compares the class method with the cached root
+descriptor while preserving real instance attribute/descriptor lookup. Tests
+reconstruct objects through those unchanged helpers, cover callback ordering and
+errors, and preserve argument/state identity. Unknown native layouts, list
+reconstruction, and nonempty slot state remain unsupported rather than silently
+losing native storage. This does not provide a pickle encoder or decoder.
+
 Dictionary slots now expose receiver-checked allocation, reinitialization,
 subscription/mutation, repr, equality/inequality, and existing mapping methods.
 Setdefault preserves existing entries and shares the supplied default value.
@@ -1256,7 +1267,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are object reduction slots in enum, missing _ast,
+blockers are mixed native/user inheritance in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

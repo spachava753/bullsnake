@@ -75,7 +75,7 @@ DuringDiscovery.__slotnames__ = 1
 try:
     empty.__getstate__()
 except TypeError as error:
-    assert str(error) == '__slotnames__ should be a list or None'
+    assert str(error) == 'DuringDiscovery.__slotnames__ should be a list or None, not int'
 else:
     assert False
 DuringDiscovery.__slotnames__ = ['field']
@@ -87,6 +87,26 @@ else:
     assert False
 DuringDiscovery.__slotnames__ = None
 assert empty.__getstate__() is state
+
+# Native classes also run the real helper when no slot cache exists.
+calls = []
+def native_discovery(cls):
+    calls.append(cls)
+    return None
+copyreg._slotnames = native_discovery
+try:
+    assert object().__getstate__() is None
+    assert object().__getstate__() is None
+    assert calls == [object, object]
+    copyreg._slotnames = lambda cls: 1
+    try:
+        object().__getstate__()
+    except TypeError as error:
+        assert str(error) == "copyreg._slotnames didn't return a list or None"
+    else:
+        assert False
+finally:
+    copyreg._slotnames = original
 
 for call in (lambda: value.__getstate__(1), lambda: value.__getstate__(x=1)):
     try:
