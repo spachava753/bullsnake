@@ -49,7 +49,7 @@ func executeStringAttributeLoad(
 		return pushOutcome(frame, instruction, &stringCapitalizeMethod{value: value})
 	case "count":
 		return pushOutcome(frame, instruction, &stringCountMethod{value: value})
-	case "join":
+	case "join", "__mod__", "__rmod__":
 		descriptor, _ := frame.runtime.nativeClassAttribute(stringNativeType, name)
 		return pushOutcome(frame, instruction, bindInstanceFunction(descriptor, value))
 	case "format":

@@ -116,6 +116,11 @@ func executeBinary(
 // executeBinaryValues shares arithmetic and user-method dispatch between
 // bytecode operations and native folds without borrowing operand-stack slots.
 func executeBinaryValues(frame *frame, index int, operand uint32, inPlace bool, left, right Value) (instructionOutcome, error) {
+	if operand == bytecode.BinaryModulo {
+		if format, ok := left.(*stringValue); ok {
+			return executePercentText(frame, index, format, right)
+		}
+	}
 	if operand == bytecode.BinaryAdd {
 		if result, exception, handled := binaryBufferAdd(left, right, inPlace); handled {
 			if exception != nil {

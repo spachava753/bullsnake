@@ -34,6 +34,7 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 	if hasNativeClassGetitem(class) {
 		dictionary.set(&stringValue{value: "__class_getitem__"}, nativeClassGetitem(class))
 	}
+	addPercentTextDescriptors(class, dictionary)
 	addDictionaryDescriptors(class, dictionary)
 	addUnionDescriptors(class, dictionary)
 	addNativeDataDescriptors(class, dictionary)

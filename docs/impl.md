@@ -638,6 +638,12 @@ failed hashes retry. The shared empty frozenset remains immutable. Dictionary
 and set key admission still uses fixed hashability and equality checks, so this
 does not yet enable arbitrary Python keys.
 
+String percent formatting now supports positional `%s`, `%r`, `%a`, and `%%`.
+It consumes a single object or tuple, preserves conversion order and errors,
+and resumes Python str/repr callbacks through the VM. Native str remainder
+slots share the same implementation. Numeric fields, mapping-key fields, flags,
+width, and precision remain explicitly unsupported.
+
 The `repr` builtin calls class `__repr__` for a direct user instance and requires
 a string result. The object form of `str` returns strings unchanged, uses an
 exception's message, calls class `__str__`, and falls back to `__repr__`. The
@@ -1193,7 +1199,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are string percent formatting in enum, missing _ast,
+class helpers. Current blockers are native set intersection in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
