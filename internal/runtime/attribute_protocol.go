@@ -41,6 +41,8 @@ func executeDynamicAttributeLoad(
 		return outcome, err
 	}
 	switch owner := owner.(type) {
+	case *nativeDataDescriptorValue:
+		return executeNativeDataDescriptorAttribute(frame, instruction, owner, name)
 	case *nativeDescriptorValue:
 		return executeNativeDescriptorAttributeLoad(frame, instruction, owner, nil, name)
 	case *boundNativeDescriptorValue:
@@ -357,6 +359,9 @@ func executeInstanceAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	classValue, classFound := owner.class.lookup(name)
+	if descriptor, ok := classValue.(*nativeDataDescriptorValue); ok {
+		return descriptor.load(frame, instruction, owner)
+	}
 	if property, ok := classValue.(*propertyValue); ok {
 		return executePropertyDescriptorCall(
 			frame,
@@ -553,6 +558,9 @@ func executeInstanceAttributeStore(
 	value Value,
 ) (instructionOutcome, error) {
 	if classValue, found := owner.class.lookup(name); found {
+		if descriptor, ok := classValue.(*nativeDataDescriptorValue); ok {
+			return descriptor.store(owner, value)
+		}
 		if property, ok := classValue.(*propertyValue); ok {
 			return executePropertyDescriptorCall(
 				frame,
@@ -592,6 +600,9 @@ func executeInstanceAttributeDelete(
 	name string,
 ) (instructionOutcome, error) {
 	if classValue, found := owner.class.lookup(name); found {
+		if descriptor, ok := classValue.(*nativeDataDescriptorValue); ok {
+			return descriptor.store(owner, nil)
+		}
 		if property, ok := classValue.(*propertyValue); ok {
 			return executePropertyDescriptorCall(
 				frame,

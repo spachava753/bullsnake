@@ -957,6 +957,13 @@ the VM, inserts keys before advancing, preserves first-key order and shared valu
 identity, and propagates iterator/key errors. Native dictionary subclasses and
 arbitrary Python keys remain outside the current dict construction/key contract.
 
+Native getset/member descriptors now expose implemented function metadata,
+cell contents, and type annotations through the same field operations as ordinary
+attribute access. Descriptor reads validate receivers and preserve lazy annotation
+execution and stable identities. Cell setters mutate actual closure bindings;
+function metadata remains read-only where assignment is not yet implemented.
+These are executable descriptors, not type-discovery markers.
+
 ### Class subscription
 
 Class item access first calls the metaclass `__getitem__` slot when present, then
@@ -1144,7 +1151,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing class-level function.__code__ descriptors, missing _ast,
+probes. Their current blockers are missing type-union operations, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
