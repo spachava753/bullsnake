@@ -38,7 +38,10 @@ func (compiler *compilerState) emitNameLoad(name string, span lexer.Span) error 
 			if indexErr != nil {
 				return compiler.error(span, "%v", indexErr)
 			}
-			return compiler.emit(bytecode.LoadDeref, index, span)
+			if err := compiler.emit(bytecode.LoadLocals, 0, span); err != nil {
+				return err
+			}
+			return compiler.emit(bytecode.LoadFromDictOrDeref, index, span)
 		case resolver.GlobalExplicit:
 			return compiler.emit(bytecode.LoadGlobal, compiler.nameIndex(name), span)
 		default:

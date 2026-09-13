@@ -827,6 +827,11 @@ flag. Built-in exception allocation keeps its separate behavior. This is the
 allocation prerequisite for ABCMeta; virtual subclass registration is described below.
 
 A generic class stores one stable `__type_params__` tuple in its own namespace.
+Class-body closure reads first load the actual locals namespace, then use the
+existing dictionary-or-cell operation. A prepared namespace can therefore
+shadow an enclosing free variable; an absent entry still falls back to its cell.
+Full compiler dumps cover this order for ordinary and generic classes.
+
 Class statements and methods capture the same parameter objects. Bullsnake does
 not yet add an implicit `Generic[...]` base or support class specialization. A
 generated `C.__annotate__(1)` returns annotations from statements that ran in a

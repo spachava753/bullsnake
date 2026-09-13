@@ -926,6 +926,11 @@ member descriptor. Invalid encoded metadata is rejected before execution. The
 unchanged DynamicClassAttribute now has a source behavior test. Enum advances to
 using EnumDict as its prepared class namespace.
 
+A separate compiler correction now emits namespace-first closure reads in class
+bodies. Exact-dictionary preparation tests prove shadowing and cell fallback;
+complete compiler dumps also cover generic classes. Dictionary-subclass callbacks
+remain in the active runtime slice.
+
 The table lists first failures, not complete missing-feature lists. Next,
 execute class namespace operations through real dictionary-subclass overrides.
 Further dependencies remain. AST
