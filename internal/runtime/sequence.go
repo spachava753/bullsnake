@@ -246,6 +246,12 @@ func executeBinarySubscript(frame *frame, instruction int) (instructionOutcome, 
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
 
+	return executeSubscriptValue(frame, instruction, container, indexValue)
+}
+
+// executeSubscriptValue shares ordinary item lookup with native mapping clients
+// while preserving class, descriptor, and Python instance dispatch.
+func executeSubscriptValue(frame *frame, instruction int, container, indexValue Value) (instructionOutcome, error) {
 	if class, ok := container.(*nativeTypeValue); ok && (class == typeNativeType || hasNativeClassGetitem(class)) {
 		return pushOutcome(frame, instruction, newGenericAlias(frame.runtime.genericAliasClass, class, indexValue))
 	}

@@ -62,3 +62,15 @@ class Factory(Namespace):
     def __init__(self):
         raise AssertionError('foreign result bypasses initialization')
 assert Factory() == 42
+
+# ---
+# case: namespace mapping input uses the shared dictionary conversion path
+import sys
+Namespace = type(sys.implementation)
+class Mapping:
+    def keys(self):
+        return ['value']
+    def __getitem__(self, key):
+        return 42
+namespace = Namespace(Mapping(), extra=3)
+assert namespace.__dict__ == {'value': 42, 'extra': 3}

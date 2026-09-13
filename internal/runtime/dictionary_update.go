@@ -12,8 +12,8 @@ func (*dictionaryUpdateMethod) Repr() string {
 }
 func (*dictionaryUpdateMethod) isValue() {}
 
-// executeDictionaryUpdateCall snapshots a native source and keyword entries,
-// then replays them into the target without changing existing key positions.
+// executeDictionaryUpdateCall validates call shape before consuming mappings or
+// iterable pairs. Target mutations are incremental, and keywords follow source.
 func executeDictionaryUpdateCall(
 	caller *frame,
 	instruction int,
@@ -30,32 +30,13 @@ func executeDictionaryUpdateCall(
 			"update expected at most 1 argument, got "+strconv.Itoa(count),
 		)), nil
 	}
-	var sourceEntries []dictEntry
+	call := &dictionaryInputCall{instruction: instruction, target: method.dictionary, sentinel: &dictValue{}}
 	if len(arguments) == 1 {
-		source, ok := arguments[0].(*dictValue)
-		if !ok {
-			discardCallSegment(caller, base)
-			return raiseOutcome(newException(
-				"NotImplementedError",
-				"dict.update iterable and user mapping inputs are not supported",
-			)), nil
-		}
-		sourceEntries = append(sourceEntries, source.entries...)
+		call.source = arguments[0]
 	}
-	var keywordEntries []dictEntry
 	if keywords != nil {
-		keywordEntries = append(keywordEntries, keywords.entries...)
+		call.keywords = append([]dictEntry(nil), keywords.entries...)
 	}
 	discardCallSegment(caller, base)
-	for _, entry := range sourceEntries {
-		if exception := method.dictionary.set(entry.key, entry.value); exception != nil {
-			return raiseOutcome(exception), nil
-		}
-	}
-	for _, entry := range keywordEntries {
-		if exception := method.dictionary.set(entry.key, entry.value); exception != nil {
-			return raiseOutcome(exception), nil
-		}
-	}
-	return pushOutcome(caller, instruction, None)
+	return call.start(caller)
 }

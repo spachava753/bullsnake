@@ -9,7 +9,6 @@ const (
 	collectionTuple
 	collectionSet
 	collectionFrozenSet
-	collectionDict
 	collectionListExtend
 	collectionStringJoin
 	collectionSorted
@@ -23,7 +22,6 @@ type collectionConstructorCall struct {
 	iterator    Value
 	iterables   []Value
 	elements    []Value
-	keywords    *dictValue
 	list        *listValue
 	set         *setValue
 	frozen      bool
@@ -41,6 +39,9 @@ func executeCollectionTypeCall(
 	arguments []Value,
 	keywords *dictValue,
 ) (instructionOutcome, error) {
+	if class == dictNativeType {
+		return executeDictionaryConstructor(caller, instruction, base, arguments, keywords)
+	}
 	kind := collectionList
 	switch class {
 	case tupleNativeType:
@@ -49,10 +50,8 @@ func executeCollectionTypeCall(
 		kind = collectionSet
 	case frozenSetNativeType:
 		kind = collectionFrozenSet
-	case dictNativeType:
-		kind = collectionDict
 	}
-	if kind != collectionDict && keywords != nil && len(keywords.entries) != 0 {
+	if keywords != nil && len(keywords.entries) != 0 {
 		discardCallSegment(caller, base)
 		return raiseOutcome(newException(
 			"TypeError",
@@ -69,7 +68,6 @@ func executeCollectionTypeCall(
 	call := &collectionConstructorCall{
 		instruction: instruction,
 		kind:        kind,
-		keywords:    keywords,
 	}
 	if len(arguments) == 0 {
 		discardCallSegment(caller, base)
@@ -86,17 +84,6 @@ func executeCollectionTypeCall(
 		if existing, sameType := iterable.(*frozenSetValue); sameType {
 			discardCallSegment(caller, base)
 			return pushOutcome(caller, instruction, existing)
-		}
-	}
-	if kind == collectionDict {
-		if source, mapping := iterable.(*dictValue); mapping {
-			for _, entry := range source.entries {
-				call.elements = append(call.elements, &tupleValue{
-					elements: []Value{entry.key, entry.value},
-				})
-			}
-			discardCallSegment(caller, base)
-			return finishCollectionConstructor(caller, call)
 		}
 	}
 	call.iterable = iterable
@@ -286,52 +273,7 @@ func finishCollectionConstructor(
 			}
 		}
 		return pushOutcome(frame, call.instruction, &frozenSetValue{entries: set.entries})
-	case collectionDict:
-		return finishDictConstructor(frame, call, elements)
 	default:
 		return pushOutcome(frame, call.instruction, &listValue{elements: elements})
 	}
-}
-
-// finishDictConstructor validates each collected pair, applies it in order,
-// then overlays keyword entries before returning the new dictionary.
-func finishDictConstructor(
-	frame *frame,
-	call *collectionConstructorCall,
-	elements []Value,
-) (instructionOutcome, error) {
-	dictionary := &dictValue{entries: make([]dictEntry, 0, len(elements))}
-	for index, element := range elements {
-		var pair []Value
-		switch element := element.(type) {
-		case *tupleValue:
-			pair = element.elements
-		case *listValue:
-			pair = element.elements
-		default:
-			return raiseOutcome(newException(
-				"TypeError",
-				"cannot convert dictionary update sequence element #"+
-					strconv.Itoa(index)+" to a sequence",
-			)), nil
-		}
-		if len(pair) != 2 {
-			return raiseOutcome(newException(
-				"ValueError",
-				"dictionary update sequence element #"+strconv.Itoa(index)+
-					" has length "+strconv.Itoa(len(pair))+"; 2 is required",
-			)), nil
-		}
-		if exception := dictionary.set(pair[0], pair[1]); exception != nil {
-			return raiseOutcome(exception), nil
-		}
-	}
-	if call.keywords != nil {
-		for _, entry := range call.keywords.entries {
-			if exception := dictionary.set(entry.key, entry.value); exception != nil {
-				return raiseOutcome(exception), nil
-			}
-		}
-	}
-	return pushOutcome(frame, call.instruction, dictionary)
 }

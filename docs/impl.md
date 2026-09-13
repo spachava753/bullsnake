@@ -507,9 +507,10 @@ native, user, or generator iterators through the frame loop.
 `tuple(existing_tuple)` and `frozenset(existing_frozenset)` preserve identity;
 list and set construction returns a new value. Set and frozen-set finalization
 uses the same hashability and duplicate rules as set displays. Dict construction
-copies a native dictionary or consumes tuple/list key-value pairs, then applies
-keyword values. User-defined mapping objects and arbitrary iterable inner pairs
-are not implemented yet. `isinstance` checks native identity, the C3 ancestry of
+shares update's native dictionary, mapping keys/subscription, and iterable-pair
+paths. Mapping keys are captured before fetching values; pair iterables are
+consumed and inserted incrementally, then keywords are applied. Failed conversions
+preserve earlier writes during update. `isinstance` checks native identity, the C3 ancestry of
 a user instance, and built-in or user exception ancestry. `issubclass` applies
 those same ancestry rules directly to class objects unless a metaclass hook overrides them. A tuple of candidates is
 processed left to right and may contain nested tuples; a match suppresses errors
@@ -586,9 +587,12 @@ Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `setdefault`, `
 retaining key and value identities. The view methods return live `dict_items`,
 `dict_keys`, and `dict_values` values with independent iterators. Replacing a
 value remains visible. Key-set changes, including clearing a nonempty dictionary,
-raise `RuntimeError` in an active iterator. Update accepts a native dictionary
-and keyword entries, preserving existing key positions; iterable pairs and user
-mappings remain unsupported. Set instances expose bound `add`, `difference`, and
+raise `RuntimeError` in an active iterator. Update accepts native dictionaries,
+real mappings, iterable pairs, and keyword entries, preserving existing key
+positions. Dictionary subtypes use the native-copy fast path only while their
+iteration slot is inherited unchanged; otherwise keys and subscription overrides
+execute. Native dict initialization and construction share this path.
+Set instances expose bound `add`, `difference`, and
 `discard` methods; frozen sets expose `difference`. Difference returns a new
 collection after draining each argument through the resumable iterator path.
 Set and frozen-set instances expose bound `__contains__`; their native type
@@ -1013,10 +1017,9 @@ allocation and initialization use normal __new__/__init__ continuations. Native
 slots are cached per runtime and inherited after Python MRO entries. Subclass
 item/length/iteration/containment overrides work, explicit native slots bypass
 them, and subscription alone calls __missing__. Views retain live native storage.
-Reinitialization accepts native dictionaries and keywords through the existing
-update path. Iterable/mapping inputs to init/update, dictionary-subclass source
-conversion, subclass fromkeys/specialization, and general mixed native bases
-remain later slices.
+Reinitialization shares dict's mapping, iterable-pair, and keyword update path.
+Subclass fromkeys/specialization and general mixed native bases remain later
+slices.
 
 ### Class subscription
 
@@ -1206,7 +1209,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are dict.update mapping inputs in enum, missing _ast,
+class helpers. Current blockers are class values as set keys in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
@@ -1229,11 +1232,11 @@ completed dependencies remain cached. Duplicate registrations are rejected.
 `name='bullsnake'` and `cache_tag=None` because no bytecode cache format exists.
 Implementation version/hexversion, platform identifiers, and broader sys version
 metadata are not supplied yet; the runtime does not claim a CPython identity.
-The SimpleNamespace type supports keyword or current dict/iterable-pair
+The SimpleNamespace type supports keyword, dictionary, mapping, and iterable-pair
 initialization, reinitialization, string-key validation, native/Python subclass
 construction, and a live writable `__dict__` whose replacement is read-only.
-Attribute and dictionary mutations remain synchronized. Custom mapping
-construction, namespace equality/representation, reduce, and replace methods
+Attribute and dictionary mutations remain synchronized. Namespace
+equality/representation, reduce, and replace methods
 remain later slices; this is not the complete SimpleNamespace API.
 
 `sys` provides `argv`, `exit`, and ordinary/original standard-stream attributes.

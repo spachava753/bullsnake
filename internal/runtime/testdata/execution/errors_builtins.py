@@ -1325,10 +1325,10 @@ delattr(FailingDelattrOwner(), 'field')
 # message: "update expected at most 1 argument, got 2"
 {}.update({}, {})
 # ---
-# case: dictionary update iterable boundary
-# error: NotImplementedError
-# message: "dict.update iterable and user mapping inputs are not supported"
-{}.update([('a', 1)])
+# case: dictionary update non iterable input
+# error: TypeError
+# message: "'int' object is not iterable"
+{}.update(42)
 # ---
 # case: dictionary clear argument
 # error: TypeError
