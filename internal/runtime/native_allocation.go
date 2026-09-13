@@ -29,7 +29,7 @@ func allocationClassName(class Value) string {
 // addNativeAllocators publishes actual static __new__ functions for object and
 // singleton types. Each runtime retains one callable identity per native class.
 func addNativeAllocators(class *nativeTypeValue, dictionary *dictValue) {
-	if class != objectNativeType && class != intNativeType && singletonForClass(class) == nil {
+	if class != objectNativeType && class != intNativeType && class != stringNativeType && singletonForClass(class) == nil {
 		return
 	}
 	dictionary.set(&stringValue{value: "__new__"}, &builtinFunctionValue{self: class, name: class.name + ".__new__", frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
@@ -51,6 +51,9 @@ func addNativeAllocators(class *nativeTypeValue, dictionary *dictValue) {
 		if target != class {
 			name := allocationClassName(target)
 			return raiseOutcome(newException("TypeError", class.name+".__new__("+name+"): "+name+" is not a subtype of "+class.name)), nil
+		}
+		if class == stringNativeType {
+			return executeBuiltinStr(caller, instruction, len(caller.stack), arguments[1:], keywords)
 		}
 		return executeSingletonTypeCall(caller, instruction, len(caller.stack), class, arguments[1:], keywords)
 	}})

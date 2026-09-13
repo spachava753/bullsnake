@@ -71,6 +71,9 @@ func executeStringAttributeLoad(
 	case "strip":
 		return pushOutcome(frame, instruction, &stringStripMethod{value: value})
 	default:
+		if method, found := frame.runtime.nativeClassAttribute(stringNativeType, name); found {
+			return pushOutcome(frame, instruction, bindInstanceFunction(method, value))
+		}
 		return raiseOutcome(newException(
 			"AttributeError",
 			"'str' object has no attribute '"+name+"'",

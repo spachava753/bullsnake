@@ -774,6 +774,13 @@ builtin performs arbitrary-precision integer and exact-rational float half-even
 rounding for an optional decimal digit count. User instances dispatch class
 `__round__` through the frame loop.
 
+Native string allocation now exposes static str.__new__ through the existing
+object-to-text constructor. Repr/str, formatting, item access, comparisons, and
+the implemented text methods also have real class-level descriptors. They share
+existing Unicode, argument, callback, and error behavior, preserve unchanged
+text identity, and decline non-string comparison operands. Encoding construction,
+string subclass storage, and unimplemented text operations remain guarded.
+
 Native integer descriptors now expose the existing unary/binary arithmetic,
 comparisons, int/index conversion, truth, repr, formatting, and new-argument
 metadata. Direct descriptors bypass Python overrides, validate receivers, decline

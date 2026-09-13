@@ -1026,6 +1026,13 @@ checks, empty-set errors, and iterator mutation detection. It is a native method
 descriptor, not a special-case enum helper. Enum gets through IntEnum creation
 and reaches StrEnum's native string bases at enum.py:1343:1.
 
+Str.__new__, native string repr/str, formatting, item access, comparisons, and
+existing text methods now have executable descriptors. Source tests check
+conversion callbacks, Unicode slicing, method delegation, identity, and errors;
+the supported fixtures also pass on CPython 3.14.7. String subclass storage has
+not been enabled yet, so enum remains blocked at StrEnum rather than receiving
+an empty or incorrectly typed instance.
+
 The table lists first failures, not complete missing-feature lists. Next,
 implement native string storage and later Enum construction
 requirements as execution reaches them. AST
