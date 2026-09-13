@@ -16,6 +16,7 @@ type compilerState struct {
 
 	codeName            string
 	qualifiedName       string
+	docstring           *string
 	firstLine           int
 	codeFlags           bytecode.CodeFlags
 	positionalOnlyCount int
@@ -136,6 +137,7 @@ func (compiler *compilerState) finish() (*bytecode.Code, error) {
 		Filename:            compiler.filename,
 		Name:                compiler.codeName,
 		QualifiedName:       compiler.qualifiedName,
+		Docstring:           compiler.docstring,
 		FirstLine:           compiler.firstLine,
 		Flags:               compiler.codeFlags,
 		PositionalOnlyCount: compiler.positionalOnlyCount,

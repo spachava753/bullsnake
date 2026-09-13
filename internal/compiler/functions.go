@@ -39,7 +39,7 @@ func (compiler *compilerState) compileFunctionDefinition(statement *compilerast.
 	}
 	child := compiler.newFunctionCompiler(statement, scope, statement.Parameters, statement.Name)
 
-	if err := child.compileStatements(statement.Body); err != nil {
+	if err := child.compileFunctionBody(statement.Body); err != nil {
 		return err
 	}
 	position := statement.Span().End
@@ -134,7 +134,7 @@ func (compiler *compilerState) compileGenericFunctionDefinition(
 	)
 	// The hidden type-parameter scope does not appear in Python's qualified name.
 	function.qualifiedName = compiler.childQualifiedName(statement.Name)
-	if err := function.compileStatements(statement.Body); err != nil {
+	if err := function.compileFunctionBody(statement.Body); err != nil {
 		return err
 	}
 	position := statement.Span().End

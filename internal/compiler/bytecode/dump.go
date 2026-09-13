@@ -17,6 +17,10 @@ func Dump(code *Code) string {
 	builder.WriteString(strconv.Quote(code.qualifiedName))
 	builder.WriteString(", filename=")
 	builder.WriteString(strconv.Quote(code.filename))
+	if code.hasDocstring {
+		builder.WriteString(", docstring=")
+		builder.WriteString(strconv.Quote(code.docstring))
+	}
 	builder.WriteString(", first_line=")
 	builder.WriteString(strconv.Itoa(code.firstLine))
 	builder.WriteString(", flags=[")

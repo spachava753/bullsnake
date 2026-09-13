@@ -918,6 +918,11 @@ continuations. Tests cover subclass overrides, explicit slot bypass, live views,
 __missing__, and native equality/hash behavior. Enum advances through the EnumDict
 class declaration to DynamicClassAttribute's missing function docstring.
 
+The compiler now preserves decoded function docstrings as immutable optional
+code metadata, with complete dumps for ordinary/generic/async functions and
+non-docstring expressions. Runtime function.__doc__ is the next slice; the enum
+probe has not advanced yet.
+
 The table lists first failures, not complete missing-feature lists. Next,
 provide actual function docstrings for DynamicClassAttribute initialization.
 Further dependencies remain. AST

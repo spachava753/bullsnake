@@ -65,6 +65,7 @@ type CodeSpec struct {
 	Filename            string
 	Name                string
 	QualifiedName       string
+	Docstring           *string
 	FirstLine           int
 	Flags               CodeFlags
 	PositionalOnlyCount int
@@ -87,6 +88,8 @@ type Code struct {
 	filename            string
 	name                string
 	qualifiedName       string
+	docstring           string
+	hasDocstring        bool
 	firstLine           int
 	flags               CodeFlags
 	positionalOnlyCount int
@@ -109,7 +112,13 @@ func NewCode(spec CodeSpec) *Code {
 	if len(spec.Instructions) != len(spec.Positions) {
 		panic("bytecode: instruction and position counts differ")
 	}
+	docstring := ""
+	if spec.Docstring != nil {
+		docstring = *spec.Docstring
+	}
 	return &Code{
+		docstring:           docstring,
+		hasDocstring:        spec.Docstring != nil,
 		filename:            spec.Filename,
 		name:                spec.Name,
 		qualifiedName:       spec.QualifiedName,
@@ -139,6 +148,10 @@ func (code *Code) Name() string { return code.name }
 
 // QualifiedName returns the code object's qualified name.
 func (code *Code) QualifiedName() string { return code.qualifiedName }
+
+// Docstring returns the decoded function docstring and distinguishes an empty
+// docstring from a function without one. No mutable input pointer is retained.
+func (code *Code) Docstring() (string, bool) { return code.docstring, code.hasDocstring }
 
 // FirstLine returns the first source line associated with the code.
 func (code *Code) FirstLine() int { return code.firstLine }

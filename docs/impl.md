@@ -221,6 +221,12 @@ WTF-8-compatible form, while bytes constants preserve arbitrary bytes.
 Formatted-string compilation retains conversion, format-specification, raw
 prefix, and debug-field behavior needed by the current runtime formatter.
 
+Function code objects now also retain an optional decoded docstring, distinct
+from an absent docstring even when the text is empty. Only the leading plain
+text literal (including adjacent literals) qualifies. It is removed from the
+executable body; bytes, formatted/template strings, and later literal statements
+are not docstrings. This metadata does not yet expose function.__doc__ at runtime.
+
 Functions, generator functions, coroutine functions, async generator functions,
 class bodies, and comprehensions are child code objects. Closures contain
 explicit cell references instead of Go closures. Calling a generator, coroutine,
