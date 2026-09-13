@@ -43,6 +43,7 @@ type Runtime struct {
 	stderr            io.Writer
 	counter           PerfCounter
 	abcToken          uint64
+	context           *contextState
 }
 
 // New constructs an empty runtime instance without a module loader.
@@ -96,6 +97,7 @@ func newRuntime(loader ModuleLoader) *Runtime {
 	runtime.constructors["time"] = moduleConstructor{initialize: initializeTime}
 	runtime.constructors["_abc"] = moduleConstructor{initialize: initializeABC}
 	runtime.constructors["_io"] = moduleConstructor{initialize: initializeIO}
+	runtime.constructors["_contextvars"] = moduleConstructor{initialize: initializeContextVars}
 	return runtime
 }
 

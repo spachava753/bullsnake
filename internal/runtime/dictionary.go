@@ -196,7 +196,7 @@ func validateDictKey(key Value) *Exception {
 // first invalid value inside tuple and frozenset keys.
 func unhashableComponent(value Value) (string, bool) {
 	switch value := value.(type) {
-	case *classWeakReference, *nativeTypeValue, *exceptionTypeValue, *functionValue, *builtinFunctionValue:
+	case *contextVarValue, *contextMissingValue, *classWeakReference, *nativeTypeValue, *exceptionTypeValue, *functionValue, *builtinFunctionValue:
 		return "", false
 	case *typeValue:
 		if classHasCustomKeySlots(value) {

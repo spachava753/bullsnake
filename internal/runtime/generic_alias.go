@@ -130,7 +130,7 @@ func genericAliasArgumentRepr(value Value) string {
 
 func hasNativeClassGetitem(class *nativeTypeValue) bool {
 	switch class {
-	case listNativeType, tupleNativeType, dictNativeType, setNativeType, frozenSetNativeType:
+	case contextVarNativeType, contextTokenNativeType, listNativeType, tupleNativeType, dictNativeType, setNativeType, frozenSetNativeType:
 		return true
 	}
 	return false

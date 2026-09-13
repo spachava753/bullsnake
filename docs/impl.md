@@ -1354,7 +1354,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are missing _ast and missing _contextvars; enum now imports and has
+blockers are missing _ast and missing _thread; enum now imports and has
 selected member-construction tests. Vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
@@ -1436,6 +1436,23 @@ The private `_io` constructor supplies the synchronous in-memory stream classes,
 newline decoder, shared exceptions, and permission-denied filesystem entry
 points. See the I/O sections below for tested behavior and compatibility limits.
 No `_io` operation acquires an ambient host capability.
+
+### Context variables
+
+The native `_contextvars` module now provides ContextVar and Token backed by
+strong, typed bindings in each runtime's current execution context. Get honors
+stored values before call and constructor defaults; missing values raise
+LookupError with the actual variable as its argument. Set returns a single-use
+token retaining the old binding and context identity. Reset validates ownership
+before consuming the token and supports out-of-order restoration. Token metadata,
+MISSING, read-only attributes, hashing/key identity, generic aliases, and Python
+3.14 token context managers have source tests. Go tests verify runtime isolation
+and persistence across module executions. Representation follows Bullsnake's
+address-free native spelling and current non-resumable nested repr boundary.
+
+Context construction, copying, mapping operations, and run are not exposed yet.
+There are no Python threads or task schedulers, and context state never comes
+from host thread-local storage. Unchanged warnings now reaches missing `_thread`.
 
 ## Deliberate boundaries
 

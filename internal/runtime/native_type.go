@@ -93,6 +93,9 @@ var builtinNativeTypes = []*nativeTypeValue{
 }
 
 var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
+	"_contextvars.ContextVar":          contextVarNativeType,
+	"_contextvars.Token":               contextTokenNativeType,
+	"Token.MISSING":                    nativeType("", "Token.MISSING"),
 	"_io._BytesIOBuffer":               nativeType("_io", "_BytesIOBuffer"),
 	"memory_iterator":                  builtinNativeType("memory_iterator"),
 	"bytearray":                        bytearrayNativeType,
@@ -218,6 +221,11 @@ func executeNativeTypeCall(
 		return pushOutcome(caller, instruction, result)
 	}
 	switch class {
+	case contextVarNativeType:
+		return executeContextVarConstructor(caller, instruction, base, arguments, keywords)
+	case contextTokenNativeType:
+		discardCallSegment(caller, base)
+		return raiseOutcome(newException("RuntimeError", "Tokens can only be created by ContextVars")), nil
 	case noneNativeType, ellipsisNativeType, notImplementedNativeType:
 		return executeSingletonTypeCall(caller, instruction, base, class, arguments, keywords)
 	case bytesNativeType, bytearrayNativeType:

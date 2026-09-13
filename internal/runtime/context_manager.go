@@ -13,6 +13,9 @@ func executeLoadSpecial(
 	if !ok {
 		return instructionOutcome{}, frame.failure(instruction, "operand stack underflow")
 	}
+	if _, token := owner.(*contextTokenValue); token && (name == "__enter__" || name == "__exit__") {
+		return executeContextAttribute(frame, instruction, owner, name)
+	}
 	if stream, ok := owner.(*hostTextStream); ok {
 		if name == "__enter__" || name == "__exit__" {
 			return executeHostStreamAttributeLoad(frame, instruction, stream, name)

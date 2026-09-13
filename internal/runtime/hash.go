@@ -127,6 +127,11 @@ func fixedValueHash(value Value) (int64, *Exception, bool) {
 		return hashBigInteger(&integer), nil, true
 	}
 	switch value := value.(type) {
+	case *contextVarValue:
+		text, _ := stringStorage(value.name)
+		return stableTextHash(value.TypeName(), text.value), nil, true
+	case *contextTokenValue:
+		return 0, unhashableTypeError(value.TypeName()), true
 	case *unionValue:
 		return hashFrozenSet(value.args.elements)
 	case *classWeakReference:

@@ -707,6 +707,13 @@ closed, including on failure, without closing the borrowed provider. UTF-8 is
 strict and newline handling is fixed to literal LF boundaries. Operations are
 synchronous; arbitrary provider calls have no promised cancellation or timeout.
 
+Context variables use strong typed bindings owned by the runtime, not ambient
+Go thread-local state. Tokens retain their variable, prior binding, and actual
+context identity; validation precedes single-use consumption. The initial native
+ContextVar/Token slice supports restoration and token context managers without
+introducing a scheduler. Context copying and explicit switching are separate
+operations and must restore state on both Python and host failure paths.
+
 A Go callback may call back into Python only through an execution context owned
 by the runtime. Background goroutines may finish host work and post a result,
 but they must not mutate Python objects directly.

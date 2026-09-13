@@ -41,6 +41,8 @@ func executeDynamicAttributeLoad(
 		return outcome, err
 	}
 	switch owner := owner.(type) {
+	case *contextVarValue, *contextTokenValue:
+		return executeContextAttribute(frame, instruction, owner, name)
 	case *builtinFunctionValue:
 		if name == "__self__" && owner.self != nil {
 			return pushOutcome(frame, instruction, owner.self)

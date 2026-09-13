@@ -669,6 +669,40 @@ func compileSource(t *testing.T, source string) *bytecode.Code {
 	return code
 }
 
+func TestContextVariableRuntimeIsolation(t *testing.T) {
+	data, err := os.ReadFile("testdata/context_isolation.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := compileSource(t, string(data))
+	first, second := bullruntime.New(), bullruntime.New()
+	var variables []bullruntime.Value
+	for _, runtime := range []*bullruntime.Runtime{first, second} {
+		initial, err := runtime.ExecuteModule("initial", code)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before, _ := initial.Get("before")
+		if before != bullruntime.None {
+			t.Fatal("fresh runtime inherited a context binding")
+		}
+		value, _ := initial.Get("value")
+		variable, _ := initial.Get("variable")
+		variables = append(variables, variable)
+		repeated, err := runtime.ExecuteModule("repeated", code)
+		if err != nil {
+			t.Fatal(err)
+		}
+		retained, _ := repeated.Get("before")
+		if retained != value {
+			t.Fatal("context binding lost between module executions")
+		}
+	}
+	if variables[0] == variables[1] {
+		t.Fatal("runtimes share a mutable context variable")
+	}
+}
+
 func TestConfiguredArgumentsIsolation(t *testing.T) {
 	args := []string{"tests", "case"}
 	first, err := bullruntime.NewWithConfig(bullruntime.Config{Args: args})
