@@ -299,6 +299,9 @@ func executeTypeAttributeLoad(
 		return pushOutcome(frame, instruction, result)
 	}
 	value, found := owner.lookup(name)
+	if !found && name == "__new__" && rootAllocatableClass(owner) {
+		value, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
+	}
 	if !found && name == "__hash__" {
 		value, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
 	}
@@ -391,6 +394,10 @@ func executeInstanceAttributeLoad(
 		return pushOutcome(frame, instruction, value)
 	}
 	if !classFound {
+		if name == "__new__" && rootAllocatableClass(owner.class) {
+			method, _ := frame.runtime.nativeClassAttribute(objectNativeType, name)
+			return pushOutcome(frame, instruction, method)
+		}
 		if name == "__hash__" || (isObjectMethodName(name) && owner.class.nativeClassBase() == nil) {
 			method, _ := frame.runtime.nativeClassAttribute(objectNativeType, name)
 			return pushOutcome(frame, instruction, bindInstanceFunction(method, owner))

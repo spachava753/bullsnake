@@ -216,6 +216,8 @@ func executeNativeTypeCall(
 		return pushOutcome(caller, instruction, result)
 	}
 	switch class {
+	case noneNativeType, ellipsisNativeType, notImplementedNativeType:
+		return executeSingletonTypeCall(caller, instruction, base, class, arguments, keywords)
 	case bytesNativeType, bytearrayNativeType:
 		result, exception := newBinaryValue(arguments, keywords, class == bytearrayNativeType)
 		discardCallSegment(caller, base)

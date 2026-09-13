@@ -34,6 +34,7 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 	if hasNativeClassGetitem(class) {
 		dictionary.set(&stringValue{value: "__class_getitem__"}, nativeClassGetitem(class))
 	}
+	addNativeAllocators(class, dictionary)
 	addNativeSetOperators(class, dictionary)
 	addPercentTextDescriptors(class, dictionary)
 	addDictionaryDescriptors(class, dictionary)
@@ -62,6 +63,9 @@ func (runtime *Runtime) nativeClassAttribute(class *nativeTypeValue, name string
 		if current.base != nil {
 			current = current.base
 		} else if current != objectNativeType {
+			if name == "__new__" {
+				return nil, false
+			}
 			if name == "__repr__" || name == "__str__" {
 				return nil, false
 			}

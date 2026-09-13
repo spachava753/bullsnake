@@ -462,21 +462,7 @@ func executeTypeCall(
 	}
 	if class.abstract {
 		discardCallSegment(caller, base)
-		methods, found := class.namespace.get("__abstractmethods__")
-		if !found {
-			return raiseOutcome(newException("AttributeError", "__abstractmethods__")), nil
-		}
-		return startCollectionConstructor(caller, &collectionConstructorCall{
-			instruction: instruction,
-			kind:        collectionSorted,
-			iterable:    methods,
-			sorting: &sortCall{
-				instruction:   instruction,
-				key:           None,
-				reverseValue:  falseSingleton,
-				abstractClass: class,
-			},
-		})
+		return executeAbstractAllocation(caller, instruction, class)
 	}
 	for _, parent := range class.mro {
 		if parent.ioClass {

@@ -23,6 +23,21 @@ func finishAbstractMethodsStore(frame *frame, call *abstractMethodsStore, abstra
 	return instructionOutcome{kind: advance}, nil
 }
 
+// executeAbstractAllocation collects and sorts actual abstract method names
+// through Python callbacks before raising the shared allocation error.
+func executeAbstractAllocation(caller *frame, instruction int, class *typeValue) (instructionOutcome, error) {
+	methods, found := class.namespace.get("__abstractmethods__")
+	if !found {
+		return raiseOutcome(newException("AttributeError", "__abstractmethods__")), nil
+	}
+	return startCollectionConstructor(caller, &collectionConstructorCall{
+		instruction: instruction,
+		kind:        collectionSorted,
+		iterable:    methods,
+		sorting:     &sortCall{instruction: instruction, key: None, reverseValue: falseSingleton, abstractClass: class},
+	})
+}
+
 // abstractAllocationError validates sorted names before producing CPython's
 // singular or plural abstract-allocation diagnostic.
 func abstractAllocationError(class *typeValue, items []sortItem) *Exception {

@@ -981,6 +981,14 @@ slices.
 
 ### Native object slots
 
+`object.__new__` now exposes a real static allocator. It creates ordinary Python
+instances without calling __init__, enforces native-layout safety and excess
+argument rules, and shares abstract-allocation diagnostics. Ordinary classes and
+instances inherit this allocator; native types do not inherit a false allocator
+when their own allocation is unsupported. NoneType, EllipsisType, and
+NotImplementedType expose actual singleton constructors and static __new__ calls.
+General ordinary-class __new__ dispatch remains a separate constructor gap.
+
 `object.__init__` is an executable, runtime-cached `wrapper_descriptor`; binding
 produces a distinct `method-wrapper` type with receiver and defining-class
 metadata. Direct calls, explicit `__get__`, inherited attribute lookup, `super`,
@@ -1215,7 +1223,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are singleton/root allocation descriptors in enum, missing _ast,
+class helpers. Current blockers are object formatting slots in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
