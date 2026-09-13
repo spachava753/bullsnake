@@ -15,10 +15,15 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 		}
 	}
 	if class == objectNativeType {
-		dictionary.set(&stringValue{value: "__str__"}, &wrapperDescriptorValue{class: objectNativeType, name: "__str__", call: executeObjectString})
-		dictionary.set(&stringValue{value: "__repr__"}, &wrapperDescriptorValue{class: objectNativeType, name: "__repr__", call: executeObjectRepresentation})
-		dictionary.set(&stringValue{value: "__init__"}, &wrapperDescriptorValue{class: objectNativeType, name: "__init__", call: executeObjectInit})
+		dictionary.set(&stringValue{value: "__str__"}, &nativeDescriptorValue{class: objectNativeType, name: "__str__", call: executeObjectString})
+		dictionary.set(&stringValue{value: "__repr__"}, &nativeDescriptorValue{class: objectNativeType, name: "__repr__", call: executeObjectRepresentation})
+		dictionary.set(&stringValue{value: "__init__"}, &nativeDescriptorValue{class: objectNativeType, name: "__init__", call: executeObjectInit})
 		dictionary.set(&stringValue{value: "__subclasshook__"}, defaultSubclassHook())
+	}
+	if class == stringNativeType {
+		dictionary.set(&stringValue{value: "join"}, &nativeDescriptorValue{kind: nativeMethodDescriptor, class: class, name: "join", call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+			return executeStringJoinCall(caller, instruction, len(caller.stack), &stringJoinMethod{separator: self.(*stringValue)}, arguments, keywords)
+		}})
 	}
 	if class == setNativeType || class == frozenSetNativeType {
 		dictionary.set(&stringValue{value: "__contains__"}, &setContainsDescriptor{frozen: class == frozenSetNativeType})

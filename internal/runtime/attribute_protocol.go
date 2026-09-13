@@ -41,10 +41,10 @@ func executeDynamicAttributeLoad(
 		return outcome, err
 	}
 	switch owner := owner.(type) {
-	case *wrapperDescriptorValue:
-		return executeWrapperAttributeLoad(frame, instruction, owner, nil, name)
-	case *methodWrapperValue:
-		return executeWrapperAttributeLoad(frame, instruction, owner.descriptor, owner.self, name)
+	case *nativeDescriptorValue:
+		return executeNativeDescriptorAttributeLoad(frame, instruction, owner, nil, name)
+	case *boundNativeDescriptorValue:
+		return executeNativeDescriptorAttributeLoad(frame, instruction, owner.descriptor, owner.self, name)
 	case *classWeakReference:
 		if name == "__callback__" {
 			return pushOutcome(frame, instruction, None)

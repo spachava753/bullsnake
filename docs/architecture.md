@@ -523,9 +523,11 @@ can terminate the process. CPython has no matching fixed limit and relies on
 allocation failure. A runtime-wide resource budget may replace this local limit
 later.
 
-Native special-method wrappers retain a typed defining class and executable
-slot. Their bound method-wrapper values remain distinct from Python methods and
-ordinary builtin functions. Cache descriptors per runtime and share binding and
+Native descriptors retain a typed defining class, descriptor kind, and executable
+operation. Bound slot wrappers remain distinct from Python methods and regular
+builtin methods. Regular native method descriptors share that storage and call
+path while preserving their different binding and metadata behavior. Cache
+descriptors per runtime and share binding and
 call validation across direct access, inheritance, and super; never publish a
 slot descriptor solely to satisfy type discovery in a source module.
 

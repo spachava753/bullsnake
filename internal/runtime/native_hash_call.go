@@ -79,8 +79,8 @@ func (runtime *Runtime) boundNativeObjectMethod(owner Value, name string) (Value
 	if !found || method == None {
 		return method, found
 	}
-	if descriptor, ok := method.(*wrapperDescriptorValue); ok {
-		return &methodWrapperValue{descriptor: descriptor, self: owner}, true
+	if descriptor, ok := method.(*nativeDescriptorValue); ok {
+		return &boundNativeDescriptorValue{descriptor: descriptor, self: owner}, true
 	}
 	return &boundMethodValue{callable: method, self: owner}, true
 }

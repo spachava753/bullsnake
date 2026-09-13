@@ -22,7 +22,7 @@ func executeObjectInit(caller *frame, instruction int, self Value, arguments []V
 func objectConstructionOverrides(self Value) (initialization, allocation bool) {
 	if instance, ok := self.(*instanceValue); ok {
 		initializer, found := instance.class.lookup("__init__")
-		wrapper, wrapped := initializer.(*wrapperDescriptorValue)
+		wrapper, wrapped := initializer.(*nativeDescriptorValue)
 		if found && (!wrapped || wrapper.class != objectNativeType || wrapper.name != "__init__") {
 			return true, true
 		}

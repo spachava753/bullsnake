@@ -50,7 +50,8 @@ func executeStringAttributeLoad(
 	case "count":
 		return pushOutcome(frame, instruction, &stringCountMethod{value: value})
 	case "join":
-		return pushOutcome(frame, instruction, &stringJoinMethod{separator: value})
+		descriptor, _ := frame.runtime.nativeClassAttribute(stringNativeType, name)
+		return pushOutcome(frame, instruction, bindInstanceFunction(descriptor, value))
 	case "format":
 		return pushOutcome(frame, instruction, &stringFormatMethod{value: value})
 	case "lower":

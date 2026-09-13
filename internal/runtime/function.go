@@ -143,11 +143,11 @@ func executeFunctionCall(
 	switch callable := callable.(type) {
 	case *classWeakReference:
 		return executeClassWeakReference(caller, instruction, base, callable, arguments, keywords)
-	case *wrapperDescriptorValue:
-		return executeWrapperCall(caller, instruction, base, callable, arguments, keywords)
-	case *methodWrapperValue:
+	case *nativeDescriptorValue:
+		return executeNativeDescriptorCall(caller, instruction, base, callable, arguments, keywords)
+	case *boundNativeDescriptorValue:
 		bound := append([]Value{callable.self}, arguments...)
-		return executeWrapperCall(caller, instruction, base, callable.descriptor, bound, keywords)
+		return executeNativeDescriptorCall(caller, instruction, base, callable.descriptor, bound, keywords)
 	case *builtinFunctionValue:
 		return executeBuiltinFunctionCall(
 			caller,
@@ -656,8 +656,8 @@ func isCallableValue(value Value) bool {
 		_, found := value.class.lookup("__call__")
 		return found
 	case *classWeakReference,
-		*wrapperDescriptorValue,
-		*methodWrapperValue,
+		*nativeDescriptorValue,
+		*boundNativeDescriptorValue,
 		*builtinFunctionValue,
 		*nativeTypeValue,
 		*propertyAccessorMethod,

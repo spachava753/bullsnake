@@ -944,7 +944,12 @@ a direct call may return a non-string, while `str()` validates its final result.
 User repr failures propagate through VM continuations. Other native repr/str
 slots are not represented by inherited markers when unimplemented. Full wrapper
 comparison/pickling remain later work. Existing native methods have not all been
-converted to wrapper descriptors.
+converted to wrapper descriptors. The shared descriptor storage also represents
+regular native methods: `str.join` exposes a real `method_descriptor`, whose
+bound form is a `builtin_function_or_method` retaining its receiver. Class,
+instance, and explicit __get__ calls share the existing resumable join operation,
+including receiver/argument errors and generator input. Other native methods
+still need their own class-level descriptor exposure.
 
 ### Class subscription
 
@@ -1122,7 +1127,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing str.join class access, missing _ast,
+probes. Their current blockers are missing dict.fromkeys, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

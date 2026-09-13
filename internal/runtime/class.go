@@ -471,10 +471,10 @@ func executeTypeCall(
 		caller.stack = caller.stack[:base]
 		return pushOutcome(caller, instruction, instance)
 	}
-	if initializer, ok := initializerValue.(*wrapperDescriptorValue); ok {
+	if initializer, ok := initializerValue.(*nativeDescriptorValue); ok {
 		discardCallSegment(caller, base)
 		return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
-			return executeWrapperCall(caller, instruction, len(caller.stack), initializer, append([]Value{instance}, arguments...), keywords)
+			return executeNativeDescriptorCall(caller, instruction, len(caller.stack), initializer, append([]Value{instance}, arguments...), keywords)
 		}, func(current *frame, result Value, exception *Exception) (instructionOutcome, error) {
 			if exception != nil {
 				return raiseOutcome(exception), nil

@@ -53,7 +53,7 @@ when a tested slice changes what can execute.
 | Runtime and host groundwork | Source execution tests; per-runtime modules and arguments; supplied streams and performance counter; explicit host denial. | Broader object protocols, collection keys, introspection, and system-module APIs as dependencies require them. |
 | Unchanged `abc` and `io` | Both import; ABC construction/registration and public io stream tests pass. In-memory streams, buffering, text decoding, and close/error paths are tested. | Full upstream conformance is not claimed; host-stream ABC integration and documented codec/buffer gaps remain. |
 | Unchanged `_collections_abc` | Imports; structural protocols and Set/Mapping/Sequence families have behavior tests. Callable aliases support construction, call, equality/hash, TypeVar/ParamSpec specialization, defaults, and class bases. | Concrete Callable representation, ByteString warning behavior, forward references, Concatenate, TypeVarTuple unpacking/substitution, and broader alias forwarding. Import success is not completion. |
-| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; six initial dependencies are vendored at the pin. Code inspection, function globals/live closure cells, and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: `str.join` class access in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
+| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; six initial dependencies are vendored at the pin. Code inspection, function globals/live closure cells, and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: `dict.fromkeys` in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
 | Unchanged `unittest` import | Currently stops at `unittest/result.py:5:8`, missing `traceback`. | Finish the active collections dependency work, then continue through traceback and the remaining synchronous import closure. |
 | `TestCase` / `TestResult` | Not executed. | Passing tests, assertion failures, errors, setup/teardown, cleanups, skips, expected failures, and subtests. |
 | Suites, loader, text runner | Not executed. | In-memory suite/name loading, traceback reports, warnings, and complete output checked through `StringIO`. |
@@ -825,7 +825,7 @@ go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings
 
 | Probe | First observed failure |
 | --- | --- |
-| `types`, `enum` | `types.py:52:33`: str has no class-level `join` descriptor. |
+| `types`, `enum` | `types.py:53:38`: dict's namespace has no `fromkeys` descriptor. |
 | `ast`, `annotationlib` | `ast.py:23:1`: missing `_ast`. |
 | `warnings` | `_py_warnings.py:4:8`: missing `_contextvars`. |
 
@@ -862,8 +862,12 @@ Object str/repr wrappers now also execute. Root str resumes the receiver's class
 repr callback, while root repr bypasses overrides. Direct slot results and
 `str()` result validation have separate tests, including errors and super calls.
 
+`str.join` now has a real method descriptor, native bound-method metadata, and
+receiver-checked direct/instance/__get__ calls into the existing resumable join
+implementation. Tests include generator input and binding/argument failures.
+
 The table lists first failures, not complete missing-feature lists. Next,
-expose the existing string join operation through a real method descriptor.
+implement dict.fromkeys and native classmethod-descriptor binding.
 Subsequent
 types import work includes native method/attribute descriptor identities,
 traceback/frame objects, and union types. AST services, context-variable state,
