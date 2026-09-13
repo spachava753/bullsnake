@@ -1022,6 +1022,13 @@ execution and stable identities. Cell setters mutate actual closure bindings;
 function metadata remains read-only where assignment is not yet implemented.
 These are executable descriptors, not type-discovery markers.
 
+The object.__format__ method descriptor accepts only an empty text specification,
+then executes actual str conversion with result validation. Nonempty specs fail
+before calling user code. Direct, inherited, and super access share this method;
+super delegation is not intercepted by the super object's own native attributes.
+Native scalar types with their own unexposed formatting method do not advertise
+object.__format__ as a substitute.
+
 Dictionary slots now expose receiver-checked allocation, reinitialization,
 subscription/mutation, repr, equality/inequality, and existing mapping methods.
 Setdefault preserves existing entries and shares the supplied default value.
@@ -1223,7 +1230,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are object formatting slots in enum, missing _ast,
+class helpers. Current blockers are object reduction slots in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

@@ -15,6 +15,7 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 		}
 	}
 	if class == objectNativeType {
+		dictionary.set(&stringValue{value: "__format__"}, &nativeDescriptorValue{kind: nativeMethodDescriptor, class: objectNativeType, name: "__format__", call: executeObjectFormat})
 		dictionary.set(&stringValue{value: "__str__"}, &nativeDescriptorValue{class: objectNativeType, name: "__str__", call: executeObjectString})
 		dictionary.set(&stringValue{value: "__repr__"}, &nativeDescriptorValue{class: objectNativeType, name: "__repr__", call: executeObjectRepresentation})
 		dictionary.set(&stringValue{value: "__init__"}, &nativeDescriptorValue{class: objectNativeType, name: "__init__", call: executeObjectInit})
@@ -68,6 +69,12 @@ func (runtime *Runtime) nativeClassAttribute(class *nativeTypeValue, name string
 			}
 			if name == "__repr__" || name == "__str__" {
 				return nil, false
+			}
+			if name == "__format__" {
+				switch class {
+				case stringNativeType, intNativeType, boolNativeType, floatNativeType, complexNativeType:
+					return nil, false
+				}
 			}
 			if name == "__init__" && nativeHasOwnInitializer(class) {
 				return nil, false

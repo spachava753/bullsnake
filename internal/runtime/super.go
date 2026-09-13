@@ -175,7 +175,7 @@ func executeSuperAttributeLoad(
 	if !found && name == "__new__" && rootAllocatableClass(value.receiverType) {
 		classValue, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
 	}
-	if !found && isObjectMethodName(name) {
+	if !found && (isObjectMethodName(name) || name == "__hash__") {
 		classValue, found = frame.runtime.nativeClassAttribute(objectNativeType, name)
 	}
 	if !found {
