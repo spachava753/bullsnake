@@ -31,6 +31,8 @@ func nativeReceiverMatches(receiver Value, class *nativeTypeValue) bool {
 	return false
 }
 
+// nativeHashDescriptor exposes implemented hashes with receiver checks. Int
+// hashing reads native storage directly rather than redispatching subtype hooks.
 func nativeHashDescriptor(class *nativeTypeValue) Value {
 	return &builtinFunctionValue{name: "__hash__", method: true, frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 		if exception := checkNativeArguments("__hash__", arguments, keywords, 1, 1); exception != nil {
@@ -41,6 +43,13 @@ func nativeHashDescriptor(class *nativeTypeValue) Value {
 		discardCallSegment(caller, base)
 		if !nativeReceiverMatches(self, class) {
 			return raiseOutcome(newException("TypeError", "descriptor '__hash__' requires a '"+class.name+"' object")), nil
+		}
+		if class == intNativeType {
+			number, ok := integerOperand(self)
+			if !ok {
+				return raiseOutcome(newException("TypeError", "uninitialized int subtype")), nil
+			}
+			return pushOutcome(caller, instruction, hashIntegerValue(hashBigInteger(&number)))
 		}
 		if class == objectNativeType {
 			return pushOutcome(caller, instruction, hashIntegerValue(stableTextHash(self.TypeName(), self.Repr())))

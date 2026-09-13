@@ -45,19 +45,12 @@ func addNativeAllocators(class *nativeTypeValue, dictionary *dictValue) {
 		if class == objectNativeType {
 			return executeObjectAllocation(caller, instruction, target, arguments[1:], keywords)
 		}
-		if class == intNativeType && target == boolNativeType {
-			return raiseOutcome(newException("TypeError", "int.__new__(bool) is not safe, use bool.__new__()")), nil
+		if class == intNativeType {
+			return executeIntegerAllocation(caller, instruction, target, arguments[1:], keywords)
 		}
 		if target != class {
 			name := allocationClassName(target)
 			return raiseOutcome(newException("TypeError", class.name+".__new__("+name+"): "+name+" is not a subtype of "+class.name)), nil
-		}
-		if class == intNativeType {
-			value, exception := builtinInt(arguments[1:], keywords)
-			if exception != nil {
-				return raiseOutcome(exception), nil
-			}
-			return pushOutcome(caller, instruction, value)
 		}
 		return executeSingletonTypeCall(caller, instruction, len(caller.stack), class, arguments[1:], keywords)
 	}})

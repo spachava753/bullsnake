@@ -34,19 +34,12 @@ func newEqualityCall(
 		left:        left,
 		right:       right,
 	}
-	leftInstance, leftUser := left.(*instanceValue)
-	rightInstance, rightUser := right.(*instanceValue)
-	if leftUser && rightUser && rightInstance.class != leftInstance.class &&
-		rightInstance.class.isSubclassOf(leftInstance.class) {
-		call.appendEqualityCandidate(rightInstance, left)
-		call.appendEqualityCandidate(leftInstance, right)
+	if rightOperandSubclass(left, right) {
+		call.appendEqualityCandidate(right, left)
+		call.appendEqualityCandidate(left, right)
 	} else {
-		if leftUser {
-			call.appendEqualityCandidate(leftInstance, right)
-		}
-		if rightUser {
-			call.appendEqualityCandidate(rightInstance, left)
-		}
+		call.appendEqualityCandidate(left, right)
+		call.appendEqualityCandidate(right, left)
 	}
 	return call
 }
@@ -66,29 +59,22 @@ func newOrderingCall(
 		right:       right,
 	}
 	leftName, rightName := orderingMethodNames(operand)
-	leftInstance, leftUser := left.(*instanceValue)
-	rightInstance, rightUser := right.(*instanceValue)
-	if leftUser && rightUser && rightInstance.class != leftInstance.class &&
-		rightInstance.class.isSubclassOf(leftInstance.class) {
-		call.appendOrderingCandidate(rightInstance, left, rightName)
-		call.appendOrderingCandidate(leftInstance, right, leftName)
+	if rightOperandSubclass(left, right) {
+		call.appendOrderingCandidate(right, left, rightName)
+		call.appendOrderingCandidate(left, right, leftName)
 	} else {
-		if leftUser {
-			call.appendOrderingCandidate(leftInstance, right, leftName)
-		}
-		if rightUser {
-			call.appendOrderingCandidate(rightInstance, left, rightName)
-		}
+		call.appendOrderingCandidate(left, right, leftName)
+		call.appendOrderingCandidate(right, left, rightName)
 	}
 	return call
 }
 
 func (call *comparisonCall) appendOrderingCandidate(
-	receiver *instanceValue,
+	receiver Value,
 	argument Value,
 	name string,
 ) {
-	method, found := lookupInstanceSpecial(receiver, name)
+	method, found := lookupOperandSpecial(receiver, name)
 	if !found {
 		return
 	}
@@ -112,17 +98,17 @@ func orderingMethodNames(operand uint32) (string, string) {
 }
 
 func (call *comparisonCall) appendEqualityCandidate(
-	receiver *instanceValue,
+	receiver Value,
 	argument Value,
 ) {
 	name := "__eq__"
 	invert := false
-	method, found := lookupInstanceSpecial(receiver, name)
+	method, found := lookupOperandSpecial(receiver, name)
 	if call.operand == bytecode.CompareNotEqual {
 		name = "__ne__"
-		method, found = lookupInstanceSpecial(receiver, name)
+		method, found = lookupOperandSpecial(receiver, name)
 		if !found {
-			method, found = lookupInstanceSpecial(receiver, "__eq__")
+			method, found = lookupOperandSpecial(receiver, "__eq__")
 			invert = found
 		}
 	}

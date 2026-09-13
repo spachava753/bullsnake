@@ -360,12 +360,20 @@ func numericFloat(value Value) (float64, *Exception, bool) {
 	return converted, nil, true
 }
 
+// integerOperand copies exact, boolean, or native-subtype integer storage for
+// numeric operations and index positions without invoking conversion overrides.
 func integerOperand(value Value) (big.Int, bool) {
 	var integer big.Int
 	switch value := value.(type) {
 	case *intValue:
 		integer.Set(&value.value)
 		return integer, true
+	case *instanceValue:
+		if value.integer != nil {
+			integer.Set(&value.integer.value)
+			return integer, true
+		}
+		return integer, false
 	case *boolValue:
 		if value.value {
 			integer.SetInt64(1)

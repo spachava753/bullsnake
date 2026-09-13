@@ -21,6 +21,25 @@ func addIntegerDescriptors(class *nativeTypeValue, namespace *dictValue) {
 	if class != intNativeType {
 		return
 	}
+	namespace.set(&stringValue{value: "__round__"}, &nativeDescriptorValue{class: class, kind: nativeMethodDescriptor, name: "__round__", call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+		if exception := checkNativeArguments("__round__", arguments, keywords, 0, 1); exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		digits := Value(None)
+		if len(arguments) == 1 {
+			digits = arguments[0]
+		}
+		number, _ := integerOperand(self)
+		value := &intValue{value: number}
+		if exact, ok := self.(*intValue); ok {
+			value = exact
+		}
+		result, exception, _ := immediateRound(value, digits)
+		if exception != nil {
+			return raiseOutcome(exception), nil
+		}
+		return pushOutcome(caller, instruction, result)
+	}})
 	for _, name := range []string{"__repr__", "__format__", "__int__", "__index__", "__bool__", "__pos__", "__neg__", "__invert__", "__abs__", "__getnewargs__", "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__"} {
 		kind := nativeWrapperDescriptor
 		if name == "__format__" || name == "__getnewargs__" {
@@ -34,21 +53,27 @@ func addIntegerDescriptors(class *nativeTypeValue, namespace *dictValue) {
 		normal, reflected, _ := binaryMethodNames(operand)
 		for _, name := range []string{normal, reflected} {
 			namespace.set(&stringValue{value: name}, &nativeDescriptorValue{class: class, name: name, call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-				if exception := checkNativeArguments(name, arguments, keywords, 1, 1); exception != nil {
-					return raiseOutcome(exception), nil
-				}
-				left, _ := integerOperand(self)
-				right, ok := integerOperand(arguments[0])
-				if !ok {
-					return pushOutcome(caller, instruction, notImplementedSingleton)
-				}
-				if name == reflected {
-					left, right = right, left
-				}
-				return executeBinaryValues(caller, instruction, operand, false, &intValue{value: left}, &intValue{value: right})
+				return executeIntegerBinarySlot(caller, instruction, self, name, operand, name == reflected, arguments, keywords)
 			}})
 		}
 	}
+}
+
+// executeIntegerBinarySlot extracts native storage before using arithmetic,
+// avoiding override redispatch and declining noninteger right operands.
+func executeIntegerBinarySlot(caller *frame, instruction int, self Value, name string, operand uint32, reflected bool, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+	if exception := checkNativeArguments(name, arguments, keywords, 1, 1); exception != nil {
+		return raiseOutcome(exception), nil
+	}
+	left, _ := integerOperand(self)
+	right, ok := integerOperand(arguments[0])
+	if !ok {
+		return pushOutcome(caller, instruction, notImplementedSingleton)
+	}
+	if reflected {
+		left, right = right, left
+	}
+	return executeBinaryValues(caller, instruction, operand, false, &intValue{value: left}, &intValue{value: right})
 }
 
 // executeIntegerSlot shares exact numeric storage across unary, comparison,
@@ -84,7 +109,7 @@ func executeIntegerSlot(caller *frame, instruction int, self Value, name string,
 			result = integerUnary(&number, bytecode.UnaryNegative)
 		}
 	case "__getnewargs__":
-		result = &tupleValue{elements: []Value{value}}
+		result = &tupleValue{elements: []Value{&intValue{value: number}}}
 	case "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__":
 		right, ok := integerOperand(arguments[0])
 		if !ok {

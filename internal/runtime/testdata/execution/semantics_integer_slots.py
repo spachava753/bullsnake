@@ -30,7 +30,9 @@ assert int.__int__(large) is large
 assert int.__index__(large) is large
 assert int.__pos__(large) is large
 assert int.__abs__(large) is large
-assert int.__getnewargs__(large)[0] is large
+assert int.__getnewargs__(large)[0] == large
+assert int.__getnewargs__(large)[0] is not large
+assert int.__round__(large) is large
 negative = -large
 assert int.__abs__(negative) == large
 assert negative == -large

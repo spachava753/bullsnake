@@ -477,7 +477,7 @@ returns a distinct root instance and accepts no arguments. Native values,
 built-in exception classes, and ordinary user classes are instances or
 subclasses of `object`. A user class with no named base, or with `object` as its
 sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
-A user class may instead use `dict`, `classmethod`, `staticmethod`, or `property` as its
+A user class may instead use `int`, `dict`, `classmethod`, `staticmethod`, or `property` as its
 sole native base. That native ancestry appears in class metadata and
 `issubclass`. Descriptor subclass construction and Python initialization now
 work for the documented wrapper subset. Other native bases and mixed native/user direct bases remain
@@ -778,7 +778,19 @@ noninteger operands, and preserve exact-integer identity where required. Reflect
 slots retain operand order. Integer formatting shares the existing spec subset;
 ternary power and remaining numeric methods are not added by this slice. Bool
 keeps its own repr, while its unimplemented bitwise overrides are not falsely
-published as inherited int slots. Scalar subclass storage is still separate work.
+published as inherited int slots.
+
+Integer subclasses now retain immutable native integer storage separately from
+Python attributes. The real int allocator shares resumable int/index conversion;
+subtype constructors run __new__, then initialize only compatible results.
+Inherited native methods and explicit descriptors read the numeric payload,
+while ordinary repr/str/hash/truth/round and arithmetic calls honor overrides.
+Native int/float operands participate in the same normal/reflected candidate
+order, including strict-subclass priority and NotImplemented fallback. Rounding
+uses an actual int.__round__ descriptor. Non-exact int/index callback results
+remain rejected until real deprecation warnings can run. String/base integer
+parsing, integer-subtype container keys, mixed native/user bases, and native
+scalar default reduction remain separate work.
 
 The complex builtin now constructs zero, one native numeric value, or real/imag
 components, with positional/keyword validation and integer overflow checks. A
@@ -1005,7 +1017,8 @@ instances inherit this allocator; native types do not inherit a false allocator
 when their own allocation is unsupported. NoneType, EllipsisType, and
 NotImplementedType expose actual singleton constructors and static __new__ calls.
 Int.__new__ shares the current numeric integer constructor, including zero-argument
-zero construction, and rejects unsafe receiver classes. Implemented native
+zero construction, native subtype storage, resumable int/index conversion, and
+safe receiver checks. Implemented native
 allocators expose their actual defining class through __self__. General ordinary-class __new__ dispatch remains a separate constructor gap.
 
 `object.__init__` is an executable, runtime-cached `wrapper_descriptor`; binding

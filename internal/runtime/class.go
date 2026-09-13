@@ -138,6 +138,7 @@ func (class *typeValue) isSubclassOfNative(parent *nativeTypeValue) bool {
 }
 
 type instanceValue struct {
+	integer    *intValue
 	dictionary *dictValue
 	alias      *genericAliasState
 	io         *ioState
@@ -147,6 +148,9 @@ type instanceValue struct {
 
 func (instance *instanceValue) TypeName() string { return instance.class.name }
 func (instance *instanceValue) Repr() string {
+	if instance.integer != nil {
+		return instance.integer.Repr()
+	}
 	name := instance.class.qualifiedName
 	if instance.class.module != "" {
 		name = instance.class.module + "." + name
@@ -304,7 +308,7 @@ func resolveClassBases(
 			switch classBase {
 			case objectNativeType:
 				objectBase = true
-			case typeNativeType, classMethodNativeType, staticMethodNativeType, propertyNativeType, dictNativeType:
+			case typeNativeType, classMethodNativeType, staticMethodNativeType, propertyNativeType, dictNativeType, intNativeType:
 				nativeBase = classBase
 			default:
 				return nil, nil, nil, false, newException(
@@ -450,7 +454,7 @@ func executeTypeCall(
 			keywords,
 		)
 	}
-	if class.nativeClassBase() == dictNativeType {
+	if native := class.nativeClassBase(); native == dictNativeType || native == intNativeType {
 		return executeNativeInstanceConstructor(caller, instruction, base, class, arguments, keywords)
 	}
 	if class.nativeClassBase() != nil {

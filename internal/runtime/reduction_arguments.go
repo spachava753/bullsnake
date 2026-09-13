@@ -20,7 +20,7 @@ func executeNewObjectArguments(caller *frame, instruction int, self Value) (inst
 	}
 	return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
 		return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
-			return bindReductionSpecial(caller, instruction, instance, method)
+			return executeClassSlotBinding(caller, instruction, instance, method)
 		}, func(current *frame, bound Value, exception *Exception) (instructionOutcome, error) {
 			if exception != nil {
 				return raiseOutcome(exception), nil
@@ -39,9 +39,9 @@ func executeNewObjectArguments(caller *frame, instruction int, self Value) (inst
 	})
 }
 
-// bindReductionSpecial performs descriptor binding on an already selected class
-// slot, including resumable Python descriptors, without reading instance state.
-func bindReductionSpecial(caller *frame, instruction int, self *instanceValue, method Value) (instructionOutcome, error) {
+// executeClassSlotBinding performs descriptor binding on an already selected
+// class slot, including resumable Python descriptors, without reading instance state.
+func executeClassSlotBinding(caller *frame, instruction int, self *instanceValue, method Value) (instructionOutcome, error) {
 	switch descriptor := method.(type) {
 	case *nativeDescriptorValue:
 		return executeNativeDescriptorBinding(caller, instruction, descriptor, self, self.class)

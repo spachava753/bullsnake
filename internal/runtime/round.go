@@ -120,6 +120,9 @@ func bindRoundArguments(
 // immediateRound handles the current native integer and float methods and
 // reports every other value for user special-method dispatch.
 func immediateRound(number, digits Value) (Value, *Exception, bool) {
+	if _, instance := number.(*instanceValue); instance {
+		return nil, nil, false
+	}
 	integer, integerNumber := integerOperand(number)
 	if integerNumber {
 		if digits == None {

@@ -39,32 +39,25 @@ func executeUserBinary(
 		left:        left,
 		right:       right,
 	}
-	leftInstance, leftUser := left.(*instanceValue)
-	rightInstance, rightUser := right.(*instanceValue)
-	if inPlace && leftUser {
-		call.appendCandidate(leftInstance, right, inplace)
+	if inPlace {
+		call.appendCandidate(left, right, inplace)
 	}
-	if leftUser && rightUser && rightInstance.class != leftInstance.class &&
-		rightInstance.class.isSubclassOf(leftInstance.class) {
-		call.appendCandidate(rightInstance, left, reflected)
-		call.appendCandidate(leftInstance, right, normal)
+	if rightOperandSubclass(left, right) {
+		call.appendCandidate(right, left, reflected)
+		call.appendCandidate(left, right, normal)
 	} else {
-		if leftUser {
-			call.appendCandidate(leftInstance, right, normal)
-		}
-		if rightUser {
-			call.appendCandidate(rightInstance, left, reflected)
-		}
+		call.appendCandidate(left, right, normal)
+		call.appendCandidate(right, left, reflected)
 	}
 	return continueBinaryCall(frame, call)
 }
 
 func (call *binaryCall) appendCandidate(
-	receiver *instanceValue,
+	receiver Value,
 	argument Value,
 	name string,
 ) {
-	method, found := lookupInstanceSpecial(receiver, name)
+	method, found := lookupOperandSpecial(receiver, name)
 	if !found {
 		return
 	}

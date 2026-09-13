@@ -231,12 +231,9 @@ func executeNativeTypeCall(
 	case boolNativeType:
 		return executeBuiltinBool(caller, instruction, base, arguments, keywords)
 	case intNativeType:
-		result, exception := builtinInt(arguments, keywords)
+		arguments = append([]Value(nil), arguments...)
 		discardCallSegment(caller, base)
-		if exception != nil {
-			return raiseOutcome(exception), nil
-		}
-		return pushOutcome(caller, instruction, result)
+		return executeIntegerConversion(caller, instruction, arguments, keywords)
 	case complexNativeType:
 		return executeComplexConstructor(caller, instruction, base, arguments, keywords)
 	case stringNativeType:
@@ -424,8 +421,8 @@ func executeDynamicTypeCall(
 	result, exception := build.finish(cell)
 	if class, ok := result.(*typeValue); ok {
 		class.metaclass = metaclass
-		if class.nativeBase == dictNativeType {
-			class.nativeSlots = []*dictValue{caller.runtime.nativeNamespace(dictNativeType), caller.runtime.nativeNamespace(objectNativeType)}
+		if class.nativeBase == dictNativeType || class.nativeBase == intNativeType {
+			class.nativeSlots = []*dictValue{caller.runtime.nativeNamespace(class.nativeBase), caller.runtime.nativeNamespace(objectNativeType)}
 		}
 	}
 	discardCallSegment(caller, base)

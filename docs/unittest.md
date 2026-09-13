@@ -1006,8 +1006,17 @@ bool bitwise overrides remain absent. These are prerequisites for real scalar
 subclasses, not permission to construct empty IntEnum storage. The enum import
 blocker remains mixed native/user inheritance.
 
+Integer subclasses now allocate real native numeric storage with separate Python
+attributes, run __new__/__init__, and inherit executable arithmetic, comparison,
+conversion, repr/str/hash/truth, and rounding slots. Int/index callbacks resume
+through descriptor binding; invalid results and failures are tested. Numeric
+native operands now participate in reflected dispatch and NotImplemented fallback,
+preserving int-subclass priority and unrelated float priority. Mixed native/user
+bases and scalar subtype keys still need later slices; enum remains blocked at
+IntEnum's bases rather than advancing on an empty native layout.
+
 The table lists first failures, not complete missing-feature lists. Next,
-implement native scalar subclass storage and compatible mixed inheritance before
+implement native string subclass storage and compatible mixed inheritance before
 allowing IntEnum and StrEnum construction. AST
 services, context-variable state, enum construction, annotation descriptors, and
 subsequent imports need their own tested slices. Vendoring source alone is not a
