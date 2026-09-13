@@ -114,6 +114,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"tuple":                            tupleNativeType,
 	"list":                             listNativeType,
 	"code":                             builtinNativeType("code"),
+	"traceback":                        builtinNativeType("traceback"),
 	"frame":                            builtinNativeType("frame"),
 	"FrameLocalsProxy":                 builtinNativeType("FrameLocalsProxy"),
 	"mappingproxy":                     builtinNativeType("mappingproxy"),

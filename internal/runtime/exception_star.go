@@ -168,7 +168,7 @@ func copyExceptionMetadata(target, source *Exception) {
 	target.suppressContext = source.suppressContext
 	target.originFrame = source.originFrame
 	target.originInstruction = source.originInstruction
-	target.traceback = slices.Clone(source.traceback)
+	target.traceback = source.traceback
 }
 
 // executePrepareReraiseStar validates the compiler-owned original and result
@@ -235,7 +235,11 @@ func prepareReraiseStar(original *Exception, results []Value) *Exception {
 		if !ok {
 			continue
 		}
-		if sameExceptionMetadata(exception, original) {
+		if exception.cause == original.cause && exception.context == original.context &&
+			exception.suppressContext == original.suppressContext &&
+			exception.originFrame == original.originFrame &&
+			exception.originInstruction == original.originInstruction &&
+			exception.traceback == original.traceback {
 			collectExceptionLeaves(exception, reraisedLeaves)
 		} else {
 			raisedExceptions = append(raisedExceptions, exception)
@@ -245,24 +249,6 @@ func prepareReraiseStar(original *Exception, results []Value) *Exception {
 		raisedExceptions = append(raisedExceptions, projected)
 	}
 	return combineExceptionStarResults(raisedExceptions)
-}
-
-// sameExceptionMetadata identifies derived subgroups by the origin, chain, and
-// traceback fields copied from the initially raised exception group.
-func sameExceptionMetadata(left, right *Exception) bool {
-	if left.cause != right.cause || left.context != right.context ||
-		left.suppressContext != right.suppressContext ||
-		left.originFrame != right.originFrame ||
-		left.originInstruction != right.originInstruction ||
-		len(left.traceback) != len(right.traceback) {
-		return false
-	}
-	for index, entry := range left.traceback {
-		if entry != right.traceback[index] {
-			return false
-		}
-	}
-	return true
 }
 
 func collectExceptionLeaves(exception *Exception, leaves map[*Exception]struct{}) {

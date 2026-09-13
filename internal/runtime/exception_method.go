@@ -40,14 +40,10 @@ func executeExceptionWithTracebackCall(
 				count+" given)",
 		)), nil
 	}
-	if arguments[0] != None {
+	if exception := method.exception.setTraceback(arguments[0]); exception != nil {
 		discardCallSegment(caller, base)
-		return raiseOutcome(newException(
-			"TypeError",
-			"__traceback__ must be a traceback or None",
-		)), nil
+		return raiseOutcome(exception), nil
 	}
-	method.exception.traceback = nil
 	discardCallSegment(caller, base)
 	return pushOutcome(caller, instruction, method.exception)
 }

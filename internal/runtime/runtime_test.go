@@ -580,6 +580,22 @@ func TestUncaughtTracebackAPI(t *testing.T) {
 	}
 }
 
+func TestAssignedTracebackHostLocation(t *testing.T) {
+	code := compileSource(t, "def origin():\n    raise ValueError('original')\ntry:\n    origin()\nexcept ValueError as error:\n    saved = error.__traceback__.tb_next\nraise TypeError('attached').with_traceback(saved)\n")
+	_, err := bullruntime.New().ExecuteModule("attached", code)
+	var raised *bullruntime.UncaughtException
+	if !errors.As(err, &raised) {
+		t.Fatalf("error = %T %v, want UncaughtException", err, err)
+	}
+	frames := raised.Traceback()
+	if len(frames) != 2 || frames[0].Span.Start.Line != 7 || frames[1].Span.Start.Line != 2 {
+		t.Fatalf("attached traceback = %#v", frames)
+	}
+	if !strings.HasPrefix(raised.Error(), "<test>:7:") {
+		t.Fatalf("short host error must retain the explicit raise location: %v", raised)
+	}
+}
+
 func TestScalarConstants(t *testing.T) {
 	code := compileSource(t, "none_value = None\n"+
 		"false_value = False\n"+

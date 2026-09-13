@@ -229,11 +229,6 @@ func exceptionMessage(arguments []Value) string {
 	return ""
 }
 
-type tracebackEntry struct {
-	frame       *frame
-	instruction int
-}
-
 // TracebackFrame describes one Python frame crossed while an exception unwinds.
 type TracebackFrame struct {
 	Filename      string
@@ -256,7 +251,7 @@ type Exception struct {
 	suppressContext    bool
 	originFrame        *frame
 	originInstruction  int
-	traceback          []tracebackEntry
+	traceback          *tracebackValue
 }
 
 func newException(typeName, message string) *Exception {
@@ -366,15 +361,15 @@ func (exception *Exception) chainContext(context *Exception) {
 }
 
 func (exception *Exception) tracebackFrames() []TracebackFrame {
-	frames := make([]TracebackFrame, len(exception.traceback))
-	for index, entry := range exception.traceback {
+	var frames []TracebackFrame
+	for entry := exception.traceback; entry != nil; entry = entry.next {
 		code := entry.frame.code.code
-		frames[len(frames)-1-index] = TracebackFrame{
+		frames = append(frames, TracebackFrame{
 			Filename:      code.Filename(),
 			Name:          code.Name(),
 			QualifiedName: code.QualifiedName(),
 			Span:          entry.frame.position(entry.instruction),
-		}
+		})
 	}
 	return frames
 }
@@ -382,6 +377,12 @@ func (exception *Exception) tracebackFrames() []TracebackFrame {
 // attribute returns the chain fields shared by all exceptions and the immutable
 // message and child tuple held by an exception group.
 func (exception *Exception) attribute(name string) (Value, bool) {
+	if name == "__traceback__" {
+		if exception.traceback == nil {
+			return None, true
+		}
+		return exception.traceback, true
+	}
 	if name == "args" {
 		return exception.arguments(), true
 	}

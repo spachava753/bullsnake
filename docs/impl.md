@@ -329,8 +329,9 @@ the generator suspended. Other returns and escaping exceptions complete the
 generator; repeated iteration then stays exhausted. Explicit resumption raises
 `StopIteration` with the return value, while `next` may return its optional
 default. Re-entering a running generator raises `ValueError`. The legacy
-three-argument `throw` form accepts only `None` for its traceback until Python
-traceback objects exist. Garbage collection does not implicitly close abandoned
+three-argument `throw` form still accepts only `None` for its traceback; forwarding
+actual traceback objects through that legacy API remains separate work.
+Garbage collection does not implicitly close abandoned
 generators.
 
 Native coroutine objects reuse the detached-frame state machine but remain
@@ -417,7 +418,7 @@ lexical slots through the proxy raises ValueError. Ordinary lexical deletion
 remains visible. Iteration and keys/items/values return snapshots; copy, get, pop,
 setdefault, and dict/proxy update forms work. Frames and proxies retain typed Go
 references after return. General mapping updates, proxy comparison/union,
-frame/code constructors, clearing, traceback links, tracing, and debugger
+frame/code constructors, clearing, tracing, and debugger
 mutation remain later work.
 
 ### Function namespaces and closure cells
@@ -1029,8 +1030,8 @@ Ordinary `try` statements support ordered typed or bare handlers, `as` bindings,
 context-manager exits run for normal completion, propagation, return, break,
 and continue. A transfer started in a final suite or exit method replaces the
 pending transfer. An exceptional `__exit__` call receives the exception class
-and instance, but receives `None` for its traceback argument until Python
-traceback objects exist.
+and instance, but the compiler still supplies `None` for its traceback argument.
+Passing the new traceback objects through exceptional exits is the next slice.
 
 Fresh exceptions record an active handled exception as `__context__`.
 `raise ... from ...` records `__cause__` and suppression state. Reraising
@@ -1041,11 +1042,20 @@ recursive splitting, ordered clauses, unmatched remainder propagation, and
 combination of handler failures. The runtime does not yet call a custom
 exception group's `derive` override.
 
-The host can inspect an uncaught exception's copied traceback and formatted
-backtrace. `BaseException.with_traceback(None)` clears retained entries and
-returns the same exception; non-`None` values are rejected. Python
-`__traceback__` objects and broad introspection are not implemented. The initial
-Python frame and writable-locals subset is described above.
+Exceptions expose `__traceback__` as None or the canonical outermost-first chain
+of Python traceback objects. Assignment and `with_traceback` share an existing
+chain or clear it; invalid values and deleting __traceback__ are rejected.
+Nodes expose stable `tb_frame` identities, event `tb_lineno`, and `tb_lasti` as a
+Bullsnake instruction index, not a CPython byte offset. These fields are read-only;
+`tb_next` supports acyclic splicing with validation before mutation. Reraises
+preserve old tails, and exception subgroups share traceback identities. Retained
+frames expose their actual code and writable locals after return.
+
+The host's copied Traceback and formatted Backtrace use that same chain; its
+short Error keeps the existing explicit-raise source-location contract. Traceback
+construction, complete code/line metadata, clearing frames, active-exception sys
+helpers, and traceback forwarding through context exits and legacy generator
+throw remain later work.
 
 ## Modules and imports
 
@@ -1132,7 +1142,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing exception.__traceback__, missing _ast,
+probes. Their current blockers are missing class-level function.__code__ descriptors, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
@@ -1207,7 +1217,7 @@ Missing counters raise PermissionError; typed nil providers fail construction.
 The provider promises nondecreasing values from a fixed arbitrary origin. There
 is no clock fallback, wall time, sleeping, or scheduling. Provider calls run
 synchronously and may block indefinitely. No cancellation guarantee is made.
-`sys.modules`, active exception helpers, and Python traceback objects remain
+`sys.modules`, active exception helpers, and complete traceback/frame APIs remain
 unimplemented. Unchanged `io.py` now imports through the supplied `_io` classes.
 
 The private `_io` constructor supplies the synchronous in-memory stream classes,
@@ -1226,7 +1236,7 @@ The largest current gaps are:
   automatic async-generator finalization, or Python threads
 - no complete Python object protocol or custom attribute interception; collection
   hashing and equality cannot yet invoke arbitrary user methods
-- no Python traceback objects, broad frame inspection, tracing, profiling, debugger hooks, or
+- no complete traceback/frame/code inspection, tracing, profiling, debugger hooks, or
   execution budgets
 - no REPL or eval-specific entry point
 

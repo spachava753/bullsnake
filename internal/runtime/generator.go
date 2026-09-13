@@ -151,10 +151,10 @@ func transformGeneratorStopIteration(
 	transformed.suppressContext = true
 	transformed.originFrame = generatorFrame
 	transformed.originInstruction = instruction
-	transformed.traceback = append(transformed.traceback, tracebackEntry{
+	transformed.traceback = &tracebackValue{
 		frame:       generatorFrame,
 		instruction: instruction,
-	})
+	}
 	return transformed
 }
 

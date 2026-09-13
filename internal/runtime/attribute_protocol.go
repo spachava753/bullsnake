@@ -92,6 +92,8 @@ func executeDynamicAttributeLoad(
 		return executeCellAttributeLoad(frame, instruction, owner, name)
 	case *codeValue:
 		return executeCodeAttributeLoad(frame, instruction, owner, name)
+	case *tracebackValue:
+		return executeTracebackAttributeLoad(frame, instruction, owner, name)
 	case *frameValue:
 		return executeFrameAttributeLoad(frame, instruction, owner, name)
 	case *frameLocalsProxy:
@@ -431,6 +433,8 @@ func executeDynamicAttributeStore(
 		return instructionOutcome{kind: advance}, nil
 	}
 	switch owner := owner.(type) {
+	case *Exception, *tracebackValue:
+		return executeTracebackStore(owner, name, value)
 	case *cellValue:
 		return executeCellAttributeStore(owner, name, value)
 	case *Module:
@@ -487,6 +491,8 @@ func executeDynamicAttributeDelete(
 	var attributes *Namespace
 	missingMessage := "'" + owner.TypeName() + "' object has no attribute '" + name + "'"
 	switch owner := owner.(type) {
+	case *Exception, *tracebackValue:
+		return executeTracebackStore(owner, name, nil)
 	case *cellValue:
 		return executeCellAttributeStore(owner, name, nil)
 	case *Module:

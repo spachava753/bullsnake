@@ -256,9 +256,9 @@ that run before a return, loop transfer, or propagated exception completes.
 A synchronous `with` keeps each bound `__exit__` method on the operand stack.
 The compiler protects target assignment and the body, and calls exits from inner
 to outer for normal flow, exceptions, returns, and loop transfers. Special
-method lookup reads the class rather than an instance attribute. Until Python
-traceback objects exist, exceptional `__exit__` calls receive `None` for their
-third argument.
+method lookup reads the class rather than an instance attribute. Traceback
+objects now exist; the compiler's exceptional-exit argument still needs a
+separate slice to replace its previous None-only behavior.
 
 Code objects stay in memory today. A bytecode cache, if one is ever needed,
 will require an explicit format version and must reject stale or foreign data.
@@ -292,7 +292,8 @@ loop; explicit resumption exposes its value through `StopIteration.value`, while
 the generator, and later iteration remains exhausted. The runtime rejects
 re-entry and converts an explicit `StopIteration` escaping generator code into
 `RuntimeError`. The deprecated three-argument `throw` form accepts `None` as its
-traceback because Python traceback objects do not exist yet.
+traceback; forwarding actual traceback values through that legacy API remains
+a separate slice.
 
 `yield from` uses a send loop in the outer generator frame. It delegates ordinary
 iteration and sent values, exposes a generator delegate's return value, and
@@ -612,11 +613,16 @@ Function closures also expose those actual cells, not snapshots, and function
 globals share the module's dictionary. Cell mutation therefore changes lexical
 execution without a second environment or synchronization pass.
 
-Python traceback objects and broad frame inspection remain separate features. The
-runtime currently keeps only the information needed for host-facing tracebacks
-and future expansion. `BaseException.with_traceback(None)` clears that retained
-frame chain and returns the same exception. Other traceback values remain
-unsupported until Python traceback objects exist.
+Python traceback objects now form the canonical outermost-first exception
+chain. Each node retains an actual VM frame and the instruction at the exception
+event. New raises prepend nodes without mutating retained tails; exception
+subgroups and explicit traceback assignment share node identity. Writable
+`tb_next` links reject cycles before mutation. `with_traceback` accepts a real
+chain or None and returns the same exception. Clearing a chain also clears its
+private origin reference. Host backtraces are copied from this same chain;
+the short host error preserves the existing explicit-raise location contract.
+Traceback construction, complete frame/code inspection, and traceback integration
+with context exits and legacy generator throw remain separate slices.
 
 ## Runtime instances and imports
 
@@ -820,7 +826,7 @@ The project still needs concrete decisions about:
 - namespace-package and extended import-hook behavior
 - async scheduling, Python threads, and the execution-token policy
 - general weakref eligibility, compatibility, and safe Python callback delivery
-- Python-visible traceback objects and broader frame inspection
+- broader frame/code inspection and traceback integration
 
 The [unittest compatibility roadmap](unittest.md) explains why several of these
 decisions now block the next standard-library milestone. Other decisions should

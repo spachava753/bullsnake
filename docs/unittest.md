@@ -7,7 +7,7 @@ is still blocked; no unittest test has executed.
 The goal is to run CPython's unchanged synchronous `unittest` package, then use
 it to run unchanged standard-library tests. The current work expands its
 unchanged source dependencies and implements the runtime operations they need.
-General weak references, Python-visible tracebacks, warning handling, and broader
+General weak references, complete traceback reporting, warning handling, and broader
 introspection remain important gaps.
 
 This document tracks that milestone. The [architecture](architecture.md)
@@ -53,7 +53,7 @@ when a tested slice changes what can execute.
 | Runtime and host groundwork | Source execution tests; per-runtime modules and arguments; supplied streams and performance counter; explicit host denial. | Broader object protocols, collection keys, introspection, and system-module APIs as dependencies require them. |
 | Unchanged `abc` and `io` | Both import; ABC construction/registration and public io stream tests pass. In-memory streams, buffering, text decoding, and close/error paths are tested. | Full upstream conformance is not claimed; host-stream ABC integration and documented codec/buffer gaps remain. |
 | Unchanged `_collections_abc` | Imports; structural protocols and Set/Mapping/Sequence families have behavior tests. Callable aliases support construction, call, equality/hash, TypeVar/ParamSpec specialization, defaults, and class bases. | Concrete Callable representation, ByteString warning behavior, forward references, Concatenate, TypeVarTuple unpacking/substitution, and broader alias forwarding. Import success is not completion. |
-| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; six initial dependencies are vendored at the pin. Code inspection, function globals/live closure cells, and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: exception `__traceback__` in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
+| Annotation and warning dependencies | Unchanged-source expansion selected on 2026-09-11; six initial dependencies are vendored at the pin. Code inspection, function globals/live closure cells, and the initial truthful `sys.implementation`/SimpleNamespace subset have execution tests. | Current entry blockers: class-level function `__code__` descriptors in types/enum, `_ast` in ast/annotationlib, and `_contextvars` in warnings. Implement real runtime operations rather than replacement Python APIs. |
 | Unchanged `unittest` import | Currently stops at `unittest/result.py:5:8`, missing `traceback`. | Finish the active collections dependency work, then continue through traceback and the remaining synchronous import closure. |
 | `TestCase` / `TestResult` | Not executed. | Passing tests, assertion failures, errors, setup/teardown, cleanups, skips, expected failures, and subtests. |
 | Suites, loader, text runner | Not executed. | In-memory suite/name loading, traceback reports, warnings, and complete output checked through `StringIO`. |
@@ -434,8 +434,8 @@ strict UTF-8 and fixed LF line boundaries without newline translation.
 
 The host wrappers currently support direct reads/writes and context management;
 iteration, writelines, and io ABC inheritance remain future slices. In-memory
-StringIO now has the output behavior described below. `sys.modules` and active exception/traceback state are also still
-missing. None of these host tests establishes unittest compatibility.
+StringIO now has the output behavior described below. `sys.modules` and sys active-exception helpers are still
+missing; real Python traceback links are now implemented. None of these host tests establishes unittest compatibility.
 
 ## What to do next
 
@@ -618,21 +618,25 @@ use this storage and have source behavior plus Go GC ownership tests. ABC
 registries and caches use the same approach. Public `_weakref` and callback delivery
 remain deferred; no second collector or CPython reference counting is planned.
 
-### Failure reports need Python-visible traceback objects
+### Failure reports need complete traceback and frame APIs
 
-The runtime already retains traceback data for Go callers, handles exception
-causes and context, and supports `exception.with_traceback(None)`. That method
-clears retained traceback entries and returns the same exception. It does not
-provide a traceback object to Python.
+Python traceback links now retain real VM frames and event positions. Exception
+`__traceback__` assignment, with_traceback, clearing, retained identities, reraises,
+subgroup sharing, and acyclic tb_next mutation are tested. Host Traceback and
+Backtrace are copied from this same chain. Function/frame code metadata and live
+locals/closure cells also have execution tests. Structured exception args and
+cause/context support were already implemented.
 
-The remaining work includes `sys.exc_info()` and `sys.exception()`, exception
-`args` and mutable `__traceback__` state, and Python objects for traceback links,
-frames, code information, source positions, and frame clearing. Python and Go
-must see consistent views of the same exception and frame data.
+The remaining work includes `sys.exc_info()` and `sys.exception()`, traceback
+constructors, frame clearing, complete code/line metadata, and forwarding
+tracebacks through context exits and the legacy generator throw API. `tb_lasti`
+currently denotes a Bullsnake instruction, not a CPython byte offset; traceback
+formatting must use the supported source-position data rather than assuming
+CPython bytecode layout.
 
 Use this support to run the needed `traceback.TracebackException`, `format_exc`,
-and `clear_frames` behavior. Add the exception and warning classes required by
-the executed dependencies.
+and `clear_frames` behavior. The traceback module is not yet vendored or executed.
+Add the exception and warning classes required by the executed dependencies.
 
 ### Objects and builtins still have gaps
 
@@ -825,7 +829,7 @@ go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings
 
 | Probe | First observed failure |
 | --- | --- |
-| `types`, `enum` | `types.py:60:30`: TypeError has no `__traceback__` attribute. |
+| `types`, `enum` | `types.py:63:33`: function type has no class-level `__code__` descriptor. |
 | `ast`, `annotationlib` | `ast.py:23:1`: missing `_ast`. |
 | `warnings` | `_py_warnings.py:4:8`: missing `_contextvars`. |
 
@@ -871,12 +875,16 @@ binding. Tests check direct/instance/__get__ access, bad owners, iterator and ke
 failures, duplicate ordering, fresh dictionaries, and shared default-value identity.
 Dictionary subclass construction and arbitrary Python keys remain separate gaps.
 
+Traceback objects now expose the real retained frame chain used by exceptions.
+Tests cover stable frame/code identities, event positions, attachment/clearing,
+explicit and bare reraises, shared subgroup metadata, and acyclic link mutation.
+The Go host keeps its copied traceback contract. Unchanged types now gets past
+TracebackType and FrameType discovery.
+
 The table lists first failures, not complete missing-feature lists. Next,
-expose real exception traceback links and retained Python frames, which unchanged
-types needs to discover TracebackType and FrameType. This is required by the
-active collections dependency path, not a switch to claiming unittest execution.
-Subsequent
-types import work includes native method/attribute descriptor identities,
-traceback/frame objects, and union types. AST services, context-variable state,
-enum construction, annotation descriptors, and subsequent imports need their own
-tested slices. Vendoring source alone is not a passing behavior test.
+finish the separate compiler slice that passes real tracebacks to context exits,
+then expose native function attribute descriptors for types' next import step.
+Subsequent types import work includes union types and further dependencies. AST
+services, context-variable state, enum construction, annotation descriptors, and
+subsequent imports need their own tested slices. Vendoring source alone is not a
+passing behavior test.

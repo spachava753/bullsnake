@@ -1037,10 +1037,11 @@ route:
 			if skipTraceback {
 				skipTraceback = false
 			} else {
-				exception.traceback = append(exception.traceback, tracebackEntry{
+				exception.traceback = &tracebackValue{
 					frame:       current,
 					instruction: currentInstruction,
-				})
+					next:        exception.traceback,
+				}
 			}
 			if pending := current.nativeContinuation; pending != nil {
 				current.nativeContinuation = pending.next
@@ -1492,6 +1493,8 @@ func executeInstruction(
 			return executeCellAttributeLoad(frame, index, owner, name)
 		case *codeValue:
 			return executeCodeAttributeLoad(frame, index, owner, name)
+		case *tracebackValue:
+			return executeTracebackAttributeLoad(frame, index, owner, name)
 		case *frameValue:
 			return executeFrameAttributeLoad(frame, index, owner, name)
 		case *frameLocalsProxy:
