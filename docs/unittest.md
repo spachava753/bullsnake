@@ -981,6 +981,14 @@ execute complex reduction, object reconstruction, registration, and extension
 registries. Do not substitute a private reconstruction
 function for those Python helpers.
 
+Object.__getstate__ now returns the actual live attribute dictionary or None,
+with empty-state selection before unchanged copyreg slot discovery. Native
+imports use the normal cache, loader, and rollback through VM continuations;
+source and host failure/retry tests cover cleanup and completed nested imports.
+Dictionary subtypes inherit root descriptors while retaining separate mapping
+storage. Cached slot validation and helper failures are tested; nonempty slot
+state remains unsupported. This is state discovery, not completed reduction.
+
 The table lists first failures, not complete missing-feature lists. Next,
 implement object reduction through unchanged copyreg's reconstruction helpers,
 not a comparison-only marker.

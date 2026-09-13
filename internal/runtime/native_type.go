@@ -425,7 +425,7 @@ func executeDynamicTypeCall(
 	if class, ok := result.(*typeValue); ok {
 		class.metaclass = metaclass
 		if class.nativeBase == dictNativeType {
-			class.nativeSlots = caller.runtime.nativeNamespace(dictNativeType)
+			class.nativeSlots = []*dictValue{caller.runtime.nativeNamespace(dictNativeType), caller.runtime.nativeNamespace(objectNativeType)}
 		}
 	}
 	discardCallSegment(caller, base)

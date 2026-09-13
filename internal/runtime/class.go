@@ -12,7 +12,7 @@ var buildClassSingleton = &buildClassValue{}
 
 type typeValue struct {
 	namespaceDictionary  *dictValue
-	nativeSlots          *dictValue
+	nativeSlots          []*dictValue
 	simpleNamespaceClass bool
 	genericAliasClass    bool
 	bytesIOClass         bool
@@ -73,8 +73,8 @@ func (class *typeValue) lookup(name string) (Value, bool) {
 // entries have been searched, preserving ordinary override precedence.
 func (class *typeValue) lookupNativeSlot(name string) (Value, bool) {
 	for _, current := range class.mro {
-		if current.nativeSlots != nil {
-			value, found, _ := current.nativeSlots.get(&stringValue{value: name})
+		for _, namespace := range current.nativeSlots {
+			value, found, _ := namespace.get(&stringValue{value: name})
 			if found {
 				return value, true
 			}

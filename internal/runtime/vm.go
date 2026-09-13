@@ -952,6 +952,12 @@ func execute(thread *threadState) (result Value, unhandled *raisedOutcome, err e
 				if thread.current == nil || thread.current.instruction == 0 {
 					return nil, nil, active.failure(index, "import frame has no suspended caller")
 				}
+				if loaded.request.native {
+					if !thread.current.push(None) {
+						return nil, nil, active.failure(index, "operand stack overflow after native import")
+					}
+					continue
+				}
 				if thread.current.pendingImport != nil {
 					return nil, nil, active.failure(index, "caller already has a pending import")
 				}

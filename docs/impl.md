@@ -1039,6 +1039,14 @@ super delegation is not intercepted by the super object's own native attributes.
 Native scalar types with their own unexposed formatting method do not advertise
 object.__format__ as a substitute.
 
+`object.__getstate__` now captures the actual attribute dictionary (or None when
+empty) before calling unchanged copyreg._slotnames through a native import
+continuation. Ordinary classes cache their discovered slot names independently;
+helper failures propagate and retry. Dictionary subclasses keep mapping entries
+separate from attribute state and inherit root descriptors without copying them
+into dict.__dict__. Nonempty slot state and unknown native state layouts remain
+explicitly unsupported; this method alone does not make native storage picklable.
+
 Dictionary slots now expose receiver-checked allocation, reinitialization,
 subscription/mutation, repr, equality/inequality, and existing mapping methods.
 Setdefault preserves existing entries and shares the supplied default value.
@@ -1215,6 +1223,11 @@ cache entry before checking the importer's handler. A later import may retry it.
 Modules that completed as side effects remain cached. A host loader error also
 removes every module frame still initializing. An explicit `ExecuteModule`
 failure restores any older module that the execution temporarily replaced.
+
+Native operations can use that same loader and module cache through VM
+continuations. Module completion resumes the native request rather than replaying
+its Python caller's instruction. Source exceptions and host failures retain the
+same rollback rules; completed nested imports stay cached.
 
 `internal/importer.FileSystem` implements the callback contract while keeping
 source decoding and compilation outside `internal/runtime`. It searches roots

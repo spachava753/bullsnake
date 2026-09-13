@@ -9,6 +9,7 @@ type handledException struct {
 }
 
 type importRequest struct {
+	native          bool
 	instructionName string
 	requestedName   string
 	names           []string

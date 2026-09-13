@@ -15,6 +15,7 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 		}
 	}
 	if class == objectNativeType {
+		dictionary.set(&stringValue{value: "__getstate__"}, &nativeDescriptorValue{kind: nativeMethodDescriptor, class: objectNativeType, name: "__getstate__", call: executeObjectGetState})
 		dictionary.set(&stringValue{value: "__format__"}, &nativeDescriptorValue{kind: nativeMethodDescriptor, class: objectNativeType, name: "__format__", call: executeObjectFormat})
 		dictionary.set(&stringValue{value: "__str__"}, &nativeDescriptorValue{class: objectNativeType, name: "__str__", call: executeObjectString})
 		dictionary.set(&stringValue{value: "__repr__"}, &nativeDescriptorValue{class: objectNativeType, name: "__repr__", call: executeObjectRepresentation})
