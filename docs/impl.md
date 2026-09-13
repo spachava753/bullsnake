@@ -1230,7 +1230,9 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are object reduction slots in enum, missing _ast,
+class helpers. Copyreg is also vendored unchanged for object reconstruction;
+it currently stops at the missing complex builtin. Current annotation/warning
+blockers are object reduction slots in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

@@ -20,9 +20,10 @@ target: `__init__`, `__main__`, `case`, `loader`, `main`, `result`, `runner`,
 `_weakrefset.py` are the first dependency sources reached by import probes.
 `_collections_abc.py` is now vendored from the same pinned revision too.
 The next unchanged-source dependency batch contains `annotationlib.py`, `ast.py`,
-`enum.py`, `types.py`, `warnings.py`, and `_py_warnings.py`. These are retained
-for offline probes and incremental runtime implementation, not claimed as
-importable or fully usable modules.
+`enum.py`, `types.py`, `warnings.py`, and `_py_warnings.py`. Types now imports
+and has project-owned behavior tests; the other modules remain dependency probes.
+`copyreg.py` is also vendored unchanged for object reduction through its real
+reconstruction helpers. Its first probe stops at the missing complex builtin.
 These files come from `Lib/` at the revision above and have no modifications.
 The complete transitive dependency closure is not vendored yet. Mock and async
 unittest source/support are outside this checkpoint.
