@@ -52,6 +52,11 @@ numeric operands join the same reflected-operation order as Python instances.
 Keep other native/slot layout mixes and scalar subtype key-admission guards until
 those contracts are implemented.
 
+Type construction snapshots its completed namespace and runs class-special
+__set_name__ hooks through VM continuations before returning to the metaclass.
+Do not rename inherited or later-assigned descriptors. Property names use the
+same native hook, not a separate eager assignment in classBuild.finish.
+
 Class-body preparation retains the exact dictionary or native dictionary subtype.
 Subtype mapping operations run through VM callbacks, including compiler-added
 class-cell/original-base bindings; never copy away the subtype before executing

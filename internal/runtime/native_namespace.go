@@ -27,6 +27,15 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 	if class == dictNativeType {
 		dictionary.set(&stringValue{value: "fromkeys"}, &nativeDescriptorValue{kind: nativeClassMethodDescriptor, class: class, name: "fromkeys", call: executeDictionaryFromkeys})
 	}
+	if class == propertyNativeType {
+		dictionary.set(&stringValue{value: "__set_name__"}, &nativeDescriptorValue{class: class, kind: nativeMethodDescriptor, name: "__set_name__", call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+			if exception := checkNativeArguments("__set_name__", arguments, keywords, 2, 2); exception != nil {
+				return raiseOutcome(exception), nil
+			}
+			self.(*propertyValue).name = arguments[1]
+			return pushOutcome(caller, instruction, None)
+		}})
+	}
 	if class == stringNativeType {
 		dictionary.set(&stringValue{value: "join"}, &nativeDescriptorValue{kind: nativeMethodDescriptor, class: class, name: "join", call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 			text, _ := stringStorage(self)

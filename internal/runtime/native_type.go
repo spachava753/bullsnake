@@ -430,6 +430,9 @@ func executeDynamicTypeCall(
 				}
 			}
 		}
+		if class.nativeBase == propertyNativeType {
+			class.nativeSlots = []*dictValue{caller.runtime.nativeNamespace(propertyNativeType)}
+		}
 		if class.nativeBase == dictNativeType || class.nativeBase == intNativeType || class.nativeBase == stringNativeType {
 			class.nativeSlots = []*dictValue{caller.runtime.nativeNamespace(class.nativeBase), caller.runtime.nativeNamespace(objectNativeType)}
 		}
@@ -438,7 +441,9 @@ func executeDynamicTypeCall(
 	if exception != nil {
 		return raiseOutcome(exception), nil
 	}
-	return pushOutcome(caller, instruction, result)
+	class := result.(*typeValue)
+	entries := append([]dictEntry(nil), class.namespaceProxy().dictionary.entries...)
+	return (&classNamesCall{class: class, entries: entries}).advance(caller, instruction)
 }
 
 // typeOf returns an existing user or exception class before consulting the

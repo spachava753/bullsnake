@@ -8,7 +8,7 @@ type propertyValue struct {
 	setter  Value
 	deleter Value
 	doc     Value
-	name    string
+	name    Value
 }
 
 func (value *propertyValue) TypeName() string {
@@ -128,9 +128,15 @@ func executePropertyAttributeLoad(
 		return pushOutcome(frame, instruction, propertyValueOrNone(property.setter))
 	case "fdel":
 		return pushOutcome(frame, instruction, propertyValueOrNone(property.deleter))
+	case "__set_name__":
+		method, _ := frame.runtime.nativeClassAttribute(propertyNativeType, name)
+		return pushOutcome(frame, instruction, bindInstanceFunction(method, property))
 	case "__doc__":
 		return pushOutcome(frame, instruction, property.doc)
 	case "__name__":
+		if property.name != nil {
+			return pushOutcome(frame, instruction, property.name)
+		}
 		if name := property.displayName(); name != "" {
 			return pushOutcome(frame, instruction, &stringValue{value: name})
 		}
@@ -167,8 +173,11 @@ func propertyValueOrNone(value Value) Value {
 }
 
 func (property *propertyValue) displayName() string {
-	if property.name != "" {
-		return property.name
+	if property.name != nil {
+		if text, ok := stringStorage(property.name); ok {
+			return text.value
+		}
+		return property.name.Repr()
 	}
 	if getter, ok := property.getter.(*functionValue); ok {
 		return getter.code.code.Name()

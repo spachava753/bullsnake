@@ -112,6 +112,10 @@ func executeDescriptorSubclassAttribute(caller *frame, instruction int, owner Va
 	if attribute, exists := state.attributes.get(name); exists {
 		value, found = attribute, true
 	} else if found {
+		if descriptor, ok := value.(*nativeDescriptorValue); ok {
+			outcome, err := executeNativeDescriptorBinding(caller, instruction, descriptor, owner, state.class)
+			return outcome, true, err
+		}
 		if function, ok := value.(*functionValue); ok {
 			value = &boundMethodValue{callable: function, self: owner}
 		}

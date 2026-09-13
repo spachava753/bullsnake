@@ -227,8 +227,8 @@ func (build *classBuild) recordStore(name string) {
 	build.namespaceOrder = append(build.namespaceOrder, name)
 }
 
-// finish computes the class's C3 order before publishing native property names
-// and filling the compiler-created __class__ cell.
+// finish computes C3 order, normalizes native method wrappers, and fills the
+// compiler class cell before resumable descriptor naming hooks run.
 func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	class := &typeValue{
 		name:          build.name,
@@ -276,14 +276,6 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 	}
 	if function, ok := class.namespace.values["__class_getitem__"].(*functionValue); ok {
 		class.namespace.values["__class_getitem__"] = &classMethodValue{callable: function}
-	}
-	for index, name := range build.namespaceOrder {
-		if build.namespacePosition[name] != index {
-			continue
-		}
-		if property, ok := build.namespace.values[name].(*propertyValue); ok {
-			property.name = name
-		}
 	}
 	if classCell, ok := bodyResult.(*cellValue); ok {
 		classCell.value = class

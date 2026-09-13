@@ -39,27 +39,6 @@ func executeNewObjectArguments(caller *frame, instruction int, self Value) (inst
 	})
 }
 
-// executeClassSlotBinding performs descriptor binding on an already selected
-// class slot, including resumable Python descriptors, without reading instance state.
-func executeClassSlotBinding(caller *frame, instruction int, self *instanceValue, method Value) (instructionOutcome, error) {
-	switch descriptor := method.(type) {
-	case *nativeDescriptorValue:
-		return executeNativeDescriptorBinding(caller, instruction, descriptor, self, self.class)
-	case *nativeDataDescriptorValue:
-		return descriptor.load(caller, instruction, self)
-	case *propertyValue:
-		return executePropertyDescriptorCall(caller, instruction, attributeGet, descriptor, self, nil)
-	case *instanceValue:
-		if descriptorHasSpecial(descriptor, "__get__") {
-			return executeDescriptorCall(caller, instruction, attributeGet, descriptor, []Value{self, self.class})
-		}
-	}
-	if bound, ok := bindMethodDescriptor(method, self.class); ok {
-		return pushOutcome(caller, instruction, bound)
-	}
-	return pushOutcome(caller, instruction, bindInstanceFunction(method, self))
-}
-
 // reductionArguments validates every tuple component while preserving the
 // actual argument and keyword objects for the reconstruction helper.
 func reductionArguments(name string, result Value) (*tupleValue, Value, *Exception) {

@@ -728,6 +728,15 @@ matrix multiplication. In-place operators first try `__iadd__` and its peers,
 then use the ordinary pair. `NotImplemented` advances to the next candidate;
 exhausting the candidates raises the operator-specific `TypeError`.
 
+Instances assigned in a new class namespace now receive their class-special
+__set_name__ callbacks before type.__new__ returns. The namespace snapshot keeps
+original order and descriptor identities across callback mutations; inherited or
+later-assigned descriptors are not renamed. Binding and callbacks resume through
+the VM, and callback failures preserve the original exception with CPython's
+naming note. Lookup failures do not acquire that note. Native property naming
+uses the same path, supports subclass hooks, and retains its actual name value.
+General exception add_note/notes mutation and __init_subclass__ remain later work.
+
 User descriptor instances support class `__get__`, `__set__`, and `__delete__`.
 Reads apply data-descriptor, instance-attribute, non-data-descriptor, then class
 attribute precedence. Class access calls `__get__` with `None` and the accessed
@@ -1316,7 +1325,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are metaclass iteration in enum (descriptor naming hooks are also missing), missing _ast,
+blockers are metaclass iteration in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
