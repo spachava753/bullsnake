@@ -48,12 +48,12 @@ func addNativeAllocators(class *nativeTypeValue, dictionary *dictValue) {
 		if class == intNativeType {
 			return executeIntegerAllocation(caller, instruction, target, arguments[1:], keywords)
 		}
+		if class == stringNativeType {
+			return executeStringAllocation(caller, instruction, target, arguments[1:], keywords)
+		}
 		if target != class {
 			name := allocationClassName(target)
 			return raiseOutcome(newException("TypeError", class.name+".__new__("+name+"): "+name+" is not a subtype of "+class.name)), nil
-		}
-		if class == stringNativeType {
-			return executeBuiltinStr(caller, instruction, len(caller.stack), arguments[1:], keywords)
 		}
 		return executeSingletonTypeCall(caller, instruction, len(caller.stack), class, arguments[1:], keywords)
 	}})

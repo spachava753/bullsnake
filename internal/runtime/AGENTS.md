@@ -42,9 +42,9 @@ native_instance_constructor.go. Bind native instance methods through the shared 
 special-method, and super paths. Keep supplied class namespaces immutable and
 user subclasses mutable. Do not introduce a separate I/O inheritance path.
 
-Native integer and dictionary subclasses retain typed native payloads separately
+Native integer, string, and dictionary subclasses retain typed native payloads separately
 from their Python attributes. Their cached native namespace chain follows Python
-MRO lookup; explicit native descriptors bypass overrides. Compatible integer
+MRO lookup; explicit native descriptors bypass overrides. Compatible integer/string
 mixes retain a full native/Python C3 order for lookup, super, and base metadata;
 the user-class projection remains available for ancestry and weak ownership.
 Integer conversion and subtype construction use VM continuations, and native

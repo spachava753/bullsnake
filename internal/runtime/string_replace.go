@@ -69,14 +69,14 @@ func bindStringReplaceArguments(
 			"replace expected at most 3 arguments, got "+strconv.Itoa(len(arguments)),
 		)
 	}
-	old, ok := arguments[0].(*stringValue)
+	old, ok := stringStorage(arguments[0])
 	if !ok {
 		return nil, nil, nil, newException(
 			"TypeError",
 			"replace() argument 1 must be str, not "+arguments[0].TypeName(),
 		)
 	}
-	replacement, ok := arguments[1].(*stringValue)
+	replacement, ok := stringStorage(arguments[1])
 	if !ok {
 		return nil, nil, nil, newException(
 			"TypeError",

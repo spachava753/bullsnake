@@ -120,7 +120,7 @@ func executeBinaryValues(frame *frame, index int, operand uint32, inPlace bool, 
 		return pushOutcome(frame, index, result)
 	}
 	if operand == bytecode.BinaryModulo {
-		if format, ok := left.(*stringValue); ok {
+		if format, ok := left.(*stringValue); ok && !rightOperandSubclass(left, right) {
 			return executePercentText(frame, index, format, right)
 		}
 	}

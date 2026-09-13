@@ -144,6 +144,7 @@ func (class *typeValue) isSubclassOfNative(parent *nativeTypeValue) bool {
 }
 
 type instanceValue struct {
+	text       *stringValue
 	integer    *intValue
 	dictionary *dictValue
 	alias      *genericAliasState
@@ -154,6 +155,9 @@ type instanceValue struct {
 
 func (instance *instanceValue) TypeName() string { return instance.class.name }
 func (instance *instanceValue) Repr() string {
+	if instance.text != nil {
+		return instance.text.Repr()
+	}
 	if instance.integer != nil {
 		return instance.integer.Repr()
 	}
@@ -288,11 +292,11 @@ func (build *classBuild) finish(bodyResult Value) (Value, *Exception) {
 }
 
 // resolveClassBases separates Python and native bases, allowing the implemented
-// integer layout to mix with ordinary classes while rejecting other native mixes.
+// integer or string layout to mix with ordinary classes while rejecting other native mixes.
 func resolveClassBases(
 	baseValues []Value,
 ) ([]*typeValue, *exceptionTypeValue, *nativeTypeValue, bool, *Exception) {
-	integerMix := len(baseValues) > 1 && compatibleIntegerBases(baseValues)
+	scalarMix := len(baseValues) > 1 && compatibleScalarBases(baseValues)
 	var bases []*typeValue
 	var exceptionBase *exceptionTypeValue
 	var nativeBase *nativeTypeValue
@@ -303,7 +307,7 @@ func resolveClassBases(
 			if classBase.bufferViewClass {
 				return nil, nil, nil, false, newException("TypeError", "type 'memoryview' is not an acceptable base type")
 			}
-			if native := classBase.nativeClassBase(); native != nil && native != typeNativeType && len(baseValues) != 1 && !integerMix {
+			if native := classBase.nativeClassBase(); native != nil && native != typeNativeType && len(baseValues) != 1 && !scalarMix {
 				return nil, nil, nil, false, newException(
 					"TypeError",
 					"multiple inheritance with native bases is not supported",
@@ -319,7 +323,7 @@ func resolveClassBases(
 			}
 			exceptionBase = classBase
 		case *nativeTypeValue:
-			if len(baseValues) != 1 && !integerMix {
+			if len(baseValues) != 1 && !scalarMix {
 				return nil, nil, nil, false, newException(
 					"TypeError",
 					"multiple inheritance with native bases is not supported",
@@ -328,7 +332,7 @@ func resolveClassBases(
 			switch classBase {
 			case objectNativeType:
 				objectBase = true
-			case typeNativeType, classMethodNativeType, staticMethodNativeType, propertyNativeType, dictNativeType, intNativeType:
+			case typeNativeType, classMethodNativeType, staticMethodNativeType, propertyNativeType, dictNativeType, intNativeType, stringNativeType:
 				nativeBase = classBase
 			default:
 				return nil, nil, nil, false, newException(
@@ -474,7 +478,7 @@ func executeTypeCall(
 			keywords,
 		)
 	}
-	if native := class.nativeClassBase(); native == dictNativeType || native == intNativeType {
+	if native := class.nativeClassBase(); native == dictNativeType || native == intNativeType || native == stringNativeType {
 		return executeNativeInstanceConstructor(caller, instruction, base, class, arguments, keywords)
 	}
 	if class.nativeClassBase() != nil {

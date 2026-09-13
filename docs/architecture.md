@@ -436,7 +436,7 @@ methods remain later work.
 Three-argument `type` construction copies a string-keyed dictionary into the
 ordinary class builder, so dynamic and statement classes share C3 ordering and
 descriptor behavior. Class statements resolve __mro_entries__ before metaclass
-selection; dynamic type construction requires class bases. Compatible integer
+selection; dynamic type construction requires class bases. Compatible integer or string
 mixes retain native classes at their actual C3 positions rather than searching
 all Python namespaces before native descriptors. Keep layout compatibility
 separate from order: an MRO cannot make two incompatible native payloads safe.

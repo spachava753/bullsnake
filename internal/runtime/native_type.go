@@ -430,7 +430,7 @@ func executeDynamicTypeCall(
 				}
 			}
 		}
-		if class.nativeBase == dictNativeType || class.nativeBase == intNativeType {
+		if class.nativeBase == dictNativeType || class.nativeBase == intNativeType || class.nativeBase == stringNativeType {
 			class.nativeSlots = []*dictValue{caller.runtime.nativeNamespace(class.nativeBase), caller.runtime.nativeNamespace(objectNativeType)}
 		}
 	}

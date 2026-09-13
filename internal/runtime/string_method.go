@@ -228,12 +228,13 @@ func stringTailmatch(
 	methodName string,
 	suffix bool,
 ) (bool, *Exception) {
+	if text, ok := stringStorage(candidate); ok {
+		return stringTailmatchCandidate(value, text.value, start, end, suffix), nil
+	}
 	switch candidate := candidate.(type) {
-	case *stringValue:
-		return stringTailmatchCandidate(value, candidate.value, start, end, suffix), nil
 	case *tupleValue:
 		for _, alternative := range candidate.elements {
-			text, ok := alternative.(*stringValue)
+			text, ok := stringStorage(alternative)
 			if !ok {
 				return false, newException(
 					"TypeError",
@@ -279,7 +280,7 @@ func finishStringJoin(
 ) (instructionOutcome, error) {
 	parts := make([]string, len(elements))
 	for index, element := range elements {
-		text, ok := element.(*stringValue)
+		text, ok := stringStorage(element)
 		if !ok {
 			return raiseOutcome(newException(
 				"TypeError",

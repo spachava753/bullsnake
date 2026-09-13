@@ -14,13 +14,14 @@ func addStringDescriptors(class *nativeTypeValue, namespace *dictValue) {
 			kind = nativeMethodDescriptor
 		}
 		namespace.set(&stringValue{value: name}, &nativeDescriptorValue{class: class, kind: kind, name: name, call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-			return executeStringSlot(caller, instruction, self.(*stringValue), name, arguments, keywords)
+			return executeStringSlot(caller, instruction, self, name, arguments, keywords)
 		}})
 	}
 	for _, name := range []string{"capitalize", "count", "endswith", "format", "lower", "removeprefix", "replace", "split", "splitlines", "startswith", "strip"} {
 		namespace.set(&stringValue{value: name}, &nativeDescriptorValue{class: class, kind: nativeMethodDescriptor, name: name, call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
 			return continueNativeOperation(caller, instruction, func() (instructionOutcome, error) {
-				return executeStringAttributeLoad(caller, instruction, self.(*stringValue), name)
+				text, _ := stringStorage(self)
+				return executeStringAttributeLoad(caller, instruction, text, name)
 			}, func(current *frame, method Value, exception *Exception) (instructionOutcome, error) {
 				if exception != nil {
 					return raiseOutcome(exception), nil
@@ -33,7 +34,8 @@ func addStringDescriptors(class *nativeTypeValue, namespace *dictValue) {
 
 // executeStringSlot applies native text state directly, preserving identity for
 // unchanged formatting and declining non-string comparison operands.
-func executeStringSlot(caller *frame, instruction int, self *stringValue, name string, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+func executeStringSlot(caller *frame, instruction int, owner Value, name string, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+	self, _ := stringStorage(owner)
 	arity := 1
 	if name == "__repr__" || name == "__str__" {
 		arity = 0
@@ -49,9 +51,12 @@ func executeStringSlot(caller *frame, instruction int, self *stringValue, name s
 	case "__getitem__":
 		return executeSubscriptValue(caller, instruction, self, arguments[0])
 	case "__format__":
-		spec, ok := arguments[0].(*stringValue)
+		spec, ok := stringStorage(arguments[0])
 		if !ok {
 			return raiseOutcome(newException("TypeError", "__format__() argument must be str, not "+arguments[0].TypeName())), nil
+		}
+		if spec.value == "" {
+			return executeString(caller, instruction, owner)
 		}
 		text, exception := formatStringValue(self.value, spec.value)
 		if exception != nil {
@@ -62,7 +67,7 @@ func executeStringSlot(caller *frame, instruction int, self *stringValue, name s
 		}
 		return pushOutcome(caller, instruction, &stringValue{value: text})
 	default:
-		right, ok := arguments[0].(*stringValue)
+		right, ok := stringStorage(arguments[0])
 		if !ok {
 			return pushOutcome(caller, instruction, notImplementedSingleton)
 		}

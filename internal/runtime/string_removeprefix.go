@@ -40,7 +40,7 @@ func executeStringRemovePrefixCall(
 				strconv.Itoa(len(arguments))+" given)",
 		)), nil
 	}
-	prefix, ok := arguments[0].(*stringValue)
+	prefix, ok := stringStorage(arguments[0])
 	if !ok {
 		typeName := arguments[0].TypeName()
 		discardCallSegment(caller, base)

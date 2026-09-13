@@ -112,12 +112,13 @@ func addPercentTextDescriptors(class *nativeTypeValue, dictionary *dictValue) {
 				return raiseOutcome(exception), nil
 			}
 			if name == "__rmod__" {
-				if format, ok := arguments[0].(*stringValue); ok {
+				if format, ok := stringStorage(arguments[0]); ok {
 					return executePercentText(caller, instruction, format, self)
 				}
 				return pushOutcome(caller, instruction, notImplementedSingleton)
 			}
-			return executePercentText(caller, instruction, self.(*stringValue), arguments[0])
+			format, _ := stringStorage(self)
+			return executePercentText(caller, instruction, format, arguments[0])
 		}})
 	}
 }

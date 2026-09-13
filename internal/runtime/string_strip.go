@@ -43,7 +43,7 @@ func executeStringStripCall(
 	}
 	var selected map[rune]struct{}
 	if characters != None {
-		text, ok := characters.(*stringValue)
+		text, ok := stringStorage(characters)
 		if !ok {
 			discardCallSegment(caller, base)
 			return raiseOutcome(newException(

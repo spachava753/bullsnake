@@ -44,6 +44,13 @@ func nativeHashDescriptor(class *nativeTypeValue) Value {
 		if !nativeReceiverMatches(self, class) {
 			return raiseOutcome(newException("TypeError", "descriptor '__hash__' requires a '"+class.name+"' object")), nil
 		}
+		if class == stringNativeType {
+			text, ok := stringStorage(self)
+			if !ok {
+				return raiseOutcome(newException("TypeError", "uninitialized str subtype")), nil
+			}
+			return executeBuiltinHash(caller, instruction, len(caller.stack), []Value{text}, nil)
+		}
 		if class == intNativeType {
 			number, ok := integerOperand(self)
 			if !ok {

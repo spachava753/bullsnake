@@ -40,7 +40,7 @@ func executeStringSplitCall(
 	if separator == None {
 		parts = splitPythonWhitespace(method.value.value, maxSplit)
 	} else {
-		text, ok := separator.(*stringValue)
+		text, ok := stringStorage(separator)
 		if !ok {
 			discardCallSegment(caller, base)
 			return raiseOutcome(newException(

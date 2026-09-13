@@ -94,6 +94,11 @@ func nativeCollectionDescriptor(class *nativeTypeValue, name string) Value {
 				arguments[0] = storage
 			}
 		}
+		if class == stringNativeType {
+			if storage, ok := stringStorage(arguments[0]); ok {
+				arguments[0] = storage
+			}
+		}
 		actual, exception := typeOf(arguments[0])
 		if exception != nil || actual != class {
 			return raiseOutcome(newException("TypeError", "descriptor '"+name+"' requires a '"+class.name+"' object")), nil

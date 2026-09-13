@@ -19,11 +19,26 @@ func rightOperandSubclass(left, right Value) bool {
 	return false
 }
 
-// lookupOperandSpecial adds real native numeric operations to the same candidate
+// lookupOperandSpecial adds real native scalar operations to the same candidate
 // sequence as Python methods. Internal adapters are not published descriptors.
 func lookupOperandSpecial(receiver Value, name string) (Value, bool) {
 	if instance, ok := receiver.(*instanceValue); ok {
 		return lookupInstanceSpecial(instance, name)
+	}
+	if _, text := receiver.(*stringValue); text {
+		switch name {
+		case "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__", "__mod__", "__rmod__":
+			return &builtinFunctionValue{name: name, frameCall: func(caller *frame, instruction, base int, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
+				argument := arguments[0]
+				discardCallSegment(caller, base)
+				if name == "__mod__" || name == "__rmod__" {
+					method, _ := caller.runtime.nativeClassAttribute(stringNativeType, name)
+					return executeFunctionCall(caller, instruction, len(caller.stack), method, []Value{receiver, argument}, keywords)
+				}
+				return executeStringSlot(caller, instruction, receiver, name, []Value{argument}, keywords)
+			}}, true
+		}
+		return nil, false
 	}
 	switch receiver.(type) {
 	case *intValue, *boolValue, *floatValue:

@@ -47,7 +47,7 @@ func executeStringCountCall(
 			"count() takes at most 3 arguments ("+strconv.Itoa(count)+" given)",
 		)), nil
 	}
-	substring, ok := arguments[0].(*stringValue)
+	substring, ok := stringStorage(arguments[0])
 	if !ok {
 		typeName := arguments[0].TypeName()
 		discardCallSegment(caller, base)

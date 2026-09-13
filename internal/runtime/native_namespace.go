@@ -29,7 +29,8 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 	}
 	if class == stringNativeType {
 		dictionary.set(&stringValue{value: "join"}, &nativeDescriptorValue{kind: nativeMethodDescriptor, class: class, name: "join", call: func(caller *frame, instruction int, self Value, arguments []Value, keywords *dictValue) (instructionOutcome, error) {
-			return executeStringJoinCall(caller, instruction, len(caller.stack), &stringJoinMethod{separator: self.(*stringValue)}, arguments, keywords)
+			text, _ := stringStorage(self)
+			return executeStringJoinCall(caller, instruction, len(caller.stack), &stringJoinMethod{separator: text}, arguments, keywords)
 		}})
 	}
 	if class == setNativeType {

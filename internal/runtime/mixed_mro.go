@@ -1,16 +1,15 @@
 package runtime
 
-// compatibleIntegerBases permits one integer payload with ordinary Python
-// mixins. Other native or private layouts keep their existing rejection guards.
-func compatibleIntegerBases(bases []Value) bool {
-	integer := false
+// compatibleScalarBases permits one integer or string payload with ordinary
+// Python mixins. Other native or private layouts retain their rejection guards.
+func compatibleScalarBases(bases []Value) bool {
+	var layout *nativeTypeValue
 	for _, base := range bases {
+		var candidate *nativeTypeValue
 		switch base := base.(type) {
 		case *nativeTypeValue:
-			if base == intNativeType {
-				integer = true
-			} else if base != objectNativeType {
-				return false
+			if base != objectNativeType {
+				candidate = base
 			}
 		case *typeValue:
 			for _, parent := range base.mro {
@@ -18,22 +17,28 @@ func compatibleIntegerBases(bases []Value) bool {
 					return false
 				}
 			}
-			if base.nativeClassBase() == intNativeType {
-				integer = true
-			} else if !rootAllocatableClass(base) {
+			candidate = base.nativeClassBase()
+			if candidate == nil && !rootAllocatableClass(base) {
 				return false
 			}
 		default:
 			return false
 		}
+		if candidate == nil {
+			continue
+		}
+		if candidate != intNativeType && candidate != stringNativeType || layout != nil && candidate != layout {
+			return false
+		}
+		layout = candidate
 	}
-	return integer
+	return layout != nil
 }
 
-// needsMixedMRO keeps native positions when combining an integer layout with
+// needsMixedMRO keeps native positions when combining a scalar layout with
 // mixins or inheriting a class that already has an interleaved linearization.
 func needsMixedMRO(bases []Value) bool {
-	if len(bases) > 1 && compatibleIntegerBases(bases) {
+	if len(bases) > 1 && compatibleScalarBases(bases) {
 		return true
 	}
 	for _, base := range bases {
@@ -90,16 +95,17 @@ func (class *typeValue) lookupMixedMRO(start int, name string) (Value, bool) {
 	return nil, false
 }
 
-// mixedLayoutBase selects the most derived direct integer-bearing base. Plain
+// mixedLayoutBase selects the most derived direct scalar-bearing base. Plain
 // Python mixins do not determine where the immutable native payload is allocated.
 func (class *typeValue) mixedLayoutBase() Value {
 	var best Value
+	layout := class.nativeClassBase()
 	for _, base := range class.mixedBases {
-		integer := base == intNativeType
+		scalar := base == layout
 		if user, ok := base.(*typeValue); ok {
-			integer = user.nativeClassBase() == intNativeType
+			scalar = user.nativeClassBase() == layout
 		}
-		if !integer {
+		if !scalar {
 			continue
 		}
 		if best == nil {

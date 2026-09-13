@@ -477,10 +477,10 @@ returns a distinct root instance and accepts no arguments. Native values,
 built-in exception classes, and ordinary user classes are instances or
 subclasses of `object`. A user class with no named base, or with `object` as its
 sole base, exposes `object` through `__base__`, `__bases__`, and `__mro__`.
-A user class may instead use `int`, `dict`, `classmethod`, `staticmethod`, or `property` as its
+A user class may instead use `int`, `str`, `dict`, `classmethod`, `staticmethod`, or `property` as its
 sole native base. That native ancestry appears in class metadata and
 `issubclass`. Descriptor subclass construction and Python initialization now
-work for the documented wrapper subset. Compatible integer layouts can also mix
+work for the documented wrapper subset. Compatible integer or string layouts can also mix
 with ordinary Python bases, with native classes kept at their actual C3 positions.
 Other native bases and mixed native layouts remain unsupported. The `bool`, `int`, `str`, and `range` bindings are native type
 objects and retain their implemented constructor behavior. `range` accepts one
@@ -778,8 +778,16 @@ Native string allocation now exposes static str.__new__ through the existing
 object-to-text constructor. Repr/str, formatting, item access, comparisons, and
 the implemented text methods also have real class-level descriptors. They share
 existing Unicode, argument, callback, and error behavior, preserve unchanged
-text identity, and decline non-string comparison operands. Encoding construction,
-string subclass storage, and unimplemented text operations remain guarded.
+text identity, and decline non-string comparison operands. String subclasses now
+retain immutable text separately from Python attributes and use the shared
+__new__/__init__ continuations. Native methods accept subtype text arguments
+without calling str overrides; normal protocols still honor overrides. Tests
+cover repr/str/hash/length/iteration/containment/item dispatch, direct slot bypass,
+reflected comparison and percent formatting, construction, and Unicode methods.
+Empty formatting performs actual str conversion; nonempty formatting uses native
+text. String layouts can mix with ordinary Python classes through the same C3
+path as integers. Encoding construction, scalar-subtype keys/default reduction,
+and unimplemented text operations remain guarded.
 
 Native integer descriptors now expose the existing unary/binary arithmetic,
 comparisons, int/index conversion, truth, repr, formatting, and new-argument
@@ -802,7 +810,7 @@ remain rejected until real deprecation warnings can run. String/base integer
 parsing, integer-subtype container keys, other native mixes, and native
 scalar default reduction remain separate work.
 
-Compatible integer/ordinary-class mixes now share the C3 merge used for Python
+Compatible integer/string and ordinary-class mixes now share the C3 merge used for Python
 classes. Their retained full order places native descriptors between Python
 namespaces where required; the Python-class projection still owns subclass and
 native-layout ancestry. __bases__, __base__, __mro__, constructors, metaclass
@@ -1308,7 +1316,7 @@ probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
 it now imports with tests for complex reduction, reconstruction helpers,
 registration, and extension registries. Current annotation/warning
-blockers are native string inheritance in enum, missing _ast,
+blockers are metaclass iteration in enum (descriptor naming hooks are also missing), missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test
