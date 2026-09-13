@@ -11,6 +11,7 @@ import (
 )
 
 func TestBytecodeValidation(t *testing.T) {
+	invalidDocstring := "\xff"
 	aliasValueCode := testCode(
 		1,
 		[]bytecode.Instruction{
@@ -25,6 +26,19 @@ func TestBytecodeValidation(t *testing.T) {
 		code         *bytecode.Code
 		wantFragment string
 	}{
+		{
+			name: "invalid function docstring encoding",
+			code: testCodeSpec(bytecode.CodeSpec{
+				Docstring: &invalidDocstring,
+				StackSize: 1,
+				Instructions: []bytecode.Instruction{
+					{Opcode: bytecode.LoadConst},
+					{Opcode: bytecode.ReturnValue},
+				},
+				Constants: []bytecode.Constant{bytecode.None()},
+			}),
+			wantFragment: "invalid function docstring encoding",
+		},
 		{
 			name: "empty exception range",
 			code: testCodeSpec(bytecode.CodeSpec{

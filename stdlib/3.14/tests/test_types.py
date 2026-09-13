@@ -23,3 +23,12 @@ assert meta is type
 assert type(prepared) is dict
 assert keywords == {}
 assert types.resolve_bases((Created,)) == (Created,)
+
+class Described:
+    @types.DynamicClassAttribute
+    def value(self):
+        'Documented dynamic value.'
+        return 42
+
+assert Described().value == 42
+assert Described.__dict__['value'].__doc__ == 'Documented dynamic value.'

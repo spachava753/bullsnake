@@ -145,6 +145,8 @@ func executeFunctionAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "__doc__":
+		return pushOutcome(frame, instruction, owner.docstring)
 	case "__globals__":
 		return pushOutcome(frame, instruction, owner.globals.asDictionary())
 	case "__closure__":
@@ -450,6 +452,9 @@ func executeDynamicAttributeStore(
 		}
 		owner.globals.store(name, value)
 	case *functionValue:
+		if name == "__doc__" {
+			return storeFunctionDocstring(owner, value)
+		}
 		if readOnlyFunctionMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}
@@ -509,6 +514,9 @@ func executeDynamicAttributeDelete(
 		attributes = owner.globals
 		missingMessage = "module '" + owner.name + "' has no attribute '" + name + "'"
 	case *functionValue:
+		if name == "__doc__" {
+			return storeFunctionDocstring(owner, nil)
+		}
 		if readOnlyFunctionMetadata(name) {
 			return raiseOutcome(newException("AttributeError", "readonly attribute")), nil
 		}

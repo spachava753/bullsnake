@@ -8,6 +8,7 @@ import (
 )
 
 type functionValue struct {
+	docstring       Value
 	code            *preparedCode
 	globals         *Namespace
 	defaults        []Value

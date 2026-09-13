@@ -92,6 +92,11 @@ func (descriptor *nativeDataDescriptorValue) store(receiver, value Value) (instr
 // fields. Fields without implemented mutation expose read-only descriptor setters.
 func addNativeDataDescriptors(class *nativeTypeValue, dictionary *dictValue) {
 	if class == functionNativeType {
+		dictionary.set(&stringValue{value: "__doc__"}, &nativeDataDescriptorValue{class: class, name: "__doc__", member: true, get: func(caller *frame, instruction int, value Value) (instructionOutcome, error) {
+			return executeFunctionAttributeLoad(caller, instruction, value.(*functionValue), "__doc__")
+		}, set: func(receiver, value Value) (instructionOutcome, error) {
+			return storeFunctionDocstring(receiver.(*functionValue), value)
+		}})
 		for _, name := range []string{"__code__", "__globals__", "__closure__", "__annotations__", "__annotate__", "__type_params__"} {
 			dictionary.set(&stringValue{value: name}, &nativeDataDescriptorValue{class: class, name: name, member: name == "__globals__" || name == "__closure__", get: func(caller *frame, instruction int, value Value) (instructionOutcome, error) {
 				return executeFunctionAttributeLoad(caller, instruction, value.(*functionValue), name)

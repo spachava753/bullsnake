@@ -11,6 +11,7 @@ import (
 )
 
 type preparedCode struct {
+	docstring         Value
 	pythonValue       *codeValue
 	code              *bytecode.Code
 	instructions      []bytecode.Instruction
@@ -42,6 +43,13 @@ func prepareCode(code *bytecode.Code) (*preparedCode, error) {
 		childCodes:        code.Children(),
 		exceptionHandlers: code.ExceptionHandlers(),
 		stackSize:         code.StackSize(),
+	}
+	prepared.docstring = None
+	if text, present := code.Docstring(); present {
+		if !validStringEncoding(text) {
+			return nil, prepared.failure(-1, "invalid function docstring encoding")
+		}
+		prepared.docstring = &stringValue{value: text}
 	}
 	prepared.cellLocals = make([]int, len(prepared.cells))
 	for cellIndex, name := range prepared.cells {

@@ -225,7 +225,9 @@ Function code objects now also retain an optional decoded docstring, distinct
 from an absent docstring even when the text is empty. Only the leading plain
 text literal (including adjacent literals) qualifies. It is removed from the
 executable body; bytes, formatted/template strings, and later literal statements
-are not docstrings. This metadata does not yet expose function.__doc__ at runtime.
+are not docstrings. Runtime preparation validates its string encoding, and new
+functions share the runtime-prepared text until their writable __doc__ is replaced.
+Deletion sets None; a real member descriptor exposes the same field operations.
 
 Functions, generator functions, coroutine functions, async generator functions,
 class bodies, and comprehensions are child code objects. Closures contain
@@ -1180,7 +1182,7 @@ while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
-class helpers. Current blockers are function docstrings in enum, missing _ast,
+class helpers. Current blockers are prepared dict-subclass namespaces in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

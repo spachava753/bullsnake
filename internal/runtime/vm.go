@@ -1757,6 +1757,7 @@ func executeInstruction(
 		return executeImportStar(frame, index)
 	case bytecode.MakeFunction:
 		function := &functionValue{
+			docstring:  frame.code.children[instruction.Operand].docstring,
 			code:       frame.code.children[instruction.Operand],
 			globals:    frame.globals,
 			typeParams: &tupleValue{},
