@@ -572,7 +572,7 @@ indexes leave the list unchanged. Slice assignment, deletion, and user-defined
 `__index__` conversion are still unsupported. This closes the indexed replacement
 operation used by unchanged `heapq.heapify` and `heappop`.
 
-Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `items`,
+Dictionary instances expose bound `clear`, `copy`, `get`, `pop`, `setdefault`, `items`,
 `keys`, `update`, and `values` methods. Copy clones ordered entry storage while
 retaining key and value identities. The view methods return live `dict_items`,
 `dict_keys`, and `dict_values` values with independent iterators. Replacing a
@@ -971,6 +971,14 @@ attribute access. Descriptor reads validate receivers and preserve lazy annotati
 execution and stable identities. Cell setters mutate actual closure bindings;
 function metadata remains read-only where assignment is not yet implemented.
 These are executable descriptors, not type-discovery markers.
+
+Dictionary slots now expose receiver-checked allocation, reinitialization,
+subscription/mutation, repr, equality/inequality, and existing mapping methods.
+Setdefault preserves existing entries and shares the supplied default value.
+Explicit equality descriptors resume Python value callbacks. Reinitialization
+currently accepts native dictionaries and keywords through the existing update
+path; iterable/mapping inputs to init/update and native dict subclasses remain
+later slices.
 
 ### Class subscription
 

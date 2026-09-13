@@ -51,6 +51,9 @@ func executeDictionaryAttributeLoad(
 	name string,
 ) (instructionOutcome, error) {
 	switch name {
+	case "setdefault", "__init__", "__getitem__", "__setitem__", "__delitem__", "__repr__", "__eq__", "__ne__":
+		method, _ := frame.runtime.nativeClassAttribute(dictNativeType, name)
+		return pushOutcome(frame, instruction, bindInstanceFunction(method, dictionary))
 	case "fromkeys":
 		method, _ := frame.runtime.nativeClassAttribute(dictNativeType, name)
 		return pushOutcome(frame, instruction, method)

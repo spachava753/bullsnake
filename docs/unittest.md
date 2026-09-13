@@ -909,6 +909,12 @@ existing module/function/frame namespace paths. Unchanged types now imports and
 its project-owned source test executes type discovery and dynamic class helpers;
 this does not claim the full types API.
 
+Dictionary allocation, reinitialization, item slots, representation, equality,
+and existing mapping methods now have real receiver-checked descriptors.
+Setdefault preserves entries and default identities; explicit equality resumes
+Python callbacks. This is the prerequisite for native dict subclass storage;
+EnumDict construction is still the next enum blocker.
+
 The table lists first failures, not complete missing-feature lists. Next,
 implement dict subclass behavior needed by enum's EnumDict.
 Further dependencies remain. AST
