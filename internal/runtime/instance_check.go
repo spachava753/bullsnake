@@ -27,6 +27,9 @@ func builtinIsInstance(arguments []Value, keywords *dictValue) (Value, *Exceptio
 // instanceMatchesClass applies concrete native, user, and exception ancestry.
 // Tuple candidates retain CPython's left-to-right short-circuit behavior.
 func instanceMatchesClass(instance Value, candidate Value) (bool, *Exception) {
+	if union, ok := candidate.(*unionValue); ok {
+		candidate = union.args
+	}
 	if candidates, ok := candidate.(*tupleValue); ok {
 		for _, item := range candidates.elements {
 			matched, exception := instanceMatchesClass(instance, item)
@@ -135,6 +138,9 @@ func isClassValue(value Value) bool {
 // subclassMatchesClass compares one validated class against native, user, or
 // exception ancestry and preserves tuple short-circuit behavior.
 func subclassMatchesClass(class Value, candidate Value) (bool, *Exception) {
+	if union, ok := candidate.(*unionValue); ok {
+		candidate = union.args
+	}
 	if candidates, ok := candidate.(*tupleValue); ok {
 		for _, item := range candidates.elements {
 			matched, exception := subclassMatchesClass(class, item)

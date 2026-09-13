@@ -503,7 +503,13 @@ are not implemented yet. `isinstance` checks native identity, the C3 ancestry of
 a user instance, and built-in or user exception ancestry. `issubclass` applies
 those same ancestry rules directly to class objects unless a metaclass hook overrides them. A tuple of candidates is
 processed left to right and may contain nested tuples; a match suppresses errors
-from later entries. `bool` is a native subclass of `int`. Type unions remain unsupported. Metaclass `__instancecheck__` and
+from later entries. `bool` is a native subclass of `int`. Concrete class unions normalize None,
+flatten nested unions, deduplicate by identity, retain stable argument/parameter
+metadata, and compare/hash without regard to order. `isinstance` and `issubclass`
+short-circuit through their members, including metaclass hooks. Type and union
+operator descriptors honor metaclass overrides and reflected-slot precedence.
+Aliases, type parameters, custom metaclass equality/hashing, union subscription,
+and general typing.Union construction remain unsupported. Metaclass `__instancecheck__` and
 `__subclasscheck__` methods now run through resumable calls and truth conversion. Three-argument `type`
 uses the same class builder as a class statement. It accepts a string name, a
 tuple of currently supported bases, and a dictionary with string keys. It
@@ -1151,7 +1157,7 @@ import successfully,
 while abc imports and has a project-owned source regression test. The full
 transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
-probes. Their current blockers are missing type-union operations, missing _ast,
+probes. Their current blockers are missing globals(), missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
 module remains unchanged `colorsys.py`. Its adapted test

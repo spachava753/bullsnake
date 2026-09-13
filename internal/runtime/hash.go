@@ -127,6 +127,8 @@ func fixedValueHash(value Value) (int64, *Exception, bool) {
 		return hashBigInteger(&integer), nil, true
 	}
 	switch value := value.(type) {
+	case *unionValue:
+		return hashFrozenSet(value.args.elements)
 	case *classWeakReference:
 		return value.hash, nil, true
 	case *noneValue:

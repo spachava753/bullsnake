@@ -6,7 +6,7 @@ func addNativeHashCallDescriptors(class *nativeTypeValue, dictionary *dictValue)
 	switch class.name {
 	case "list", "dict", "set", "bytearray", "dict_keys", "dict_items", "dict_values", "FrameLocalsProxy", "slice":
 		dictionary.set(&stringValue{value: "__hash__"}, None)
-	case "object", "NoneType", "int", "float", "complex", "str", "bytes", "tuple", "frozenset", "range", "mappingproxy":
+	case "object", "NoneType", "int", "float", "complex", "str", "bytes", "tuple", "frozenset", "range", "mappingproxy", "Union":
 		dictionary.set(&stringValue{value: "__hash__"}, nativeHashDescriptor(class))
 	}
 	switch class.name {

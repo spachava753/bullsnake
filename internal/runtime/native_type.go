@@ -161,6 +161,7 @@ var nativeTypesByRuntimeName = map[string]*nativeTypeValue{
 	"iterator":                         builtinNativeType("iterator"),
 	"_Feature":                         nativeType("__future__", "_Feature"),
 	"NoDefaultType":                    nativeType("typing", "NoDefaultType"),
+	"typing.Union":                     nativeType("typing", "Union"),
 	"typing.TypeVar":                   nativeType("typing", "TypeVar"),
 	"typing.TypeVarTuple":              nativeType("typing", "TypeVarTuple"),
 	"typing.ParamSpec":                 nativeType("typing", "ParamSpec"),

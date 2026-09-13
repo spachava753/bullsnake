@@ -145,6 +145,9 @@ func valuesEqual(left, right Value) bool {
 	}
 
 	switch left := left.(type) {
+	case *unionValue:
+		right, ok := right.(*unionValue)
+		return ok && setEntriesEqual(left.args.elements, right.args.elements)
 	case *classWeakReference:
 		right, ok := right.(*classWeakReference)
 		if !ok {

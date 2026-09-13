@@ -130,6 +130,9 @@ func executeBinaryValues(frame *frame, index int, operand uint32, inPlace bool, 
 		}
 		return pushOutcome(frame, index, result)
 	}
+	if operand == bytecode.BinaryOr && (isClassValue(left) || isClassValue(right) || isUnionValue(left) || isUnionValue(right)) {
+		return executeUnionBinary(frame, index, operand, inPlace, left, right)
+	}
 	_, leftUser := left.(*instanceValue)
 	_, rightUser := right.(*instanceValue)
 	if leftUser || rightUser {

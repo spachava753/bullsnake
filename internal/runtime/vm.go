@@ -1492,6 +1492,8 @@ func executeInstruction(
 			return executeStringAttributeLoad(frame, index, owner, name)
 		case *cellValue:
 			return executeCellAttributeLoad(frame, index, owner, name)
+		case *unionValue:
+			return executeUnionAttribute(frame, index, owner, name)
 		case *codeValue:
 			return executeCodeAttributeLoad(frame, index, owner, name)
 		case *tracebackValue:

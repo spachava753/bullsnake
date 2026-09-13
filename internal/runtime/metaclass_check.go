@@ -31,6 +31,9 @@ func (call *metaclassCheck) next(caller *frame) (instructionOutcome, error) {
 	for len(call.pending) != 0 {
 		candidate := call.pending[0]
 		call.pending = call.pending[1:]
+		if union, ok := candidate.(*unionValue); ok {
+			candidate = union.args
+		}
 		if tuple, ok := candidate.(*tupleValue); ok {
 			call.pending = append(append([]Value(nil), tuple.elements...), call.pending...)
 			continue
