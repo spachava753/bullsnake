@@ -1493,7 +1493,7 @@ func executeInstruction(
 			return executeStringAttributeLoad(frame, index, owner, name)
 		case *cellValue:
 			return executeCellAttributeLoad(frame, index, owner, name)
-		case *builtinFunctionValue:
+		case *builtinFunctionValue, *intValue, *boolValue:
 			return executeDynamicAttributeLoad(frame, index, owner, name)
 		case *complexValue:
 			return executeComplexAttribute(frame, index, owner, name)

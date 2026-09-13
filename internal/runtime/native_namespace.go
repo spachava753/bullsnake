@@ -38,6 +38,7 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 	if hasNativeClassGetitem(class) {
 		dictionary.set(&stringValue{value: "__class_getitem__"}, nativeClassGetitem(class))
 	}
+	addIntegerDescriptors(class, dictionary)
 	addComplexDescriptors(class, dictionary)
 	addNativeAllocators(class, dictionary)
 	addNativeSetOperators(class, dictionary)
@@ -54,6 +55,12 @@ func (runtime *Runtime) nativeNamespace(class *nativeTypeValue) *dictValue {
 // nativeClassAttribute walks native ancestry and binds class methods to the
 // original receiver while returning ordinary descriptors without binding.
 func (runtime *Runtime) nativeClassAttribute(class *nativeTypeValue, name string) (Value, bool) {
+	if class == boolNativeType {
+		switch name {
+		case "__and__", "__rand__", "__or__", "__ror__", "__xor__", "__rxor__":
+			return nil, false
+		}
+	}
 	for current := class; current != nil; {
 		value, found, _ := runtime.nativeNamespace(current).get(&stringValue{value: name})
 		if found {
@@ -71,7 +78,7 @@ func (runtime *Runtime) nativeClassAttribute(class *nativeTypeValue, name string
 			if name == "__new__" {
 				return nil, false
 			}
-			if name == "__repr__" || name == "__str__" {
+			if name == "__repr__" || name == "__str__" && class != intNativeType && class != boolNativeType {
 				return nil, false
 			}
 			if name == "__format__" {

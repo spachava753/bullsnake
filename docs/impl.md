@@ -771,6 +771,15 @@ builtin performs arbitrary-precision integer and exact-rational float half-even
 rounding for an optional decimal digit count. User instances dispatch class
 `__round__` through the frame loop.
 
+Native integer descriptors now expose the existing unary/binary arithmetic,
+comparisons, int/index conversion, truth, repr, formatting, and new-argument
+metadata. Direct descriptors bypass Python overrides, validate receivers, decline
+noninteger operands, and preserve exact-integer identity where required. Reflected
+slots retain operand order. Integer formatting shares the existing spec subset;
+ternary power and remaining numeric methods are not added by this slice. Bool
+keeps its own repr, while its unimplemented bitwise overrides are not falsely
+published as inherited int slots. Scalar subclass storage is still separate work.
+
 The complex builtin now constructs zero, one native numeric value, or real/imag
 components, with positional/keyword validation and integer overflow checks. A
 single complex value preserves identity; a Python __complex__ hook executes

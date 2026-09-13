@@ -46,6 +46,14 @@ func executeDynamicAttributeLoad(
 			return pushOutcome(frame, instruction, owner.self)
 		}
 		return raiseOutcome(newException("AttributeError", "native function has no attribute '"+name+"'")), nil
+	case *intValue, *boolValue:
+		class, _ := typeOf(owner)
+		if method, found := frame.runtime.nativeClassAttribute(class.(*nativeTypeValue), name); found {
+			if descriptor, ok := method.(*nativeDescriptorValue); ok {
+				return executeNativeDescriptorBinding(frame, instruction, descriptor, owner, class)
+			}
+		}
+		return raiseOutcome(newException("AttributeError", "'"+owner.TypeName()+"' object has no attribute '"+name+"'")), nil
 	case *complexValue:
 		return executeComplexAttribute(frame, instruction, owner, name)
 	case *unionValue:

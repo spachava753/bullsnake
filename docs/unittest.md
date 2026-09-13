@@ -998,6 +998,14 @@ also calls the real slot helper for native types without a cache and distinguish
 invalid cached names from invalid helper results. Enum gets past root reduction
 inspection and reaches IntEnum's mixed int/ReprEnum bases at line 1337.
 
+Native integer arithmetic, comparison, conversion, truth, repr, format, and
+new-argument descriptors now execute through the existing numeric implementation.
+Tests cover direct/bound calls, reflected order, identity, NotImplemented,
+receiver errors, and arithmetic failures. Bool retains its own repr; unsupported
+bool bitwise overrides remain absent. These are prerequisites for real scalar
+subclasses, not permission to construct empty IntEnum storage. The enum import
+blocker remains mixed native/user inheritance.
+
 The table lists first failures, not complete missing-feature lists. Next,
 implement native scalar subclass storage and compatible mixed inheritance before
 allowing IntEnum and StrEnum construction. AST
