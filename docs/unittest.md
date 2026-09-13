@@ -833,7 +833,7 @@ go run ./tools/importprobe stdlib/3.14 types enum ast annotationlib warnings
 | --- | --- |
 | `types` | Imports; project-owned tests exercise type discovery, new_class, and prepare_class. |
 | `enum` | `enum.py:590:33`: missing executable object.__reduce_ex__ method. |
-| `copyreg` | `copyreg.py:31:8`: missing complex builtin. |
+| `copyreg` | `copyreg.py:56:18`: missing int.__new__ allocator. |
 | `ast`, `annotationlib` | `ast.py:23:1`: missing `_ast`. |
 | `warnings` | `_py_warnings.py:4:8`: missing `_contextvars`. |
 
@@ -973,8 +973,9 @@ scalar overrides are not replaced by root-format markers. Enum advances to
 object.__reduce_ex__ inspection.
 
 Unchanged copyreg.py is now vendored at the same pin for object reduction's
-reconstruction helpers. Its offline import probe stops at the missing complex
-builtin, before int.__new__ discovery. Do not substitute a private reconstruction
+reconstruction helpers. Complex numeric construction and __complex__ callbacks
+now execute, with component descriptors, shape checks, and overflow tests. Its
+probe now reaches missing int.__new__. Do not substitute a private reconstruction
 function for those Python helpers.
 
 The table lists first failures, not complete missing-feature lists. Next,

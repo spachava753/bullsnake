@@ -75,6 +75,7 @@ var builtinNativeTypes = []*nativeTypeValue{
 	objectNativeType,
 	boolNativeType,
 	intNativeType,
+	complexNativeType,
 	stringNativeType,
 	rangeNativeType,
 	enumerateNativeType,
@@ -236,6 +237,8 @@ func executeNativeTypeCall(
 			return raiseOutcome(exception), nil
 		}
 		return pushOutcome(caller, instruction, result)
+	case complexNativeType:
+		return executeComplexConstructor(caller, instruction, base, arguments, keywords)
 	case stringNativeType:
 		return executeBuiltinStr(caller, instruction, base, arguments, keywords)
 	case rangeNativeType:

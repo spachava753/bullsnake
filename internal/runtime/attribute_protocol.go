@@ -41,6 +41,8 @@ func executeDynamicAttributeLoad(
 		return outcome, err
 	}
 	switch owner := owner.(type) {
+	case *complexValue:
+		return executeComplexAttribute(frame, instruction, owner, name)
 	case *unionValue:
 		return executeUnionAttribute(frame, instruction, owner, name)
 	case *nativeDataDescriptorValue:

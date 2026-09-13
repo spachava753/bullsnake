@@ -771,8 +771,16 @@ builtin performs arbitrary-precision integer and exact-rational float half-even
 rounding for an optional decimal digit count. User instances dispatch class
 `__round__` through the frame loop.
 
+The complex builtin now constructs zero, one native numeric value, or real/imag
+components, with positional/keyword validation and integer overflow checks. A
+single complex value preserves identity; a Python __complex__ hook executes
+through the VM and must return a complex value. Read-only real/imag member
+descriptors and the native __complex__ method expose actual components. String
+parsing, __float__/__index__ fallback, complex subclasses, and warning-dependent
+deprecated complex-valued components remain unsupported.
+
 The builtin namespace contains the current exception classes; native `bool`,
-`int`, `str`, `range`, `enumerate`, `map`, `filter`, `zip`, `list`, `tuple`,
+`int`, `complex`, `str`, `range`, `enumerate`, `map`, `filter`, `zip`, `list`, `tuple`,
 `set`, `frozenset`, `dict`, `object`, `type`, `classmethod`, `property`, and
 `staticmethod` objects; `abs`; `all`; `any`; `callable`; `delattr`; `dir`;
 `getattr`; `globals`; `hasattr`; `hash`; `isinstance`; `issubclass`; one-argument `iter`;
@@ -1231,7 +1239,7 @@ transitive dependency closure is not present. The next unchanged source batch
 adds annotationlib, ast, enum, types, warnings, and _py_warnings for offline
 probes. Types now imports and has source tests for type discovery and dynamic
 class helpers. Copyreg is also vendored unchanged for object reconstruction;
-it currently stops at the missing complex builtin. Current annotation/warning
+it currently stops at the missing int.__new__ allocator. Current annotation/warning
 blockers are object reduction slots in enum, missing _ast,
 and missing _contextvars; vendoring does not establish module usability. Function
 __code__ and frame f_code now expose real runtime-owned code metadata. The original first executable
